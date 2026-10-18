@@ -138,7 +138,46 @@ wss.on('connection', ws => {
 });
 
 setInterval(() => {
-  for (const room of rooms.values()) broadcast(room, state(room));
+  for (const room of rooms.values()) {
+    const players = [...room.players.values()];
+
+    for (const monster of room.monsters) {
+      if (!monster.alive) continue;
+
+      let target = null;
+      let nearest = Infinity;
+
+      for (const player of players) {
+        const distance = Math.hypot(
+          player.x - monster.x,
+          player.z - monster.z
+        );
+
+        if (distance < nearest) {
+          nearest = distance;
+          target = player;
+        }
+      }
+
+      if (target && nearest > 1.8 && nearest < 20) {
+        const dx = target.x - monster.x;
+        const dz = target.z - monster.z;
+        const distance = Math.hypot(dx, dz);
+
+        if (distance > 0) {
+          const speed = 0.45;
+
+          monster.x += (dx / distance) * speed;
+          monster.z += (dz / distance) * speed;
+
+          monster.x = Math.max(-13, Math.min(13, monster.x));
+          monster.z = Math.max(-31, Math.min(8, monster.z));
+        }
+      }
+    }
+
+    broadcast(room, state(room));
+  }
 }, 1000);
 
 server.listen(PORT, '0.0.0.0', () => {
