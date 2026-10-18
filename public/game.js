@@ -596,12 +596,12 @@ function animate() {
         .normalize();
 
       myPlayer.position.x = THREE.MathUtils.clamp(
-        myPlayer.position.x + dir.x * dt * 4.4,
+        myPlayer.position.x + dir.x * dt * 5.8,
         -13, 13
       );
 
       myPlayer.position.z = THREE.MathUtils.clamp(
-        myPlayer.position.z + dir.z * dt * 4.4,
+        myPlayer.position.z + dir.z * dt * 5.8,
         -31, 8
       );
 
