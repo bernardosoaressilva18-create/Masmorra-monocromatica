@@ -77,9 +77,7 @@ function buildDungeon() {
       orb.position.set(side * 13.9, 3.7, z);
       scene.add(orb);
 
-      const glow = new THREE.PointLight(0x38bce8, 1.8, 7, 2);
-      glow.position.set(side * 13.7, 3.6, z);
-      scene.add(glow);
+// O brilho dos cristais continua, sem luzes dinâmicas extras.
     }
   }
 
