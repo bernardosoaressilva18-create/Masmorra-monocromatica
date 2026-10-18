@@ -568,23 +568,45 @@ function rendererPointerSetup() {
 }
 rendererPointerSetup();
 
+
 function animate() {
   requestAnimationFrame(animate);
   if (!renderer) return;
 
-  const dt = Math.min(clock.getDelta(), .05);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const remoteSmooth = 1 - Math.exp(-14 * dt);
+  const monsterSmooth = 1 - Math.exp(-5 * dt);
+  const cameraSmooth = 1 - Math.exp(-9 * dt);
+
   attackCooldown = Math.max(0, attackCooldown - dt);
 
+  // Movimento do jogador local
   if (started && myPlayer) {
     const v = moveInput();
 
-    if (Math.hypot(v.x, v.y) > .04) {
-      const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
-      const right = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
-      const dir = forward.multiplyScalar(-v.y).add(right.multiplyScalar(v.x)).normalize();
+    if (Math.hypot(v.x, v.y) > 0.04) {
+      const forward = new THREE.Vector3(
+        Math.sin(yaw), 0, -Math.cos(yaw)
+      );
+      const right = new THREE.Vector3(
+        Math.cos(yaw), 0, Math.sin(yaw)
+      );
 
-      myPlayer.position.x = THREE.MathUtils.clamp(myPlayer.position.x + dir.x * dt * 4.4, -13, 13);
-      myPlayer.position.z = THREE.MathUtils.clamp(myPlayer.position.z + dir.z * dt * 4.4, -31, 8);
+      const dir = forward
+        .multiplyScalar(-v.y)
+        .add(right.multiplyScalar(v.x))
+        .normalize();
+
+      myPlayer.position.x = THREE.MathUtils.clamp(
+        myPlayer.position.x + dir.x * dt * 4.4,
+        -13, 13
+      );
+
+      myPlayer.position.z = THREE.MathUtils.clamp(
+        myPlayer.position.z + dir.z * dt * 4.4,
+        -31, 8
+      );
+
       myPlayer.rotation.y = Math.atan2(dir.x, dir.z);
     }
 
@@ -595,36 +617,73 @@ function animate() {
         z: myPlayer.position.z,
         rot: myPlayer.rotation.y
       });
+
       lastMove = performance.now();
     }
   }
 
+  // Movimento suave dos outros jogadores
   for (const obj of remotePlayers.values()) {
-    if (obj.userData.targetX !== undefined) {
-      obj.position.x = THREE.MathUtils.lerp(obj.position.x, obj.userData.targetX, .22);
-      obj.position.z = THREE.MathUtils.lerp(obj.position.z, obj.userData.targetZ, .22);
-      obj.rotation.y = obj.userData.targetRot || 0;
-    }
+    if (obj.userData.targetX === undefined) continue;
+
+    obj.position.x = THREE.MathUtils.lerp(
+      obj.position.x, obj.userData.targetX, remoteSmooth
+    );
+
+    obj.position.z = THREE.MathUtils.lerp(
+      obj.position.z, obj.userData.targetZ, remoteSmooth
+    );
+
+    const targetRot = obj.userData.targetRot ?? 0;
+    const angleDiff = Math.atan2(
+      Math.sin(targetRot - obj.rotation.y),
+      Math.cos(targetRot - obj.rotation.y)
+    );
+
+    obj.rotation.y += angleDiff * remoteSmooth;
   }
 
+  // Movimento suave dos monstros
   for (const obj of monsterMeshes.values()) {
-    if (obj.userData.targetX !== undefined) {
-      obj.position.x = THREE.MathUtils.lerp(obj.position.x, obj.userData.targetX, .08);
-      obj.position.z = THREE.MathUtils.lerp(obj.position.z, obj.userData.targetZ, .08);
-      obj.position.y = .05 + Math.sin(performance.now() * .002 + obj.position.x) * .08;
-      obj.rotation.y += dt * .35;
-    }
+    if (obj.userData.targetX === undefined) continue;
+
+    obj.position.x = THREE.MathUtils.lerp(
+      obj.position.x, obj.userData.targetX, monsterSmooth
+    );
+
+    obj.position.z = THREE.MathUtils.lerp(
+      obj.position.z, obj.userData.targetZ, monsterSmooth
+    );
+
+    obj.position.y =
+      0.05 + Math.sin(performance.now() * 0.002 + obj.position.x) * 0.08;
+
+    obj.rotation.y += dt * 0.35;
   }
 
+  // Câmera em terceira pessoa com acompanhamento suave
   if (myPlayer) {
-    const target = new THREE.Vector3(myPlayer.position.x, 1.2, myPlayer.position.z);
+    const target = new THREE.Vector3(
+      myPlayer.position.x,
+      1.2,
+      myPlayer.position.z
+    );
+
     const dist = 8.5;
-    camera.position.set(
+
+    const cameraTarget = new THREE.Vector3(
       target.x + Math.sin(yaw) * dist,
       target.y + 3.0 + pitch * 2,
       target.z + Math.cos(yaw) * dist
     );
-    camera.lookAt(target.x, target.y + .15, target.z - 2.2);
+
+    camera.position.lerp(cameraTarget, cameraSmooth);
+
+    camera.lookAt(
+      target.x,
+      target.y + 0.15,
+      target.z - 2.2
+    );
   }
 
   renderer.render(scene, camera);
