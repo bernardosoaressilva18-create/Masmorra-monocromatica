@@ -165,7 +165,7 @@ setInterval(() => {
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = 0.45;
+          const speed = 0.045;
 
           monster.x += (dx / distance) * speed;
           monster.z += (dz / distance) * speed;
@@ -178,7 +178,7 @@ setInterval(() => {
 
     broadcast(room, state(room));
   }
-}, 1000);
+}, 100);
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('Masmorra Monocromática online na porta ' + PORT);
