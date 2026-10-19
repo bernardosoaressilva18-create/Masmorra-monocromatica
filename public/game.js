@@ -107,10 +107,12 @@ function buildDungeon() {
   floor.map = dungeonTexture;
   floor.bumpMap = dungeonTexture;
   floor.bumpScale = .025;
+  floor.needsUpdate = true;
 const wall = mat(0x414751, 0.95);
 wall.map = dungeonTexture;
 wall.bumpMap = dungeonTexture;
 wall.bumpScale = .018;
+wall.needsUpdate = true;
 const dark = mat(0x171c24, 1);
 const trim = mat(0x8a7150, 0.75, 0.25);
 
@@ -118,6 +120,8 @@ const stoneLight = mat(0x626c7b, 0.86, .06);
 const stoneDark = mat(0x303744, .94, .04);
 stoneLight.map = dungeonTexture;
 stoneDark.map = dungeonTexture;
+stoneLight.needsUpdate = true;
+stoneDark.needsUpdate = true;
   const crystal = new THREE.MeshStandardMaterial({
     color: 0x70dfff,
     emissive: 0x167ca0,
@@ -147,6 +151,7 @@ stoneDark.map = dungeonTexture;
   // Marcas do piso em instâncias: muitos detalhes com uma única chamada de desenho.
   const tileMat = mat(0x343b45,.98);
   tileMat.map = dungeonTexture;
+  tileMat.needsUpdate = true;
   const tileGeometry = new THREE.BoxGeometry(2.72,.025,2.72);
   const tileInstances = new THREE.InstancedMesh(tileGeometry,tileMat,520);
   const tileDummy = new THREE.Object3D();
