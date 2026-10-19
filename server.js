@@ -279,24 +279,57 @@ wss.on('connection', ws => {
       if (!room.started || player.hp <= 0) return;
       const spell = msg.spell === 'fire' ? 'fire' : msg.spell === 'lightning' ? 'lightning' : null;
       if (!spell) return;
-      const damage = spell === 'fire' ? 3 : 2;
-      let target = null;
-      if (room.phase < 3) target = room.monsters.find(m => m.alive && m.spawned && Math.hypot(m.x-player.x,m.z-player.z) < 7);
-      else if (room.boss && room.boss.alive && Math.hypot(room.boss.x-player.x,room.boss.z-player.z) < 8) target = room.boss;
-      if (target) {
-        target.hp = Math.max(0, (target.hp || 1)-damage);
-        if (target.hp <= 0) {
-          target.alive = false;
+
+      const candidates = room.phase < 3
+        ? room.monsters.filter(m => m.alive && m.spawned && Math.hypot(m.x - player.x, m.z - player.z) < 7)
+        : (room.boss && room.boss.alive && Math.hypot(room.boss.x - player.x, room.boss.z - player.z) < 8 ? [room.boss] : []);
+      candidates.sort((a, b) => Math.hypot(a.x-player.x, a.z-player.z) - Math.hypot(b.x-player.x, b.z-player.z));
+      const target = candidates[0];
+      if (!target) {
+        player.ws.send(JSON.stringify({ type: 'notice', text: 'Nenhum inimigo ao alcance da magia.' }));
+        broadcast(room, { type: 'spell', id: player.id, spell, x: player.x, z: player.z, targets: [] });
+        return;
+      }
+
+      const hitTargets = [];
+      const applyDamage = (enemy, amount) => {
+        if (!enemy || !enemy.alive) return;
+        enemy.hp = Math.max(0, (enemy.hp || 1) - amount);
+        if (spell === 'fire' && enemy.hp > 0) {
+          enemy.burnUntil = Date.now() + 3000;
+          enemy.burnNextAt = Date.now() + 1000;
+        }
+        hitTargets.push({ x: enemy.x, z: enemy.z });
+        if (enemy.hp <= 0) {
+          enemy.alive = false;
           if (room.phase < 3 && Math.random() < .25) grantLoot(player, 'monster');
-          if (room.phase === 3 && target === room.boss) {
+          if (room.phase === 3 && enemy === room.boss) {
             const dropped = grantLoot(player, 'boss');
-            broadcast(room,{type:'notice',text:'CHEFE DERROTADO! Recompensa: '+dropped.name+' ('+dropped.rarity+')'});
-          } else broadcast(room,{type:'notice',text:'Magia '+(spell==='fire'?'de fogo':'de raio')+' derrotou um monstro!'});
-        } else player.ws.send(JSON.stringify({type:'notice',text:'Magia acertou! Vida restante: '+target.hp}));
-        sendInventory(player);
-      } else player.ws.send(JSON.stringify({type:'notice',text:'Nenhum inimigo ao alcance da magia.'}));
-      broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z});
-      broadcast(room,state(room));
+            broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
+          }
+        }
+      };
+
+      if (spell === 'fire') {
+        applyDamage(target, 2);
+        player.ws.send(JSON.stringify({ type: 'notice', text: '🔥 Bola de fogo! Queimadura por 3 segundos.' }));
+      } else {
+        applyDamage(target, 1);
+        // O raio salta para até dois inimigos próximos, com dano reduzido em cada salto.
+        let previous = target;
+        for (let hop = 0; hop < 2; hop++) {
+          const next = room.monsters
+            .filter(m => m.alive && m.spawned && m !== previous && !hitTargets.some(t => t.x === m.x && t.z === m.z)
+              && Math.hypot(m.x - previous.x, m.z - previous.z) <= 5)
+            .sort((a, b) => Math.hypot(a.x-previous.x, a.z-previous.z) - Math.hypot(b.x-previous.x, b.z-previous.z))[0];
+          if (!next) break;
+          applyDamage(next, 1);
+          previous = next;
+        }
+        player.ws.send(JSON.stringify({ type: 'notice', text: '⚡ Raio em cadeia! Dano reduzido por salto.' }));
+      }
+      broadcast(room, { type: 'spell', id: player.id, spell, x: player.x, z: player.z, targets: hitTargets });
+      broadcast(room, state(room));
     } else if (msg.type === 'attack') {
       if (!room.started || player.hp <= 0) return;
       if (room.phase < 3) {
@@ -423,6 +456,24 @@ setInterval(() => {
         if (target.hp <= 0) {
           target.hp = 0;
           target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
+        }
+      }
+    }
+
+    // Dano de queimadura ao longo do tempo, processado pelo servidor.
+    for (const enemy of [...room.monsters, ...(room.boss ? [room.boss] : [])]) {
+      if (!enemy.alive || !enemy.burnUntil || Date.now() < (enemy.burnNextAt || 0)) continue;
+      if (Date.now() > enemy.burnUntil) { enemy.burnUntil = 0; continue; }
+      enemy.hp = Math.max(0, (enemy.hp || 1) - 1);
+      enemy.burnNextAt = Date.now() + 1000;
+      if (enemy.hp <= 0) {
+        enemy.alive = false;
+        const owner = players[0];
+        if (owner) {
+          if (enemy === room.boss) {
+            const dropped = grantLoot(owner, 'boss');
+            broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO PELA QUEIMADURA! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
+          } else if (Math.random() < 0.25) grantLoot(owner, 'monster');
         }
       }
     }
