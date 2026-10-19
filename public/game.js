@@ -12,11 +12,11 @@ const world = { width: 30, depth: 46 };
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x090d14, .027);
+  scene.fog = new THREE.FogExp2(0x090d14, .018);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
-  renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -62,8 +62,10 @@ const stoneDark = mat(0x303640, 1);
 
   box(30, .8, 48, floor, 0, -.5, -11);
 
+  // Junta visual sutil: evita linhas pretas fortes atravessando o chão.
+  const floorJoint = mat(0x343a43, 1);
   for (let z = -34; z <= 12; z += 4) {
-    box(29.8, .05, .06, dark, 0, -.07, z);
+    box(29.8, .018, .035, floorJoint, 0, -.088, z);
   }
 
   box(.7, 5, 48, wall, -15, 2, -11);
@@ -246,7 +248,7 @@ function onResize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 }
 addEventListener('resize', onResize);
 
