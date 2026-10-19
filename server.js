@@ -65,7 +65,7 @@ function rollLoot(kind) {
   let roll = Math.random() * total;
   for (const item of table) {
     roll -= item.weight;
-    if (roll < 0) return { name: item.name, rarity: item.rarity, kind };
+    if (roll < 0) return { name: item.name, rarity: item.rarity, slot: item.slot, power: item.power, kind };
   }
   return { ...table[0], kind };
 }
