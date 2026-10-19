@@ -381,3 +381,79 @@ html, body { min-height: 100%; }
   #hud .selected-item { left: 175px !important; right: auto !important; bottom: 12px !important; top: auto !important; transform: none !important; z-index: 18 !important; }
   #hud .attack { width: 82px !important; height: 82px !important; }
 }
+
+
+/* FIX definitivo do HUD em celular retrato: separar topo, missão e inventário. */
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 700px) {
+  #hud .topbar {
+    position: absolute !important;
+    top: max(6px, env(safe-area-inset-top)) !important;
+    left: 6px !important; right: 6px !important;
+    height: 42px !important; z-index: 24 !important;
+  }
+  #hud .objective {
+    top: 58px !important; left: 6px !important;
+    width: calc(50vw - 10px) !important;
+    max-height: 132px !important; overflow: hidden !important;
+    z-index: 20 !important;
+    padding: 7px 8px !important;
+    background: rgba(8,16,25,.94) !important;
+  }
+  #hud .objective strong { font-size: 10px !important; line-height: 1.25 !important; }
+  #hud .inventory-panel {
+    position: absolute !important;
+    top: 58px !important; right: 6px !important;
+    width: calc(50vw - 10px) !important;
+    max-height: 34dvh !important; overflow-y: auto !important;
+    z-index: 20 !important;
+    padding: 7px !important;
+    background: rgba(8,13,21,.96) !important;
+  }
+  #hud .inventory-panel > strong { font-size: 10px !important; }
+  #hud .inventory-list { grid-template-columns: repeat(5,minmax(0,1fr)) !important; }
+  #hud .loot-row { min-width: 0 !important; overflow-wrap: anywhere !important; font-size: 7px !important; }
+  #hud .loot-row b { font-size: 9px !important; }
+  #hud .loot-help { line-height: 1.25 !important; font-size: 7px !important; }
+  #hud .selected-item {
+    position: static !important;
+    display: grid !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin-top: 6px !important;
+    padding: 6px 0 0 !important;
+    border: 0 !important;
+    border-top: 1px solid #46505e !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    pointer-events: auto !important;
+    z-index: auto !important;
+  }
+  #hud .selected-item span { font-size: 8px !important; text-align: left !important; }
+  #hud .selected-item button { min-height: 32px !important; }
+  #hud .players { top: 202px !important; left: 6px !important; right: auto !important; max-width: 42vw !important; z-index: 18 !important; }
+  #hud .joystick {
+    left: 0 !important; bottom: 0 !important;
+    width: 170px !important; height: 170px !important;
+    z-index: 10 !important;
+  }
+  #hud .stick { left: 60px !important; top: 60px !important; width: 48px !important; height: 48px !important; }
+  #hud .attack {
+    right: 8px !important; bottom: 8px !important;
+    width: 78px !important; height: 78px !important;
+    z-index: 16 !important;
+    border: 2px solid #ffdda17d !important;
+    background: radial-gradient(circle at 35% 25%,#a56d3d,#4b2521 65%,#21171a) !important;
+    box-shadow: 0 0 0 4px #080d1577 !important;
+  }
+  #hud .attack span, #hud .attack small { opacity: 1 !important; }
+  #hud .chest-btn {
+    right: 94px !important; bottom: 14px !important;
+    width: 58px !important; height: 58px !important;
+    z-index: 17 !important;
+  }
+  #hud .spell-btn { z-index: 15 !important; }
+  #hud .fire-btn { right: 92px !important; bottom: 82px !important; }
+  #hud .lightning-btn { right: 20px !important; bottom: 92px !important; }
+}
