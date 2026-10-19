@@ -1,5 +1,6 @@
 
 const http = require('http');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
@@ -62,7 +63,7 @@ function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player,
 function takeDamage(room, player, amount) {
   let damage = amount * (1 - (statsFor(player).reduction || 0));
   if (hasSkill(player, 'iron_skin')) damage *= .8;
-  if (hasSkill(player, 'party_guard') && [...room.players.values()].some(other => other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7)) damage *= .9;
+  if (hasSkill(player, 'party_guard') && [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7)) damage *= .9;
   player.hp = Math.max(0, player.hp - Math.max(1, Math.round(damage)));
   if (player.hp <= 0 && hasSkill(player, 'second_wind') && !player.secondWindUsed) {
     player.secondWindUsed = true; player.hp = Math.max(1, Math.ceil(player.maxHp * .3));
@@ -207,7 +208,7 @@ function broadcast(room, message) {
 function state(room) {
   return {
     type: 'state',
-    players: [...room.players.values()].map(p => ({
+    players: [...room.players.values()].filter(p => p.connected !== false).map(p => ({
       id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId
     })),
     phase: room.phase,
@@ -221,9 +222,10 @@ function state(room) {
 }
 
 wss.on('connection', ws => {
-  const player = {
+  let player = {
   id: String(nextId++),
-  ws, name: 'Aventureiro', x: 0, z: 3, rot: 0,
+  ws, connected: true, disconnectedAt: 0, resumeToken: crypto.randomBytes(24).toString('hex'),
+  name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   hp: 130, maxHp: 130, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
   playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, equipmentDamage: 0, nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
@@ -240,8 +242,14 @@ wss.on('connection', ws => {
 };
 
   ws.on('message', raw => {
+    if (player.ws !== ws) return;
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
+
+    if (msg.type === 'ping') {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'pong', sentAt: Number(msg.sentAt) || 0 }));
+      return;
+    }
 
     if (msg.type === 'join') {
       const code = String(msg.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
@@ -250,33 +258,51 @@ wss.on('connection', ws => {
       if (player.room) {
         const old = rooms.get(player.room);
         if (old) old.players.delete(player.id);
+        player.room = null;
       }
 
       let room = rooms.get(code);
       if (!room) room = newRoom(code, player.id);
-      // Permite entrar novamente na sala durante uma partida após uma queda de conexão.
-      player.room = code;
-      player.name = String(msg.name || 'Aventureiro').slice(0, 18);
-      player.playerClass = ['knight','mage','archer'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
-      player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
-      player.skills = [];
-      player.equipmentDamage = 0;
-      const requestedSkills = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
-      for (const id of requestedSkills) {
-        const req = SKILL_REQUIREMENTS[id];
-        if (!player.skills.includes(id) && (!req || player.skills.includes(req))) player.skills.push(id);
-      }
-      const requestedPoints = Number(msg.talentPoints);
-      player.talentPoints = Number.isFinite(requestedPoints) ? Math.max(0, Math.min(20, Math.floor(requestedPoints))) : Math.max(0, 5 - player.skills.length);
-      player.secondWindUsed = false;
-      player.x = 0; player.z = room.started ? -((room.phase - 1) * 32 + 1) : 3; player.ready = false;
-      room.emptySince = 0;
-      player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
-      refreshPlayerStats(player, true);
-      room.players.set(player.id, player);
 
-      ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code }));
-      broadcast(room, { type: 'notice', text: player.name + ' entrou na sala.' });
+      // Um token aleatório permite recuperar o mesmo personagem após uma queda breve.
+      const requestedToken = typeof msg.resumeToken === 'string' ? msg.resumeToken : '';
+      const savedPlayer = requestedToken
+        ? [...room.players.values()].find(p => p.resumeToken === requestedToken && p.connected === false)
+        : null;
+      const resumed = !!savedPlayer;
+
+      if (resumed) {
+        player = savedPlayer;
+        player.ws = ws;
+        player.connected = true;
+        player.disconnectedAt = 0;
+      } else {
+        player.room = code;
+        player.connected = true;
+        player.disconnectedAt = 0;
+        player.name = String(msg.name || 'Aventureiro').slice(0, 18);
+        player.playerClass = ['knight','mage','archer'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
+        player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
+        player.skills = [];
+        player.equipmentDamage = 0;
+        const requestedSkills = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
+        for (const id of requestedSkills) {
+          const req = SKILL_REQUIREMENTS[id];
+          if (!player.skills.includes(id) && (!req || player.skills.includes(req))) player.skills.push(id);
+        }
+        const requestedPoints = Number(msg.talentPoints);
+        player.talentPoints = Number.isFinite(requestedPoints) ? Math.max(0, Math.min(20, Math.floor(requestedPoints))) : Math.max(0, 5 - player.skills.length);
+        player.secondWindUsed = false;
+        player.x = 0; player.z = room.started ? -((room.phase - 1) * 32 + 1) : 3; player.ready = false;
+        player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
+        refreshPlayerStats(player, true);
+        room.players.set(player.id, player);
+      }
+
+      if (!room.hostId) room.hostId = player.id;
+      room.emptySince = 0;
+      ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code, resumeToken: player.resumeToken, resumed }));
+      broadcast(room, { type: 'notice', text: resumed ? player.name + ' reconectou.' : player.name + ' entrou na sala.' });
       broadcast(room, state(room));
       sendInventory(player);
       return;
@@ -536,29 +562,42 @@ wss.on('connection', ws => {
   });
 
   ws.on('close', () => {
+    // Um socket antigo não deve remover a sessão caso o personagem já tenha retomado a conexão.
+    if (player.ws !== ws) return;
     const room = player.room && rooms.get(player.room);
     if (room) {
-      room.players.delete(player.id);
-      if (room.hostId === player.id) room.hostId = room.players.keys().next().value || null;
-      broadcast(room, state(room));
-      if (room.players.size === 0) {
-        if (room.started) room.emptySince = Date.now();
-        else rooms.delete(player.room);
+      player.connected = false;
+      player.disconnectedAt = Date.now();
+      if (room.hostId === player.id) {
+        room.hostId = [...room.players.values()].find(p => p.connected !== false && p.id !== player.id)?.id || null;
       }
+      const activeCount = [...room.players.values()].filter(p => p.connected !== false).length;
+      if (activeCount === 0) room.emptySince = Date.now();
+      broadcast(room, state(room));
     }
   });
 });
 
 setInterval(() => {
+  const now = Date.now();
   for (const [roomCode, room] of rooms.entries()) {
-    if (room.started && room.players.size === 0) {
-      if (!room.emptySince) room.emptySince = Date.now();
-      if (Date.now() - room.emptySince > 120000) { rooms.delete(roomCode); continue; }
+    // Sessões desconectadas ficam recuperáveis por 90 segundos.
+    for (const [id, saved] of room.players.entries()) {
+      if (saved.connected === false && saved.disconnectedAt && now - saved.disconnectedAt > 90000) {
+        room.players.delete(id);
+        if (room.hostId === id) room.hostId = [...room.players.values()].find(p => p.connected !== false)?.id || null;
+      }
     }
-    if (!room.started || room.players.size === 0) continue;
-    const players = [...room.players.values()];
+    const players = [...room.players.values()].filter(p => p.connected !== false);
+    if (room.started && players.length === 0) {
+      if (!room.emptySince) room.emptySince = now;
+      if (now - room.emptySince > 120000) { rooms.delete(roomCode); continue; }
+    } else if (players.length > 0) {
+      room.emptySince = 0;
+    }
+    if (!room.started && room.players.size === 0) { rooms.delete(roomCode); continue; }
+    if (!room.started || players.length === 0) continue;
     if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0)continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}
-    const now = Date.now();
     if (room.safeZoneUntil && now >= room.safeZoneUntil) {
       room.safeZoneUntil = 0;
       broadcast(room, { type: 'notice', text: 'A zona segura terminou. Prepare-se para os inimigos!' });
