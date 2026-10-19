@@ -54,7 +54,7 @@ function statsFor(player) { return CLASS_STATS[player.playerClass] || CLASS_STAT
 function maxHealthFor(player) { return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0); }
 function refreshPlayerStats(player, restoreHealth = false) {
   const oldMax = player.maxHp || 100; player.maxHp = maxHealthFor(player);
-  player.baseDamage = statsFor(player).damage + (hasSkill(player, 'mighty_blows') ? 1 : 0);
+  player.baseDamage = statsFor(player).damage + (hasSkill(player, 'mighty_blows') ? 1 : 0) + (player.equipmentDamage || 0);
   if (restoreHealth) player.hp = player.maxHp;
   else player.hp = Math.min(player.maxHp, Math.max(0, (player.hp || 0) + Math.max(0, player.maxHp - oldMax)));
 }
@@ -226,7 +226,7 @@ wss.on('connection', ws => {
   ws, name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   hp: 130, maxHp: 130, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
-  playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
+  playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, equipmentDamage: 0, nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
   room: null,
   ready: false,
   lootDrops: [],
@@ -260,6 +260,7 @@ wss.on('connection', ws => {
       player.playerClass = ['knight','mage','archer'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
       player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
       player.skills = [];
+      player.equipmentDamage = 0;
       const requestedSkills = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
       for (const id of requestedSkills) {
         const req = SKILL_REQUIREMENTS[id];
