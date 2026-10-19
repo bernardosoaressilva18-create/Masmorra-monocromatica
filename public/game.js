@@ -672,11 +672,35 @@ function chooseClass(className) {
   selectedClass = className;
   document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
   if ($('classDescription')) $('classDescription').textContent = classDescriptions[selectedClass];
+  updateHeroShowcase();
   refreshLocalHeroAppearance();
   sendLoadout();
 }
 document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => chooseClass(card.dataset.class)));
-$('skinSelect')?.addEventListener('change', e => { selectedSkin = e.target.value; refreshLocalHeroAppearance(); sendLoadout(); });
+function chooseSkin(skinName) {
+  if (!['default','shadow','ember'].includes(skinName)) return;
+  selectedSkin = skinName;
+  document.querySelectorAll('.skin-pick').forEach(el => el.classList.toggle('selected', el.dataset.skin === selectedSkin));
+  updateHeroShowcase();
+  refreshLocalHeroAppearance();
+  sendLoadout();
+}
+document.querySelectorAll('.skin-pick').forEach(card => card.addEventListener('click', () => chooseSkin(card.dataset.skin)));
+function updateHeroShowcase() {
+  const classInfo = {
+    knight:{name:'Cavaleiro',glyph:'🛡️',desc:'Vida elevada · defesa natural · espada'},
+    mage:{name:'Mago',glyph:'🔮',desc:'Magia fortalecida · cajado arcano'},
+    archer:{name:'Arqueiro',glyph:'🏹',desc:'Ataque rápido · alcance maior'}
+  }[selectedClass] || {name:'Cavaleiro',glyph:'🛡️',desc:'Defesa elevada'};
+  const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
+  const avatar=$('heroPreviewAvatar');
+  if(avatar){avatar.className='hero-preview-avatar '+skinInfo.cls+' class-'+selectedClass;}
+  if($('heroPreviewGlyph')) $('heroPreviewGlyph').textContent=classInfo.glyph;
+  if($('heroPreviewName')) $('heroPreviewName').textContent=classInfo.name;
+  if($('heroPreviewDesc')) $('heroPreviewDesc').textContent=classInfo.desc;
+  if($('heroPreviewSkin')) $('heroPreviewSkin').textContent=skinInfo.label;
+  document.querySelectorAll('.skin-pick').forEach(el=>el.classList.toggle('selected',el.dataset.skin===selectedSkin));
+}
 function handleSkillClick(event) {
   const button = event.target.closest('[data-skill]');
   if (!button || button.disabled) return;
@@ -693,6 +717,7 @@ $('skillTreeHud')?.addEventListener('click', handleSkillClick);
 $('skillToggleBtn')?.addEventListener('click', () => $('skillPanel')?.classList.toggle('hidden'));
 $('skillCloseBtn')?.addEventListener('click', () => $('skillPanel')?.classList.add('hidden'));
 syncLoadoutUI();
+updateHeroShowcase();
 
 function sendJoin(code) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -701,7 +726,7 @@ function sendJoin(code) {
     type: 'join',
     name: $('playerName').value.trim() || 'Aventureiro',
     class: selectedClass,
-    skin: $('skinSelect')?.value || 'default',
+    skin: selectedSkin,
     skills: Array.from(unlockedSkills),
     code
   });
@@ -874,9 +899,9 @@ function updateState(m) {
       selectedSkin = p.skin || selectedSkin;
       skillPoints = Number.isFinite(p.talentPoints) ? p.talentPoints : skillPoints;
       unlockedSkills.clear(); incomingSkills.forEach(id => unlockedSkills.add(id));
-      if ($('skinSelect')) $('skinSelect').value = selectedSkin;
       document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
       if ($('classDescription')) $('classDescription').textContent = classDescriptions[selectedClass] || classDescriptions.knight;
+      updateHeroShowcase();
       if (changed) { lastSkillSignature = ''; syncLoadoutUI(); }
       if (myPlayer) {
         myPlayer.userData.serverX = p.x;
@@ -926,6 +951,8 @@ function updateState(m) {
     const previousPhase = currentPhaseVisual;
     currentPhaseVisual = phase;
     if (previousPhase > 0 && phase > previousPhase) {
+      $('skillPanel')?.classList.remove('hidden');
+      showNotice('ZONA SEGURA: habilidades liberadas por 10 segundos!');
       const overlay = $('phaseTransition');
       if (overlay) {
         $('phaseTransitionTitle').textContent = (['','CRIPTA ESQUECIDA','CAVERNAS MÁGICAS','FLORESTA AMALDIÇOADA','TERRAS VULCÂNICAS','ABISMO FINAL'][phase] || 'MUNDO CONCLUÍDO');
@@ -947,6 +974,13 @@ function updateState(m) {
     const palette = palettes[phase - 1] || palettes[0];
     scene.background.setHex(palette.bg);
     if (scene.fog) scene.fog.color.setHex(palette.fog);
+  }
+  const safeUntil = Number(m.safeZoneUntil) || 0;
+  const safeRemaining = Math.max(0, Math.ceil((safeUntil - Date.now()) / 1000));
+  const safeNotice = $('safeZoneNotice');
+  if (safeNotice) {
+    safeNotice.classList.toggle('hidden', safeRemaining <= 0);
+    safeNotice.textContent = safeRemaining > 0 ? 'ZONA SEGURA · ' + safeRemaining + 's · MELHORE SUAS SKILLS' : '';
   }
   const aliveMonsters = m.monsters.filter(monster => monster.alive).length;
   gateMeshes.forEach((gate, index) => { const gatePhase = index + 1; gate.userData.open = phase > gatePhase || (phase === gatePhase && aliveMonsters === 0); });
