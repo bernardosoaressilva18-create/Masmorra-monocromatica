@@ -150,7 +150,7 @@ wss.on('connection', ws => {
   id: String(nextId++),
   ws, name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
-  hp: 100, lastGateNotice: 0,
+  hp: 100, lastGateNotice: 0, baseDamage: 1, damageBuff: 0, damageBuffHits: 0,
   room: null,
   lootDrops: [],
   inventory: {
@@ -183,6 +183,7 @@ wss.on('connection', ws => {
       player.x = 0;
       player.z = 3;
       player.hp = 100;
+      player.baseDamage = 1; player.damageBuff = 0; player.damageBuffHits = 0;
       room.players.set(player.id, player);
 
       ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code }));
@@ -212,11 +213,44 @@ wss.on('connection', ws => {
       }
       player.rot = Number(msg.rot) || 0;
       broadcast(room, state(room));
+    } else if (msg.type === 'useItem') {
+      const itemIndex = player.lootDrops.findIndex(item => item.id === String(msg.id));
+      if (itemIndex < 0) { ws.send(JSON.stringify({ type: 'notice', text: 'Esse item não está mais no inventário.' })); return; }
+      const item = player.lootDrops[itemIndex];
+      let effect = '';
+      if (item.name === 'Poção de Vida') {
+        if (player.hp >= 100) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
+        const before = player.hp; player.hp = Math.min(100, player.hp + 40); effect = 'Vida restaurada: +' + (player.hp - before) + '.';
+      } else if (item.name === 'Moeda Antiga') {
+        if (player.hp >= 100) { ws.send(JSON.stringify({ type: 'notice', text: 'A Moeda Antiga só pode ser usada para recuperar vida. Sua vida já está cheia.' })); return; }
+        const before = player.hp; player.hp = Math.min(100, player.hp + 15); effect = 'A moeda restaurou +' + (player.hp - before) + ' de vida.';
+      } else if (item.name === 'Pó de Cristal') {
+        const before = player.hp; player.hp = Math.min(100, player.hp + 20); player.damageBuff = Math.max(player.damageBuff, 1); player.damageBuffHits = Math.max(player.damageBuffHits, 2); effect = 'Cristal usado: +' + (player.hp - before) + ' de vida e +1 dano por 2 golpes.';
+      } else if (item.name === 'Fragmento Monocromático') {
+        player.damageBuff = Math.max(player.damageBuff, 1); player.damageBuffHits = Math.max(player.damageBuffHits, 3); effect = '+1 de dano nos próximos 3 golpes.';
+      } else if (item.name === 'Núcleo Sombrio') {
+        player.damageBuff = Math.max(player.damageBuff, 2); player.damageBuffHits = Math.max(player.damageBuffHits, 4); effect = '+2 de dano nos próximos 4 golpes.';
+      } else if (item.name === 'Equipamento Antigo' || item.name === 'Relíquia Monocromática') {
+        player.baseDamage = Math.min(5, player.baseDamage + 1); effect = 'Equipado! Seu dano permanente aumentou para ' + player.baseDamage + '.';
+      } else if (item.name === 'Coração do Guardião') {
+        const before = player.hp; player.hp = Math.min(100, player.hp + 50); effect = 'Coração ativado: +' + (player.hp - before) + ' de vida.';
+      } else if (item.name === 'Cristal Ancestral') {
+        player.damageBuff = Math.max(player.damageBuff, 3); player.damageBuffHits = Math.max(player.damageBuffHits, 5); effect = '+3 de dano nos próximos 5 golpes.';
+      } else if (item.name === 'Coroa do Abismo') {
+        player.hp = 100; player.baseDamage = Math.min(5, player.baseDamage + 1); effect = 'A Coroa restaurou toda a vida e aumentou seu dano permanente.';
+      }
+      player.lootDrops.splice(itemIndex, 1);
+      player.inventory[item.rarity] = Math.max(0, (player.inventory[item.rarity] || 0) - 1);
+      sendInventory(player);
+      ws.send(JSON.stringify({ type: 'notice', text: item.name + ': ' + effect }));
+      broadcast(room, state(room));
     } else if (msg.type === 'attack') {
       if (room.phase < 3) {
         const target = room.monsters.find(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
         if (target) {
-          target.hp = Math.max(0, (target.hp || 1) - 1);
+          const damage = player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0);
+          target.hp = Math.max(0, (target.hp || 1) - damage);
+          if (player.damageBuffHits > 0) { player.damageBuffHits--; if (player.damageBuffHits === 0) player.damageBuff = 0; }
           if (target.hp <= 0) {
             target.alive = false;
             const dropped = grantLoot(player, 'monster');
@@ -227,7 +261,9 @@ wss.on('connection', ws => {
           }
         }
       } else if (room.boss && room.boss.alive && Math.hypot(room.boss.x - player.x, room.boss.z - player.z) < 4.2) {
-        const boss = room.boss; boss.hp = Math.max(0, boss.hp - 1);
+        const boss = room.boss; const damage = player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0); boss.hp = Math.max(0, boss.hp - damage);
+        if (player.damageBuffHits > 0) { player.damageBuffHits--; if (player.damageBuffHits === 0) player.damageBuff = 0; }
+        player.ws.send(JSON.stringify({ type: 'notice', text: 'Você causou ' + damage + ' de dano no Guardião!' }));
         const oldLifePhase = boss.lifePhase; boss.lifePhase = boss.hp > 10 ? 1 : boss.hp > 5 ? 2 : 3;
         if (boss.lifePhase !== oldLifePhase && boss.hp > 0)
           broadcast(room, { type: 'notice', text: 'O Guardião entrou na fase de vida ' + boss.lifePhase + ' / 3!' });
