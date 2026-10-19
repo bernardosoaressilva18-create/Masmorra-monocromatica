@@ -7,6 +7,7 @@ const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
+let bossMesh = null, bossData = null;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [];
 const world = { width: 30, depth: 46 };
 
@@ -214,6 +215,22 @@ function createPlayer() {
   myPlayer.position.set(0, 0, 3);
 }
 
+function makeBoss() {
+  const g = new THREE.Group();
+  const armor = mat(0x29202f, .55, .35), dark = mat(0x100e18, .7, .2), bone = mat(0x9c8aa8, .45, .35);
+  const eye = new THREE.MeshStandardMaterial({ color: 0xff345d, emissive: 0xff123c, emissiveIntensity: 2.8 });
+  const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, 1), armor); torso.position.y = 1.65; g.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.68, 12, 10), dark); head.position.y = 2.85; g.add(head);
+  for (const side of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(.22, .95, 6), bone); horn.position.set(side * .48, 3.55, 0); horn.rotation.z = side * -.38; g.add(horn);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(.12, 8, 6), eye); e.position.set(side * .25, 2.9, -.59); g.add(e);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.22, .9, 4, 7), armor); arm.position.set(side * 1.12, 1.6, 0); arm.rotation.z = side * -.22; g.add(arm);
+    const claw = new THREE.Mesh(new THREE.ConeGeometry(.18, .55, 5), bone); claw.position.set(side * 1.2, .82, -.05); claw.rotation.z = Math.PI; g.add(claw);
+  }
+  const rune = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.65, 32), new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .7, side: THREE.DoubleSide }));
+  rune.rotation.x = -Math.PI / 2; rune.position.y = .04; g.add(rune);
+  g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; return g;
+}
 function makeChest() {
   const group = new THREE.Group();
   const wood = mat(0x68452c, .8);
@@ -431,6 +448,27 @@ function updateState(m) {
     }
   }
 
+  const phase = m.phase || 1, phaseLabel = $('phaseLabel');
+  if (phaseLabel) phaseLabel.textContent = 'FASE ' + phase + ' / 3';
+  const bossPanel = $('bossPanel');
+  if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 3 || !m.boss || !m.boss.alive);
+  bossData = m.boss || null;
+  if (bossData && bossData.alive) {
+    if (!bossMesh) { bossMesh = makeBoss(); scene.add(bossMesh); }
+    bossMesh.visible = true; bossMesh.userData.targetX = bossData.x; bossMesh.userData.targetZ = bossData.z;
+    const lifePhase = bossData.lifePhase || 1; bossMesh.userData.lifePhase = lifePhase;
+    bossMesh.userData.bodyMaterial.color.set(lifePhase === 1 ? 0x29202f : lifePhase === 2 ? 0x59202f : 0x8b182a);
+    bossMesh.userData.eyeMaterial.color.set(lifePhase === 3 ? 0xffc12e : 0xff345d);
+    $('bossHealthFill').style.width = (bossData.hp / bossData.maxHp * 100) + '%';
+    $('bossHealthText').textContent = bossData.hp + ' / ' + bossData.maxHp;
+    $('bossPhaseText').textContent = 'FASE DE VIDA ' + lifePhase + ' / 3';
+  } else if (bossMesh) {
+    bossMesh.visible = false;
+    if (bossData && !bossData.alive) {
+      bossPanel?.classList.remove('hidden'); $('bossPhaseText').textContent = 'GUARDIÃO DERROTADO';
+      $('bossHealthFill').style.width = '0%'; $('bossHealthText').textContent = '0 / 15';
+    }
+  }
   latestChests = m.chests || [];
   for (const chest of latestChests) {
     let obj = chestMeshes.get(chest.id);
@@ -713,6 +751,12 @@ const right = new THREE.Vector3(
     obj.rotation.y += angleDiff * remoteSmooth;
   }
 
+  if (bossMesh && bossMesh.visible && bossMesh.userData.targetX !== undefined) {
+    bossMesh.position.x = THREE.MathUtils.lerp(bossMesh.position.x, bossMesh.userData.targetX, monsterSmooth);
+    bossMesh.position.z = THREE.MathUtils.lerp(bossMesh.position.z, bossMesh.userData.targetZ, monsterSmooth);
+    bossMesh.position.y = .08 + Math.sin(performance.now() * .0015) * .12;
+    bossMesh.rotation.y += dt * (bossMesh.userData.lifePhase === 3 ? .65 : .25);
+  }
   // Movimento suave dos monstros
   for (const obj of monsterMeshes.values()) {
     if (obj.userData.targetX === undefined) continue;
