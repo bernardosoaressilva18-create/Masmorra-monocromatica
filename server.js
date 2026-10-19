@@ -102,20 +102,21 @@ function grantLoot(player, source) {
 function createWave(phase) {
   const count = phase === 1 ? 7 : 9, centerZ = phase === 1 ? -3 : -19;
   return Array.from({ length: count }, (_, i) => ({ id: 'p' + phase + 'm' + i,
-    x: (Math.random() - 0.5) * 20, z: centerZ + (Math.random() - 0.5) * 9, alive: true }));
+    x: (Math.random() - 0.5) * 20, z: centerZ + (Math.random() - 0.5) * 9,
+    alive: true, hp: phase === 1 ? 1 : 2, maxHp: phase === 1 ? 1 : 2, attackAt: 0 }));
 }
 function advancePhase(room) {
   if (room.phase === 1) {
     room.phase = 2; room.monsters = createWave(2);
-    broadcast(room, { type: 'notice', text: 'FASE 2: As Cavernas Mágicas! Monstros mais fortes chegaram.' });
+    broadcast(room, { type: 'notice', text: 'PORTÃO ABERTO! FASE 2: As Cavernas Mágicas. Atravesse o próximo portão.' });
   } else if (room.phase === 2) {
     room.phase = 3; room.monsters = [];
-    room.boss = { id: 'final-boss', x: 0, z: -28, alive: true, hp: 15, maxHp: 15, lifePhase: 1 };
-    broadcast(room, { type: 'notice', text: 'FASE 3: O Guardião do Abismo despertou! Derrote suas 3 fases de vida!' });
+    room.boss = { id: 'final-boss', x: 0, z: -29, alive: true, hp: 15, maxHp: 15, lifePhase: 1, attackAt: 0 };
+    broadcast(room, { type: 'notice', text: 'PORTÃO ABERTO! FASE 3: O Guardião do Abismo despertou!' });
   }
 }
 function newRoom(code) {
-  const room = { players: new Map(), phase: 1, monsters: createWave(1), boss: null,
+  const room = { players: new Map(), phase: 1, monsters: createWave(1), boss: null, bossAttackAt: 0,
     chests: [
       { id: 'c0', x: -8, z: -8, openedBy: [] },
       { id: 'c1', x: 8, z: -19, openedBy: [] },
@@ -135,7 +136,7 @@ function state(room) {
   return {
     type: 'state',
     players: [...room.players.values()].map(p => ({
-      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color
+      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp
     })),
     phase: room.phase,
     monsters: room.monsters,
@@ -149,6 +150,7 @@ wss.on('connection', ws => {
   id: String(nextId++),
   ws, name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
+  hp: 100, lastGateNotice: 0,
   room: null,
   lootDrops: [],
   inventory: {
@@ -180,6 +182,7 @@ wss.on('connection', ws => {
       player.name = String(msg.name || 'Aventureiro').slice(0, 18);
       player.x = 0;
       player.z = 3;
+      player.hp = 100;
       room.players.set(player.id, player);
 
       ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code }));
@@ -194,18 +197,34 @@ wss.on('connection', ws => {
 
     if (msg.type === 'move') {
       player.x = Math.max(-13, Math.min(13, Number(msg.x) || 0));
-      player.z = Math.max(-31, Math.min(8, Number(msg.z) || 0));
+      const requestedZ = Math.max(-31, Math.min(8, Number(msg.z) || 0));
+      const gateZ = room.phase === 1 ? -13 : room.phase === 2 ? -27 : -999;
+      const enemiesAlive = room.phase === 3 ? false : room.monsters.some(m => m.alive);
+      if (room.phase < 3 && requestedZ < gateZ && enemiesAlive) {
+        player.z = gateZ + 0.7;
+        if (Date.now() - player.lastGateNotice > 1800) {
+          player.lastGateNotice = Date.now();
+          player.ws.send(JSON.stringify({ type: 'notice', text: 'O portão está selado! Derrote todos os monstros desta fase.' }));
+        }
+      } else {
+        player.z = requestedZ;
+        if (room.phase < 3 && requestedZ < gateZ) advancePhase(room);
+      }
       player.rot = Number(msg.rot) || 0;
       broadcast(room, state(room));
     } else if (msg.type === 'attack') {
       if (room.phase < 3) {
         const target = room.monsters.find(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
         if (target) {
-          target.alive = false;
-          const dropped = grantLoot(player, 'monster');
-          player.ws.send(JSON.stringify({ type: 'notice', text: 'Drop: ' + dropped.name + ' (' + dropped.rarity + ')' }));
-          broadcast(room, { type: 'notice', text: player.name + ' derrotou um monstro!' });
-          if (room.monsters.every(m => !m.alive)) advancePhase(room);
+          target.hp = Math.max(0, (target.hp || 1) - 1);
+          if (target.hp <= 0) {
+            target.alive = false;
+            const dropped = grantLoot(player, 'monster');
+            player.ws.send(JSON.stringify({ type: 'notice', text: 'Drop: ' + dropped.name + ' (' + dropped.rarity + ')' }));
+            broadcast(room, { type: 'notice', text: player.name + ' derrotou um monstro!' });
+          } else {
+            player.ws.send(JSON.stringify({ type: 'notice', text: 'Monstro ferido! Vida restante: ' + target.hp }));
+          }
         }
       } else if (room.boss && room.boss.alive && Math.hypot(room.boss.x - player.x, room.boss.z - player.z) < 4.2) {
         const boss = room.boss; boss.hp = Math.max(0, boss.hp - 1);
@@ -280,7 +299,7 @@ setInterval(() => {
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = 0.045;
+          const speed = 0.065;
 
           monster.x += (dx / distance) * speed;
           monster.z += (dz / distance) * speed;
@@ -289,16 +308,34 @@ setInterval(() => {
           monster.z = Math.max(-31, Math.min(8, monster.z));
         }
       }
+      if (target && nearest <= 2.0 && Date.now() - (monster.attackAt || 0) > 1000) {
+        monster.attackAt = Date.now();
+        target.hp = Math.max(0, target.hp - 8);
+        target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -8 de vida.' }));
+        if (target.hp <= 0) {
+          target.hp = 100; target.x = 0; target.z = 3;
+          target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado e renasceu na entrada.' }));
+        }
+      }
     }
 
     if (room.phase === 3 && room.boss && room.boss.alive) {
       const boss = room.boss; let target = null, nearest = Infinity;
       for (const p of players) { const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
-      if (target && nearest > 2.5 && nearest < 24) {
+      if (target && nearest > 2.35 && nearest < 24) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
-        const speed = boss.lifePhase === 1 ? 0.035 : boss.lifePhase === 2 ? 0.055 : 0.075;
+        const speed = boss.lifePhase === 1 ? 0.055 : boss.lifePhase === 2 ? 0.075 : 0.105;
         boss.x = Math.max(-12, Math.min(12, boss.x + dx / distance * speed));
         boss.z = Math.max(-31, Math.min(-20, boss.z + dz / distance * speed));
+      }
+      if (target && nearest <= 2.8 && Date.now() - boss.attackAt > (boss.lifePhase === 3 ? 800 : 1200)) {
+        boss.attackAt = Date.now();
+        target.hp = Math.max(0, target.hp - (boss.lifePhase === 3 ? 22 : 14));
+        target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + (boss.lifePhase === 3 ? 22 : 14) + ' de vida.' }));
+        if (target.hp <= 0) {
+          target.hp = 100; target.x = 0; target.z = 3;
+          target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado e renasceu na entrada.' }));
+        }
       }
     }
     broadcast(room, state(room));
