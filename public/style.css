@@ -163,3 +163,57 @@ html, body { min-height: 100%; }
   .start-tip { margin-top: 8px; }
   .panel { padding: 12px; }
 }
+
+
+/* Ajuste fino do HUD em celulares: botões mais baixos e áreas sem sobreposição. */
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 700px) {
+  #hud .topbar {
+    left: 5px; right: 5px; gap: 4px;
+  }
+  #hud .badge { max-width: 36vw; }
+  #hud .stats { min-width: 0; gap: 5px; padding: 6px; }
+  #hud .objective {
+    top: 58px; left: 5px; width: calc(50vw - 12px);
+    max-height: 19vh; overflow: auto;
+  }
+  #hud .inventory-panel {
+    top: 58px; right: 5px; width: calc(50vw - 12px);
+    max-height: 28dvh; overflow-y: auto;
+  }
+  #hud .players {
+    top:  calc(60px + 20vh); left: 5px; right: auto;
+    max-width: 34vw; max-height: 16vh; overflow: auto;
+  }
+  #hud .boss-panel {
+    top:  calc(62px + 20vh); width: 58vw; max-height: 12vh;
+  }
+  #hud .joystick {
+    left: max(10px, env(safe-area-inset-left));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: 88px; height: 88px;
+  }
+  #hud .stick { left: 24px; top: 24px; width: 38px; height: 38px; }
+  #hud .joystick:before { inset: 12px; }
+  #hud .attack {
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: 62px; height: 62px;
+  }
+  #hud .attack span { font-size: 22px; }
+  #hud .chest-btn {
+    right: max(78px, calc(env(safe-area-inset-right) + 78px));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: 48px; height: 48px;
+  }
+  #hud .chest-btn span { font-size: 18px; }
+  #hud .chest-btn small { font-size: 8px; }
+  #hud .hint { display: none; }
+}
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 380px) {
+  #hud .badge small { font-size: 5px; }
+  #hud .badge strong { font-size: 8px; letter-spacing: .5px; }
+  #hud .leave { padding: 6px; font-size: 7px; }
+  #hud .objective strong { font-size: 8px; }
+  #hud .inventory-panel { font-size: 9px; }
+  #hud .loot-help, #hud .loot-item span, #hud .selected-item span { font-size: 7px; }
+}
