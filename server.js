@@ -158,7 +158,12 @@ function advancePhase(room) {
   if (room.phase >= 5) return;
   const names = ['', 'Cripta Esquecida', 'Cavernas Mágicas', 'Floresta Amaldiçoada', 'Terras Vulcânicas', 'Abismo Final'];
   room.phase++;
-  for (const player of room.players.values()) { player.talentPoints = (player.talentPoints || 0) + 1; if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Mundo concluído! +1 ponto de habilidade. Abra ÁRVORE DE SKILLS.' })); }
+  room.safeZoneUntil = Date.now() + 10000;
+  room.nextSafeBroadcast = 0;
+  for (const player of room.players.values()) {
+    player.talentPoints = (player.talentPoints || 0) + 1;
+    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 10 segundos! +1 ponto de habilidade. Abra ÁRVORE DE SKILLS.' }));
+  }
   room.monsters = createWave(room.phase);
   room.boss = null;
   if (room.phase === 5) {
@@ -170,7 +175,7 @@ function advancePhase(room) {
   }
 }
 function newRoom(code, hostId) {
-  const room = { players: new Map(), hostId, started: false, phase: 1, monsters: createWave(1), boss: null, bossAttackAt: 0,
+  const room = { players: new Map(), hostId, started: false, phase: 1, monsters: createWave(1), boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0,
     chests: [
       { id: 'c0', x: -8, z: -12, openedBy: [] },
       { id: 'c1', x: 8, z: -44, openedBy: [] },
@@ -195,6 +200,7 @@ function state(room) {
       id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId
     })),
     phase: room.phase,
+    safeZoneUntil: room.safeZoneUntil || 0,
     started: room.started,
     hostId: room.hostId,
     monsters: room.monsters,
@@ -237,17 +243,14 @@ wss.on('connection', ws => {
 
       let room = rooms.get(code);
       if (!room) room = newRoom(code, player.id);
-      if (room.started) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Essa partida já começou. Entre em outra sala.' }));
-        return;
-      }
-
+      // Permite entrar novamente na sala durante uma partida após uma queda de conexão.
       player.room = code;
       player.name = String(msg.name || 'Aventureiro').slice(0, 18);
       player.playerClass = ['knight','mage','archer'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
       player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
       player.skills = []; player.talentPoints = 5; player.secondWindUsed = false;
-      player.x = 0; player.z = 3; player.ready = false;
+      player.x = 0; player.z = room.started ? -((room.phase - 1) * 32 + 1) : 3; player.ready = false;
+      room.emptySince = 0;
       player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
       refreshPlayerStats(player, true);
       room.players.set(player.id, player);
@@ -468,9 +471,14 @@ wss.on('connection', ws => {
       ws.send(JSON.stringify({ type: 'notice', text: 'Baú: ' + dropped.name + ' (' + dropped.rarity + ')' }));
       broadcast(room, state(room));
     } else if (msg.type === 'leave') {
+      const oldCode = player.room;
       room.players.delete(player.id);
-      player.room = null;
       if (room.hostId === player.id) room.hostId = room.players.keys().next().value || null;
+      if (room.players.size === 0) {
+        if (room.started) room.emptySince = Date.now();
+        else rooms.delete(oldCode);
+      }
+      player.room = null;
       broadcast(room, state(room));
     }
   });
@@ -481,16 +489,35 @@ wss.on('connection', ws => {
       room.players.delete(player.id);
       if (room.hostId === player.id) room.hostId = room.players.keys().next().value || null;
       broadcast(room, state(room));
-      if (room.players.size === 0) rooms.delete(player.room);
+      if (room.players.size === 0) {
+        if (room.started) room.emptySince = Date.now();
+        else rooms.delete(player.room);
+      }
     }
   });
 });
 
 setInterval(() => {
   for (const room of rooms.values()) {
-    if (!room.started) continue;
+    if (room.started && room.players.size === 0) {
+      if (!room.emptySince) room.emptySince = Date.now();
+      if (Date.now() - room.emptySince > 120000) { rooms.delete(roomCode); continue; }
+    }
+    if (!room.started || room.players.size === 0) continue;
     const players = [...room.players.values()];
     const now = Date.now();
+    if (room.safeZoneUntil && now >= room.safeZoneUntil) {
+      room.safeZoneUntil = 0;
+      broadcast(room, { type: 'notice', text: 'A zona segura terminou. Prepare-se para os inimigos!' });
+      broadcast(room, state(room));
+    }
+    if (now < (room.safeZoneUntil || 0)) {
+      if (now >= (room.nextSafeBroadcast || 0)) {
+        room.nextSafeBroadcast = now + 500;
+        broadcast(room, state(room));
+      }
+      continue;
+    }
     for (const p of players) { if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextRegenAt || 0)) { p.hp = Math.min(p.maxHp, p.hp + 2); p.nextRegenAt = now + 3000; } }
 
     for (const monster of room.monsters) {
