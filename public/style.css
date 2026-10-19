@@ -95,3 +95,10 @@
   .objective{width:190px}
   .joystick{opacity:.72}
 }
+
+@media (orientation:landscape) and (max-height:600px){
+  .players{top:50px;right:170px;max-width:120px}
+}
+@media (min-width:900px) and (orientation:landscape){
+  .players{right:210px;max-width:150px}
+}
