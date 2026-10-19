@@ -15,7 +15,7 @@ let currentPhaseVisual = 0;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 88 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
-const renderPixelRatioCap = isMobileDevice ? 0.85 : 1.5;
+const renderPixelRatioCap = isMobileDevice ? 0.9 : 1.5;
 
 function init3D() {
   scene = new THREE.Scene();
@@ -228,6 +228,47 @@ for (let z = -30; z <= 8; z += 6) {
     }
   }
 
+  // MUNDO 3 — Floresta amaldiçoada: troncos, raízes e copas de baixa poligonagem.
+  const bark = mat(0x382b27, .96), barkEdge = mat(0x5b4032, .9);
+  const leafDark = new THREE.MeshStandardMaterial({ color: 0x173d2b, roughness: .94, emissive: 0x092416, emissiveIntensity: .22 });
+  const leafLight = new THREE.MeshStandardMaterial({ color: 0x2c6542, roughness: .9, emissive: 0x0b2d1a, emissiveIntensity: .18 });
+  for (let z = -67; z >= -89; z -= 5.5) {
+    for (const side of [-1, 1]) {
+      const tree = new THREE.Group();
+      const x = side * (9.2 + (Math.abs(Math.floor(z)) % 3) * .65);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.16, .29, 2.9, 7), bark);
+      trunk.position.y = 1.42; trunk.rotation.z = side * .06; tree.add(trunk);
+      const root = new THREE.Mesh(new THREE.CylinderGeometry(.3,.42,.34,6), barkEdge);
+      root.position.set(0,.18,0); tree.add(root);
+      for (let tier = 0; tier < 3; tier++) {
+        const crown = new THREE.Mesh(new THREE.ConeGeometry(1.0-tier*.15,1.35,7),tier===1?leafLight:leafDark);
+        crown.position.set(side*(tier===2?.15:0),2.05+tier*.63,0);
+        crown.rotation.z=side*(.06+tier*.035); tree.add(crown);
+      }
+      const branch = new THREE.Mesh(new THREE.CylinderGeometry(.055,.1,.95,5), barkEdge);
+      branch.position.set(side*.38,1.9,.02); branch.rotation.z=side*-.9; tree.add(branch);
+      tree.position.set(x,0,z); tree.rotation.y=side*.16; scene.add(tree);
+    }
+  }
+  // MUNDO 4 — Vulcão: fissuras luminosas no piso e pedras basálticas nas margens.
+  const lava = new THREE.MeshBasicMaterial({ color:0xff652d, transparent:true, opacity:.9 });
+  const lavaGold = new THREE.MeshBasicMaterial({ color:0xffc15b, transparent:true, opacity:.76 });
+  const basalt = mat(0x30211e,.98,.08);
+  for(let z=-99;z>=-123;z-=3.4){
+    for(const side of [-1,1]){
+      const crack = new THREE.Mesh(new THREE.BoxGeometry(2.1+Math.random()*1.3,.035,.09),Math.random()>.55?lava:lavaGold);
+      crack.position.set(side*(3.7+Math.random()*4),-.005,z+(Math.random()-.5)*1.1);
+      crack.rotation.y=side*(Math.random()*.24); scene.add(crack);
+      if(Math.random()>.3){
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(.35+Math.random()*.32,0),basalt);
+        rock.position.set(side*(10.2+Math.random()*2),.08,z+.6); rock.rotation.set(Math.random(),Math.random(),Math.random()); rock.scale.y=.7; scene.add(rock);
+      }
+    }
+  }
+  // MUNDO 5 — anéis maiores e rubros ao redor do Guardião Supremo.
+  const finalSigil = new THREE.Mesh(new THREE.RingGeometry(6.1,6.22,64),new THREE.MeshBasicMaterial({color:0xaa3cff,transparent:true,opacity:.55,side:THREE.DoubleSide}));
+  finalSigil.rotation.x=-Math.PI/2; finalSigil.position.set(0,-.02,-150); scene.add(finalSigil);
+
   // FASE 3 — Arena do Abismo: runas rubras e obeliscos ao redor do chefe.
   const abyssStone = mat(0x211821, .78, .25);
   const abyssRune = new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .62, side: THREE.DoubleSide });
@@ -274,21 +315,39 @@ function trimMat() {
 
 // Textura procedural leve: pequenas marcas de pedra/metal, sem baixar imagens externas.
 function makeSurfaceTexture() {
+  // Textura procedural compacta em 128²: grão fino, manchas e fissuras sutis.
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-  const image = ctx.createImageData(64, 64);
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const image = ctx.createImageData(128, 128);
   for (let i = 0; i < image.data.length; i += 4) {
-    const shade = 205 + Math.floor(Math.random() * 46);
+    const shade = 178 + Math.floor(Math.random() * 68);
     image.data[i] = shade;
-    image.data[i + 1] = shade;
-    image.data[i + 2] = shade;
+    image.data[i + 1] = Math.max(0, shade - 3);
+    image.data[i + 2] = Math.max(0, shade - 7);
     image.data[i + 3] = 255;
   }
   ctx.putImageData(image, 0, 0);
+  ctx.globalAlpha = .24;
+  for (let i = 0; i < 160; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128;
+    const w = 2 + Math.random() * 13, h = .5 + Math.random() * 1.6;
+    ctx.fillStyle = Math.random() > .5 ? '#f0f4fa' : '#222832';
+    ctx.fillRect(x, y, w, h);
+  }
+  ctx.globalAlpha = .17;
+  ctx.strokeStyle = '#202632';
+  ctx.lineWidth = .8;
+  for (let i = 0; i < 9; i++) {
+    const x = Math.random() * 128, y = Math.random() * 128;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.lineTo(x + (Math.random() - .5) * 13, y + 2 + Math.random() * 14);
+    ctx.lineTo(x + (Math.random() - .5) * 20, y + 7 + Math.random() * 18);
+    ctx.stroke();
+  }
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2, 2);
+  texture.repeat.set(2.5, 2.5);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
@@ -336,8 +395,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   cape.rotation.x=-.08;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  add(new THREE.SphereGeometry(.255,16,12), skinMaterial,0,1.94,-.015);
-  add(new THREE.SphereGeometry(.27,16,10,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
+  add(new THREE.SphereGeometry(.255,20,14), skinMaterial,0,1.94,-.015);
+  add(new THREE.SphereGeometry(.27,20,12,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
   add(new THREE.BoxGeometry(.32,.09,.2), dark,0,2.04,-.17);
   for (const side of [-1,1]) add(new THREE.SphereGeometry(.035,8,6), glow,side*.09,1.96,-.239);
   // Ombreiras e pequenos rebites metálicos
