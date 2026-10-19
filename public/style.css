@@ -568,3 +568,9 @@ html, body { min-height: 100%; }
 .skill-panel-head strong{font-family:Cinzel,serif;font-size:13px;letter-spacing:.6px;color:#e9c477}
 .skill-panel-head button{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:#15202d;color:#fff;font-size:22px}
 @media(max-width:560px){.skill-tree{grid-template-columns:1fr;gap:8px}.skill-branch{padding:8px}.skill-branch-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.skill-node{min-height:105px;padding:8px}.skill-node .skill-node-top{font-size:10px}.skill-node small{font-size:9px}.skill-panel{top:142px;max-height:67vh}.skill-toggle{top:100px;left:10px}}
+
+/* Usabilidade: a árvore de skills precisa receber toque mesmo com o HUD não interativo por padrão. */
+#hud .skill-toggle, #hud .skill-panel { pointer-events: auto !important; touch-action: pan-y; }
+#hud .skill-toggle { cursor: pointer; }
+#hud .skill-panel button { pointer-events: auto !important; touch-action: manipulation; }
+#lobby .skill-tree button { pointer-events: auto; }
