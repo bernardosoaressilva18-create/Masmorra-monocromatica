@@ -523,3 +523,8 @@ html, body { min-height: 100%; }
   #hud button.fire-btn { right: 130px !important; bottom: 16px !important; left:auto !important; top:auto !important; }
   #hud button.lightning-btn { right: 70px !important; bottom: 84px !important; left:auto !important; top:auto !important; }
 }
+
+/* Controles táteis: impedir que o navegador roube o arrasto do analógico. */
+#joystick, #stick { touch-action: none !important; user-select: none; -webkit-user-select: none; }
+#joystick { z-index: 10001; }
+#stick { pointer-events: none; }
