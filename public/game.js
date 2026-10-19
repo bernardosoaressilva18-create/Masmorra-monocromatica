@@ -10,6 +10,7 @@ const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Ma
 const gateMeshes = [];
 let ambientParticles = null, particleMaterial = null;
 let bossMesh = null, bossData = null;
+let currentPhaseVisual = 0;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [];
 const world = { width: 30, depth: 46 };
 
@@ -156,6 +157,58 @@ for (let z = -30; z <= 8; z += 6) {
       const halo = new THREE.Mesh(new THREE.TorusGeometry(.28, .045, 5, 12), mat(0xb88751, .45, .4)); halo.position.set(x, 1.75, z); scene.add(halo);
     }
   }
+  // FASE 1 — Cripta antiga: altar e marcas de pedra azuladas.
+  const altarStone = mat(0x5b6470, .9, .12);
+  box(2.4, .35, 1.5, altarStone, 0, .16, 1.2);
+  box(1.65, .42, 1.05, trim, 0, .52, 1.2);
+  const altarRune = new THREE.Mesh(new THREE.RingGeometry(.55, .72, 24), new THREE.MeshBasicMaterial({ color: 0x75dff2, transparent: true, opacity: .65, side: THREE.DoubleSide }));
+  altarRune.rotation.x = -Math.PI / 2; altarRune.position.set(0, .75, 1.2); scene.add(altarRune);
+
+  // FASE 2 — Caverna mágica: cristais grandes nas laterais, fora da rota central.
+  const caveCrystal = new THREE.MeshStandardMaterial({ color: 0x7c63ff, emissive: 0x4b24d8, emissiveIntensity: 1.35, roughness: .28, metalness: .12 });
+  const caveCrystalSmall = new THREE.MeshStandardMaterial({ color: 0x5de8ff, emissive: 0x1688bd, emissiveIntensity: 1.1, roughness: .3 });
+  for (const z of [-16.5, -21.5, -24]) {
+    for (const side of [-1, 1]) {
+      const cluster = new THREE.Group();
+      for (let i = 0; i < 3; i++) {
+        const h = 1.15 + i * .42;
+        const crystalMesh = new THREE.Mesh(new THREE.OctahedronGeometry(.48 + i * .07, 0), i % 2 ? caveCrystalSmall : caveCrystal);
+        crystalMesh.scale.set(.8, h, .8);
+        crystalMesh.position.set((i - 1) * .48, h * .48, (i % 2) * .35);
+        crystalMesh.rotation.z = (i - 1) * .22;
+        cluster.add(crystalMesh);
+      }
+      cluster.position.set(side * (10.8 + (z === -24 ? .7 : 0)), .05, z);
+      scene.add(cluster);
+    }
+  }
+  // Veios luminosos no chão da caverna.
+  for (const z of [-15, -19, -23, -25]) {
+    for (const side of [-1, 1]) {
+      const vein = new THREE.Mesh(new THREE.BoxGeometry(2.2, .025, .07), new THREE.MeshBasicMaterial({ color: 0x7d5cff, transparent: true, opacity: .62 }));
+      vein.position.set(side * 7.8, -.045, z); vein.rotation.y = side * .18; scene.add(vein);
+    }
+  }
+
+  // FASE 3 — Arena do Abismo: runas rubras e obeliscos ao redor do chefe.
+  const abyssStone = mat(0x211821, .78, .25);
+  const abyssRune = new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .62, side: THREE.DoubleSide });
+  for (const [x, z] of [[-8.8, -29.2], [8.8, -29.2], [-8.8, -33], [8.8, -33]]) {
+    const obelisk = new THREE.Mesh(new THREE.CylinderGeometry(.28, .5, 3.2, 5), abyssStone);
+    obelisk.position.set(x, 1.55, z); obelisk.rotation.z = x < 0 ? .08 : -.08; scene.add(obelisk);
+    const crown = new THREE.Mesh(new THREE.OctahedronGeometry(.32), new THREE.MeshStandardMaterial({ color: 0xff315d, emissive: 0x9b102c, emissiveIntensity: 1.7 }));
+    crown.position.set(x, 3.3, z); scene.add(crown);
+  }
+  for (const radius of [2.2, 3.6, 5.1]) {
+    const circle = new THREE.Mesh(new THREE.RingGeometry(radius, radius + .055, 64), abyssRune);
+    circle.rotation.x = -Math.PI / 2; circle.position.set(0, -.025, -29.1); scene.add(circle);
+  }
+  // Marca visual no chão entre as regiões para mostrar a passagem de fase.
+  for (const z of [-12.8, -26.7]) {
+    const threshold = new THREE.Mesh(new THREE.BoxGeometry(27, .035, .18), new THREE.MeshStandardMaterial({ color: 0x43515e, emissive: 0x182a38, emissiveIntensity: .7, metalness: .3 }));
+    threshold.position.set(0, -.035, z); scene.add(threshold);
+  }
+
   const particleCount = 90, particlePositions = new Float32Array(particleCount * 3);
   for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -33+Math.random()*42; }
   const particleGeo = new THREE.BufferGeometry(); particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
@@ -491,6 +544,17 @@ function updateState(m) {
   }
 
   const phase = m.phase || 1, phaseLabel = $('phaseLabel');
+  if (phase !== currentPhaseVisual) {
+    currentPhaseVisual = phase;
+    const palettes = [
+      { bg: 0x090d14, fog: 0x090d14 },
+      { bg: 0x100c20, fog: 0x17112a },
+      { bg: 0x16070f, fog: 0x210914 }
+    ];
+    const palette = palettes[phase - 1] || palettes[0];
+    scene.background.setHex(palette.bg);
+    if (scene.fog) scene.fog.color.setHex(palette.fog);
+  }
   const aliveMonsters = m.monsters.filter(monster => monster.alive).length;
   const gate1 = gateMeshes[0], gate2 = gateMeshes[1];
   if (gate1) gate1.userData.open = phase > 1 || (phase === 1 && aliveMonsters === 0);
