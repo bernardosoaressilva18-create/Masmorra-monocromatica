@@ -70,6 +70,10 @@ const stoneDark = mat(0x303640, 1);
   });
 
   box(30, .8, 48, floor, 0, -.5, -11);
+  // Cada fase recebe um piso próprio, não apenas uma mudança de cor na névoa.
+  box(29.6, .08, 17.6, mat(0x303b49, .96), 0, -.055, -3.1);  // Cripta
+  box(29.6, .08, 13.4, mat(0x33284c, .92), 0, -.055, -20.0); // Caverna mágica
+  box(29.6, .08, 7.2, mat(0x321b28, .88, .12), 0, -.055, -30.7); // Arena do Abismo
   const tileMat = mat(0x343b45, .98);
   for (let z = -33; z <= 10; z += 3) for (let x = -12; x <= 12; x += 3) {
     if (Math.random() > .28) { const tile = box(2.72, .025, 2.72, tileMat, x, -.075, z); tile.position.y = -.075; }
@@ -457,13 +461,15 @@ function handleMessage(m) {
   if (m.type === 'joined') {
     playerId = m.id;
     roomCode = m.room;
-    started = true;
+    started = false;
     menu.classList.add('hidden');
     loading.classList.add('hidden');
-    hud.classList.remove('hidden');
+    hud.classList.add('hidden');
+    $('lobby').classList.remove('hidden');
+    $('lobbyRoomCode').textContent = roomCode;
     $('roomLabel').textContent = roomCode;
     $('loadingText').textContent = '';
-    showNotice('Você entrou na masmorra!');
+    showNotice('Você entrou no lobby!');
     return;
   }
 
@@ -506,6 +512,29 @@ function handleMessage(m) {
 }
 
 function updateState(m) {
+  if (!m.started) {
+    started = false;
+    $('lobby').classList.remove('hidden');
+    hud.classList.add('hidden');
+    $('lobbyRoomCode').textContent = roomCode;
+    const self = (m.players || []).find(p => p.id === playerId);
+    $('readyBtn').textContent = self && self.ready ? 'CANCELAR PRONTO' : 'ESTOU PRONTO';
+    $('startMatchBtn').classList.toggle('hidden', !self || !self.isHost);
+    $('startMatchBtn').disabled = !(m.players || []).length || m.players.some(p => !p.ready);
+    $('lobbyHint').textContent = self && self.isHost
+      ? (m.players.some(p => !p.ready) ? 'Você é o anfitrião. Espere todos marcarem PRONTO.' : 'Todos prontos! Toque em INICIAR PARTIDA.')
+      : 'Marque PRONTO e espere o anfitrião iniciar a partida.';
+    $('lobbyPlayers').innerHTML = (m.players || []).map(p =>
+      '<div class="lobby-player ' + (p.ready ? 'ready' : '') + '"><span class="lobby-name">' + escapeHTML(p.name) + (p.isHost ? ' · ANFITRIÃO' : '') + (p.id === playerId ? ' (você)' : '') + '</span><b class="lobby-state">' + (p.ready ? 'PRONTO' : 'AGUARDANDO') + '</b></div>'
+    ).join('') || '<p>Esperando aventureiros...</p>';
+    return;
+  }
+  if (!started) {
+    started = true;
+    $('lobby').classList.add('hidden');
+    hud.classList.remove('hidden');
+    showNotice('A partida começou!');
+  }
   const incoming = new Set();
 
   for (const p of m.players) {
@@ -517,6 +546,7 @@ function updateState(m) {
         myPlayer.userData.serverZ = p.z;
         myPlayer.userData.serverHp = p.hp ?? 100;
         $('hpText').textContent = String(myPlayer.userData.serverHp);
+        $('deathScreen').classList.toggle('hidden', myPlayer.userData.serverHp > 0);
         if (Math.abs(myPlayer.position.z - p.z) > 1.1) myPlayer.position.z = p.z;
         if (Math.abs(myPlayer.position.x - p.x) > 2.0) myPlayer.position.x = p.x;
       }
@@ -661,7 +691,7 @@ function moveInput() {
 }
 
 function attack() {
-  if (!started || attackCooldown > 0) return;
+  if (!started || attackCooldown > 0 || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
 
   attackCooldown = .45;
   send({ type: 'attack' });
@@ -687,6 +717,21 @@ $('startBtn').addEventListener('click', () => {
 });
 
 $('playBtn').addEventListener('click', () => connect(''));
+$('readyBtn').addEventListener('click', () => send({ type: 'ready' }));
+$('startMatchBtn').addEventListener('click', () => send({ type: 'startMatch' }));
+
+function leaveRoomToMenu() {
+  send({ type: 'leave' });
+  if (ws) ws.close();
+  started = false;
+  $('deathScreen').classList.add('hidden');
+  $('lobby').classList.add('hidden');
+  hud.classList.add('hidden');
+  menu.classList.remove('hidden');
+  setStatus('Você saiu da sala.');
+}
+$('leaveLobbyBtn').addEventListener('click', leaveRoomToMenu);
+$('deathLeaveBtn').addEventListener('click', leaveRoomToMenu);
 
 $('joinBtn').addEventListener('click', () => {
   const c = $('roomCode').value.trim().toUpperCase();
@@ -821,7 +866,7 @@ function animate() {
   attackCooldown = Math.max(0, attackCooldown - dt);
 
   // Movimento do jogador local
-  if (started && myPlayer) {
+  if (started && myPlayer && (myPlayer.userData.serverHp ?? 100) > 0) {
     const v = moveInput();
 
     if (Math.hypot(v.x, v.y) > 0.04) {
@@ -886,7 +931,7 @@ const right = new THREE.Vector3(
   if (bossMesh && bossMesh.visible && bossMesh.userData.targetX !== undefined) {
     bossMesh.position.x = THREE.MathUtils.lerp(bossMesh.position.x, bossMesh.userData.targetX, monsterSmooth);
     bossMesh.position.z = THREE.MathUtils.lerp(bossMesh.position.z, bossMesh.userData.targetZ, monsterSmooth);
-    bossMesh.position.y = .08 + Math.sin(performance.now() * .0015) * .12;
+    bossMesh.position.y = .08;
     bossMesh.rotation.y += dt * (bossMesh.userData.lifePhase === 3 ? .65 : .25);
   }
   // Anima os portões: as grades somem ao liberar a passagem.
@@ -894,13 +939,9 @@ const right = new THREE.Vector3(
     const targetScale = gate.userData.open ? 0 : 1;
     gate.userData.bars.scale.x = THREE.MathUtils.lerp(gate.userData.bars.scale.x, targetScale, 1 - Math.exp(-5 * dt));
     gate.userData.bars.visible = gate.userData.bars.scale.x > .04;
-    gate.userData.ring.material.opacity = gate.userData.open ? .08 : .3 + Math.sin(performance.now() * .003) * .08;
+    gate.userData.ring.material.opacity = gate.userData.open ? .08 : .3;
   }
-  if (ambientParticles) {
-    const positions = ambientParticles.geometry.attributes.position;
-    for (let i = 0; i < positions.count; i++) { positions.array[i*3+1] += Math.sin(performance.now()*.0006+i)*.0008; }
-    positions.needsUpdate = true;
-  }
+  // Partículas ambientais estáticas: sem oscilação que possa parecer pulsação.
   // Movimento suave dos monstros
   for (const obj of monsterMeshes.values()) {
     if (obj.userData.targetX === undefined) continue;
@@ -913,8 +954,7 @@ const right = new THREE.Vector3(
       obj.position.z, obj.userData.targetZ, monsterSmooth
     );
 
-    obj.position.y =
-      0.05 + Math.sin(performance.now() * 0.002 + obj.position.x) * 0.08;
+    obj.position.y = 0;
 
     obj.rotation.y += dt * 0.35;
   }
