@@ -364,15 +364,19 @@ wss.on('connection', ws => {
       const hitTargets = [];
       const applyDamage = (enemy, amount) => {
         if (!enemy || !enemy.alive) return;
-        enemy.hp = Math.max(0, (enemy.hp || 1) - amount);
+        const classPower = statsFor(player).spellPower * (hasSkill(player, 'arcane_mastery') ? 1.5 : 1);
+        const emberBonus = spell === 'fire' && hasSkill(player, 'ember_core') ? 1 : 0;
+        const bossBonus = enemy === room.boss && hasSkill(player, 'boss_hunter') ? 1.5 : 1;
+        const executeBonus = enemy.hp / (enemy.maxHp || 1) <= .35 && hasSkill(player, 'executioner') ? 1.5 : 1;
+        enemy.hp = Math.max(0, (enemy.hp || 1) - amount * classPower * bossBonus * executeBonus - emberBonus);
         if (spell === 'fire' && enemy.hp > 0) {
-          enemy.burnUntil = Date.now() + 3000;
+          enemy.burnUntil = Date.now() + (hasSkill(player, 'ember_core') ? 5000 : 3000);
           enemy.burnNextAt = Date.now() + 1000;
         }
         hitTargets.push({ x: enemy.x, z: enemy.z });
         if (enemy.hp <= 0) {
           enemy.alive = false;
-          if (room.phase < 5 && Math.random() < .25) grantLoot(player, 'monster');
+          if (room.phase < 5 && Math.random() < dropChance(player, .25)) grantLoot(player, 'monster');
           if (room.phase === 5 && enemy === room.boss) {
             const dropped = grantLoot(player, 'boss');
             broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
@@ -387,7 +391,8 @@ wss.on('connection', ws => {
         applyDamage(target, 1.5);
         // O raio perde força a cada salto: 0.9 no primeiro e 0.6 no segundo.
         let previous = target;
-        for (let hop = 0; hop < 2; hop++) {
+        const maxHops = hasSkill(player, 'storm_bond') ? 4 : 2;
+        for (let hop = 0; hop < maxHops; hop++) {
           const next = room.monsters
             .filter(m => m.alive && m.spawned && m !== previous && !hitTargets.some(t => t.x === m.x && t.z === m.z)
               && Math.hypot(m.x - previous.x, m.z - previous.z) <= 5)
@@ -403,15 +408,21 @@ wss.on('connection', ws => {
     } else if (msg.type === 'attack') {
       if (!room.started || player.hp <= 0) return;
       if (room.phase < 5) {
-        const target = room.monsters.find(m => m.alive && m.spawned && Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
+        const now = Date.now();
+        const attackInterval = Math.max(210, statsFor(player).attackMs - (hasSkill(player, 'swift_hands') ? 90 : 0));
+        if (now < (player.nextAttackAt || 0)) return;
+        player.nextAttackAt = now + attackInterval;
+        const attackRange = statsFor(player).range + (player.playerClass === 'archer' && hasSkill(player, 'longshot') ? 2 : 0);
+        const target = room.monsters.find(m => m.alive && m.spawned && Math.hypot(m.x - player.x, m.z - player.z) < attackRange);
         if (target) {
-          const damage = player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0);
+          let damage = player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0);
+          if (target.hp / (target.maxHp || 1) <= .35 && hasSkill(player, 'executioner')) damage += 2;
           target.hp = Math.max(0, (target.hp || 1) - damage);
           if (player.damageBuffHits > 0) { player.damageBuffHits--; if (player.damageBuffHits === 0) player.damageBuff = 0; }
           if (target.hp <= 0) {
             target.alive = false;
             // Monstros comuns não garantem item: chance de 25%, para loot não inundar o inventário.
-            if (Math.random() < 0.25) {
+            if (Math.random() < dropChance(player, .25)) {
               const dropped = grantLoot(player, 'monster');
               player.ws.send(JSON.stringify({ type: 'notice', text: 'Drop raro do monstro: ' + dropped.name + ' (' + dropped.rarity + ')' }));
             } else {
@@ -422,11 +433,14 @@ wss.on('connection', ws => {
             player.ws.send(JSON.stringify({ type: 'notice', text: 'Monstro ferido! Vida restante: ' + target.hp }));
           }
         }
-      } else if (room.boss && room.boss.alive && Math.hypot(room.boss.x - player.x, room.boss.z - player.z) < 4.2) {
-        const boss = room.boss; const damage = player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0); boss.hp = Math.max(0, boss.hp - damage);
+      } else if (room.boss && room.boss.alive && Math.hypot(room.boss.x - player.x, room.boss.z - player.z) < 5.2) {
+        const boss = room.boss; let damage = player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0);
+        if (hasSkill(player, 'boss_hunter')) damage = Math.round(damage * 1.5);
+        if (boss.hp / boss.maxHp <= .35 && hasSkill(player, 'executioner')) damage += 2;
+        boss.hp = Math.max(0, boss.hp - damage);
         if (player.damageBuffHits > 0) { player.damageBuffHits--; if (player.damageBuffHits === 0) player.damageBuff = 0; }
         player.ws.send(JSON.stringify({ type: 'notice', text: 'Você causou ' + damage + ' de dano no Guardião!' }));
-        const oldLifePhase = boss.lifePhase; boss.lifePhase = boss.hp > 10 ? 1 : boss.hp > 5 ? 2 : 3;
+        const oldLifePhase = boss.lifePhase; boss.lifePhase = boss.hp / boss.maxHp > .66 ? 1 : boss.hp / boss.maxHp > .33 ? 2 : 3;
         if (boss.lifePhase !== oldLifePhase && boss.hp > 0)
           broadcast(room, { type: 'notice', text: 'O Guardião entrou na fase de vida ' + boss.lifePhase + ' / 3!' });
         if (boss.hp <= 0) {
@@ -476,6 +490,8 @@ setInterval(() => {
   for (const room of rooms.values()) {
     if (!room.started) continue;
     const players = [...room.players.values()];
+    const now = Date.now();
+    for (const p of players) { if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextRegenAt || 0)) { p.hp = Math.min(p.maxHp, p.hp + 2); p.nextRegenAt = now + 3000; } }
 
     for (const monster of room.monsters) {
       if (!monster.alive) continue;
@@ -509,7 +525,7 @@ setInterval(() => {
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = monster.kind === 'brute' ? 0.18 : monster.kind === 'wraith' ? 0.24 : 0.21;
+          const speed = (monster.kind === 'brute' ? 0.18 : monster.kind === 'wraith' ? 0.24 : 0.21) * (room.phase >= 4 ? 1.08 : 1);
 
           monster.x += (dx / distance) * speed;
           monster.z += (dz / distance) * speed;
@@ -521,7 +537,7 @@ setInterval(() => {
       if (target && nearest <= 2.0 && Date.now() - (monster.attackAt || 0) > 1900) {
         monster.attackAt = Date.now();
         broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
-        target.hp = Math.max(0, target.hp - 4);
+        takeDamage(room, target, 4);
         target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
         if (target.hp <= 0) {
           target.hp = 0;
@@ -543,7 +559,7 @@ setInterval(() => {
           if (enemy === room.boss) {
             const dropped = grantLoot(owner, 'boss');
             broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO PELA QUEIMADURA! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
-          } else if (Math.random() < 0.25) grantLoot(owner, 'monster');
+          } else if (Math.random() < dropChance(owner, .25)) grantLoot(owner, 'monster');
         }
       }
     }
@@ -559,7 +575,7 @@ setInterval(() => {
       }
       if (target && nearest <= 2.8 && Date.now() - boss.attackAt > (boss.lifePhase === 3 ? 800 : 1200)) {
         boss.attackAt = Date.now();
-        target.hp = Math.max(0, target.hp - (boss.lifePhase === 3 ? 22 : 14));
+        takeDamage(room, target, boss.lifePhase === 3 ? 22 : 14);
         target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + (boss.lifePhase === 3 ? 22 : 14) + ' de vida.' }));
         if (target.hp <= 0) {
           target.hp = 0;
