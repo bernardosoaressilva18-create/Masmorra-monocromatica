@@ -1748,22 +1748,22 @@ const right = new THREE.Vector3(
   if (myPlayer) {
     const v = moveInput();
     const moving = started && Math.hypot(v.x, v.y) > 0.04 && (myPlayer.userData.serverHp ?? 100) > 0;
-    myPlayer.userData.walkPhase = (myPlayer.userData.walkPhase || 0) + dt * (moving ? 10.5 : 1.8);
+    myPlayer.userData.walkPhase = (myPlayer.userData.walkPhase || 0) + dt * (moving ? 9 : 1.8);
     const phase = myPlayer.userData.walkPhase;
     const stride = moving ? 1 : .12;
     const breath = Math.sin(phase * .8);
-    if (myPlayer.userData.torso) { myPlayer.userData.torso.scale.y = 1 + breath * .018; myPlayer.userData.torso.rotation.z = moving ? Math.sin(phase) * .035 : Math.sin(phase * .5) * .012; }
-    if (myPlayer.userData.head) { myPlayer.userData.head.rotation.x = moving ? Math.sin(phase) * .035 : Math.sin(phase * .6) * .018; myPlayer.userData.head.rotation.z = Math.sin(phase * .4) * .012; }
+    if (myPlayer.userData.torso) { myPlayer.userData.torso.scale.y = 1 + breath * .018; myPlayer.userData.torso.rotation.z = moving ? Math.sin(phase) * .018 : Math.sin(phase * .5) * .01; }
+    if (myPlayer.userData.head) { myPlayer.userData.head.rotation.x = moving ? Math.sin(phase) * .02 : Math.sin(phase * .6) * .014; myPlayer.userData.head.rotation.z = Math.sin(phase * .4) * .012; }
     for (const leg of myPlayer.userData.legs || []) {
-      leg.mesh.rotation.x = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .58 * stride;
+      leg.mesh.rotation.x = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .38 * stride;
     }
     for (const arm of myPlayer.userData.arms || []) {
-      arm.mesh.rotation.x = Math.sin(phase + (arm.side < 0 ? Math.PI : 0)) * .32 * stride;
+      arm.mesh.rotation.x = Math.sin(phase + (arm.side < 0 ? Math.PI : 0)) * .2 * stride;
     }
-    myPlayer.position.y = moving ? Math.abs(Math.sin(phase * 2)) * .045 : 0;
+    myPlayer.position.y = moving ? Math.abs(Math.sin(phase * 2)) * .018 : 0;
     if (myPlayer.userData.cape) {
-      myPlayer.userData.cape.rotation.x = -.08 + Math.sin(phase) * .09 * stride;
-      myPlayer.userData.cape.rotation.z = Math.sin(phase * .5) * .035 * stride;
+      myPlayer.userData.cape.rotation.x = -.08 + Math.sin(phase) * .055 * stride;
+      myPlayer.userData.cape.rotation.z = Math.sin(phase * .5) * .02 * stride;
     }
   }
 
@@ -1787,11 +1787,11 @@ const right = new THREE.Vector3(
 
     obj.rotation.y += angleDiff * remoteSmooth;
     const remoteMoving = Math.hypot((obj.userData.targetX ?? obj.position.x) - obj.position.x, (obj.userData.targetZ ?? obj.position.z) - obj.position.z) > .035;
-    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (remoteMoving ? 9.5 : 1.8);
+    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (remoteMoving ? 7.5 : 1.8);
     const rp = obj.userData.walkPhase;
-    for (const leg of obj.userData.legs || []) leg.mesh.rotation.x = Math.sin(rp + (leg.side > 0 ? Math.PI : 0)) * (remoteMoving ? .5 : .035);
-    for (const arm of obj.userData.arms || []) arm.mesh.rotation.x = Math.sin(rp + (arm.side < 0 ? Math.PI : 0)) * (remoteMoving ? .28 : .025);
-    if (obj.userData.cape) obj.userData.cape.rotation.x = -.08 + Math.sin(rp) * (remoteMoving ? .09 : .015);
+    for (const leg of obj.userData.legs || []) leg.mesh.rotation.x = Math.sin(rp + (leg.side > 0 ? Math.PI : 0)) * (remoteMoving ? .34 : .025);
+    for (const arm of obj.userData.arms || []) arm.mesh.rotation.x = Math.sin(rp + (arm.side < 0 ? Math.PI : 0)) * (remoteMoving ? .17 : .018);
+    if (obj.userData.cape) obj.userData.cape.rotation.x = -.08 + Math.sin(rp) * (remoteMoving ? .055 : .012);
   }
 
   // Monstros: suaviza o deslocamento e anima o corpo enquanto perseguem.
@@ -1801,10 +1801,10 @@ const right = new THREE.Vector3(
     const dz = obj.userData.targetZ - obj.position.z;
     const distance = Math.hypot(dx, dz);
     const moving = distance > .035;
-    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (moving ? 9 : 2);
+    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (moving ? 7.5 : 2);
     const phase = obj.userData.walkPhase;
-    obj.position.y = moving ? Math.abs(Math.sin(phase * 2)) * (obj.userData.kind === 'wraith' ? .11 : .055) : 0;
-    obj.rotation.z = moving ? Math.sin(phase) * .035 : THREE.MathUtils.lerp(obj.rotation.z, 0, 1 - Math.exp(-5 * dt));
+    obj.position.y = moving ? Math.abs(Math.sin(phase * 2)) * (obj.userData.kind === 'wraith' ? .07 : .025) : 0;
+    obj.rotation.z = moving ? Math.sin(phase) * .018 : THREE.MathUtils.lerp(obj.rotation.z, 0, 1 - Math.exp(-5 * dt));
     // Gira o monstro para encarar o personagem sem trancos.
     if (obj.userData.targetRot !== undefined) {
       const angleDiff = Math.atan2(
@@ -1814,11 +1814,11 @@ const right = new THREE.Vector3(
       obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
     }
     for (const limb of obj.userData.animatedLimbs || []) {
-      limb.mesh.rotation.x = Math.sin(phase + (limb.side > 0 ? Math.PI : 0)) * (moving ? .22 : .035);
-      limb.mesh.rotation.z = limb.baseRotationZ + Math.sin(phase * .65 + limb.side) * (moving ? .07 : .018);
+      limb.mesh.rotation.x = Math.sin(phase + (limb.side > 0 ? Math.PI : 0)) * (moving ? .14 : .02);
+      limb.mesh.rotation.z = limb.baseRotationZ + Math.sin(phase * .65 + limb.side) * (moving ? .035 : .012);
     }
     if (obj.userData.kind === 'stalker') {
-      obj.rotation.x = moving ? Math.sin(phase) * .045 : THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-5 * dt));
+      obj.rotation.x = moving ? Math.sin(phase) * .025 : THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-5 * dt));
     }
   }
 
@@ -1829,8 +1829,8 @@ const right = new THREE.Vector3(
     const bossPhase = bossMesh.userData.animPhase;
     const bossMoving = Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04;
     bossMesh.position.y = .08 + Math.sin(bossPhase * 1.5) * .045;
-    if (bossMesh.userData.torso) bossMesh.userData.torso.rotation.z = Math.sin(bossPhase) * (bossMoving ? .06 : .025);
-    for (const arm of bossMesh.userData.arms || []) arm.mesh.rotation.x = Math.sin(bossPhase + (arm.side > 0 ? Math.PI : 0)) * (bossMoving ? .28 : .07);
+    if (bossMesh.userData.torso) bossMesh.userData.torso.rotation.z = Math.sin(bossPhase) * (bossMoving ? .035 : .018);
+    for (const arm of bossMesh.userData.arms || []) arm.mesh.rotation.x = Math.sin(bossPhase + (arm.side > 0 ? Math.PI : 0)) * (bossMoving ? .2 : .045);
     if (bossMesh.userData.eyeMaterial) bossMesh.userData.eyeMaterial.emissiveIntensity = 2.3 + (Math.sin(bossPhase * 2.1) + 1) * .55;
     // O Guardião respira, balança os braços e pulsa os olhos durante a perseguição.
   }
