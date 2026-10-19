@@ -48,9 +48,12 @@ function box(w, h, d, material, x, y, z) {
 
 function buildDungeon() {
   const floor = mat(0x252a31);
-  const wall = mat(0x414751);
-  const dark = mat(0x171c24);
-  const trim = mat(0x8a7150, .75, .25);
+const wall = mat(0x414751, 0.95);
+const dark = mat(0x171c24, 1);
+const trim = mat(0x8a7150, 0.75, 0.25);
+
+const stoneLight = mat(0x515965, 0.95);
+const stoneDark = mat(0x303640, 1);
   const crystal = new THREE.MeshStandardMaterial({
     color: 0x70dfff,
     emissive: 0x167ca0,
