@@ -881,7 +881,7 @@ function updateState(m) {
   }
 
   $('monsterText').textContent = phase === 5
-    ? (bossData && bossData.alive ? 'Guardião do Abismo' : 'Masmorra concluída')
+    ? (bossData && bossData.alive ? 'Guardião Supremo' : 'Masmorra concluída')
     : alive + ' monstros restantes';
   const phaseTotal = phase === 1 ? 5 : phase === 2 ? 8 : phase === 3 ? 9 : phase === 4 ? 11 : 65;
   const phaseProgress = phase === 5 && bossData
