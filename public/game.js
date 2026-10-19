@@ -82,22 +82,22 @@ const stoneDark = mat(0x303640, 1);
     emissiveIntensity: 1.8
   });
 
-  box(30, .8, 48, floor, 0, -.5, -11);
+  box(30, .8, 58, floor, 0, -.5, -14);
   // Cada fase recebe um piso próprio, não apenas uma mudança de cor na névoa.
   box(29.6, .08, 17.6, mat(0x303b49, .96), 0, -.055, -3.1);  // Cripta
   box(29.6, .08, 13.4, mat(0x33284c, .92), 0, -.055, -20.0); // Caverna mágica
-  box(29.6, .08, 7.2, mat(0x321b28, .88, .12), 0, -.055, -30.7); // Arena do Abismo
+  box(29.6, .08, 18.2, mat(0x321b28, .88, .12), 0, -.055, -32.2); // Arena do Abismo ampliada
   const tileMat = mat(0x343b45, .98);
   for (let z = -33; z <= 10; z += 3) for (let x = -12; x <= 12; x += 3) {
     if (Math.random() > .28) { const tile = box(2.72, .025, 2.72, tileMat, x, -.075, z); tile.position.y = -.075; }
   }
 
-  for (let z = -34; z <= 12; z += 4) {
+  for (let z = -42; z <= 12; z += 4) {
     box(29.8, .05, .06, dark, 0, -.07, z);
   }
 
-  box(.7, 5, 48, wall, -15, 2, -11);
-  box(.7, 5, 48, wall, 15, 2, -11);
+  box(.7, 5, 58, wall, -15, 2, -14);
+  box(.7, 5, 58, wall, 15, 2, -14);
 // Detalhes de pedra nas paredes
 for (let z = -30; z <= 8; z += 6) {
   box(0.12, 0.18, 2.2, stoneLight, -14.55, 1.2, z);
@@ -106,10 +106,10 @@ for (let z = -30; z <= 8; z += 6) {
   box(0.12, 0.18, 2.2, stoneLight, 14.55, 1.2, z);
   box(0.12, 0.12, 1.5, stoneDark, 14.55, 2.8, z + 2);
 }
-  box(30, 5, .8, wall, 0, 2, -35);
+  box(30, 5, .8, wall, 0, 2, -43);
   box(30, 5, .8, wall, 0, 2, 13);
 
-  for (let z = -32; z <= 9; z += 5) {
+  for (let z = -40; z <= 9; z += 5) {
     for (const side of [-1, 1]) {
       const x = side * 14.35;
       box(.8, .35, .9, trim, x, 4.25, z);
@@ -986,7 +986,7 @@ function setJoy(e) {
   const r = joyEl.getBoundingClientRect();
   const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   let dx = e.clientX - cx, dy = e.clientY - cy;
-  const max = r.width * .34, len = Math.hypot(dx, dy);
+  const max = Math.min(r.width, r.height) * .34, len = Math.hypot(dx, dy);
 
   if (len > max) {
     dx = dx / len * max;
@@ -1000,6 +1000,7 @@ function setJoy(e) {
 
 joyEl.addEventListener('pointerdown', e => {
   e.preventDefault();
+  if (e.button !== undefined && e.button !== 0) return;
   if (joyPointer !== null) return;
   joyPointer = e.pointerId;
   joyEl.setPointerCapture(e.pointerId);
@@ -1021,6 +1022,7 @@ function endJoy(e) {
 }
 joyEl.addEventListener('pointerup', endJoy);
 joyEl.addEventListener('pointercancel', endJoy);
+joyEl.addEventListener('lostpointercapture', endJoy);
 
 // Arrastar fora dos controles para girar a câmera
 let lookPointer = null, lastX = 0, lastY = 0;
@@ -1098,7 +1100,7 @@ const right = new THREE.Vector3(
 
       myPlayer.position.z = THREE.MathUtils.clamp(
         myPlayer.position.z + dir.z * dt * 5.8,
-        -31, 8
+        -39, 8
       );
 
       myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
