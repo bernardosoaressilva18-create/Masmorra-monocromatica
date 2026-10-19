@@ -240,63 +240,90 @@ function trimMat() {
 
 function makeHero(color = 0x72e6ff) {
   const g = new THREE.Group();
-  const armor = mat(color, .55, .2);
-  const dark = mat(0x1b2430, .8);
-  const skin = mat(0xe2b99a);
-  const metal = mat(0x8fa6b4, .35, .6);
+  // Silhueta de aventureiro: armadura em camadas, capa, botas e espada.
+  const armor = mat(color, .42, .32);
+  const armorLight = mat(0xa9c9d5, .34, .58);
+  const dark = mat(0x17202d, .82, .12);
+  const skin = mat(0xd9a985, .78, 0);
+  const leather = mat(0x68412e, .78, .05);
+  const gold = mat(0xe5b95f, .32, .65);
+  const glow = new THREE.MeshStandardMaterial({color:0x8af3ff,emissive:0x28c9ef,emissiveIntensity:1.1,roughness:.28});
 
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.38, .55, 4, 7), armor);
-  torso.position.y = 1.2;
-  g.add(torso);
+  const add = (geo, material, pos, scale) => {
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.position.set(pos[0],pos[1],pos[2]);
+    if (scale) mesh.scale.set(scale[0],scale[1],scale[2]);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    g.add(mesh);
+    return mesh;
+  };
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.27, 10, 8), skin);
-  head.position.y = 1.95;
-  g.add(head);
-
-  const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(.28, 10, 6, 0, Math.PI * 2, 0, Math.PI * .55),
-    dark
-  );
-  hair.position.y = 2.08;
-  g.add(hair);
-
-  const cape = new THREE.Mesh(new THREE.BoxGeometry(.56, .72, .12), dark);
-  cape.position.set(0, 1.25, .32);
-  g.add(cape);
-
-  for (const s of [-1, 1]) {
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.12, .43, 3, 5), armor);
-    arm.position.set(s * .48, 1.25, 0);
-    arm.rotation.z = s * -.13;
-    g.add(arm);
-
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.15, .45, 3, 5), dark);
-    leg.position.set(s * .2, .48, 0);
-    g.add(leg);
+  // Botas e pernas
+  for (const side of [-1,1]) {
+    add(new THREE.CapsuleGeometry(.145,.35,4,8),dark,[side*.205,.43,0],[1,1,.95]);
+    add(new THREE.BoxGeometry(.31,.18,.43),leather,[side*.205,.17,-.07]);
+    add(new THREE.BoxGeometry(.22,.12,.08),gold,[side*.205,.47,-.17]);
   }
 
+  // Capa com gola alta, posicionada atrás do corpo
+  const cape = add(new THREE.BoxGeometry(.68,.86,.13),dark,[0,1.18,.31],[1,.98,1]);
+  cape.rotation.x = -.08;
+  add(new THREE.ConeGeometry(.38,.32,5),leather,[0,1.65,.27],[1,.7,.45]);
+
+  // Tronco e placas da armadura
+  add(new THREE.CapsuleGeometry(.36,.54,5,10),armor,[0,1.22,0],[1.05,1,.82]);
+  add(new THREE.BoxGeometry(.48,.17,.12),armorLight,[0,1.48,-.31]);
+  add(new THREE.BoxGeometry(.38,.12,.1),gold,[0,1.12,-.34]);
+  add(new THREE.BoxGeometry(.18,.13,.08),gold,[0,1.12,-.4]);
+  add(new THREE.BoxGeometry(.56,.13,.14),leather,[0,.91,0]);
+
+  // Ombreiras, braços e luvas
+  for (const side of [-1,1]) {
+    const shoulder = add(new THREE.SphereGeometry(.23,12,10),armorLight,[side*.43,1.48,0],[1,.82,1]);
+    shoulder.rotation.z = side*.18;
+    add(new THREE.CapsuleGeometry(.115,.36,4,8),armor,[side*.49,1.18,-.01]);
+    add(new THREE.SphereGeometry(.13,10,8),dark,[side*.51,.91,-.04]);
+    add(new THREE.BoxGeometry(.25,.08,.23),gold,[side*.43,1.48,-.02]);
+  }
+
+  // Cabeça, cabelo e rosto virado para a frente (-Z)
+  add(new THREE.SphereGeometry(.245,16,12),skin,[0,1.91,-.015],[.92,1.08,.88]);
+  add(new THREE.SphereGeometry(.255,14,9,0,Math.PI*2,0,Math.PI*.48),dark,[0,2.035,.015],[1.02,1,.98]);
+  add(new THREE.BoxGeometry(.29,.09,.18),dark,[0,1.79,-.19]);
+  for (const side of [-1,1]) {
+    add(new THREE.SphereGeometry(.035,8,6),glow,[side*.09,1.94,-.22]);
+    add(new THREE.BoxGeometry(.07,.13,.09),armorLight,[side*.24,1.91,-.015]);
+  }
+  // Pequena crista e broche central
+  const crest=add(new THREE.ConeGeometry(.075,.24,5),gold,[0,2.27,-.01]);
+  crest.rotation.z=Math.PI;
+  add(new THREE.OctahedronGeometry(.09),glow,[0,1.51,-.39],[1,.85,.6]);
+
+  // Espada com guarda metálica e punho de couro na mão direita
   const sword = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(.09, .75, .12), metal);
-  blade.position.y = .47;
-  sword.add(blade);
-
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(.32, .07, .16), trimMat());
-  guard.position.y = .12;
-  sword.add(guard);
-
-  sword.position.set(.56, 1.02, -.1);
-  sword.rotation.z = -.25;
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(.095,.77,.075),armorLight);
+  blade.position.y=.48; sword.add(blade);
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(.025,.68,.018),glow);
+  edge.position.set(-.035,.49,-.045); sword.add(edge);
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(.31,.065,.12),gold);
+  guard.position.y=.12; sword.add(guard);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.2,8),leather);
+  grip.position.y=.015; sword.add(grip);
+  sword.position.set(.61,.78,-.1);
+  sword.rotation.z=-.28;
   g.add(sword);
-  g.userData.sword = sword;
+  g.userData.sword=sword;
 
+  // Marca de chão discreta e estática, sem pulsação.
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(.43, .49, 24),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .55, side: THREE.DoubleSide })
+    new THREE.RingGeometry(.43,.47,32),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity:.28,side:THREE.DoubleSide})
   );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = .025;
+  ring.rotation.x=-Math.PI/2;
+  ring.position.y=.025;
   g.add(ring);
-
+  g.userData.kind='hero';
   return g;
 }
 
@@ -599,8 +626,12 @@ function updateState(m) {
         myPlayer.userData.serverHp = p.hp ?? 100;
         $('hpText').textContent = String(myPlayer.userData.serverHp);
         $('deathScreen').classList.toggle('hidden', myPlayer.userData.serverHp > 0);
-        if (Math.abs(myPlayer.position.z - p.z) > 1.1) myPlayer.position.z = p.z;
-        if (Math.abs(myPlayer.position.x - p.x) > 2.0) myPlayer.position.x = p.x;
+        // Corrige apenas desvios grandes e de forma gradual; evitar teletransportes
+        // repentinos deixa o personagem estável e elimina o efeito de "pulsação".
+        const dx = p.x - myPlayer.position.x;
+        const dz = p.z - myPlayer.position.z;
+        if (Math.abs(dx) > 1.6) myPlayer.position.x += dx * 0.12;
+        if (Math.abs(dz) > 1.6) myPlayer.position.z += dz * 0.12;
       }
       continue;
     }
