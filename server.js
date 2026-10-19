@@ -115,8 +115,8 @@ function advancePhase(room) {
     broadcast(room, { type: 'notice', text: 'PORTÃO ABERTO! FASE 3: O Guardião do Abismo despertou!' });
   }
 }
-function newRoom(code) {
-  const room = { players: new Map(), phase: 1, monsters: createWave(1), boss: null, bossAttackAt: 0,
+function newRoom(code, hostId) {
+  const room = { players: new Map(), hostId, started: false, phase: 1, monsters: createWave(1), boss: null, bossAttackAt: 0,
     chests: [
       { id: 'c0', x: -8, z: -8, openedBy: [] },
       { id: 'c1', x: 8, z: -19, openedBy: [] },
@@ -136,9 +136,11 @@ function state(room) {
   return {
     type: 'state',
     players: [...room.players.values()].map(p => ({
-      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp
+      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, ready: !!p.ready, isHost: p.id === room.hostId
     })),
     phase: room.phase,
+    started: room.started,
+    hostId: room.hostId,
     monsters: room.monsters,
     boss: room.boss,
     chests: room.chests.map(chest => ({ id: chest.id, x: chest.x, z: chest.z, opened: chest.openedBy.length > 0 }))
@@ -152,6 +154,7 @@ wss.on('connection', ws => {
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   hp: 100, lastGateNotice: 0, baseDamage: 1, damageBuff: 0, damageBuffHits: 0,
   room: null,
+  ready: false,
   lootDrops: [],
   inventory: {
     comum: 0,
@@ -176,13 +179,18 @@ wss.on('connection', ws => {
       }
 
       let room = rooms.get(code);
-      if (!room) room = newRoom(code);
+      if (!room) room = newRoom(code, player.id);
+      if (room.started) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Essa partida já começou. Entre em outra sala.' }));
+        return;
+      }
 
       player.room = code;
       player.name = String(msg.name || 'Aventureiro').slice(0, 18);
       player.x = 0;
       player.z = 3;
       player.hp = 100;
+      player.ready = false;
       player.baseDamage = 1; player.damageBuff = 0; player.damageBuffHits = 0;
       room.players.set(player.id, player);
 
@@ -196,7 +204,25 @@ wss.on('connection', ws => {
     const room = player.room && rooms.get(player.room);
     if (!room) return;
 
-    if (msg.type === 'move') {
+    if (msg.type === 'ready') {
+      if (room.started) return;
+      player.ready = !player.ready;
+      broadcast(room, state(room));
+    } else if (msg.type === 'startMatch') {
+      if (room.started) return;
+      if (player.id !== room.hostId) {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Só o anfitrião pode iniciar a partida.' }));
+        return;
+      }
+      if ([...room.players.values()].some(p => !p.ready)) {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Todos os jogadores precisam clicar em PRONTO.' }));
+        return;
+      }
+      room.started = true;
+      broadcast(room, { type: 'notice', text: 'A partida começou! Boa sorte, aventureiros.' });
+      broadcast(room, state(room));
+    } else if (msg.type === 'move') {
+      if (!room.started || player.hp <= 0) return;
       player.x = Math.max(-13, Math.min(13, Number(msg.x) || 0));
       const requestedZ = Math.max(-31, Math.min(8, Number(msg.z) || 0));
       const gateZ = room.phase === 1 ? -13 : room.phase === 2 ? -27 : -999;
@@ -214,6 +240,7 @@ wss.on('connection', ws => {
       player.rot = Number(msg.rot) || 0;
       broadcast(room, state(room));
     } else if (msg.type === 'useItem') {
+      if (!room.started || player.hp <= 0) return;
       const itemIndex = player.lootDrops.findIndex(item => item.id === String(msg.id));
       if (itemIndex < 0) { ws.send(JSON.stringify({ type: 'notice', text: 'Esse item não está mais no inventário.' })); return; }
       const item = player.lootDrops[itemIndex];
@@ -245,6 +272,7 @@ wss.on('connection', ws => {
       ws.send(JSON.stringify({ type: 'notice', text: item.name + ': ' + effect }));
       broadcast(room, state(room));
     } else if (msg.type === 'attack') {
+      if (!room.started || player.hp <= 0) return;
       if (room.phase < 3) {
         const target = room.monsters.find(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
         if (target) {
@@ -276,6 +304,7 @@ wss.on('connection', ws => {
       }
       broadcast(room, { type: 'attack', id: player.id }); broadcast(room, state(room));
     } else if (msg.type === 'openChest') {
+      if (!room.started || player.hp <= 0) return;
       const chest = room.chests.find(ch => ch.id === String(msg.id));
       if (!chest) return;
       if (Math.hypot(chest.x - player.x, chest.z - player.z) > 3.0) {
@@ -293,6 +322,7 @@ wss.on('connection', ws => {
     } else if (msg.type === 'leave') {
       room.players.delete(player.id);
       player.room = null;
+      if (room.hostId === player.id) room.hostId = room.players.keys().next().value || null;
       broadcast(room, state(room));
     }
   });
@@ -301,6 +331,7 @@ wss.on('connection', ws => {
     const room = player.room && rooms.get(player.room);
     if (room) {
       room.players.delete(player.id);
+      if (room.hostId === player.id) room.hostId = room.players.keys().next().value || null;
       broadcast(room, state(room));
       if (room.players.size === 0) rooms.delete(player.room);
     }
@@ -309,6 +340,7 @@ wss.on('connection', ws => {
 
 setInterval(() => {
   for (const room of rooms.values()) {
+    if (!room.started) continue;
     const players = [...room.players.values()];
 
     for (const monster of room.monsters) {
@@ -318,6 +350,7 @@ setInterval(() => {
       let nearest = Infinity;
 
       for (const player of players) {
+        if (player.hp <= 0) continue;
         const distance = Math.hypot(
           player.x - monster.x,
           player.z - monster.z
@@ -349,15 +382,15 @@ setInterval(() => {
         target.hp = Math.max(0, target.hp - 8);
         target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -8 de vida.' }));
         if (target.hp <= 0) {
-          target.hp = 100; target.x = 0; target.z = 3;
-          target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado e renasceu na entrada.' }));
+          target.hp = 0;
+          target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
         }
       }
     }
 
     if (room.phase === 3 && room.boss && room.boss.alive) {
       const boss = room.boss; let target = null, nearest = Infinity;
-      for (const p of players) { const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
+      for (const p of players) { if (p.hp <= 0) continue; const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
       if (target && nearest > 2.35 && nearest < 24) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
         const speed = boss.lifePhase === 1 ? 0.055 : boss.lifePhase === 2 ? 0.075 : 0.105;
@@ -369,8 +402,8 @@ setInterval(() => {
         target.hp = Math.max(0, target.hp - (boss.lifePhase === 3 ? 22 : 14));
         target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + (boss.lifePhase === 3 ? 22 : 14) + ' de vida.' }));
         if (target.hp <= 0) {
-          target.hp = 100; target.x = 0; target.z = 3;
-          target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado e renasceu na entrada.' }));
+          target.hp = 0;
+          target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
         }
       }
     }
