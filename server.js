@@ -228,7 +228,7 @@ wss.on('connection', ws => {
     } else if (msg.type === 'move') {
       if (!room.started || player.hp <= 0) return;
       player.x = Math.max(-13, Math.min(13, Number(msg.x) || 0));
-      const requestedZ = Math.max(-31, Math.min(8, Number(msg.z) || 0));
+      const requestedZ = Math.max(-39, Math.min(8, Number(msg.z) || 0));
       const gateZ = room.phase === 1 ? -13 : room.phase === 2 ? -27 : -999;
       const enemiesAlive = room.phase === 3 ? false : room.monsters.some(m => m.alive);
       if (room.phase < 3 && requestedZ < gateZ && enemiesAlive) {
