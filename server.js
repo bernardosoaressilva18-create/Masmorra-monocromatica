@@ -498,7 +498,7 @@ wss.on('connection', ws => {
 });
 
 setInterval(() => {
-  for (const room of rooms.values()) {
+  for (const [roomCode, room] of rooms.entries()) {
     if (room.started && room.players.size === 0) {
       if (!room.emptySince) room.emptySince = Date.now();
       if (Date.now() - room.emptySince > 120000) { rooms.delete(roomCode); continue; }
