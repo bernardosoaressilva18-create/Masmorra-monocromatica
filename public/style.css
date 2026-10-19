@@ -335,3 +335,34 @@ html, body { min-height: 100%; }
   #hud .stick { left: 70px !important; top: 70px !important; }
   #hud .attack { width: 146px !important; height: 146px !important; }
 }
+
+
+/* Botão de item visível acima do conjunto de combate */
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 700px) {
+  #hud .selected-item {
+    left: auto !important; right: 8px !important; bottom: 160px !important;
+    transform: none !important; width: min(46vw,170px) !important;
+    z-index: 16 !important; background: rgba(7,17,28,.96) !important;
+  }
+  #hud .attack { right: 8px !important; bottom: 8px !important; }
+  #hud .chest-btn { right: 112px !important; bottom: 8px !important; }
+  #hud .spell-btn {
+    position: absolute; z-index: 15; pointer-events: auto; touch-action: none;
+    width: 62px; height: 62px; border-radius: 50%; display: flex;
+    flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    background: rgba(10,17,28,.28); color: #fff; border: 1px solid #ffffff22;
+    box-shadow: 0 2px 12px #0005; font-size: 8px;
+  }
+  #hud .spell-btn span { font-size: 24px; line-height: 1; opacity: .9; }
+  #hud .spell-btn small { font-size: 7px; font-weight: 900; }
+  #hud .spell-btn b { font-size: 7px; color: #c9f6ff; }
+  #hud .fire-btn { right: 96px; bottom: 82px; border-color: #ff9a4a66; }
+  #hud .lightning-btn { right: 24px; bottom: 92px; border-color: #8caaff77; }
+  #hud .spell-btn:disabled { opacity: .35; filter: grayscale(1); }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  #hud .spell-btn { position:absolute; z-index:15; pointer-events:auto; width:62px;height:62px;border-radius:50%;background:#10192366;color:#fff;border:1px solid #ffffff22;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none; }
+  #hud .spell-btn span {font-size:24px}.spell-btn small{font-size:7px}
+  #hud .fire-btn {right:130px;bottom:14px}.lightning-btn{right:65px;bottom:95px}
+  #hud .selected-item {left:auto!important;right:12px!important;bottom:160px!important;transform:none!important;z-index:16!important}
+}
