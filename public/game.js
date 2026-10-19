@@ -1141,7 +1141,7 @@ const right = new THREE.Vector3(
     } else obj.rotation.x = THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-12 * dt));
     obj.position.y = obj.userData.attackAnim > 0 ? Math.sin((obj.userData.attackAnim / 0.38) * Math.PI) * 0.22 : 0;
 
-    obj.rotation.y += dt * 0.35;
+    // Mantém a orientação do monstro; não gira continuamente no próprio eixo.
   }
 
   // Câmera em terceira pessoa com acompanhamento suave
