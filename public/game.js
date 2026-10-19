@@ -616,7 +616,7 @@ const right = new THREE.Vector3(
         -31, 8
       );
 
-      myPlayer.rotation.y = Math.atan2(dir.x, dir.z);
+      myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
     }
 
     if (performance.now() - lastMove > 70) {
