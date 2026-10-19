@@ -400,19 +400,19 @@ setInterval(() => {
         }
       }
 
-      if (target && nearest > 1.8 && nearest < 28) {
+      if (target && nearest > 1.8 && nearest < 40) {
         const dx = target.x - monster.x;
         const dz = target.z - monster.z;
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = monster.kind === 'brute' ? 0.105 : monster.kind === 'wraith' ? 0.15 : 0.125;
+          const speed = monster.kind === 'brute' ? 0.18 : monster.kind === 'wraith' ? 0.24 : 0.21;
 
           monster.x += (dx / distance) * speed;
           monster.z += (dz / distance) * speed;
 
           monster.x = Math.max(-13, Math.min(13, monster.x));
-          monster.z = Math.max(-31, Math.min(8, monster.z));
+          monster.z = Math.max(-39, Math.min(8, monster.z));
         }
       }
       if (target && nearest <= 2.0 && Date.now() - (monster.attackAt || 0) > 1900) {
