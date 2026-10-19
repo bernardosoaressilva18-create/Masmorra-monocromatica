@@ -16,7 +16,7 @@ let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosit
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 190 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
-const renderPixelRatioCap = isMobileDevice ? 0.82 : 1.25;
+const renderPixelRatioCap = isMobileDevice ? 1.0 : 1.5;
 let adaptivePixelRatio = Math.min(devicePixelRatio, renderPixelRatioCap);
 let perfBadge = null, perfFrames = 0, perfWindowStart = performance.now();
 let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
@@ -1661,7 +1661,7 @@ function updatePerformanceMonitor() {
 
   let nextRatio = adaptivePixelRatio;
   if (slowFpsSamples >= 1) {
-    nextRatio = Math.max(isMobileDevice ? .55 : .7, adaptivePixelRatio - .15);
+    nextRatio = Math.max(isMobileDevice ? .65 : .75, adaptivePixelRatio - .1);
     slowFpsSamples = 0;
   } else if (fastFpsSamples >= 4) {
     nextRatio = Math.min(Math.min(devicePixelRatio, renderPixelRatioCap), adaptivePixelRatio + .05);
