@@ -574,6 +574,18 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'monsterSpawn') {
+    const obj = monsterMeshes.get(m.id);
+    if (obj) { obj.visible = true; obj.scale.setScalar(0.05); obj.userData.spawnAnim = 0.35; }
+    return;
+  }
+
+  if (m.type === 'monsterAttack') {
+    const obj = monsterMeshes.get(m.id);
+    if (obj) obj.userData.attackAnim = 0.38;
+    return;
+  }
+
   if (m.type === 'attack') {
     if (m.id !== playerId) {
       const p = remotePlayers.get(m.id);
@@ -707,6 +719,12 @@ function updateState(m) {
     }
   }
   latestChests = m.chests || [];
+  const nearbyChest = latestChests.find(chest => !chest.opened && myPlayer && Math.hypot(chest.x - myPlayer.position.x, chest.z - myPlayer.position.z) <= 3.4);
+  const chestButton = $('chestBtn');
+  if (chestButton) {
+    chestButton.classList.toggle('hidden', !nearbyChest);
+    chestButton.dataset.chestId = nearbyChest ? nearbyChest.id : '';
+  }
   for (const chest of latestChests) {
     let obj = chestMeshes.get(chest.id);
     if (!obj) {
@@ -794,11 +812,11 @@ function attack() {
 
   const sword = myPlayer?.userData.sword;
   if (sword) {
-    sword.rotation.x = -1.1;
-    setTimeout(() => {
-      if (sword) sword.rotation.x = 0;
-    }, 180);
+    sword.rotation.x = -1.45;
+    sword.rotation.z = -0.35;
+    setTimeout(() => { if (sword) { sword.rotation.x = 0; sword.rotation.z = 0; } }, 260);
   }
+  if (myPlayer) { myPlayer.userData.attackAnim = 0.28; myPlayer.rotation.y = yaw; }
 
   const f = $('hitFlash');
   f.style.borderWidth = '5px';
@@ -866,7 +884,7 @@ $('leaveBtn').addEventListener('click', () => {
   menu.classList.remove('hidden');
 });
 
-$('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); interactChest(); });
+$('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (!$('chestBtn').classList.contains('hidden')) interactChest(); });
 $('recentLoot').addEventListener('click', e => {
   const row = e.target.closest('.select-item');
   if (!row) return;
@@ -1107,7 +1125,16 @@ const right = new THREE.Vector3(
       obj.position.z, obj.userData.targetZ, monsterSmooth
     );
 
-    obj.position.y = 0;
+    if (obj.userData.spawnAnim > 0) {
+      obj.userData.spawnAnim = Math.max(0, obj.userData.spawnAnim - dt);
+      const t = 1 - obj.userData.spawnAnim / 0.35;
+      obj.scale.setScalar(Math.max(0.05, t));
+    } else obj.scale.setScalar(1);
+    if (obj.userData.attackAnim > 0) {
+      obj.userData.attackAnim = Math.max(0, obj.userData.attackAnim - dt);
+      obj.rotation.x = -Math.sin((obj.userData.attackAnim / 0.38) * Math.PI) * 0.45;
+    } else obj.rotation.x = THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-12 * dt));
+    obj.position.y = obj.userData.attackAnim > 0 ? Math.sin((obj.userData.attackAnim / 0.38) * Math.PI) * 0.22 : 0;
 
     obj.rotation.y += dt * 0.35;
   }
