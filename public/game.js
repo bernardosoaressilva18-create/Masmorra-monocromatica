@@ -16,7 +16,7 @@ let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosit
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 190 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
-const renderPixelRatioCap = isMobileDevice ? 1.0 : 1.5;
+const renderPixelRatioCap = isMobileDevice ? 1.25 : 1.5;
 let adaptivePixelRatio = Math.min(devicePixelRatio, renderPixelRatioCap);
 let perfBadge = null, perfFrames = 0, perfWindowStart = performance.now();
 let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
@@ -27,7 +27,7 @@ function init3D() {
   scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .012 : .009);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
-  renderer = new THREE.WebGLRenderer({ antialias: !isMobileDevice, powerPreference: 'high-performance', stencil: false });
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: false });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
   renderer.setPixelRatio(adaptivePixelRatio);
@@ -103,11 +103,11 @@ function box(w, h, d, material, x, y, z) {
 function buildDungeon() {
   // Uma única textura partilhada mantém o detalhe visual sem criar materiais por objeto.
   const dungeonTexture = surfaceTexture.clone();
-  dungeonTexture.repeat.set(4, 4);
+  dungeonTexture.repeat.set(3, 3);
   const floor = mat(0x292e38, .82, .08);
   floor.map = dungeonTexture;
   floor.bumpMap = dungeonTexture;
-  floor.bumpScale = .025;
+  floor.bumpScale = .012;
   floor.needsUpdate = true;
 const wall = mat(0x414751, 0.95);
 wall.map = dungeonTexture;
@@ -140,7 +140,7 @@ stoneDark.needsUpdate = true;
   for (const zone of worldZones) {
     zone.top.map = dungeonTexture;
     zone.top.bumpMap = dungeonTexture;
-    zone.top.bumpScale = .025;
+    zone.top.bumpScale = .012;
     zone.top.needsUpdate = true;
     box(30,.8,zone.depth,floor,0,-.5,zone.z);
     box(29.6,.08,zone.depth-.5,zone.top,0,-.055,zone.z);
@@ -178,7 +178,7 @@ stoneDark.needsUpdate = true;
   const groutMat = mat(0x171c24,1);
   for (const zone of worldZones) {
     for (let z=zone.z-zone.depth/2+2; z<=zone.z+zone.depth/2-2; z+=4) {
-      box(29.2,.035,.06,groutMat,0,-.006,z);
+      box(29.2,.012,.06,groutMat,0,-.009,z);
     }
   }
   for (const z of [-30.5,-62,-94,-130]) {
@@ -1849,11 +1849,22 @@ const right = new THREE.Vector3(
       : obj.userData.kind === 'stalker' ? 1.12 : .9;
     for (const limb of obj.userData.animatedLimbs || []) {
       const limbPhase = phase * gait + (limb.side > 0 ? Math.PI : 0);
-      limb.mesh.rotation.x = Math.sin(limbPhase) * (moving ? .105 : .012);
+      const swing = Math.sin(limbPhase);
+      // Golpe breve durante o avanço; cada família tem sua própria intensidade.
+      const attackKick = obj.userData.attackAnimUntil && performance.now() < obj.userData.attackAnimUntil ? 1 : 0;
+      const attackPower = obj.userData.kind === 'brute' ? .62 : obj.userData.kind === 'wraith' ? .28 : .42;
+      limb.mesh.rotation.x = swing * (moving ? .105 : .012) - attackKick * attackPower * (limb.side < 0 ? 1 : .25);
       limb.mesh.rotation.z = limb.baseRotationZ + Math.sin(phase * .65 * gait + limb.side) * (moving ? .022 : .008);
     }
     if (obj.userData.kind === 'stalker') {
       obj.rotation.x = moving ? Math.sin(phase) * .015 : THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-5 * dt));
+    }
+    // Sinal visual simples de ataque quando a IA já marcou o início do golpe.
+    if (obj.userData.isAttacking && !obj.userData.attackAnimUntil) {
+      obj.userData.attackAnimUntil = performance.now() + 260;
+    }
+    if (obj.userData.attackAnimUntil && performance.now() >= obj.userData.attackAnimUntil) {
+      obj.userData.attackAnimUntil = 0;
     }
   }
 
