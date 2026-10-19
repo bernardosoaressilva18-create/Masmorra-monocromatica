@@ -482,13 +482,27 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const legs = [], arms = [];
   let torsoMesh = null, headMesh = null;
   for (const side of [-1,1]) {
-    const leg = add(new THREE.CapsuleGeometry(.145,.34,4,8), dark, side*.2,.47,0);
-    legs.push({ mesh: leg, side });
+    // Quadril: a perna gira pelo topo em vez do centro da cápsula.
+    const legPivot = new THREE.Group();
+    legPivot.position.set(side*.2,.68,0);
+    g.add(legPivot);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.145,.34,4,8), dark);
+    leg.position.set(0,-.21,0);
+    if (!isMobileDevice) { leg.castShadow = true; leg.receiveShadow = true; }
+    legPivot.add(leg);
+    legs.push({ mesh: legPivot, side });
     add(new THREE.BoxGeometry(.27,.16,.4), steel, side*.2,.19,-.055);
     add(new THREE.SphereGeometry(.19,12,10), gold, side*.2,.68,0,.94,.62,.9);
-    const arm=add(new THREE.CapsuleGeometry(.13,.42,4,8), armor, side*.48,1.23,0);
+    // Ombro: o braço acompanha uma articulação dedicada.
+    const armPivot = new THREE.Group();
+    armPivot.position.set(side*.48,1.51,0);
+    g.add(armPivot);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,4,8), armor);
+    arm.position.set(0,-.22,0);
     arm.rotation.z=side*-.12;
-    arms.push({ mesh: arm, side });
+    if (!isMobileDevice) { arm.castShadow = true; arm.receiveShadow = true; }
+    armPivot.add(arm);
+    arms.push({ mesh: armPivot, side });
     add(new THREE.SphereGeometry(.19,12,10), steel, side*.48,1.49,0,1.08,.65,1.0);
     add(new THREE.CapsuleGeometry(.12,.19,3,6), dark, side*.49,.91,-.015);
     add(new THREE.SphereGeometry(.105,10,8), gold, side*.49,.83,-.02);
