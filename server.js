@@ -248,7 +248,15 @@ wss.on('connection', ws => {
       player.name = String(msg.name || 'Aventureiro').slice(0, 18);
       player.playerClass = ['knight','mage','archer'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
       player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
-      player.skills = []; player.talentPoints = 5; player.secondWindUsed = false;
+      player.skills = [];
+      const requestedSkills = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
+      for (const id of requestedSkills) {
+        const req = SKILL_REQUIREMENTS[id];
+        if (!player.skills.includes(id) && (!req || player.skills.includes(req))) player.skills.push(id);
+      }
+      const requestedPoints = Number(msg.talentPoints);
+      player.talentPoints = Number.isFinite(requestedPoints) ? Math.max(0, Math.min(20, Math.floor(requestedPoints))) : Math.max(0, 5 - player.skills.length);
+      player.secondWindUsed = false;
       player.x = 0; player.z = room.started ? -((room.phase - 1) * 32 + 1) : 3; player.ready = false;
       room.emptySince = 0;
       player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
@@ -323,13 +331,13 @@ wss.on('connection', ws => {
       const item = player.lootDrops[itemIndex];
       let effect = '';
       if (item.name === 'Poção de Vida') {
-        if (player.hp >= 100) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
-        const before = player.hp; player.hp = Math.min(100, player.hp + 40); effect = 'Vida restaurada: +' + (player.hp - before) + '.';
+        if (player.hp >= (player.maxHp || 100)) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
+        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + 40); effect = 'Vida restaurada: +' + (player.hp - before) + '.';
       } else if (item.name === 'Moeda Antiga') {
-        if (player.hp >= 100) { ws.send(JSON.stringify({ type: 'notice', text: 'A Moeda Antiga só pode ser usada para recuperar vida. Sua vida já está cheia.' })); return; }
-        const before = player.hp; player.hp = Math.min(100, player.hp + 15); effect = 'A moeda restaurou +' + (player.hp - before) + ' de vida.';
+        if (player.hp >= (player.maxHp || 100)) { ws.send(JSON.stringify({ type: 'notice', text: 'A Moeda Antiga só pode ser usada para recuperar vida. Sua vida já está cheia.' })); return; }
+        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + 15); effect = 'A moeda restaurou +' + (player.hp - before) + ' de vida.';
       } else if (item.name === 'Pó de Cristal') {
-        const before = player.hp; player.hp = Math.min(100, player.hp + 20); player.damageBuff = Math.max(player.damageBuff, 1); player.damageBuffHits = Math.max(player.damageBuffHits, 2); effect = 'Cristal usado: +' + (player.hp - before) + ' de vida e +1 dano por 2 golpes.';
+        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + 20); player.damageBuff = Math.max(player.damageBuff, 1); player.damageBuffHits = Math.max(player.damageBuffHits, 2); effect = 'Cristal usado: +' + (player.hp - before) + ' de vida e +1 dano por 2 golpes.';
       } else if (item.name === 'Fragmento Monocromático') {
         player.damageBuff = Math.max(player.damageBuff, 1); player.damageBuffHits = Math.max(player.damageBuffHits, 3); effect = '+1 de dano nos próximos 3 golpes.';
       } else if (item.name === 'Núcleo Sombrio') {
@@ -337,11 +345,11 @@ wss.on('connection', ws => {
       } else if (item.name === 'Equipamento Antigo' || item.name === 'Relíquia Monocromática') {
         player.baseDamage = Math.min(5, player.baseDamage + 1); effect = 'Equipado! Seu dano permanente aumentou para ' + player.baseDamage + '.';
       } else if (item.name === 'Coração do Guardião') {
-        const before = player.hp; player.hp = Math.min(100, player.hp + 50); effect = 'Coração ativado: +' + (player.hp - before) + ' de vida.';
+        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + 50); effect = 'Coração ativado: +' + (player.hp - before) + ' de vida.';
       } else if (item.name === 'Cristal Ancestral') {
         player.damageBuff = Math.max(player.damageBuff, 3); player.damageBuffHits = Math.max(player.damageBuffHits, 5); effect = '+3 de dano nos próximos 5 golpes.';
       } else if (item.name === 'Coroa do Abismo') {
-        player.hp = 100; player.baseDamage = Math.min(5, player.baseDamage + 1); effect = 'A Coroa restaurou toda a vida e aumentou seu dano permanente.';
+        player.hp = player.maxHp || 100; player.baseDamage = Math.min(5, player.baseDamage + 1); effect = 'A Coroa restaurou toda a vida e aumentou seu dano permanente.';
       }
       player.lootDrops.splice(itemIndex, 1);
       player.inventory[item.rarity] = Math.max(0, (player.inventory[item.rarity] || 0) - 1);
