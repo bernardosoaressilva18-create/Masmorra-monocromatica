@@ -429,12 +429,25 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.sword=classWeapon;
   const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.62,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
+  g.userData.heroClass = heroClass;
+  g.userData.heroSkin = skin;
   g.userData.cape=cape;
   g.userData.legs = legs;
   g.userData.arms = arms;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
   g.userData.baseY = 0;
   return g;
+}
+
+function disposeObject3D(root) {
+  if (!root) return;
+  root.traverse(child => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      for (const material of materials) if (material && material.dispose) material.dispose();
+    }
+  });
 }
 
 function createPlayer() {
@@ -768,6 +781,7 @@ function refreshLocalHeroAppearance() {
   const position = myPlayer.position.clone();
   const hp = myPlayer.userData.serverHp ?? 100;
   scene.remove(myPlayer);
+  disposeObject3D(myPlayer);
   myPlayer = makeHero(null, selectedClass, selectedSkin);
   myPlayer.position.copy(position);
   myPlayer.userData.serverHp = hp;
@@ -1051,11 +1065,20 @@ function updateState(m) {
     }
     obj.userData.targetRot = p.rot;
     obj.userData.name = p.name;
+    const remoteClass = p.playerClass || 'knight', remoteSkin = p.skin || 'default';
+    if (obj.userData.heroClass !== remoteClass || obj.userData.heroSkin !== remoteSkin) {
+      const pos = obj.position.clone();
+      scene.remove(obj); disposeObject3D(obj);
+      obj = makeHero(p.color, remoteClass, remoteSkin);
+      obj.position.copy(pos); scene.add(obj); remotePlayers.set(p.id, obj);
+      obj.userData.targetX = p.x; obj.userData.targetZ = p.z; obj.userData.targetRot = p.rot;
+    }
   }
 
   for (const [id, obj] of remotePlayers) {
     if (!incoming.has(id)) {
       scene.remove(obj);
+      disposeObject3D(obj);
       remotePlayers.delete(id);
     }
   }
@@ -1158,6 +1181,15 @@ function updateState(m) {
     obj.userData.kind = mtr.kind || 'stalker';
     obj.userData.alive = mtr.alive;
     obj.visible = mtr.alive;
+  }
+  // Descarta malhas de mundos anteriores após trocar de região; reduz memória e draw calls.
+  const currentMonsterIds = new Set(m.monsters.map(monster => monster.id));
+  for (const [id, obj] of monsterMeshes) {
+    if (!currentMonsterIds.has(id)) {
+      scene.remove(obj);
+      disposeObject3D(obj);
+      monsterMeshes.delete(id);
+    }
   }
 
   $('monsterText').textContent = phase === 5
