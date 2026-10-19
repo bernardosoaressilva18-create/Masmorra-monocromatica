@@ -33,6 +33,13 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocket.Server({ server });
+// Ping periódico ajuda a detectar/evitar conexões WebSocket ociosas.
+const heartbeat = setInterval(() => {
+  for (const socket of wss.clients) {
+    if (socket.readyState === WebSocket.OPEN) socket.ping();
+  }
+}, 25000);
+heartbeat.unref?.();
 const rooms = new Map();
 let nextId = 1;
 
@@ -242,7 +249,8 @@ wss.on('connection', ws => {
         if (room.phase < 3 && requestedZ < gateZ) advancePhase(room);
       }
       player.rot = Number(msg.rot) || 0;
-      broadcast(room, state(room));
+      // O loop do servidor já envia o estado a cada 100 ms; evitar duplicar
+      // um pacote completo a cada movimento reduz tráfego e desconexões.
     } else if (msg.type === 'useItem') {
       if (!room.started || player.hp <= 0) return;
       const itemIndex = player.lootDrops.findIndex(item => item.id === String(msg.id));
