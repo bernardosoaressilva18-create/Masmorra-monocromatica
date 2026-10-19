@@ -68,6 +68,14 @@ const stoneDark = mat(0x303640, 1);
 
   box(.7, 5, 48, wall, -15, 2, -11);
   box(.7, 5, 48, wall, 15, 2, -11);
+// Detalhes de pedra nas paredes
+for (let z = -30; z <= 8; z += 6) {
+  box(0.12, 0.18, 2.2, stoneLight, -14.55, 1.2, z);
+  box(0.12, 0.12, 1.5, stoneDark, -14.55, 2.8, z + 2);
+
+  box(0.12, 0.18, 2.2, stoneLight, 14.55, 1.2, z);
+  box(0.12, 0.12, 1.5, stoneDark, 14.55, 2.8, z + 2);
+}
   box(30, 5, .8, wall, 0, 2, -35);
   box(30, 5, .8, wall, 0, 2, 13);
 
@@ -683,7 +691,7 @@ function animate() {
     camera.lookAt(
       target.x,
       target.y + 0.15,
-      target.z - 2.2
+      target.z
     );
   }
 
