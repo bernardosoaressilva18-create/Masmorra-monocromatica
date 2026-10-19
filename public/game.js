@@ -563,11 +563,38 @@ function connect(code = '') {
   });
 }
 
+
+const classDescriptions = {
+  knight: 'Cavaleiro: defesa elevada e combate corpo a corpo.',
+  mage: 'Mago: especialista em energia arcana e ataques mágicos.',
+  archer: 'Arqueiro: ágil, preciso e focado em ataques à distância.'
+};
+let selectedClass = 'knight';
+let skillPoints = 3;
+const unlockedSkills = new Set();
+document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => {
+  selectedClass = card.dataset.class;
+  document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el === card));
+  $('classDescription').textContent = classDescriptions[selectedClass];
+}));
+document.querySelectorAll('.skill-card').forEach(card => card.addEventListener('click', () => {
+  const skill = card.dataset.skill;
+  if (unlockedSkills.has(skill) || skillPoints < 1) return;
+  unlockedSkills.add(skill);
+  skillPoints--;
+  $('skillPoints').textContent = String(skillPoints);
+  card.classList.add('unlocked');
+  card.querySelector('span').textContent = 'DESBLOQUEADO ✓';
+}));
+
 function sendJoin(code) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   send({
     type: 'join',
     name: $('playerName').value.trim() || 'Aventureiro',
+    class: selectedClass,
+    skin: $('skinSelect')?.value || 'default',
+    skills: Array.from(unlockedSkills),
     code
   });
 }
