@@ -880,7 +880,7 @@ function updateState(m) {
     obj.visible = mtr.alive;
   }
 
-  $('monsterText').textContent = phase === 3
+  $('monsterText').textContent = phase === 5
     ? (bossData && bossData.alive ? 'Guardião do Abismo' : 'Masmorra concluída')
     : alive + ' monstros restantes';
   const phaseTotal = phase === 1 ? 5 : phase === 2 ? 8 : phase === 3 ? 9 : phase === 4 ? 11 : 65;
@@ -888,7 +888,7 @@ function updateState(m) {
     ? (phaseTotal - bossData.hp) / phaseTotal * 100
     : (phaseTotal - alive) / phaseTotal * 100;
   $('progressFill').style.width = Math.max(0, Math.min(100, phaseProgress)) + '%';
-  $('killText').textContent = phase === 3 && bossData
+  $('killText').textContent = phase === 5 && bossData
     ? phaseTotal - bossData.hp
     : phaseTotal - alive;
 
