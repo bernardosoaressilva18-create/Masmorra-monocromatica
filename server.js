@@ -106,7 +106,15 @@ function weightedPick(items) {
   }
   return items[items.length - 1];
 }
-function rarityMultiplier(rarity) { return ({ 'comum':1, 'incomum':1.25, 'raro':1.6, 'épico':2.2, 'lendário':3 })[rarity] || 1; }
+const RARITY_POWER = { 'comum':1, 'incomum':2, 'raro':3, 'épico':4, 'lendário':5 };
+function rarityMultiplier(rarity) { return RARITY_POWER[rarity] || 1; }
+const RARITY_EFFECTS = {
+  'comum':    { potion:.30, coin:.10, powderHeal:.15, powderDamage:1, powderHits:3, fragmentDamage:1, fragmentHits:4, coreDamage:2, coreHits:4, gearDamage:1, heart:.40, ancientDamage:3, ancientHits:5 },
+  'incomum':  { potion:.45, coin:.15, powderHeal:.25, powderDamage:2, powderHits:4, fragmentDamage:2, fragmentHits:5, coreDamage:3, coreHits:5, gearDamage:2, heart:.55, ancientDamage:5, ancientHits:7 },
+  'raro':     { potion:.60, coin:.25, powderHeal:.35, powderDamage:3, powderHits:5, fragmentDamage:3, fragmentHits:6, coreDamage:5, coreHits:7, gearDamage:3, heart:.70, ancientDamage:7, ancientHits:9 },
+  'épico':    { potion:.80, coin:.35, powderHeal:.50, powderDamage:5, powderHits:7, fragmentDamage:5, fragmentHits:8, coreDamage:7, coreHits:9, gearDamage:5, heart:.85, ancientDamage:10, ancientHits:12 },
+  'lendário': { potion:1.00, coin:.50, powderHeal:.70, powderDamage:8, powderHits:10, fragmentDamage:8, fragmentHits:12, coreDamage:10, coreHits:12, gearDamage:8, heart:1.00, ancientDamage:15, ancientHits:16 }
+};
 function rollLoot(source) {
   const rarityRoll = Math.random() * 100;
   let sum = 0, rarity = RARITIES[0];
@@ -332,28 +340,50 @@ wss.on('connection', ws => {
       const itemIndex = player.lootDrops.findIndex(item => item.id === String(msg.id));
       if (itemIndex < 0) { ws.send(JSON.stringify({ type: 'notice', text: 'Esse item não está mais no inventário.' })); return; }
       const item = player.lootDrops[itemIndex];
-      const rarityPower = item.power || rarityMultiplier(item.rarity);
+      const tier = RARITY_EFFECTS[item.rarity] || RARITY_EFFECTS['comum'];
+      const maxHp = player.maxHp || 100;
+      const heal = fraction => Math.max(1, Math.round(maxHp * fraction));
       let effect = '';
       if (item.name === 'Poção de Vida') {
-        if (player.hp >= (player.maxHp || 100)) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
-        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + Math.round(40 * rarityPower)); effect = 'Vida restaurada: +' + (player.hp - before) + ' (' + item.rarity + ' x' + rarityPower + ').';
+        if (player.hp >= maxHp) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
+        const before = player.hp; player.hp = Math.min(maxHp, player.hp + heal(tier.potion));
+        effect = 'Vida +' + (player.hp - before) + ' (' + item.rarity + ' · nível ' + rarityMultiplier(item.rarity) + '/5).';
       } else if (item.name === 'Moeda Antiga') {
-        if (player.hp >= (player.maxHp || 100)) { ws.send(JSON.stringify({ type: 'notice', text: 'A Moeda Antiga só pode ser usada para recuperar vida. Sua vida já está cheia.' })); return; }
-        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + Math.round(15 * rarityPower)); effect = 'A moeda restaurou +' + (player.hp - before) + ' de vida (' + item.rarity + ').';
+        if (player.hp >= maxHp) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
+        const before = player.hp; player.hp = Math.min(maxHp, player.hp + heal(tier.coin));
+        effect = 'Moeda ' + item.rarity + ': +' + (player.hp - before) + ' de vida.';
       } else if (item.name === 'Pó de Cristal') {
-        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + Math.round(20 * rarityPower)); player.damageBuff = Math.max(player.damageBuff, Math.round(1 * rarityPower)); player.damageBuffHits = Math.max(player.damageBuffHits, 2 + Math.floor(rarityPower)); effect = 'Cristal ' + item.rarity + ': +' + (player.hp - before) + ' vida, +' + Math.round(1 * rarityPower) + ' dano.';
+        const before = player.hp; player.hp = Math.min(maxHp, player.hp + heal(tier.powderHeal));
+        player.damageBuff = Math.max(player.damageBuff, tier.powderDamage);
+        player.damageBuffHits = Math.max(player.damageBuffHits, tier.powderHits);
+        effect = 'Pó ' + item.rarity + ': +' + (player.hp - before) + ' vida, +' + tier.powderDamage + ' dano por ' + tier.powderHits + ' golpes.';
       } else if (item.name === 'Fragmento Monocromático') {
-        player.damageBuff = Math.max(player.damageBuff, Math.round(1 * rarityPower)); player.damageBuffHits = Math.max(player.damageBuffHits, 3 + Math.floor(rarityPower)); effect = '+' + Math.round(1 * rarityPower) + ' dano por ' + (3 + Math.floor(rarityPower)) + ' golpes (' + item.rarity + ').';
+        player.damageBuff = Math.max(player.damageBuff, tier.fragmentDamage);
+        player.damageBuffHits = Math.max(player.damageBuffHits, tier.fragmentHits);
+        effect = 'Fragmento ' + item.rarity + ': +' + tier.fragmentDamage + ' dano por ' + tier.fragmentHits + ' golpes.';
       } else if (item.name === 'Núcleo Sombrio') {
-        player.damageBuff = Math.max(player.damageBuff, Math.round(2 * rarityPower)); player.damageBuffHits = Math.max(player.damageBuffHits, 4 + Math.floor(rarityPower)); effect = '+' + Math.round(2 * rarityPower) + ' dano por ' + (4 + Math.floor(rarityPower)) + ' golpes.';
+        player.damageBuff = Math.max(player.damageBuff, tier.coreDamage);
+        player.damageBuffHits = Math.max(player.damageBuffHits, tier.coreHits);
+        effect = 'Núcleo ' + item.rarity + ': +' + tier.coreDamage + ' dano por ' + tier.coreHits + ' golpes.';
       } else if (item.name === 'Equipamento Antigo' || item.name === 'Relíquia Monocromática') {
-        player.baseDamage = Math.min(12, player.baseDamage + Math.max(1, Math.round(rarityPower))); effect = 'Equipado! +' + Math.max(1, Math.round(rarityPower)) + ' ataque permanente (' + item.rarity + '). Ataque: ' + player.baseDamage + '.';
+        player.equipmentDamage = Math.min(18, (player.equipmentDamage || 0) + tier.gearDamage);
+        refreshPlayerStats(player, false);
+        effect = 'Equipado! +' + tier.gearDamage + ' ataque permanente (' + item.rarity + '). Ataque total: ' + player.baseDamage + '.';
       } else if (item.name === 'Coração do Guardião') {
-        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + Math.round(50 * rarityPower)); effect = 'Coração ' + item.rarity + ': +' + (player.hp - before) + ' de vida.';
+        const before = player.hp; player.hp = Math.min(maxHp, player.hp + heal(tier.heart));
+        effect = 'Coração ' + item.rarity + ': +' + (player.hp - before) + ' de vida.';
       } else if (item.name === 'Cristal Ancestral') {
-        player.damageBuff = Math.max(player.damageBuff, Math.round(3 * rarityPower)); player.damageBuffHits = Math.max(player.damageBuffHits, 5 + Math.floor(rarityPower)); effect = '+' + Math.round(3 * rarityPower) + ' dano por ' + (5 + Math.floor(rarityPower)) + ' golpes.';
+        player.damageBuff = Math.max(player.damageBuff, tier.ancientDamage);
+        player.damageBuffHits = Math.max(player.damageBuffHits, tier.ancientHits);
+        effect = 'Cristal ancestral ' + item.rarity + ': +' + tier.ancientDamage + ' dano por ' + tier.ancientHits + ' golpes.';
       } else if (item.name === 'Coroa do Abismo') {
-        player.hp = player.maxHp || 100; player.baseDamage = Math.min(12, player.baseDamage + Math.max(1, Math.round(rarityPower))); effect = 'Coroa ' + item.rarity + ': vida cheia e +' + Math.max(1, Math.round(rarityPower)) + ' ataque permanente.';
+        player.hp = maxHp;
+        player.equipmentDamage = Math.min(18, (player.equipmentDamage || 0) + tier.gearDamage);
+        refreshPlayerStats(player, false);
+        player.hp = maxHp;
+        effect = 'Coroa ' + item.rarity + ': vida cheia e +' + tier.gearDamage + ' ataque permanente.';
+      } else {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Este item ainda não tem um efeito utilizável.' })); return;
       }
       player.lootDrops.splice(itemIndex, 1);
       player.inventory[item.rarity] = Math.max(0, (player.inventory[item.rarity] || 0) - 1);
