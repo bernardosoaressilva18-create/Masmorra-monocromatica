@@ -353,11 +353,23 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'combat') updateCombat(m);
   if (m.type === 'state') updateState(m);
+}
+
+function updateCombat(m) {
+  const mine = (m.players || []).find(p => p.id === playerId);
+  if (!mine) return;
+  $('hpText').textContent = Math.ceil(mine.hp) + '/' + mine.maxHp;
+  $('mpText').textContent = Math.floor(mine.mp) + '/' + mine.maxMp;
+  $('hpFill').style.width = (mine.hp / mine.maxHp * 100) + '%';
+  $('mpFill').style.width = (mine.mp / mine.maxMp * 100) + '%';
+  $('combatText').textContent = 'Dano ' + mine.damage + ' · Defesa ' + mine.defense;
 }
 
 function updateState(m) {
   const mine = (m.inventory || []).find(p => p.id === playerId);
+  if (mine && mine.hp != null) updateCombat({ players: [mine] });
   if (mine && mine.inventory) {
     const inv = mine.inventory;
     $('inventoryText').textContent = 'Comum ' + (inv['Comum'] || 0) + ' · Incomum ' + (inv['Incomum'] || 0) + ' · Raro ' + (inv['Raro'] || 0) + ' · Épico ' + (inv['Épico'] || 0) + ' · Lendário ' + (inv['Lendário'] || 0);
@@ -479,6 +491,12 @@ function openChest() {
   if (!started) return;
   send({ type: 'openChest' });
 }
+function castSpell() {
+  if (!started) return;
+  send({ type: 'spell' });
+  showNotice('Magia lançada! Custo: 20 MP');
+}
+
 function attack() {
   if (!started || attackCooldown > 0) return;
 
@@ -525,6 +543,7 @@ $('chestBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
   openChest();
 });
+$('spellBtn').addEventListener('pointerdown', e => { e.preventDefault(); castSpell(); });
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
   attack();
