@@ -96,24 +96,81 @@ const stoneDark = mat(0x303744, .94, .04);
     emissiveIntensity: 1.8
   });
 
-  box(30, .8, 190, floor, 0, -.5, -82);
-  // Cada fase recebe um piso próprio, não apenas uma mudança de cor na névoa.
-  box(29.6, .08, 29.5, mat(0x303b49, .96), 0, -.055, -15);   // Mundo 1: Cripta
-  box(29.6, .08, 29.5, mat(0x33284c, .92), 0, -.055, -47);   // Mundo 2: Cavernas
-  box(29.6, .08, 29.5, mat(0x192a24, .88, .12), 0, -.055, -79); // Mundo 3: Floresta
-  box(29.6, .08, 29.5, mat(0x4a2414, .88, .12), 0, -.055, -111); // Mundo 4: Vulcão
-  box(29.6, .08, 39.5, mat(0x21131f, .88, .12), 0, -.055, -153); // Mundo 5: Abismo
-  const tileMat = mat(0x343b45, .98);
-  for (let z = -33; z <= 10; z += 3) for (let x = -12; x <= 12; x += 3) {
-    if (Math.random() > .28) { const tile = box(2.72, .025, 2.72, tileMat, x, -.075, z); tile.position.y = -.075; }
+  // Cinco zonas independentes: cada mundo tem seu próprio piso e perímetro.
+  const worldZones = [
+    { id:1, z:-14, depth:34, top:mat(0x303b49,.96) },      // Cripta
+    { id:2, z:-46, depth:30, top:mat(0x33284c,.92) },      // Cavernas
+    { id:3, z:-78, depth:30, top:mat(0x192a24,.88,.12) }, // Floresta
+    { id:4, z:-110, depth:30, top:mat(0x4a2414,.88,.12) },// Vulcão
+    { id:5, z:-153, depth:40, top:mat(0x21131f,.88,.12) } // Abismo
+  ];
+  for (const zone of worldZones) {
+    box(30,.8,zone.depth,floor,0,-.5,zone.z);
+    box(29.6,.08,zone.depth-.5,zone.top,0,-.055,zone.z);
+    // Paredes separadas por mundo; os portais marcam as passagens entre biomas.
+    box(.7,5,zone.depth,wall,-15,2,zone.z);
+    box(.7,5,zone.depth,wall,15,2,zone.z);
   }
 
-  for (let z = -174; z <= 12; z += 4) {
-    box(29.8, .05, .06, dark, 0, -.07, z);
+  // Marcas do piso em instâncias: muitos detalhes com uma única chamada de desenho.
+  const tileMat = mat(0x343b45,.98);
+  const tileGeometry = new THREE.BoxGeometry(2.72,.025,2.72);
+  const tileInstances = new THREE.InstancedMesh(tileGeometry,tileMat,520);
+  const tileDummy = new THREE.Object3D();
+  let tileIndex = 0;
+  for (const zone of worldZones) {
+    for (let z = zone.z-zone.depth/2+1.5; z <= zone.z+zone.depth/2-1.5; z += 3) {
+      for (let x=-12; x<=12; x+=3) {
+        if (Math.random() <= .28) continue;
+        tileDummy.position.set(x,.002,z);
+        tileDummy.rotation.set(0,Math.random()*.04,0);
+        const scale = .94 + Math.random()*.08;
+        tileDummy.scale.set(scale,1,scale);
+        tileDummy.updateMatrix();
+        tileInstances.setMatrixAt(tileIndex++,tileDummy.matrix);
+      }
+    }
+  }
+  tileInstances.count = tileIndex;
+  tileInstances.instanceMatrix.needsUpdate = true;
+  scene.add(tileInstances);
+
+  // Juntas de pedra e passadiços curtos sobre a transição de cada mundo.
+  const groutMat = mat(0x171c24,1);
+  for (const zone of worldZones) {
+    for (let z=zone.z-zone.depth/2+2; z<=zone.z+zone.depth/2-2; z+=4) {
+      box(29.2,.035,.06,groutMat,0,-.006,z);
+    }
+  }
+  for (const z of [-30.5,-62,-94,-130]) {
+    box(9,.06,3.1,mat(0x283743,.9,.1),0,-.018,z);
   }
 
-  box(.7, 5, 190, wall, -15, 2, -82);
-  box(.7, 5, 190, wall, 15, 2, -82);
+  // Portões de fundo, início e limites externos do conjunto.
+  box(30,5,.8,wall,0,2,-180);
+  box(30,5,.8,wall,0,2,13);
+
+  for (const zone of worldZones) {
+    const minZ = zone.z-zone.depth/2+2, maxZ = zone.z+zone.depth/2-2;
+    for (let z=minZ; z<=maxZ; z+=5) {
+      for (const side of [-1,1]) {
+        const x=side*14.35;
+        box(.8,.35,.9,trim,x,4.25,z);
+        const orb=new THREE.Mesh(new THREE.OctahedronGeometry(.22),crystal);
+        orb.position.set(side*13.9,3.7,z);
+        scene.add(orb);
+      }
+    }
+  }
+
+  for (let z = -30; z <= 8; z += 9) {
+    for (const x of [-10, 10]) {
+      box(1.35, 4.8, 1.35, dark, x, 2, z);
+      box(1.65, .25, 1.65, trim, x, 4.45, z);
+      box(1.55, .22, 1.55, wall, x, .05, z);
+    }
+  }
+
 // Detalhes de pedra nas paredes
 for (let z = -30; z <= 8; z += 6) {
   box(0.12, 0.18, 2.2, stoneLight, -14.55, 1.2, z);
@@ -205,7 +262,7 @@ for (let z = -30; z <= 8; z += 6) {
   // FASE 2 — Caverna mágica: cristais grandes nas laterais, fora da rota central.
   const caveCrystal = new THREE.MeshStandardMaterial({ color: 0x7c63ff, emissive: 0x4b24d8, emissiveIntensity: 1.35, roughness: .28, metalness: .12 });
   const caveCrystalSmall = new THREE.MeshStandardMaterial({ color: 0x5de8ff, emissive: 0x1688bd, emissiveIntensity: 1.1, roughness: .3 });
-  for (const z of [-48, -53, -57, -80, -86]) {
+  for (const z of [-48, -53, -57]) {
     for (const side of [-1, 1]) {
       const cluster = new THREE.Group();
       for (let i = 0; i < 3; i++) {
@@ -221,7 +278,7 @@ for (let z = -30; z <= 8; z += 6) {
     }
   }
   // Veios luminosos no chão da caverna.
-  for (const z of [-47, -51, -55, -58, -79, -83, -87]) {
+  for (const z of [-47, -51, -55, -58]) {
     for (const side of [-1, 1]) {
       const vein = new THREE.Mesh(new THREE.BoxGeometry(2.2, .025, .07), new THREE.MeshBasicMaterial({ color: 0x7d5cff, transparent: true, opacity: .62 }));
       vein.position.set(side * 7.8, -.045, z); vein.rotation.y = side * .18; scene.add(vein);
