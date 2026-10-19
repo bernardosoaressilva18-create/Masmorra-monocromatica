@@ -102,9 +102,11 @@ function grantLoot(player, source) {
 function createWave(phase) {
   const count = phase === 1 ? 5 : 6, centerZ = phase === 1 ? -3 : -19;
   const kinds = phase === 1 ? ['stalker', 'stalker', 'brute', 'stalker', 'brute'] : ['wraith', 'stalker', 'wraith', 'brute', 'wraith', 'brute'];
+  const now = Date.now();
   return Array.from({ length: count }, (_, i) => ({ id: 'p' + phase + 'm' + i,
     kind: kinds[i % kinds.length], phase,
-    x: (Math.random() - 0.5) * 20, z: centerZ + (Math.random() - 0.5) * 9,
+    x: (Math.random() - 0.5) * 22, z: (phase === 1 ? -9 : -22) + (Math.random() - 0.5) * 8,
+    spawned: false, spawnAt: now + i * 2200,
     alive: true, hp: phase === 1 ? (kinds[i % kinds.length] === 'brute' ? 8 : 5) : (kinds[i % kinds.length] === 'brute' ? 14 : 9), maxHp: phase === 1 ? (kinds[i % kinds.length] === 'brute' ? 8 : 5) : (kinds[i % kinds.length] === 'brute' ? 14 : 9), attackAt: 0 }));
 }
 function advancePhase(room) {
@@ -374,6 +376,13 @@ setInterval(() => {
 
     for (const monster of room.monsters) {
       if (!monster.alive) continue;
+      if (!monster.spawned) {
+        if (Date.now() >= monster.spawnAt) {
+          monster.spawned = true;
+          broadcast(room, { type: 'monsterSpawn', id: monster.id });
+          broadcast(room, state(room));
+        } else continue;
+      }
 
       let target = null;
       let nearest = Infinity;
@@ -397,7 +406,7 @@ setInterval(() => {
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = monster.kind === 'brute' ? 0.105 : monster.kind === 'wraith' ? 0.19 : 0.16;
+          const speed = monster.kind === 'brute' ? 0.055 : monster.kind === 'wraith' ? 0.085 : 0.07;
 
           monster.x += (dx / distance) * speed;
           monster.z += (dz / distance) * speed;
@@ -406,10 +415,11 @@ setInterval(() => {
           monster.z = Math.max(-31, Math.min(8, monster.z));
         }
       }
-      if (target && nearest <= 2.0 && Date.now() - (monster.attackAt || 0) > 1000) {
+      if (target && nearest <= 2.0 && Date.now() - (monster.attackAt || 0) > 1900) {
         monster.attackAt = Date.now();
-        target.hp = Math.max(0, target.hp - 8);
-        target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -8 de vida.' }));
+        broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
+        target.hp = Math.max(0, target.hp - 4);
+        target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
         if (target.hp <= 0) {
           target.hp = 0;
           target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
