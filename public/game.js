@@ -395,6 +395,10 @@ function handleMessage(m) {
 
   if (m.type === 'notice') {
     showNotice(m.text);
+    if (/acertou você|foi derrotado/i.test(m.text)) {
+      const f = $('hitFlash'); f.style.borderWidth = '7px'; f.style.borderColor = '#ff315d';
+      setTimeout(() => { f.style.borderWidth = '0'; f.style.borderColor = ''; }, 220);
+    }
     return;
   }
 
@@ -424,6 +428,10 @@ function updateState(m) {
       if (myPlayer) {
         myPlayer.userData.serverX = p.x;
         myPlayer.userData.serverZ = p.z;
+        myPlayer.userData.serverHp = p.hp ?? 100;
+        $('hpText').textContent = String(myPlayer.userData.serverHp);
+        if (Math.abs(myPlayer.position.z - p.z) > 1.1) myPlayer.position.z = p.z;
+        if (Math.abs(myPlayer.position.x - p.x) > 2.0) myPlayer.position.x = p.x;
       }
       continue;
     }
@@ -449,6 +457,8 @@ function updateState(m) {
   }
 
   const phase = m.phase || 1, phaseLabel = $('phaseLabel');
+  const phaseObjective = document.querySelector('.objective strong');
+  if (phaseObjective) phaseObjective.textContent = phase === 1 ? 'Derrote os monstros e atravesse o portão' : phase === 2 ? 'Elimine os guardiões e atravesse o portão' : 'Derrote o Guardião do Abismo';
   if (phaseLabel) phaseLabel.textContent = 'FASE ' + phase + ' / 3';
   const bossPanel = $('bossPanel');
   if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 3 || !m.boss || !m.boss.alive);
