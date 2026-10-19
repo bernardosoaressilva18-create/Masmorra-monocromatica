@@ -11,7 +11,7 @@ const gateMeshes = [];
 const activeBurnEffects = [];
 let ambientParticles = null, particleMaterial = null;
 let bossMesh = null, bossData = null;
-let currentPhaseVisual = 0;
+let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 88 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
@@ -834,6 +834,7 @@ function sendJoin(code) {
     class: selectedClass,
     skin: selectedSkin,
     skills: Array.from(unlockedSkills),
+    talentPoints: skillPoints,
     code
   });
 }
@@ -855,6 +856,7 @@ function handleMessage(m) {
     playerId = m.id;
     roomCode = m.room;
     activeConnectCode = m.room;
+    appliedInitialServerPosition = false;
     connectionRequested = true;
     reconnectAttempts = 0;
     clearTimeout(reconnectTimer);
@@ -1015,12 +1017,18 @@ function updateState(m) {
         myPlayer.userData.serverHp = p.hp ?? 100;
         $('hpText').textContent = String(myPlayer.userData.serverHp);
         $('deathScreen').classList.toggle('hidden', myPlayer.userData.serverHp > 0);
-        // Corrige apenas desvios grandes e de forma gradual; evitar teletransportes
-        // repentinos deixa o personagem estável e elimina o efeito de "pulsação".
-        const dx = p.x - myPlayer.position.x;
-        const dz = p.z - myPlayer.position.z;
-        if (Math.abs(dx) > 1.6) myPlayer.position.x += dx * 0.12;
-        if (Math.abs(dz) > 1.6) myPlayer.position.z += dz * 0.12;
+        // Ao entrar/reconectar, alinhar uma vez com a posição de spawn do servidor.
+        // Depois disso, corrigimos só pequenos desvios para evitar teletransportes.
+        if (!appliedInitialServerPosition) {
+          myPlayer.position.set(p.x, 0, p.z);
+          myPlayer.rotation.y = p.rot || 0;
+          appliedInitialServerPosition = true;
+        } else {
+          const dx = p.x - myPlayer.position.x;
+          const dz = p.z - myPlayer.position.z;
+          if (Math.abs(dx) > 1.6) myPlayer.position.x += dx * 0.12;
+          if (Math.abs(dz) > 1.6) myPlayer.position.z += dz * 0.12;
+        }
       }
       continue;
     }
@@ -1083,6 +1091,10 @@ function updateState(m) {
   }
   const safeUntil = Number(m.safeZoneUntil) || 0;
   const safeRemaining = Math.max(0, Math.ceil((safeUntil - Date.now()) / 1000));
+  if (safeRemaining > 0 && safeUntil !== lastSafeZoneTimestamp) {
+    lastSafeZoneTimestamp = safeUntil;
+    $('skillPanel')?.classList.remove('hidden');
+  } else if (safeRemaining <= 0) lastSafeZoneTimestamp = 0;
   const safeNotice = $('safeZoneNotice');
   if (safeNotice) {
     safeNotice.classList.toggle('hidden', safeRemaining <= 0);
