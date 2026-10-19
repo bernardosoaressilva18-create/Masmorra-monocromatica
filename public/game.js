@@ -595,11 +595,11 @@ function animate() {
 
     if (Math.hypot(v.x, v.y) > 0.04) {
       const forward = new THREE.Vector3(
-        Math.sin(yaw), 0, -Math.cos(yaw)
-      );
-      const right = new THREE.Vector3(
-        Math.cos(yaw), 0, Math.sin(yaw)
-      );
+  -Math.sin(yaw), 0, -Math.cos(yaw)
+);
+const right = new THREE.Vector3(
+  Math.cos(yaw), 0, -Math.sin(yaw)
+);
 
       const dir = forward
         .multiplyScalar(-v.y)
