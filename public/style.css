@@ -102,3 +102,64 @@
 @media (min-width:900px) and (orientation:landscape){
   .players{right:210px;max-width:150px}
 }
+
+
+/* Ajustes de tela para celulares em pé: evitar sobreposição e texto cortado. */
+html, body { min-height: 100%; }
+.screen {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: max(18px, env(safe-area-inset-top));
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
+.start-title, .brand h1 { overflow-wrap: anywhere; }
+@media (orientation: portrait) and (max-width: 700px) {
+  .screen { justify-content: flex-start; }
+  .start-screen { justify-content: center; }
+  .start-copy { margin: 14px auto 18px; }
+  .start-emblem { margin-bottom: 9px; }
+  .brand { width: 100%; }
+  .brand h1 { font-size: clamp(25px, 8vw, 42px); }
+  .brand h1 span { letter-spacing: 1px; }
+  .subtitle { margin: 12px 0 16px; }
+  .panel { padding: 15px; }
+  .topbar { top: max(6px, env(safe-area-inset-top)); left: 6px; right: 6px; gap: 4px; }
+  .badge { min-width: 0; padding: 6px; gap: 5px; }
+  .badge small { font-size: 6px; letter-spacing: 1px; }
+  .badge strong { font-size: 9px; letter-spacing: 1px; }
+  .stats { gap: 7px; padding: 7px; font-size: 10px; }
+  .leave { padding: 7px; font-size: 8px; }
+  .objective { top: 54px; left: 6px; width: min(46vw, 170px); padding: 7px; }
+  .objective strong { font-size: 9px; line-height: 1.25; }
+  .objective small { font-size: 7px; letter-spacing: .7px; }
+  .players { top: 145px; left: 6px; right: auto; max-width: 35vw; gap: 3px; }
+  .player-chip { max-width: 100%; font-size: 8px; padding: 4px; white-space: normal; overflow-wrap: anywhere; }
+  .inventory-panel { top: 54px; right: 6px; width: min(45vw, 170px); max-height: 38dvh; padding: 6px; }
+  .inventory-panel > strong { font-size: 9px; }
+  .inventory-list { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
+  .loot-row { flex-direction: column; align-items: center; padding: 3px 1px; font-size: 7px; }
+  .loot-row b { font-size: 9px; }
+  .loot-help { font-size: 7px; line-height: 1.3; }
+  .recent-loot { max-height: 12dvh; }
+  .loot-item span { font-size: 8px; }
+  .selected-item span { font-size: 8px; }
+  .selected-item button { padding: 6px 3px; font-size: 8px; }
+  .joystick { left: max(10px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom)); width: 94px; height: 94px; }
+  .joystick:before { inset: 13px; }
+  .stick { left: 26px; top: 26px; width: 40px; height: 40px; }
+  .attack { right: max(12px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); width: 68px; height: 68px; }
+  .attack span { font-size: 24px; }
+  .chest-btn { right: max(86px, calc(env(safe-area-inset-right) + 86px)); bottom: max(28px, env(safe-area-inset-bottom)); width: 50px; height: 50px; }
+  .chest-btn span { font-size: 20px; }
+  .hint { bottom: 3px; left: 50%; width: 42vw; white-space: normal; text-align: center; line-height: 1.2; font-size: 6px; }
+  .boss-panel { top: 54px; width: min(58vw, 290px); }
+}
+@media (max-height: 500px) {
+  .screen { justify-content: flex-start; }
+  .start-screen { justify-content: center; }
+  .start-emblem { font-size: 38px; margin-bottom: 6px; }
+  .start-copy { margin: 8px auto 10px; }
+  .start-tip { margin-top: 8px; }
+  .panel { padding: 12px; }
+}
