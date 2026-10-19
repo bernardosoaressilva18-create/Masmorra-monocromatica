@@ -6,7 +6,7 @@ const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-const remotePlayers = new Map(), monsterMeshes = new Map();
+const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const world = { width: 30, depth: 46 };
 
 function init3D() {
@@ -334,6 +334,12 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'loot') {
+    const item = m.item || {};
+    showNotice((m.playerId === playerId ? 'Você encontrou: ' : (m.playerName + ' encontrou: ')) + item.name + ' [' + item.rarity + ']');
+    return;
+  }
+
   if (m.type === 'attack') {
     if (m.id !== playerId) {
       const p = remotePlayers.get(m.id);
@@ -351,6 +357,11 @@ function handleMessage(m) {
 }
 
 function updateState(m) {
+  const mine = (m.inventory || []).find(p => p.id === playerId);
+  if (mine && mine.inventory) {
+    const inv = mine.inventory;
+    $('inventoryText').textContent = 'Comum ' + (inv['Comum'] || 0) + ' · Incomum ' + (inv['Incomum'] || 0) + ' · Raro ' + (inv['Raro'] || 0) + ' · Épico ' + (inv['Épico'] || 0) + ' · Lendário ' + (inv['Lendário'] || 0);
+  }
   const incoming = new Set();
 
   for (const p of m.players) {
@@ -382,6 +393,24 @@ function updateState(m) {
       scene.remove(obj);
       remotePlayers.delete(id);
     }
+  }
+
+  for (const chest of (m.chests || [])) {
+    let obj = chestMeshes.get(chest.id);
+    if (!obj) {
+      obj = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, .65, .75), new THREE.MeshStandardMaterial({ color: 0x64452e, roughness: .8 }));
+      body.position.y = .42;
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(1.14, .22, .8), new THREE.MeshStandardMaterial({ color: 0xb58a45, metalness: .25, roughness: .55 }));
+      lid.position.y = .86;
+      const lock = new THREE.Mesh(new THREE.BoxGeometry(.16, .22, .07), new THREE.MeshStandardMaterial({ color: 0xf0d58a, metalness: .7, roughness: .25 }));
+      lock.position.set(0, .62, .4);
+      obj.add(body, lid, lock);
+      scene.add(obj);
+      chestMeshes.set(chest.id, obj);
+    }
+    obj.position.set(chest.x, 0, chest.z);
+    obj.visible = !chest.opened;
   }
 
   let alive = 0;
@@ -443,6 +472,10 @@ function moveInput() {
   return { x, y };
 }
 
+function openChest() {
+  if (!started) return;
+  send({ type: 'openChest' });
+}
 function attack() {
   if (!started || attackCooldown > 0) return;
 
@@ -485,6 +518,10 @@ $('leaveBtn').addEventListener('click', () => {
   menu.classList.remove('hidden');
 });
 
+$('chestBtn').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  openChest();
+});
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
   attack();
