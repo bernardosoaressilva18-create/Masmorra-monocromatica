@@ -758,7 +758,19 @@ const right = new THREE.Vector3(
     obj.position.y =
       0.05 + Math.sin(performance.now() * 0.002 + obj.position.x) * 0.08;
 
-    obj.rotation.y += dt * 0.35;
+    // Vira a frente do monstro para o jogador local, suavemente.
+    if (myPlayer) {
+      const dx = myPlayer.position.x - obj.position.x;
+      const dz = myPlayer.position.z - obj.position.z;
+      if (Math.hypot(dx, dz) > 0.05) {
+        const targetYaw = Math.atan2(-dx, -dz);
+        const angleDiff = Math.atan2(
+          Math.sin(targetYaw - obj.rotation.y),
+          Math.cos(targetYaw - obj.rotation.y)
+        );
+        obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
+      }
+    }
   }
 
   // Câmera em terceira pessoa com acompanhamento suave
