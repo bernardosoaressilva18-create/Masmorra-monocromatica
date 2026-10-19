@@ -551,9 +551,9 @@ function renderInventory() {
   const recent = lootDrops.slice(-8).reverse();
   if (selectedItemId && !lootDrops.some(item => String(item.id) === String(selectedItemId))) selectedItemId = null;
   if (!selectedItemId && recent.length) selectedItemId = String(recent[0].id);
-  $('recentLoot').innerHTML = recent.length ? recent.map(item => '<button type="button" class="loot-item select-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + (String(item.id) === String(selectedItemId) ? ' selected' : '') + '" data-item-id="' + escapeHTML(item.id) + '"><span>' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ')</small></span><b>' + (String(item.id) === String(selectedItemId) ? '✓' : '+') + '</b></button>').join('') : '<small>Nenhum item coletado ainda.</small>';
+  $('recentLoot').innerHTML = recent.length ? recent.map(item => '<button type="button" class="loot-item select-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + (String(item.id) === String(selectedItemId) ? ' selected' : '') + '" data-item-id="' + escapeHTML(item.id) + '"><span>' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ' · Poder ' + (item.power || 1) + '/5)</small></span><b>' + (String(item.id) === String(selectedItemId) ? '✓' : '+') + '</b></button>').join('') : '<small>Nenhum item coletado ainda.</small>';
   const chosen = lootDrops.find(item => String(item.id) === String(selectedItemId));
-  $('selectedItemLabel').textContent = chosen ? chosen.name + ' · ' + chosen.rarity : 'Nenhum item selecionado';
+  $('selectedItemLabel').textContent = chosen ? chosen.name + ' · ' + chosen.rarity + ' · PODER ' + (chosen.power || 1) + '/5' : 'Nenhum item selecionado';
   $('useSelectedItemBtn').disabled = !chosen;
 }
 function useSelectedItem() {
