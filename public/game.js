@@ -13,7 +13,8 @@ let bossMesh = null, bossData = null;
 let currentPhaseVisual = 0;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 46 };
-const renderPixelRatioCap = matchMedia('(pointer: coarse)').matches ? 1 : 1.25;
+const isMobileDevice = matchMedia('(pointer: coarse)').matches;
+const renderPixelRatioCap = isMobileDevice ? 1 : 1.5;
 
 function init3D() {
   scene = new THREE.Scene();
@@ -26,7 +27,9 @@ function init3D() {
   renderer.toneMappingExposure = 1.12;
   renderer.setPixelRatio(Math.min(devicePixelRatio, renderPixelRatioCap));
   renderer.setSize(innerWidth, innerHeight);
-  renderer.shadowMap.enabled = false;
+  // Sombras suaves no PC; no celular ficam desligadas para preservar FPS.
+  renderer.shadowMap.enabled = !isMobileDevice;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   $('game').appendChild(renderer.domElement);
 
@@ -37,6 +40,13 @@ function init3D() {
 
   const moon = new THREE.DirectionalLight(0xb5d9ff, 1.4);
   moon.position.set(-6, 12, 5);
+  moon.castShadow = !isMobileDevice;
+  moon.shadow.mapSize.set(1024, 1024);
+  moon.shadow.camera.left = -22;
+  moon.shadow.camera.right = 22;
+  moon.shadow.camera.top = 18;
+  moon.shadow.camera.bottom = -18;
+  moon.shadow.bias = -0.00025;
   scene.add(moon);
 
   buildDungeon();
@@ -52,6 +62,8 @@ function mat(color, rough = .9, metal = 0) {
 function box(w, h, d, material, x, y, z) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   m.position.set(x, y, z);
+  // Geometria principal recebe e projeta sombras no PC.
+  if (!isMobileDevice) { m.castShadow = true; m.receiveShadow = true; }
   scene.add(m);
   return m;
 }
@@ -439,9 +451,11 @@ function makeMonster(kind = 'stalker', phase = 1) {
 function onResize() {
   if (!renderer) return;
   camera.aspect = innerWidth / innerHeight;
+  // Em pé no celular, campo de visão maior para manter a masmorra legível.
+  camera.fov = isMobileDevice && innerHeight > innerWidth ? 76 : 62;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, renderPixelRatioCap));
 }
 addEventListener('resize', onResize);
 
