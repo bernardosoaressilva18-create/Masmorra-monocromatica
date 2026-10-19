@@ -10,12 +10,13 @@ const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Ma
 const gateMeshes = [];
 const activeBurnEffects = [];
 let ambientParticles = null, particleMaterial = null;
+const activeSpellEffects = [];
 let bossMesh = null, bossData = null;
 let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 190 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
-const renderPixelRatioCap = isMobileDevice ? 1.0 : 1.5;
+const renderPixelRatioCap = isMobileDevice ? 0.82 : 1.25;
 let adaptivePixelRatio = Math.min(devicePixelRatio, renderPixelRatioCap);
 let perfBadge = null, perfFrames = 0, perfWindowStart = performance.now();
 let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
@@ -1526,7 +1527,7 @@ function castSpell(kind) {
   }
   // O efeito de lançamento aparece na hora; o servidor confirma os alvos e o dano.
   const color = kind === 'fire' ? 0xff6b24 : 0x69aaff;
-  const geo = kind === 'fire' ? new THREE.SphereGeometry(.25, 10, 8) : new THREE.OctahedronGeometry(.24, 0);
+  const geo = kind === 'fire' ? new THREE.SphereGeometry(.25, 7, 5) : new THREE.OctahedronGeometry(.24, 0);
   const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
   const projectile = new THREE.Mesh(geo, material);
   const origin = myPlayer ? myPlayer.position.clone() : new THREE.Vector3();
@@ -1535,17 +1536,7 @@ function castSpell(kind) {
   scene.add(projectile);
   const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const destination = origin.clone().add(forward.multiplyScalar(5.5));
-  const start = performance.now(), duration = 300;
-  const fly = () => {
-    const t = (performance.now() - start) / duration;
-    if (t >= 1) { scene.remove(projectile); geo.dispose(); material.dispose(); return; }
-    projectile.position.lerpVectors(origin, destination, t);
-    projectile.position.y += Math.sin(t * Math.PI) * .35;
-    projectile.scale.setScalar(1 + t * 1.3);
-    material.opacity = 1 - t * .65;
-    requestAnimationFrame(fly);
-  };
-  requestAnimationFrame(fly);
+  activeSpellEffects.push({ projectile, geo, material, origin, destination, startedAt: performance.now(), duration: 300 });
   send({ type: 'spell', spell: kind });
   showNotice(kind === 'fire' ? '🔥 MAGIA DE FOGO!' : '⚡ MAGIA DE RAIO!');
 }
@@ -1669,8 +1660,8 @@ function updatePerformanceMonitor() {
   }
 
   let nextRatio = adaptivePixelRatio;
-  if (slowFpsSamples >= 2) {
-    nextRatio = Math.max(isMobileDevice ? .65 : .8, adaptivePixelRatio - .1);
+  if (slowFpsSamples >= 1) {
+    nextRatio = Math.max(isMobileDevice ? .55 : .7, adaptivePixelRatio - .15);
     slowFpsSamples = 0;
   } else if (fastFpsSamples >= 4) {
     nextRatio = Math.min(Math.min(devicePixelRatio, renderPixelRatioCap), adaptivePixelRatio + .05);
@@ -1845,6 +1836,22 @@ const right = new THREE.Vector3(
     gate.userData.portal.material.opacity = THREE.MathUtils.lerp(gate.userData.portal.material.opacity, gate.userData.open ? .32 : 0, 1 - Math.exp(-2.8 * dt));
     gate.userData.portalRim.rotation.z += dt * (gate.userData.open ? .65 : .12);
     gate.userData.portalRim.material.emissiveIntensity = gate.userData.open ? 2.8 : 1.0;
+  }
+  // Projéteis mágicos animados no loop principal, sem RAF extra por magia.
+  const spellNow = performance.now();
+  for (let i = activeSpellEffects.length - 1; i >= 0; i--) {
+    const effect = activeSpellEffects[i];
+    const t = (spellNow - effect.startedAt) / effect.duration;
+    if (t >= 1) {
+      scene.remove(effect.projectile);
+      effect.geo.dispose(); effect.material.dispose();
+      activeSpellEffects.splice(i, 1);
+      continue;
+    }
+    effect.projectile.position.lerpVectors(effect.origin, effect.destination, t);
+    effect.projectile.position.y += Math.sin(t * Math.PI) * .35;
+    effect.projectile.scale.setScalar(1 + t * 1.3);
+    effect.material.opacity = 1 - t * .65;
   }
   // Efeitos de queimadura leves, atualizados no loop principal para evitar RAF extra.
   const burnNow = performance.now();
