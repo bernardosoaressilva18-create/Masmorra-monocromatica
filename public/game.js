@@ -60,15 +60,15 @@ function init3D() {
   scene.add(fillLight);
   const cryptLight = new THREE.PointLight(0x62cfff, 10, 20, 2);
   cryptLight.position.set(-8, 2.6, 1);
-  scene.add(cryptLight);
+  if (!isMobileDevice) scene.add(cryptLight);
   const caveLight = new THREE.PointLight(0x8c63ff, 13, 22, 2);
   caveLight.position.set(8, 2.8, -21);
-  scene.add(caveLight);
+  if (!isMobileDevice) scene.add(caveLight);
   const abyssLight = new THREE.PointLight(0xff4c79, 12, 24, 2);
   abyssLight.position.set(-7, 2.8, -34);
-  scene.add(abyssLight);
-  const dungeonGlow = new THREE.PointLight(0x4fcfff, 28, 30, 2); dungeonGlow.position.set(0, 3.2, -16); scene.add(dungeonGlow);
-  const bossGlow = new THREE.PointLight(0xff245b, 32, 20, 2); bossGlow.position.set(0, 3, -29); scene.add(bossGlow);
+  if (!isMobileDevice) scene.add(abyssLight);
+  const dungeonGlow = new THREE.PointLight(0x4fcfff, 28, 30, 2); dungeonGlow.position.set(0, 3.2, -16); if (!isMobileDevice) scene.add(dungeonGlow);
+  const bossGlow = new THREE.PointLight(0xff245b, 32, 20, 2); bossGlow.position.set(0, 3, -29); if (!isMobileDevice) scene.add(bossGlow);
 
   const moon = new THREE.DirectionalLight(0xb5d9ff, 1.4);
   moon.position.set(-6, 12, 5);
