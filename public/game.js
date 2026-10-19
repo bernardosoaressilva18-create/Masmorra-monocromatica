@@ -1692,8 +1692,15 @@ function animate() {
   fireCooldown = Math.max(0, fireCooldown - dt);
   lightningCooldown = Math.max(0, lightningCooldown - dt);
   const fireLabel = $('fireCooldown'), lightningLabel = $('lightningCooldown');
-  if (fireLabel) fireLabel.textContent = fireCooldown > 0 ? fireCooldown.toFixed(1) + 's' : 'OK';
-  if (lightningLabel) lightningLabel.textContent = lightningCooldown > 0 ? lightningCooldown.toFixed(1) + 's' : 'OK';
+  // Evita escritas repetidas no DOM a cada frame; os rótulos só mudam quando o texto muda.
+  if (fireLabel) {
+    const fireText = fireCooldown > 0 ? fireCooldown.toFixed(1) + 's' : 'OK';
+    if (fireLabel.textContent !== fireText) fireLabel.textContent = fireText;
+  }
+  if (lightningLabel) {
+    const lightningText = lightningCooldown > 0 ? lightningCooldown.toFixed(1) + 's' : 'OK';
+    if (lightningLabel.textContent !== lightningText) lightningLabel.textContent = lightningText;
+  }
 
   // Movimento do jogador local
   if (started && myPlayer && (myPlayer.userData.serverHp ?? 100) > 0) {
