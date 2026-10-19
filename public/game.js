@@ -1244,6 +1244,14 @@ function updateState(m) {
     obj.userData.targetX = mtr.x;
     obj.userData.targetZ = mtr.z;
     obj.userData.kind = mtr.kind || 'stalker';
+    // Calcula a direção do rosto/corpo para o jogador local.
+    if (myPlayer) {
+      const faceX = myPlayer.position.x - mtr.x;
+      const faceZ = myPlayer.position.z - mtr.z;
+      if (Math.hypot(faceX, faceZ) > 0.05) {
+        obj.userData.targetRot = Math.atan2(faceX, faceZ);
+      }
+    }
     obj.userData.alive = mtr.alive;
     obj.visible = mtr.alive;
   }
@@ -1678,6 +1686,14 @@ const right = new THREE.Vector3(
     const phase = obj.userData.walkPhase;
     obj.position.y = moving ? Math.abs(Math.sin(phase * 2)) * (obj.userData.kind === 'wraith' ? .11 : .055) : 0;
     obj.rotation.z = moving ? Math.sin(phase) * .035 : THREE.MathUtils.lerp(obj.rotation.z, 0, 1 - Math.exp(-5 * dt));
+    // Gira o monstro para encarar o personagem sem trancos.
+    if (obj.userData.targetRot !== undefined) {
+      const angleDiff = Math.atan2(
+        Math.sin(obj.userData.targetRot - obj.rotation.y),
+        Math.cos(obj.userData.targetRot - obj.rotation.y)
+      );
+      obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
+    }
     if (obj.userData.kind === 'stalker') {
       obj.rotation.x = moving ? Math.sin(phase) * .045 : THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-5 * dt));
     }
