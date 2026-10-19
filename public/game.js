@@ -567,27 +567,91 @@ function connect(code = '') {
 
 
 const classDescriptions = {
-  knight: 'Cavaleiro: defesa elevada e combate corpo a corpo.',
-  mage: 'Mago: especialista em energia arcana e ataques mágicos.',
-  archer: 'Arqueiro: ágil, preciso e focado em ataques à distância.'
+  knight: 'Cavaleiro: mais vida, defesa natural e golpes corpo a corpo.',
+  mage: 'Mago: menos vida, mas magia mais poderosa.',
+  archer: 'Arqueiro: ataques rápidos e maior alcance.'
 };
 let selectedClass = 'knight';
-let skillPoints = 3;
+let selectedSkin = 'default';
+let skillPoints = 5;
 const unlockedSkills = new Set();
-document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => {
-  selectedClass = card.dataset.class;
-  document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el === card));
-  $('classDescription').textContent = classDescriptions[selectedClass];
-}));
-document.querySelectorAll('.skill-card').forEach(card => card.addEventListener('click', () => {
-  const skill = card.dataset.skill;
-  if (unlockedSkills.has(skill) || skillPoints < 1) return;
-  unlockedSkills.add(skill);
+let lastSkillSignature = '';
+const SKILL_BRANCHES = [
+  { id:'attack', title:'⚔ ATAQUE', skills:[
+    {id:'mighty_blows',icon:'⚔',name:'Golpes poderosos',desc:'+1 dano base.'},
+    {id:'swift_hands',icon:'💨',name:'Mãos velozes',desc:'Ataques mais rápidos.',req:'mighty_blows'},
+    {id:'executioner',icon:'☠',name:'Executor',desc:'+2 dano contra inimigos fracos.',req:'swift_hands'},
+    {id:'boss_hunter',icon:'👑',name:'Caçador de chefes',desc:'+50% dano contra chefes.',req:'executioner'},
+    {id:'longshot',icon:'🏹',name:'Mira distante',desc:'Mais alcance no ataque.',req:'boss_hunter'}
+  ]},
+  { id:'defense', title:'🛡 DEFESA', skills:[
+    {id:'vitality',icon:'♥',name:'Vitalidade',desc:'+25 de vida máxima.'},
+    {id:'iron_skin',icon:'🛡',name:'Pele de ferro',desc'Recebe 20% menos dano.',req:'vitality'},
+    {id:'regeneration',icon:'✚',name:'Regeneração',desc:'Recupera 2 de vida a cada 3 s.',req:'iron_skin'},
+    {id:'second_wind',icon:'🌟',name:'Segunda chance',desc:'Uma vez, sobrevive a um golpe fatal.',req:'regeneration'},
+    {id:'party_guard',icon:'🤝',name:'Guarda em grupo',desc:'Recebe menos dano perto de aliado.',req:'second_wind'}
+  ]},
+  { id:'arcane', title:'✦ MAGIA & UTILIDADE', skills:[
+    {id:'arcane_mastery',icon:'🔮',name:'Maestria arcana',desc:'Mago causa mais dano mágico.'},
+    {id:'ember_core',icon:'🔥',name:'Núcleo de brasa',desc:'Fogo mais forte e queimadura maior.',req:'arcane_mastery'},
+    {id:'storm_bond',icon:'⚡',name:'Vínculo da tempestade',desc:'Raio salta para mais inimigos.',req:'ember_core'},
+    {id:'treasure_luck',icon:'💎',name:'Sorte do tesouro',desc:'Maior chance de loot.',req:'storm_bond'},
+    {id:'swift_step',icon:'👟',name:'Passo veloz',desc:'Movimento mais rápido.',req:'treasure_luck'}
+  ]}
+];
+function renderSkillTrees() {
+  const html = SKILL_BRANCHES.map(branch =>
+    '<section class="skill-branch"><div class="skill-branch-title">' + branch.title + '</div><div class="skill-branch-list">' +
+    branch.skills.map(skill => {
+      const unlocked = unlockedSkills.has(skill.id);
+      const available = !skill.req || unlockedSkills.has(skill.req);
+      const canBuy = !unlocked && available && skillPoints > 0;
+      const state = unlocked ? 'DESBLOQUEADA ✓' : !available ? 'REQUER: ' + SKILL_BRANCHES.flatMap(b=>b.skills).find(s=>s.id===skill.req).name : skillPoints > 0 ? 'DESBLOQUEAR · 1 PONTO' : 'SEM PONTOS';
+      return '<button type="button" class="skill-node ' + (unlocked?'unlocked':canBuy?'available':'locked') + '" data-skill="' + skill.id + '"' + (canBuy?'':' disabled') + '><span class="skill-node-top"><span class="skill-node-icon">' + skill.icon + '</span>' + skill.name + '</span><small>' + skill.desc + '</small><span class="skill-node-state">' + state + '</span></button>';
+    }).join('') + '</div></section>'
+  ).join('');
+  const lobbyTree = $('skillTreeLobby'), hudTree = $('skillTreeHud');
+  if (lobbyTree) lobbyTree.innerHTML = html;
+  if (hudTree) hudTree.innerHTML = html;
+  if ($('skillPoints')) $('skillPoints').textContent = String(skillPoints);
+  if ($('skillPointsHud')) $('skillPointsHud').textContent = String(skillPoints);
+}
+function syncLoadoutUI() {
+  const signature = selectedClass + '|' + selectedSkin + '|' + skillPoints + '|' + Array.from(unlockedSkills).sort().join(',');
+  if (signature === lastSkillSignature) return;
+  lastSkillSignature = signature;
+  renderSkillTrees();
+}
+function sendLoadout() {
+  if (ws && ws.readyState === WebSocket.OPEN && playerId) {
+    send({ type:'loadout', playerClass:selectedClass, skin:selectedSkin, skills:Array.from(unlockedSkills) });
+  }
+}
+function chooseClass(className) {
+  if (!classDescriptions[className]) return;
+  selectedClass = className;
+  document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
+  if ($('classDescription')) $('classDescription').textContent = classDescriptions[selectedClass];
+  sendLoadout();
+}
+document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => chooseClass(card.dataset.class)));
+$('skinSelect')?.addEventListener('change', e => { selectedSkin = e.target.value; sendLoadout(); });
+function handleSkillClick(event) {
+  const button = event.target.closest('[data-skill]');
+  if (!button || button.disabled) return;
+  const skill = SKILL_BRANCHES.flatMap(branch => branch.skills).find(item => item.id === button.dataset.skill);
+  if (!skill || unlockedSkills.has(skill.id) || skillPoints < 1 || (skill.req && !unlockedSkills.has(skill.req))) return;
+  unlockedSkills.add(skill.id);
   skillPoints--;
-  $('skillPoints').textContent = String(skillPoints);
-  card.classList.add('unlocked');
-  card.querySelector('span').textContent = 'DESBLOQUEADO ✓';
-}));
+  lastSkillSignature = '';
+  syncLoadoutUI();
+  sendLoadout();
+}
+$('skillTreeLobby')?.addEventListener('click', handleSkillClick);
+$('skillTreeHud')?.addEventListener('click', handleSkillClick);
+$('skillToggleBtn')?.addEventListener('click', () => $('skillPanel')?.classList.toggle('hidden'));
+$('skillCloseBtn')?.addEventListener('click', () => $('skillPanel')?.classList.add('hidden'));
+syncLoadoutUI();
 
 function sendJoin(code) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
