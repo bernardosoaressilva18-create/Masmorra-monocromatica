@@ -38,25 +38,25 @@ let nextId = 1;
 
 const LOOT_TABLES = {
   monster: [
-    { name: 'Fragmento Sombrio', rarity: 'Comum', weight: 48 },
-    { name: 'Pó de Cristal', rarity: 'Incomum', weight: 27 },
-    { name: 'Essência Antiga', rarity: 'Raro', weight: 15 },
-    { name: 'Núcleo Arcano', rarity: 'Épico', weight: 8 },
-    { name: 'Relíquia Monocromática', rarity: 'Lendário', weight: 2 }
+    { name: 'Fragmento Sombrio', rarity: 'Comum', slot: 'Amuleto', power: 1, weight: 48 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', slot: 'Anel', power: 2, weight: 27 },
+    { name: 'Essência Antiga', rarity: 'Raro', slot: 'Amuleto', power: 4, weight: 15 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', slot: 'Relíquia', power: 7, weight: 8 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', slot: 'Relíquia', power: 12, weight: 2 }
   ],
   boss: [
-    { name: 'Fragmento Sombrio', rarity: 'Comum', weight: 10 },
-    { name: 'Pó de Cristal', rarity: 'Incomum', weight: 20 },
-    { name: 'Essência Antiga', rarity: 'Raro', weight: 30 },
-    { name: 'Núcleo Arcano', rarity: 'Épico', weight: 28 },
-    { name: 'Relíquia Monocromática', rarity: 'Lendário', weight: 12 }
+    { name: 'Fragmento Sombrio', rarity: 'Comum', slot: 'Amuleto', power: 1, weight: 10 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', slot: 'Anel', power: 2, weight: 20 },
+    { name: 'Essência Antiga', rarity: 'Raro', slot: 'Amuleto', power: 4, weight: 30 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', slot: 'Relíquia', power: 7, weight: 28 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', slot: 'Relíquia', power: 12, weight: 12 }
   ],
   chest: [
-    { name: 'Fragmento Sombrio', rarity: 'Comum', weight: 20 },
-    { name: 'Pó de Cristal', rarity: 'Incomum', weight: 28 },
-    { name: 'Essência Antiga', rarity: 'Raro', weight: 27 },
-    { name: 'Núcleo Arcano', rarity: 'Épico', weight: 18 },
-    { name: 'Relíquia Monocromática', rarity: 'Lendário', weight: 7 }
+    { name: 'Fragmento Sombrio', rarity: 'Comum', slot: 'Amuleto', power: 1, weight: 20 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', slot: 'Anel', power: 2, weight: 28 },
+    { name: 'Essência Antiga', rarity: 'Raro', slot: 'Amuleto', power: 4, weight: 27 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', slot: 'Relíquia', power: 7, weight: 18 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', slot: 'Relíquia', power: 12, weight: 7 }
   ]
 };
 function rollLoot(kind) {
@@ -71,6 +71,12 @@ function rollLoot(kind) {
 }
 function emptyInventory() {
   return { Comum: 0, Incomum: 0, Raro: 0, Épico: 0, Lendário: 0 };
+}
+function addLootToPlayer(player, item) {
+  player.inventory[item.rarity] = (player.inventory[item.rarity] || 0) + 1;
+  player.items.push(item);
+  const old = player.equipped[item.slot];
+  if (!old || item.power > old.power) player.equipped[item.slot] = item;
 }
 
 function newRoom(code) {
@@ -96,7 +102,7 @@ function broadcast(room, message) {
 }
 
 function playerInventoryForRoom(room) {
-  return [...room.players.values()].map(p => ({ id: p.id, inventory: p.inventory }));
+  return [...room.players.values()].map(p => ({ id: p.id, inventory: p.inventory, equipped: p.equipped, items: p.items }));
 }
 function state(room) {
   return {
@@ -117,7 +123,9 @@ wss.on('connection', ws => {
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   room: null,
   lootDrops: [],
-  inventory: emptyInventory()
+  inventory: emptyInventory(),
+  items: [],
+  equipped: {}
 };
 
   ws.on('message', raw => {
@@ -162,7 +170,7 @@ wss.on('connection', ws => {
       if (target) {
         target.alive = false;
         const loot = rollLoot(target.boss ? 'boss' : 'monster');
-        player.inventory[loot.rarity] = (player.inventory[loot.rarity] || 0) + 1;
+        addLootToPlayer(player, loot);
         broadcast(room, { type: 'loot', playerId: player.id, playerName: player.name, item: loot });
         broadcast(room, { type: 'notice', text: player.name + (target.boss ? ' derrotou o CHEFE!' : ' derrotou um monstro!') });
       }
