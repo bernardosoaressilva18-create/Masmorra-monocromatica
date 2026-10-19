@@ -355,31 +355,72 @@ function interactChest() {
   send({ type: 'openChest', id: nearest.id });
 }
 
-function makeMonster() {
+function makeMonster(kind = 'stalker', phase = 1) {
   const g = new THREE.Group();
+  const matBody = (color, rough = .72, metal = .12) => mat(color, rough, metal);
+  const dark = matBody(0x11131d, .9);
+  const bone = matBody(0xb8c5d3, .48, .25);
+  const eyeColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x8ffcff : 0xff3f68;
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: eyeColor, emissive: eyeColor, emissiveIntensity: 1.5, roughness: .3
+  });
+  const addMesh = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
+    const m = new THREE.Mesh(geo, material);
+    m.position.set(x,y,z); m.scale.set(sx,sy,sz); g.add(m); return m;
+  };
 
-  const body = new THREE.Mesh(new THREE.DodecahedronGeometry(.68, 1), mat(0x423c55, .85));
-  body.position.y = .85;
-  g.add(body);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.4, 10, 8), mat(0x62536c));
-  head.position.y = 1.55;
-  g.add(head);
-
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff425f });
-  for (const x of [-.16, .16]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(.065, 8, 6), eyeMat);
-    eye.position.set(x, 1.59, -.34);
-    g.add(eye);
+  if (kind === 'brute') {
+    // Grande criatura blindada, com ombros largos, placas e chifres.
+    const armor = matBody(phase === 2 ? 0x49316b : 0x414957, .48, .35);
+    const belly = matBody(0x242a36, .86);
+    addMesh(new THREE.CapsuleGeometry(.55,.65,5,8), armor, 0,1.0,0,1.1,1, .9);
+    addMesh(new THREE.DodecahedronGeometry(.52,1), belly, 0,1.0,-.03,1,.85,.72);
+    addMesh(new THREE.SphereGeometry(.34,16,12), armor, 0,1.85,-.03,1,.9,.9);
+    for (const side of [-1,1]) {
+      addMesh(new THREE.BoxGeometry(.48,.42,.5), armor, side*.62,1.48,0);
+      const horn=addMesh(new THREE.ConeGeometry(.16,.58,7), bone, side*.24,2.2,-.02);
+      horn.rotation.z=side*-.38;
+      addMesh(new THREE.SphereGeometry(.085,10,8),eyeMat,side*.14,1.91,-.33);
+      addMesh(new THREE.CapsuleGeometry(.18,.48,3,6),armor,side*.63,.67,0);
+      const claw=addMesh(new THREE.ConeGeometry(.14,.38,6),bone,side*.68,.32,-.13);
+      claw.rotation.x=Math.PI;
+    }
+  } else if (kind === 'wraith') {
+    // Espectro cristalino: corpo estreito, capa em pontas e cristais cianos.
+    const robe = new THREE.MeshStandardMaterial({color:0x263f62, roughness:.42, metalness:.2, emissive:0x102b55, emissiveIntensity:.65});
+    addMesh(new THREE.ConeGeometry(.62,1.25,7),robe,0,.72,0,1,1,.85);
+    addMesh(new THREE.SphereGeometry(.32,16,12),matBody(0x182537,.55,.25),0,1.55,0);
+    addMesh(new THREE.OctahedronGeometry(.16),eyeMat,-.13,1.59,-.27);
+    addMesh(new THREE.OctahedronGeometry(.16),eyeMat,.13,1.59,-.27);
+    for(const side of [-1,1]){
+      const spike=addMesh(new THREE.ConeGeometry(.13,.72,5),matBody(0x7deaff,.35,.4),side*.38,.98,0);
+      spike.rotation.z=side*-.65;
+      const shard=addMesh(new THREE.OctahedronGeometry(.2),eyeMat,side*.25,.55,-.15);
+      shard.rotation.z=side*.4;
+    }
+  } else {
+    // Predador ágil com carapaça, espinhos nas costas e garras.
+    const hide = matBody(phase === 2 ? 0x385d66 : 0x51465d, .66, .12);
+    addMesh(new THREE.SphereGeometry(.48,16,12),hide,0,.87,0,1.05,.85,1.25);
+    addMesh(new THREE.SphereGeometry(.32,16,12),matBody(0x242432),0,1.45,-.2,1,.9,1);
+    addMesh(new THREE.BoxGeometry(.12,.13,.24),eyeMat,-.13,1.48,-.48);
+    addMesh(new THREE.BoxGeometry(.12,.13,.24),eyeMat,.13,1.48,-.48);
+    for(const side of [-1,1]){
+      const ear=addMesh(new THREE.ConeGeometry(.13,.48,5),hide,side*.22,1.82,-.08);
+      ear.rotation.z=side*-.28;
+      const arm=addMesh(new THREE.CapsuleGeometry(.12,.42,3,6),hide,side*.48,.95,-.02);
+      arm.rotation.z=side*.42;
+      const claw=addMesh(new THREE.ConeGeometry(.075,.3,5),bone,side*.56,.64,-.23);
+      claw.rotation.x=Math.PI;
+      addMesh(new THREE.ConeGeometry(.11,.38,5),bone,side*.2,1.13,.35);
+      addMesh(new THREE.CapsuleGeometry(.13,.36,3,5),dark,side*.22,.35,.03);
+    }
   }
-
-  for (const x of [-.42, .42]) {
-    const claw = new THREE.Mesh(new THREE.ConeGeometry(.12, .48, 5), mat(0x8a7b91));
-    claw.position.set(x, .55, -.05);
-    claw.rotation.z = x > 0 ? -.4 : .4;
-    g.add(claw);
-  }
-
+  // Sombra/anel de identidade fixo no chão, sem pulsação.
+  const ringColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x63e9ff : 0xff4269;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,24),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
+  g.userData.kind=kind;
   return g;
 }
 
@@ -629,13 +670,14 @@ function updateState(m) {
 
     let obj = monsterMeshes.get(mtr.id);
     if (!obj) {
-      obj = makeMonster();
+      obj = makeMonster(mtr.kind || 'stalker', mtr.phase || phase);
       scene.add(obj);
       monsterMeshes.set(mtr.id, obj);
     }
 
     obj.userData.targetX = mtr.x;
     obj.userData.targetZ = mtr.z;
+    obj.userData.kind = mtr.kind || 'stalker';
     obj.userData.alive = mtr.alive;
     obj.visible = mtr.alive;
   }
@@ -860,7 +902,7 @@ function animate() {
 
   const dt = Math.min(clock.getDelta(), 0.05);
   const remoteSmooth = 1 - Math.exp(-14 * dt);
-  const monsterSmooth = 1 - Math.exp(-5 * dt);
+  const monsterSmooth = 1 - Math.exp(-10 * dt);
   const cameraSmooth = 1 - Math.exp(-9 * dt);
 
   attackCooldown = Math.max(0, attackCooldown - dt);
