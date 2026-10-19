@@ -1202,7 +1202,7 @@ function updateState(m) {
     bossMesh.visible = false;
     if (bossData && !bossData.alive) {
       bossPanel?.classList.remove('hidden'); $('bossPhaseText').textContent = 'GUARDIÃO DERROTADO';
-      $('bossHealthFill').style.width = '0%'; $('bossHealthText').textContent = '0 / 15';
+      $('bossHealthFill').style.width = '0%'; $('bossHealthText').textContent = '0 / 95';
     }
   }
   latestChests = m.chests || [];
@@ -1253,7 +1253,7 @@ function updateState(m) {
   $('monsterText').textContent = phase === 5
     ? (bossData && bossData.alive ? 'Guardião Supremo' : 'Masmorra concluída')
     : alive + ' monstros restantes';
-  const phaseTotal = phase === 1 ? 5 : phase === 2 ? 8 : phase === 3 ? 9 : phase === 4 ? 11 : 65;
+  const phaseTotal = phase === 1 ? 5 : phase === 2 ? 8 : phase === 3 ? 9 : phase === 4 ? 10 : 95;
   const phaseProgress = phase === 5 && bossData
     ? (phaseTotal - bossData.hp) / phaseTotal * 100
     : (phaseTotal - alive) / phaseTotal * 100;
