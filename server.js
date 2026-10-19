@@ -69,11 +69,19 @@ function state(room) {
 
 wss.on('connection', ws => {
   const player = {
-    id: String(nextId++),
-    ws, name: 'Aventureiro', x: 0, z: 3, rot: 0,
-    color: [0x72e6ff, 0xe9c477, 0xff8ba7, 0x9cff8a][nextId % 4],
-    room: null
-  };
+  id: String(nextId++),
+  ws, name: 'Aventureiro', x: 0, z: 3, rot: 0,
+  color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
+  room: null,
+  lootDrops: [],
+  inventory: {
+    comum: 0,
+    incomum: 0,
+    raro: 0,
+    épico: 0,
+    lendário: 0
+  }
+};
 
   ws.on('message', raw => {
     let msg;
