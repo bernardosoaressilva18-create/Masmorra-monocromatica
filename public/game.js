@@ -562,12 +562,12 @@ function makeBoss() {
   const g = new THREE.Group();
   const armor = mat(0x29202f, .55, .35), dark = mat(0x100e18, .7, .2), bone = mat(0x9c8aa8, .45, .35);
   const eye = new THREE.MeshStandardMaterial({ color: 0xff345d, emissive: 0xff123c, emissiveIntensity: 2.8 });
-  const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, 1), armor); torso.position.y = 1.65; g.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.68, 12, 10), dark); head.position.y = 2.85; g.add(head);
+  const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, isMobileDevice ? 1 : 2), armor); torso.position.y = 1.65; g.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.68, isMobileDevice ? 14 : 22, isMobileDevice ? 12 : 16), dark); head.position.y = 2.85; g.add(head);
   for (const side of [-1, 1]) {
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(.22, .95, 6), bone); horn.position.set(side * .48, 3.55, 0); horn.rotation.z = side * -.38; g.add(horn);
-    const e = new THREE.Mesh(new THREE.SphereGeometry(.12, 8, 6), eye); e.position.set(side * .25, 2.9, -.59); g.add(e);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.22, .9, 4, 7), armor); arm.position.set(side * 1.12, 1.6, 0); arm.rotation.z = side * -.22; g.add(arm);
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(.22, .95, isMobileDevice ? 6 : 9), bone); horn.position.set(side * .48, 3.55, 0); horn.rotation.z = side * -.38; g.add(horn);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(.12, isMobileDevice ? 8 : 12, isMobileDevice ? 6 : 10), eye); e.position.set(side * .25, 2.9, -.59); g.add(e);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.22, .9, isMobileDevice ? 4 : 6, isMobileDevice ? 7 : 10), armor); arm.position.set(side * 1.12, 1.6, 0); arm.rotation.z = side * -.22; g.add(arm);
     const claw = new THREE.Mesh(new THREE.ConeGeometry(.18, .55, 5), bone); claw.position.set(side * 1.2, .82, -.05); claw.rotation.z = Math.PI; g.add(claw);
   }
   const rune = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.65, 32), new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .7, side: THREE.DoubleSide }));
