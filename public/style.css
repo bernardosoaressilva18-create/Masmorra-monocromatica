@@ -457,3 +457,35 @@ html, body { min-height: 100%; }
   #hud .fire-btn { right: 92px !important; bottom: 82px !important; }
   #hud .lightning-btn { right: 20px !important; bottom: 92px !important; }
 }
+
+
+/* HUD v13: zonas independentes; magia sempre visível sem cobrir a luta. */
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 700px) {
+  #hud .topbar { top: max(5px,env(safe-area-inset-top)) !important; left: 5px !important; right: 5px !important; gap: 4px !important; }
+  #hud .objective { top: 56px !important; left: 5px !important; width: calc(50vw - 9px) !important; padding: 7px !important; z-index: 20 !important; }
+  #hud .inventory-panel { top: 56px !important; right: 5px !important; width: calc(50vw - 9px) !important; max-height: 32dvh !important; padding: 7px !important; z-index: 20 !important; overflow-y: auto !important; }
+  #hud .inventory-list { grid-template-columns: repeat(5,minmax(0,1fr)) !important; gap: 2px !important; }
+  #hud .loot-row { display: flex !important; flex-direction: column !important; align-items: center !important; padding: 3px 1px !important; font-size: 7px !important; min-width: 0 !important; }
+  #hud .loot-row b { font-size: 9px !important; }
+  #hud .loot-help { font-size: 7px !important; line-height: 1.2 !important; }
+  #hud .selected-item { position: static !important; left: auto !important; right: auto !important; bottom: auto !important; display: grid !important; width: 100% !important; margin: 5px 0 0 !important; padding-top: 5px !important; background: transparent !important; transform: none !important; z-index: auto !important; }
+  #hud .selected-item span { font-size: 8px !important; }
+  #hud .selected-item button { padding: 6px 3px !important; min-height: 28px !important; }
+  #hud .players { top: 205px !important; left: 5px !important; right: auto !important; max-width: 42vw !important; }
+  #hud .joystick { left: 5px !important; bottom: max(8px,env(safe-area-inset-bottom)) !important; width: 124px !important; height: 124px !important; z-index: 10 !important; }
+  #hud .stick { left: 37px !important; top: 37px !important; width: 48px !important; height: 48px !important; }
+  #hud .attack { right: 8px !important; bottom: max(8px,env(safe-area-inset-bottom)) !important; width: 70px !important; height: 70px !important; z-index: 16 !important; }
+  #hud .chest-btn { right: 86px !important; bottom: max(14px,env(safe-area-inset-bottom)) !important; width: 52px !important; height: 52px !important; z-index: 17 !important; }
+  #hud .spell-btn { display: flex !important; position: absolute !important; width: 54px !important; height: 54px !important; z-index: 15 !important; pointer-events: auto !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 1px !important; border-radius: 50% !important; color: #fff !important; background: rgba(10,17,28,.94) !important; box-shadow: 0 2px 12px #0009 !important; touch-action: none !important; }
+  #hud .spell-btn span { font-size: 22px !important; line-height: 1 !important; }
+  #hud .spell-btn small { font-size: 7px !important; }
+  #hud .fire-btn { right: 88px !important; bottom: 76px !important; border: 1px solid #ff9a4a !important; }
+  #hud .lightning-btn { right: 18px !important; bottom: 88px !important; border: 1px solid #8caaff !important; }
+  #hud .hint { display: none !important; }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  #hud .spell-btn { display:flex !important; position:absolute !important; width:54px !important; height:54px !important; z-index:15 !important; pointer-events:auto !important; }
+  #hud .fire-btn { right:130px !important; bottom:14px !important; }
+  #hud .lightning-btn { right:70px !important; bottom:78px !important; }
+  #hud .attack { width:76px !important; height:76px !important; }
+}
