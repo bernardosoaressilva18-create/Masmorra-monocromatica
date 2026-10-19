@@ -507,7 +507,7 @@ setInterval(() => {
     }
     broadcast(room, state(room));
   }
-}, 100);
+}, 150);
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('Masmorra Monocromática online na porta ' + PORT);
