@@ -43,6 +43,32 @@
   <div class="footnote">MODO COOPERATIVO · ATÉ 4 JOGADORES</div>
 </div>
 
+<div id="lobby" class="screen hidden">
+  <div class="brand">
+    <div class="sigil">✦</div>
+    <p class="eyebrow">SALA COOPERATIVA</p>
+    <h1>LOBBY<br><span>DE AVENTUREIROS</span></h1>
+    <p class="subtitle">Código da sala: <strong id="lobbyRoomCode">------</strong></p>
+  </div>
+  <div class="panel lobby-panel">
+    <label>JOGADORES NA SALA</label>
+    <div id="lobbyPlayers" class="lobby-players"><p>Esperando aventureiros...</p></div>
+    <button id="readyBtn" class="primary">ESTOU PRONTO</button>
+    <button id="startMatchBtn" class="primary start-match hidden" disabled>INICIAR PARTIDA</button>
+    <p id="lobbyHint" class="status">Marque PRONTO. O anfitrião inicia quando todos estiverem prontos.</p>
+    <button id="leaveLobbyBtn" class="lobby-leave">SAIR DA SALA</button>
+  </div>
+  <div class="footnote">ATÉ 4 JOGADORES · COOPERAÇÃO OBRIGATÓRIA</div>
+</div>
+
+<div id="deathScreen" class="screen death-screen hidden">
+  <div class="start-emblem" aria-hidden="true">☠</div>
+  <p class="eyebrow">AVENTUREIRO DERROTADO</p>
+  <h1 class="start-title">FIM DE JOGO</h1>
+  <p class="start-copy">Você não vai renascer automaticamente nesta partida.</p>
+  <button id="deathLeaveBtn" class="primary start-button">SAIR DA PARTIDA</button>
+</div>
+
 <div id="hud" class="hidden">
   <div class="topbar">
     <div class="badge"><span class="dot"></span><div><small>MASMORRA</small><strong id="roomLabel">CONECTANDO</strong></div></div>
