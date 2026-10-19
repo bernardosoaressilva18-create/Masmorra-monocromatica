@@ -498,9 +498,17 @@ function updateState(m) {
     obj.visible = mtr.alive;
   }
 
-  $('monsterText').textContent = alive + ' monstros restantes';
-  $('progressFill').style.width = ((7 - alive) / 7 * 100) + '%';
-  $('killText').textContent = 7 - alive;
+  $('monsterText').textContent = phase === 3
+    ? (bossData && bossData.alive ? 'Guardião do Abismo' : 'Masmorra concluída')
+    : alive + ' monstros restantes';
+  const phaseTotal = phase === 1 ? 7 : phase === 2 ? 9 : 15;
+  const phaseProgress = phase === 3 && bossData
+    ? (phaseTotal - bossData.hp) / phaseTotal * 100
+    : (phaseTotal - alive) / phaseTotal * 100;
+  $('progressFill').style.width = Math.max(0, Math.min(100, phaseProgress)) + '%';
+  $('killText').textContent = phase === 3 && bossData
+    ? phaseTotal - bossData.hp
+    : phaseTotal - alive;
 
   $('playersList').innerHTML = m.players.map(p =>
     `<div class="player-chip">● ${escapeHTML(p.name)}${p.id === playerId ? ' (você)' : ''}</div>`
