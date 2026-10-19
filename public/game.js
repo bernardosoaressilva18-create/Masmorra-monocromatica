@@ -164,7 +164,12 @@ for (let z = -30; z <= 8; z += 6) {
     const ring = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 3.8), new THREE.MeshBasicMaterial({ color: 0x23b9ff, transparent: true, opacity: .25, side: THREE.DoubleSide, depthWrite: false })); ring.position.set(0, 2.1, 0); gate.add(ring);
     const bars = new THREE.Group();
     for (let x = -2.5; x <= 2.51; x += 1) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 3.7, .18), runeMat); bar.position.set(x, 1.95, -.05); bars.add(bar); }
-    gate.add(bars); gate.position.z = z; gate.userData.bars = bars; gate.userData.ring = ring; gate.userData.open = false; scene.add(gate); gateMeshes.push(gate);
+    const portalMat = new THREE.MeshBasicMaterial({ color: 0x3edcff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+    const portal = new THREE.Mesh(new THREE.PlaneGeometry(5.25, 3.55), portalMat);
+    portal.position.set(0, 2.05, -.12); gate.add(portal);
+    const portalRim = new THREE.Mesh(new THREE.TorusGeometry(1.42,.055,8,48), new THREE.MeshStandardMaterial({color:0x77edff,emissive:0x159dcc,emissiveIntensity:1.8,metalness:.35,roughness:.25}));
+    portalRim.position.set(0,2.05,-.2); portalRim.scale.set(1.55,1.25,1); gate.add(portalRim);
+    gate.add(bars); gate.position.z = z; gate.userData.bars = bars; gate.userData.ring = ring; gate.userData.portal = portal; gate.userData.portalRim = portalRim; gate.userData.open = false; scene.add(gate); gateMeshes.push(gate);
   }
   // Cristais, braseiros e fragmentos decorativos para dar profundidade.
   for (const z of [-5, -10, -18, -23, -30]) {
@@ -253,63 +258,61 @@ function trimMat() {
 
 function makeHero(color = 0x72e6ff) {
   const g = new THREE.Group();
-  const armor = mat(color, .55, .2);
-  const dark = mat(0x1b2430, .8);
-  const skin = mat(0xe2b99a);
-  const metal = mat(0x8fa6b4, .35, .6);
-
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.38, .55, 4, 7), armor);
-  torso.position.y = 1.2;
-  g.add(torso);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.27, 10, 8), skin);
-  head.position.y = 1.95;
-  g.add(head);
-
-  const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(.28, 10, 6, 0, Math.PI * 2, 0, Math.PI * .55),
-    dark
-  );
-  hair.position.y = 2.08;
-  g.add(hair);
-
-  const cape = new THREE.Mesh(new THREE.BoxGeometry(.56, .72, .12), dark);
-  cape.position.set(0, 1.25, .32);
-  g.add(cape);
-
-  for (const side of [-1, 1]) {
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.12, .43, 3, 5), armor);
-    arm.position.set(side * .48, 1.25, 0);
-    arm.rotation.z = side * -.13;
-    g.add(arm);
-
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.15, .45, 3, 5), dark);
-    leg.position.set(side * .2, .48, 0);
-    g.add(leg);
+  const armor = new THREE.MeshStandardMaterial({ color, metalness: .48, roughness: .32 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x151d2a, metalness: .35, roughness: .55 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xe2b99a, roughness: .82 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xc9a45d, metalness: .72, roughness: .3 });
+  const glow = new THREE.MeshStandardMaterial({ color: 0x8beaff, emissive: 0x168fc0, emissiveIntensity: 1.4, metalness: .25, roughness: .25 });
+  const add = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
+    if (!isMobileDevice) { mesh.castShadow = true; mesh.receiveShadow = true; }
+    g.add(mesh); return mesh;
+  };
+  // Botas e pernas articuladas
+  for (const side of [-1,1]) {
+    add(new THREE.CapsuleGeometry(.145,.34,4,8), dark, side*.2,.47,0);
+    add(new THREE.BoxGeometry(.27,.16,.4), steel, side*.2,.19,-.055);
+    add(new THREE.SphereGeometry(.19,12,10), gold, side*.2,.68,0,.94,.62,.9);
+    const arm=add(new THREE.CapsuleGeometry(.13,.42,4,8), armor, side*.48,1.23,0);
+    arm.rotation.z=side*-.12;
+    add(new THREE.SphereGeometry(.19,12,10), steel, side*.48,1.49,0,1.08,.65,1.0);
+    add(new THREE.CapsuleGeometry(.12,.19,3,6), dark, side*.49,.91,-.015);
+    add(new THREE.SphereGeometry(.105,10,8), gold, side*.49,.83,-.02);
   }
-
+  // Peitoral em camadas, gola e cinto
+  add(new THREE.CapsuleGeometry(.36,.5,5,10), armor, 0,1.22,0,1.0,1.0,.82);
+  add(new THREE.BoxGeometry(.48,.42,.12), steel, 0,1.25,-.31);
+  add(new THREE.BoxGeometry(.19,.23,.05), glow, 0,1.27,-.39);
+  add(new THREE.BoxGeometry(.64,.12,.43), dark, 0,.91,0);
+  add(new THREE.BoxGeometry(.15,.15,.08), gold, 0,.91,-.23);
+  // Capa dividida em painéis para dar silhueta de aventureiro
+  const cape=add(new THREE.BoxGeometry(.58,.72,.13), dark,0,1.23,.29);
+  cape.rotation.x=-.08;
+  add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
+  // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
+  add(new THREE.SphereGeometry(.255,16,12), skin,0,1.94,-.015);
+  add(new THREE.SphereGeometry(.27,16,10,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
+  add(new THREE.BoxGeometry(.32,.09,.2), dark,0,2.04,-.17);
+  for (const side of [-1,1]) add(new THREE.SphereGeometry(.035,8,6), glow,side*.09,1.96,-.239);
+  // Ombreiras e pequenos rebites metálicos
+  for (const side of [-1,1]) {
+    const pad=add(new THREE.SphereGeometry(.22,12,8), steel,side*.48,1.51,0,1.15,.7,1.0);
+    pad.rotation.z=side*-.2;
+    add(new THREE.SphereGeometry(.045,8,6), gold,side*.48,1.53,-.19);
+  }
+  // Espada com lâmina facetada, guarda dourada e pomo
   const sword = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(.09, .75, .12), metal);
-  blade.position.y = .47;
-  sword.add(blade);
-
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(.32, .07, .16), trimMat());
-  guard.position.y = .12;
-  sword.add(guard);
-
-  sword.position.set(.56, 1.02, -.1);
-  sword.rotation.z = -.25;
-  g.add(sword);
-  g.userData.sword = sword;
-
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(.43, .49, 24),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .55, side: THREE.DoubleSide })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = .025;
-  g.add(ring);
-
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(.085,.72,.055), steel); blade.position.y=.48; sword.add(blade);
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(.018,.68,.06), glow); edge.position.set(.043,.48,-.002); sword.add(edge);
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(.31,.065,.12), gold); guard.position.y=.12; sword.add(guard);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.2,8), dark); grip.position.y=.015; sword.add(grip);
+  const pommel = new THREE.Mesh(new THREE.SphereGeometry(.07,8,6), gold); pommel.position.y=-.09; sword.add(pommel);
+  sword.position.set(.57,1.0,-.12); sword.rotation.z=-.25; g.add(sword); g.userData.sword=sword;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.62,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
+  g.userData.cape=cape;
   return g;
 }
 
@@ -646,7 +649,19 @@ function updateState(m) {
 
   const phase = m.phase || 1, phaseLabel = $('phaseLabel');
   if (phase !== currentPhaseVisual) {
+    const previousPhase = currentPhaseVisual;
     currentPhaseVisual = phase;
+    if (previousPhase > 0 && phase > previousPhase) {
+      const overlay = $('phaseTransition');
+      if (overlay) {
+        $('phaseTransitionTitle').textContent = phase === 2 ? 'AS CAVERNAS MÁGICAS' : phase === 3 ? 'O ABISMO FINAL' : 'MASMORRA CONCLUÍDA';
+        $('phaseTransitionSub').textContent = phase === 3 ? 'O Guardião despertou...' : 'A passagem foi aberta';
+        overlay.classList.remove('hidden','phase-out');
+        overlay.classList.add('phase-in');
+        setTimeout(() => { overlay.classList.remove('phase-in'); overlay.classList.add('phase-out'); }, 1850);
+        setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('phase-out'); }, 2550);
+      }
+    }
     const palettes = [
       { bg: 0x090d14, fog: 0x090d14 },
       { bg: 0x100c20, fog: 0x17112a },
@@ -1030,6 +1045,9 @@ const right = new THREE.Vector3(
     gate.userData.bars.scale.x = THREE.MathUtils.lerp(gate.userData.bars.scale.x, targetScale, 1 - Math.exp(-5 * dt));
     gate.userData.bars.visible = gate.userData.bars.scale.x > .04;
     gate.userData.ring.material.opacity = gate.userData.open ? .08 : .3;
+    gate.userData.portal.material.opacity = THREE.MathUtils.lerp(gate.userData.portal.material.opacity, gate.userData.open ? .32 : 0, 1 - Math.exp(-2.8 * dt));
+    gate.userData.portalRim.rotation.z += dt * (gate.userData.open ? .65 : .12);
+    gate.userData.portalRim.material.emissiveIntensity = gate.userData.open ? 2.8 : 1.0;
   }
   // Partículas ambientais estáticas: sem oscilação que possa parecer pulsação.
   // Movimento suave dos monstros
