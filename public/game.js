@@ -11,7 +11,7 @@ const gateMeshes = [];
 let ambientParticles = null, particleMaterial = null;
 let bossMesh = null, bossData = null;
 let currentPhaseVisual = 0;
-let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [];
+let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 46 };
 
 function init3D() {
@@ -340,8 +340,19 @@ function renderInventory() {
   if (!el) return;
   const rarityOrder = ['comum', 'incomum', 'raro', 'épico', 'lendário'];
   el.innerHTML = rarityOrder.map(r => '<div class="loot-row rarity-' + r.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + '"><span>' + r + '</span><b>' + (inventoryData[r] || 0) + '</b></div>').join('');
-  const recent = lootDrops.slice(-6).reverse();
-  $('recentLoot').innerHTML = recent.length ? recent.map(item => '<div class="loot-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + '"><span>' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ')</small></span><button class="use-item" data-item-id="' + escapeHTML(item.id) + '">USAR</button></div>').join('') : '<small>Nenhum item coletado ainda.</small>';
+  const recent = lootDrops.slice(-8).reverse();
+  if (selectedItemId && !lootDrops.some(item => String(item.id) === String(selectedItemId))) selectedItemId = null;
+  if (!selectedItemId && recent.length) selectedItemId = String(recent[0].id);
+  $('recentLoot').innerHTML = recent.length ? recent.map(item => '<button type="button" class="loot-item select-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + (String(item.id) === String(selectedItemId) ? ' selected' : '') + '" data-item-id="' + escapeHTML(item.id) + '"><span>' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ')</small></span><b>' + (String(item.id) === String(selectedItemId) ? '✓' : '+') + '</b></button>').join('') : '<small>Nenhum item coletado ainda.</small>';
+  const chosen = lootDrops.find(item => String(item.id) === String(selectedItemId));
+  $('selectedItemLabel').textContent = chosen ? chosen.name + ' · ' + chosen.rarity : 'Nenhum item selecionado';
+  $('useSelectedItemBtn').disabled = !chosen;
+}
+function useSelectedItem() {
+  if (!started || !selectedItemId || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
+  const item = lootDrops.find(entry => String(entry.id) === String(selectedItemId));
+  if (!item) { showNotice('Selecione um item primeiro.'); return; }
+  send({ type: 'useItem', id: item.id });
 }
 
 function interactChest() {
@@ -798,10 +809,12 @@ $('leaveBtn').addEventListener('click', () => {
 
 $('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); interactChest(); });
 $('recentLoot').addEventListener('click', e => {
-  const button = e.target.closest('.use-item');
-  if (!button) return;
-  send({ type: 'useItem', id: button.dataset.itemId });
+  const row = e.target.closest('.select-item');
+  if (!row) return;
+  selectedItemId = row.dataset.itemId;
+  renderInventory();
 });
+$('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
@@ -809,11 +822,11 @@ $('attackBtn').addEventListener('pointerdown', e => {
 });
 
 addEventListener('keydown', e => {
+  if (['Space','KeyE','KeyR'].includes(e.code)) e.preventDefault();
   keys[e.code] = true;
-  if (e.code === 'Space') {
-    e.preventDefault();
-    attack();
-  }
+  if (e.code === 'Space') attack();
+  if (e.code === 'KeyE') interactChest();
+  if (e.code === 'KeyR') useSelectedItem();
 });
 addEventListener('keyup', e => keys[e.code] = false);
 
