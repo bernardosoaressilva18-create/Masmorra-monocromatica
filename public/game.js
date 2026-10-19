@@ -14,7 +14,7 @@ let currentPhaseVisual = 0;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 46 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
-const renderPixelRatioCap = isMobileDevice ? 1 : 1.5;
+const renderPixelRatioCap = isMobileDevice ? 0.85 : 1.5;
 
 function init3D() {
   scene = new THREE.Scene();
@@ -22,7 +22,7 @@ function init3D() {
   scene.fog = new THREE.FogExp2(0x090d14, .027);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: !isMobileDevice, powerPreference: 'high-performance' });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
   renderer.setPixelRatio(Math.min(devicePixelRatio, renderPixelRatioCap));
