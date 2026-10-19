@@ -13,7 +13,7 @@ let ambientParticles = null, particleMaterial = null;
 let bossMesh = null, bossData = null;
 let currentPhaseVisual = 0;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
-const world = { width: 30, depth: 46 };
+const world = { width: 30, depth: 88 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
 const renderPixelRatioCap = isMobileDevice ? 0.85 : 1.5;
 
@@ -96,17 +96,19 @@ const stoneDark = mat(0x303744, .94, .04);
     emissiveIntensity: 1.8
   });
 
-  box(30, .8, 58, floor, 0, -.5, -14);
+  box(30, .8, 88, floor, 0, -.5, -30);
   // Cada fase recebe um piso próprio, não apenas uma mudança de cor na névoa.
   box(29.6, .08, 17.6, mat(0x303b49, .96), 0, -.055, -3.1);  // Cripta
   box(29.6, .08, 13.4, mat(0x33284c, .92), 0, -.055, -20.0); // Caverna mágica
-  box(29.6, .08, 18.2, mat(0x321b28, .88, .12), 0, -.055, -32.2); // Arena do Abismo ampliada
+  box(29.6, .08, 13.4, mat(0x321b28, .88, .12), 0, -.055, -32.2); // Região vulcânica
+  box(29.6, .08, 13.4, mat(0x192a24, .88, .12), 0, -.055, -46.2); // Floresta
+  box(29.6, .08, 20.5, mat(0x21131f, .88, .12), 0, -.055, -62.8); // Abismo final
   const tileMat = mat(0x343b45, .98);
   for (let z = -33; z <= 10; z += 3) for (let x = -12; x <= 12; x += 3) {
     if (Math.random() > .28) { const tile = box(2.72, .025, 2.72, tileMat, x, -.075, z); tile.position.y = -.075; }
   }
 
-  for (let z = -42; z <= 12; z += 4) {
+  for (let z = -74; z <= 12; z += 4) {
     box(29.8, .05, .06, dark, 0, -.07, z);
   }
 
@@ -120,10 +122,10 @@ for (let z = -30; z <= 8; z += 6) {
   box(0.12, 0.18, 2.2, stoneLight, 14.55, 1.2, z);
   box(0.12, 0.12, 1.5, stoneDark, 14.55, 2.8, z + 2);
 }
-  box(30, 5, .8, wall, 0, 2, -43);
+  box(30, 5, .8, wall, 0, 2, -76);
   box(30, 5, .8, wall, 0, 2, 13);
 
-  for (let z = -40; z <= 9; z += 5) {
+  for (let z = -72; z <= 9; z += 5) {
     for (const side of [-1, 1]) {
       const x = side * 14.35;
       box(.8, .35, .9, trim, x, 4.25, z);
@@ -170,7 +172,7 @@ for (let z = -30; z <= 8; z += 6) {
   }
 
   // Portões mágicos entre as três fases.
-  for (const z of [-13, -27]) {
+  for (const z of [-13, -27, -41, -55]) {
     const gate = new THREE.Group();
     const stone = mat(0x656d7b, .72, .25), runeMat = new THREE.MeshStandardMaterial({ color: 0x56e6ff, emissive: 0x1aa5df, emissiveIntensity: 2.2, metalness: .2, roughness: .3 });
     for (const x of [-3.1, 3.1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(.42, 4.4, .55), stone); post.position.set(x, 2.2, 0); gate.add(post); }
@@ -186,7 +188,7 @@ for (let z = -30; z <= 8; z += 6) {
     gate.add(bars); gate.position.z = z; gate.userData.bars = bars; gate.userData.ring = ring; gate.userData.portal = portal; gate.userData.portalRim = portalRim; gate.userData.open = false; scene.add(gate); gateMeshes.push(gate);
   }
   // Cristais, braseiros e fragmentos decorativos para dar profundidade.
-  for (const z of [-5, -10, -18, -23, -30]) {
+  for (const z of [-5, -10, -18, -23, -30, -36, -44, -50, -58, -66]) {
     for (const x of [-12.2, 12.2]) {
       const flame = new THREE.Mesh(new THREE.IcosahedronGeometry(.22, 1), new THREE.MeshStandardMaterial({ color: 0xffa84f, emissive: 0xff5b1f, emissiveIntensity: 2.5 }));
       flame.position.set(x, 2.1, z); scene.add(flame);
@@ -203,7 +205,7 @@ for (let z = -30; z <= 8; z += 6) {
   // FASE 2 — Caverna mágica: cristais grandes nas laterais, fora da rota central.
   const caveCrystal = new THREE.MeshStandardMaterial({ color: 0x7c63ff, emissive: 0x4b24d8, emissiveIntensity: 1.35, roughness: .28, metalness: .12 });
   const caveCrystalSmall = new THREE.MeshStandardMaterial({ color: 0x5de8ff, emissive: 0x1688bd, emissiveIntensity: 1.1, roughness: .3 });
-  for (const z of [-16.5, -21.5, -24]) {
+  for (const z of [-16.5, -21.5, -24, -37, -40]) {
     for (const side of [-1, 1]) {
       const cluster = new THREE.Group();
       for (let i = 0; i < 3; i++) {
@@ -219,7 +221,7 @@ for (let z = -30; z <= 8; z += 6) {
     }
   }
   // Veios luminosos no chão da caverna.
-  for (const z of [-15, -19, -23, -25]) {
+  for (const z of [-15, -19, -23, -25, -37, -40]) {
     for (const side of [-1, 1]) {
       const vein = new THREE.Mesh(new THREE.BoxGeometry(2.2, .025, .07), new THREE.MeshBasicMaterial({ color: 0x7d5cff, transparent: true, opacity: .62 }));
       vein.position.set(side * 7.8, -.045, z); vein.rotation.y = side * .18; scene.add(vein);
@@ -229,7 +231,7 @@ for (let z = -30; z <= 8; z += 6) {
   // FASE 3 — Arena do Abismo: runas rubras e obeliscos ao redor do chefe.
   const abyssStone = mat(0x211821, .78, .25);
   const abyssRune = new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .62, side: THREE.DoubleSide });
-  for (const [x, z] of [[-8.8, -29.2], [8.8, -29.2], [-8.8, -33], [8.8, -33]]) {
+  for (const [x, z] of [[-8.8, -61.2], [8.8, -61.2], [-8.8, -65], [8.8, -65]]) {
     const obelisk = new THREE.Mesh(new THREE.CylinderGeometry(.28, .5, 3.2, 5), abyssStone);
     obelisk.position.set(x, 1.55, z); obelisk.rotation.z = x < 0 ? .08 : -.08; scene.add(obelisk);
     const crown = new THREE.Mesh(new THREE.OctahedronGeometry(.32), new THREE.MeshStandardMaterial({ color: 0xff315d, emissive: 0x9b102c, emissiveIntensity: 1.7 }));
@@ -237,22 +239,22 @@ for (let z = -30; z <= 8; z += 6) {
   }
   for (const radius of [2.2, 3.6, 5.1]) {
     const circle = new THREE.Mesh(new THREE.RingGeometry(radius, radius + .055, 64), abyssRune);
-    circle.rotation.x = -Math.PI / 2; circle.position.set(0, -.025, -29.1); scene.add(circle);
+    circle.rotation.x = -Math.PI / 2; circle.position.set(0, -.025, -64.1); scene.add(circle);
   }
   // Marca visual no chão entre as regiões para mostrar a passagem de fase.
-  for (const z of [-12.8, -26.7]) {
+  for (const z of [-12.8, -26.7, -40.7, -54.7]) {
     const threshold = new THREE.Mesh(new THREE.BoxGeometry(27, .035, .18), new THREE.MeshStandardMaterial({ color: 0x43515e, emissive: 0x182a38, emissiveIntensity: .7, metalness: .3 }));
     threshold.position.set(0, -.035, z); scene.add(threshold);
   }
 
   const particleCount = 28, particlePositions = new Float32Array(particleCount * 3);
-  for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -33+Math.random()*42; }
+  for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -72+Math.random()*80; }
   const particleGeo = new THREE.BufferGeometry(); particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
   particleMaterial = new THREE.PointsMaterial({ color: 0x8be9ff, size: .055, transparent: true, opacity: .6, depthWrite: false }); ambientParticles = new THREE.Points(particleGeo, particleMaterial); scene.add(ambientParticles);
 
   for (let i = 0; i < 18; i++) {
     const x = (Math.random() - .5) * 25;
-    const z = -30 + Math.random() * 39;
+    const z = -70 + Math.random() * 78;
     if (Math.abs(x) < 3 && z > 0) continue;
 
     const rock = new THREE.Mesh(
@@ -798,8 +800,8 @@ function updateState(m) {
     if (previousPhase > 0 && phase > previousPhase) {
       const overlay = $('phaseTransition');
       if (overlay) {
-        $('phaseTransitionTitle').textContent = phase === 2 ? 'AS CAVERNAS MÁGICAS' : phase === 3 ? 'O ABISMO FINAL' : 'MASMORRA CONCLUÍDA';
-        $('phaseTransitionSub').textContent = phase === 3 ? 'O Guardião despertou...' : 'A passagem foi aberta';
+        $('phaseTransitionTitle').textContent = (['','CRIPTA ESQUECIDA','CAVERNAS MÁGICAS','FLORESTA AMALDIÇOADA','TERRAS VULCÂNICAS','ABISMO FINAL'][phase] || 'MUNDO CONCLUÍDO');
+        $('phaseTransitionSub').textContent = phase === 5 ? 'O Guardião Supremo despertou...' : 'Nova região descoberta';
         overlay.classList.remove('hidden','phase-out');
         overlay.classList.add('phase-in');
         setTimeout(() => { overlay.classList.remove('phase-in'); overlay.classList.add('phase-out'); }, 1850);
@@ -809,21 +811,22 @@ function updateState(m) {
     const palettes = [
       { bg: 0x090d14, fog: 0x090d14 },
       { bg: 0x100c20, fog: 0x17112a },
-      { bg: 0x16070f, fog: 0x210914 }
+      { bg: 0x16070f, fog: 0x210914 },
+      { bg: 0x071810, fog: 0x10271a },
+      { bg: 0x24100a, fog: 0x35150b },
+      { bg: 0x160817, fog: 0x210d28 }
     ];
     const palette = palettes[phase - 1] || palettes[0];
     scene.background.setHex(palette.bg);
     if (scene.fog) scene.fog.color.setHex(palette.fog);
   }
   const aliveMonsters = m.monsters.filter(monster => monster.alive).length;
-  const gate1 = gateMeshes[0], gate2 = gateMeshes[1];
-  if (gate1) gate1.userData.open = phase > 1 || (phase === 1 && aliveMonsters === 0);
-  if (gate2) gate2.userData.open = phase > 2 || (phase === 2 && aliveMonsters === 0);
+  gateMeshes.forEach((gate, index) => { const gatePhase = index + 1; gate.userData.open = phase > gatePhase || (phase === gatePhase && aliveMonsters === 0); });
   const phaseObjective = document.querySelector('.objective strong');
-  if (phaseObjective) phaseObjective.textContent = phase === 1 ? 'Derrote os monstros e atravesse o portão' : phase === 2 ? 'Elimine os guardiões e atravesse o portão' : 'Derrote o Guardião do Abismo';
-  if (phaseLabel) phaseLabel.textContent = 'FASE ' + phase + ' / 3';
+  if (phaseObjective) phaseObjective.textContent = phase === 5 ? 'Derrote o Guardião Supremo' : 'Derrote os monstros e atravesse o portal para o próximo mundo';
+  if (phaseLabel) phaseLabel.textContent = 'MUNDO ' + phase + ' / 5';
   const bossPanel = $('bossPanel');
-  if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 3 || !m.boss || !m.boss.alive);
+  if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 5 || !m.boss || !m.boss.alive);
   bossData = m.boss || null;
   if (bossData && bossData.alive) {
     if (!bossMesh) { bossMesh = makeBoss(); scene.add(bossMesh); }
@@ -880,8 +883,8 @@ function updateState(m) {
   $('monsterText').textContent = phase === 3
     ? (bossData && bossData.alive ? 'Guardião do Abismo' : 'Masmorra concluída')
     : alive + ' monstros restantes';
-  const phaseTotal = phase === 1 ? 7 : phase === 2 ? 9 : 15;
-  const phaseProgress = phase === 3 && bossData
+  const phaseTotal = phase === 1 ? 5 : phase === 2 ? 8 : phase === 3 ? 9 : phase === 4 ? 11 : 65;
+  const phaseProgress = phase === 5 && bossData
     ? (phaseTotal - bossData.hp) / phaseTotal * 100
     : (phaseTotal - alive) / phaseTotal * 100;
   $('progressFill').style.width = Math.max(0, Math.min(100, phaseProgress)) + '%';
