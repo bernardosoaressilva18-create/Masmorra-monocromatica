@@ -281,7 +281,7 @@ wss.on('connection', ws => {
       if (!spell) return;
       const damage = spell === 'fire' ? 3 : 2;
       let target = null;
-      if (room.phase < 3) target = room.monsters.find(m => m.alive && Math.hypot(m.x-player.x,m.z-player.z) < 7);
+      if (room.phase < 3) target = room.monsters.find(m => m.alive && m.spawned && Math.hypot(m.x-player.x,m.z-player.z) < 7);
       else if (room.boss && room.boss.alive && Math.hypot(room.boss.x-player.x,room.boss.z-player.z) < 8) target = room.boss;
       if (target) {
         target.hp = Math.max(0, (target.hp || 1)-damage);
@@ -300,7 +300,7 @@ wss.on('connection', ws => {
     } else if (msg.type === 'attack') {
       if (!room.started || player.hp <= 0) return;
       if (room.phase < 3) {
-        const target = room.monsters.find(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
+        const target = room.monsters.find(m => m.alive && m.spawned && Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
         if (target) {
           const damage = player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0);
           target.hp = Math.max(0, (target.hp || 1) - damage);
