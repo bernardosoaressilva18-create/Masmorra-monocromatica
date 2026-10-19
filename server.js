@@ -42,6 +42,33 @@ const heartbeat = setInterval(() => {
 heartbeat.unref?.();
 const rooms = new Map();
 let nextId = 1;
+const CLASS_STATS = {
+  knight: { hp: 130, damage: 2, range: 3.6, attackMs: 520, spellPower: 1, reduction: .18 },
+  mage: { hp: 92, damage: 1, range: 3.1, attackMs: 460, spellPower: 1.55, reduction: 0 },
+  archer: { hp: 108, damage: 1, range: 4.8, attackMs: 310, spellPower: 1, reduction: .03 }
+};
+const VALID_SKILLS = new Set(['mighty_blows','swift_hands','executioner','boss_hunter','longshot','vitality','iron_skin','regeneration','second_wind','party_guard','arcane_mastery','ember_core','storm_bond','treasure_luck','swift_step']);
+const SKILL_REQUIREMENTS = { swift_hands:'mighty_blows', executioner:'swift_hands', boss_hunter:'executioner', longshot:'boss_hunter', iron_skin:'vitality', regeneration:'iron_skin', second_wind:'regeneration', party_guard:'second_wind', ember_core:'arcane_mastery', storm_bond:'ember_core', treasure_luck:'storm_bond', swift_step:'treasure_luck' };
+function hasSkill(player, id) { return !!player.skills && player.skills.includes(id); }
+function statsFor(player) { return CLASS_STATS[player.playerClass] || CLASS_STATS.knight; }
+function maxHealthFor(player) { return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0); }
+function refreshPlayerStats(player, restoreHealth = false) {
+  const oldMax = player.maxHp || 100; player.maxHp = maxHealthFor(player);
+  player.baseDamage = statsFor(player).damage + (hasSkill(player, 'mighty_blows') ? 1 : 0);
+  if (restoreHealth) player.hp = player.maxHp;
+  else player.hp = Math.min(player.maxHp, Math.max(0, (player.hp || 0) + Math.max(0, player.maxHp - oldMax)));
+}
+function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player, 'treasure_luck') ? .2 : 0)); }
+function takeDamage(room, player, amount) {
+  let damage = amount * (1 - (statsFor(player).reduction || 0));
+  if (hasSkill(player, 'iron_skin')) damage *= .8;
+  if (hasSkill(player, 'party_guard') && [...room.players.values()].some(other => other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7)) damage *= .9;
+  player.hp = Math.max(0, player.hp - Math.max(1, Math.round(damage)));
+  if (player.hp <= 0 && hasSkill(player, 'second_wind') && !player.secondWindUsed) {
+    player.secondWindUsed = true; player.hp = Math.max(1, Math.ceil(player.maxHp * .3));
+    player.ws.send(JSON.stringify({ type: 'notice', text: '🌟 Segunda chance! Você voltou com 30% da vida.' }));
+  }
+}
 
 const RARITIES = [
   { name: 'comum', chance: 60, value: 1 },
@@ -164,7 +191,7 @@ function state(room) {
   return {
     type: 'state',
     players: [...room.players.values()].map(p => ({
-      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, ready: !!p.ready, isHost: p.id === room.hostId
+      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId
     })),
     phase: room.phase,
     started: room.started,
@@ -180,7 +207,8 @@ wss.on('connection', ws => {
   id: String(nextId++),
   ws, name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
-  hp: 100, lastGateNotice: 0, baseDamage: 1, damageBuff: 0, damageBuffHits: 0,
+  hp: 130, maxHp: 130, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
+  playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
   room: null,
   ready: false,
   lootDrops: [],
@@ -215,11 +243,12 @@ wss.on('connection', ws => {
 
       player.room = code;
       player.name = String(msg.name || 'Aventureiro').slice(0, 18);
-      player.x = 0;
-      player.z = 3;
-      player.hp = 100;
-      player.ready = false;
-      player.baseDamage = 1; player.damageBuff = 0; player.damageBuffHits = 0;
+      player.playerClass = ['knight','mage','archer'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
+      player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
+      player.skills = []; player.talentPoints = 5; player.secondWindUsed = false;
+      player.x = 0; player.z = 3; player.ready = false;
+      player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
+      refreshPlayerStats(player, true);
       room.players.set(player.id, player);
 
       ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code }));
@@ -248,6 +277,21 @@ wss.on('connection', ws => {
       }
       room.started = true;
       broadcast(room, { type: 'notice', text: 'A partida começou! Boa sorte, aventureiros.' });
+      broadcast(room, state(room));
+    } else if (msg.type === 'loadout') {
+      const wantedClass = ['knight','mage','archer'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
+      const wantedSkin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : player.skin;
+      if (room.started && (wantedClass !== player.playerClass || wantedSkin !== player.skin)) return;
+      const proposed = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
+      for (const id of proposed) {
+        if (player.skills.includes(id)) continue;
+        const req = SKILL_REQUIREMENTS[id];
+        if (req && !player.skills.includes(req)) continue;
+        if (player.talentPoints <= 0) break;
+        player.skills.push(id); player.talentPoints--;
+      }
+      player.playerClass = wantedClass; player.skin = wantedSkin;
+      refreshPlayerStats(player, !room.started);
       broadcast(room, state(room));
     } else if (msg.type === 'move') {
       if (!room.started || player.hp <= 0) return;
