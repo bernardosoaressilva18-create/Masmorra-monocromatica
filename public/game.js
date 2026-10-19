@@ -15,7 +15,10 @@ let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosit
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 190 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
-const renderPixelRatioCap = isMobileDevice ? 0.9 : 1.5;
+const renderPixelRatioCap = isMobileDevice ? 1.0 : 1.5;
+let adaptivePixelRatio = Math.min(devicePixelRatio, renderPixelRatioCap);
+let perfBadge = null, perfFrames = 0, perfWindowStart = performance.now();
+let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
 
 function init3D() {
   scene = new THREE.Scene();
@@ -23,16 +26,30 @@ function init3D() {
   scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .012 : .009);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: !isMobileDevice, powerPreference: 'high-performance', stencil: false });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, renderPixelRatioCap));
+  renderer.setPixelRatio(adaptivePixelRatio);
   renderer.setSize(innerWidth, innerHeight);
   // Sombras suaves no PC; no celular ficam desligadas para preservar FPS.
   renderer.shadowMap.enabled = !isMobileDevice;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  if (typeof surfaceTexture !== 'undefined') {
+    surfaceTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    surfaceTexture.needsUpdate = true;
+  }
   $('game').appendChild(renderer.domElement);
+  perfBadge = document.createElement('div');
+  perfBadge.setAttribute('aria-hidden', 'true');
+  Object.assign(perfBadge.style, {
+    position: 'fixed', top: '68px', left: '50%', transform: 'translateX(-50%)',
+    zIndex: '12', padding: '4px 8px', border: '1px solid rgba(115,211,255,.25)',
+    borderRadius: '999px', background: 'rgba(7,12,22,.72)', color: '#aeeaff',
+    font: '600 11px/1.2 monospace', letterSpacing: '.3px', pointerEvents: 'none',
+    whiteSpace: 'nowrap', display: 'none'
+  });
+  document.body.appendChild(perfBadge);
 
   clock = new THREE.Clock();
   scene.add(new THREE.HemisphereLight(0xb7d8f5, 0x21152b, 2.45));
@@ -371,37 +388,48 @@ function trimMat() {
   return mat(0xc5a46b, .4, .6);
 }
 
-// Textura procedural leve: pequenas marcas de pedra/metal, sem baixar imagens externas.
+// Textura procedural em resolução maior, com grão, riscos e fissuras finas.
+// É gerada localmente: não acrescenta downloads nem dependências externas.
 function makeSurfaceTexture() {
-  // Textura procedural compacta em 128²: grão fino, manchas e fissuras sutis.
+  const size = 256;
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 128;
+  canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d', { alpha: false });
-  const image = ctx.createImageData(128, 128);
+  const image = ctx.createImageData(size, size);
   for (let i = 0; i < image.data.length; i += 4) {
-    const shade = 178 + Math.floor(Math.random() * 68);
+    const shade = 158 + Math.floor(Math.random() * 78);
     image.data[i] = shade;
     image.data[i + 1] = Math.max(0, shade - 3);
-    image.data[i + 2] = Math.max(0, shade - 7);
+    image.data[i + 2] = Math.max(0, shade - 8);
     image.data[i + 3] = 255;
   }
   ctx.putImageData(image, 0, 0);
-  ctx.globalAlpha = .24;
-  for (let i = 0; i < 160; i++) {
-    const x = Math.random() * 128, y = Math.random() * 128;
-    const w = 2 + Math.random() * 13, h = .5 + Math.random() * 1.6;
-    ctx.fillStyle = Math.random() > .5 ? '#f0f4fa' : '#222832';
+  ctx.globalAlpha = .22;
+  for (let i = 0; i < 420; i++) {
+    const x = Math.random() * size, y = Math.random() * size;
+    const w = 2 + Math.random() * 23, h = .5 + Math.random() * 2;
+    ctx.fillStyle = Math.random() > .5 ? '#edf3fc' : '#1b222e';
     ctx.fillRect(x, y, w, h);
   }
-  ctx.globalAlpha = .17;
+  ctx.globalAlpha = .2;
   ctx.strokeStyle = '#202632';
   ctx.lineWidth = .8;
-  for (let i = 0; i < 9; i++) {
-    const x = Math.random() * 128, y = Math.random() * 128;
-    ctx.beginPath(); ctx.moveTo(x, y);
-    ctx.lineTo(x + (Math.random() - .5) * 13, y + 2 + Math.random() * 14);
-    ctx.lineTo(x + (Math.random() - .5) * 20, y + 7 + Math.random() * 18);
+  for (let i = 0; i < 20; i++) {
+    const x = Math.random() * size, y = Math.random() * size;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (Math.random() - .5) * 24, y + 4 + Math.random() * 22);
+    ctx.lineTo(x + (Math.random() - .5) * 36, y + 10 + Math.random() * 34);
+    if (Math.random() > .45) ctx.lineTo(x + (Math.random() - .5) * 48, y + 18 + Math.random() * 48);
     ctx.stroke();
+  }
+  ctx.globalAlpha = .12;
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * size, y = Math.random() * size;
+    ctx.fillStyle = Math.random() > .5 ? '#cbd5e1' : '#111827';
+    ctx.beginPath();
+    ctx.arc(x, y, .5 + Math.random() * 1.7, 0, Math.PI * 2);
+    ctx.fill();
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
@@ -701,8 +729,8 @@ function onResize() {
   // Em pé no celular, campo de visão maior para manter a masmorra legível.
   camera.fov = isMobileDevice && innerHeight > innerWidth ? 76 : 62;
   camera.updateProjectionMatrix();
+  renderer.setPixelRatio(adaptivePixelRatio);
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, renderPixelRatioCap));
 }
 addEventListener('resize', onResize);
 
@@ -711,6 +739,8 @@ function setStatus(t) {
 }
 
 let connectionRequested = false, reconnectAttempts = 0, reconnectTimer = null, activeConnectCode = '';
+let resumeToken = '';
+try { resumeToken = sessionStorage.getItem('masmorraResumeToken') || ''; } catch {}
 
 function connect(code = '', automaticRetry = false) {
   if (!automaticRetry) {
@@ -756,15 +786,11 @@ function connect(code = '', automaticRetry = false) {
       started = false;
       hud.classList.add('hidden');
     }
-    if (reconnectAttempts >= 6) {
-      loading.classList.add('hidden');
-      setStatus('Não consegui reconectar depois de 6 tentativas. Toque em JOGAR ONLINE para tentar de novo.');
-      return;
-    }
+    // Continua tentando enquanto o jogador não sair manualmente; o intervalo cresce até 15 s.
     reconnectAttempts++;
-    const delay = Math.min(1000 * (2 ** (reconnectAttempts - 1)), 8000);
+    const delay = Math.min(1000 * (2 ** Math.min(reconnectAttempts - 1, 4)), 15000);
     loading.classList.remove('hidden');
-    $('loadingText').textContent = 'Reconectando… tentativa ' + reconnectAttempts + ' de 6';
+    $('loadingText').textContent = 'Reconectando… tentativa ' + reconnectAttempts;
     setStatus('Conexão interrompida. Nova tentativa em ' + Math.ceil(delay / 1000) + ' s.');
     clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(() => {
@@ -909,6 +935,7 @@ function sendJoin(code) {
   activeConnectCode = code || activeConnectCode || roomCode || '';
   send({
     type: 'join',
+    resumeToken,
     name: $('playerName').value.trim() || 'Aventureiro',
     class: selectedClass,
     skin: selectedSkin,
@@ -924,7 +951,17 @@ function send(data) {
   }
 }
 
+setInterval(() => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    send({ type: 'ping', sentAt: performance.now() });
+  }
+}, 5000);
+
 function handleMessage(m) {
+  if (m.type === 'pong') {
+    if (Number.isFinite(m.sentAt)) measuredPing = Math.max(0, Math.round(performance.now() - m.sentAt));
+    return;
+  }
   if (m.type === 'error') {
     loading.classList.add('hidden');
     setStatus(m.message);
@@ -933,6 +970,10 @@ function handleMessage(m) {
 
   if (m.type === 'joined') {
     playerId = m.id;
+    if (typeof m.resumeToken === 'string' && m.resumeToken) {
+      resumeToken = m.resumeToken;
+      try { sessionStorage.setItem('masmorraResumeToken', resumeToken); } catch {}
+    }
     roomCode = m.room;
     activeConnectCode = m.room;
     appliedInitialServerPosition = false;
@@ -947,8 +988,8 @@ function handleMessage(m) {
     $('lobbyRoomCode').textContent = roomCode;
     $('roomLabel').textContent = roomCode;
     $('loadingText').textContent = '';
-    showNotice('Você entrou no lobby!');
-    sendLoadout();
+    showNotice(m.resumed ? 'Conexão recuperada! Você voltou à partida.' : 'Você entrou no lobby!');
+    if (!m.resumed) sendLoadout();
     return;
   }
 
@@ -1363,6 +1404,8 @@ $('startMatchBtn').addEventListener('click', () => send({ type: 'startMatch' }))
 
 function leaveRoomToMenu() {
   connectionRequested = false;
+  resumeToken = '';
+  try { sessionStorage.removeItem('masmorraResumeToken'); } catch {}
   clearTimeout(reconnectTimer);
   reconnectAttempts = 0;
   send({ type: 'leave' });
@@ -1576,6 +1619,46 @@ function rendererPointerSetup() {
 rendererPointerSetup();
 
 
+function updatePerformanceMonitor() {
+  perfFrames++;
+  const now = performance.now();
+  const elapsed = now - perfWindowStart;
+  if (elapsed < 1500) return;
+  lastFps = perfFrames * 1000 / elapsed;
+  perfFrames = 0;
+  perfWindowStart = now;
+
+  if (lastFps < 43) {
+    slowFpsSamples++;
+    fastFpsSamples = 0;
+  } else if (lastFps > 57) {
+    fastFpsSamples++;
+    slowFpsSamples = 0;
+  } else {
+    slowFpsSamples = 0;
+    fastFpsSamples = 0;
+  }
+
+  let nextRatio = adaptivePixelRatio;
+  if (slowFpsSamples >= 2) {
+    nextRatio = Math.max(isMobileDevice ? .65 : .8, adaptivePixelRatio - .1);
+    slowFpsSamples = 0;
+  } else if (fastFpsSamples >= 4) {
+    nextRatio = Math.min(Math.min(devicePixelRatio, renderPixelRatioCap), adaptivePixelRatio + .05);
+    fastFpsSamples = 0;
+  }
+
+  if (renderer && Math.abs(nextRatio - adaptivePixelRatio) >= .01) {
+    adaptivePixelRatio = Math.round(nextRatio * 100) / 100;
+    renderer.setPixelRatio(adaptivePixelRatio);
+    renderer.setSize(innerWidth, innerHeight);
+  }
+  if (perfBadge) {
+    perfBadge.textContent = Math.round(lastFps) + ' FPS · ' + (measuredPing === null ? 'Ping —' : 'Ping ' + measuredPing + ' ms');
+    perfBadge.style.display = started ? 'block' : 'none';
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
   if (!renderer) return;
@@ -1785,6 +1868,7 @@ const right = new THREE.Vector3(
     );
   }
 
+  updatePerformanceMonitor();
   renderer.render(scene, camera);
 }
 
