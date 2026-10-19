@@ -36,10 +36,11 @@
 <div id="hud" class="hidden">
   <div class="topbar">
     <div class="badge"><span class="dot"></span><div><small>MASMORRA</small><strong id="roomLabel">CONECTANDO</strong></div></div>
-    <div class="stats"><span>♥ <b id="hpText">100</b></span><span>✦ <b id="killText">0</b></span></div>
+    <div class="stats"><span>♥ <b id="hpText">100/100</b></span><span>🔵 <b id="mpText">100/100</b></span><span>✦ <b id="killText">0</b></span></div>
     <button id="leaveBtn" class="leave">SAIR</button>
   </div>
   <div id="notice" class="notice"></div>
+  <div class="resource-bars"><div class="resource hp"><i id="hpFill"></i></div><div class="resource mp"><i id="mpFill"></i></div><small id="combatText">Dano 20 · Defesa 0</small></div>
   <div class="objective">
     <small>OBJETIVO</small>
     <strong>Derrote os guardiões</strong>
@@ -51,6 +52,7 @@
   <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
   <div class="hint">ARRASTE PARA MOVER · DESLIZE A TELA PARA OLHAR</div>
   <button id="chestBtn" class="chest-btn"><span>▣</span><small>BAÚ</small></button>
+  <button id="spellBtn" class="spell-btn"><span>✧</span><small>MAGIA · 20 MP</small></button>
   <button id="attackBtn" class="attack"><span>⚔</span><small>ATACAR</small></button>
   <div id="hitFlash"></div>
 </div>
