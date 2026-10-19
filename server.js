@@ -321,7 +321,7 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'notice', text: 'Só o anfitrião pode iniciar a partida.' }));
         return;
       }
-      if ([...room.players.values()].some(p => !p.ready)) {
+      if ([...room.players.values()].some(p => p.connected !== false && !p.ready)) {
         ws.send(JSON.stringify({ type: 'notice', text: 'Todos os jogadores precisam clicar em PRONTO.' }));
         return;
       }
@@ -551,7 +551,7 @@ wss.on('connection', ws => {
     } else if (msg.type === 'leave') {
       const oldCode = player.room;
       room.players.delete(player.id);
-      if (room.hostId === player.id) room.hostId = room.players.keys().next().value || null;
+      if (room.hostId === player.id) room.hostId = [...room.players.values()].find(p => p.connected !== false && p.id !== player.id)?.id || null;
       if (room.players.size === 0) {
         if (room.started) room.emptySince = Date.now();
         else rooms.delete(oldCode);
