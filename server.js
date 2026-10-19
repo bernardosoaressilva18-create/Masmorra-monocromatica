@@ -314,8 +314,8 @@ wss.on('connection', ws => {
         applyDamage(target, 2);
         player.ws.send(JSON.stringify({ type: 'notice', text: '🔥 Bola de fogo! Queimadura por 3 segundos.' }));
       } else {
-        applyDamage(target, 1);
-        // O raio salta para até dois inimigos próximos, com dano reduzido em cada salto.
+        applyDamage(target, 1.5);
+        // O raio perde força a cada salto: 0.9 no primeiro e 0.6 no segundo.
         let previous = target;
         for (let hop = 0; hop < 2; hop++) {
           const next = room.monsters
@@ -323,7 +323,7 @@ wss.on('connection', ws => {
               && Math.hypot(m.x - previous.x, m.z - previous.z) <= 5)
             .sort((a, b) => Math.hypot(a.x-previous.x, a.z-previous.z) - Math.hypot(b.x-previous.x, b.z-previous.z))[0];
           if (!next) break;
-          applyDamage(next, 1);
+          applyDamage(next, hop === 0 ? 0.9 : 0.6);
           previous = next;
         }
         player.ws.send(JSON.stringify({ type: 'notice', text: '⚡ Raio em cadeia! Dano reduzido por salto.' }));
