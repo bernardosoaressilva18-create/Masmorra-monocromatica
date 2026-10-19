@@ -100,13 +100,24 @@ function box(w, h, d, material, x, y, z) {
 }
 
 function buildDungeon() {
+  // Uma única textura partilhada mantém o detalhe visual sem criar materiais por objeto.
+  const dungeonTexture = surfaceTexture.clone();
+  dungeonTexture.repeat.set(4, 4);
   const floor = mat(0x292e38, .82, .08);
+  floor.map = dungeonTexture;
+  floor.bumpMap = dungeonTexture;
+  floor.bumpScale = .025;
 const wall = mat(0x414751, 0.95);
+wall.map = dungeonTexture;
+wall.bumpMap = dungeonTexture;
+wall.bumpScale = .018;
 const dark = mat(0x171c24, 1);
 const trim = mat(0x8a7150, 0.75, 0.25);
 
 const stoneLight = mat(0x626c7b, 0.86, .06);
 const stoneDark = mat(0x303744, .94, .04);
+stoneLight.map = dungeonTexture;
+stoneDark.map = dungeonTexture;
   const crystal = new THREE.MeshStandardMaterial({
     color: 0x70dfff,
     emissive: 0x167ca0,
@@ -122,6 +133,10 @@ const stoneDark = mat(0x303744, .94, .04);
     { id:5, z:-153, depth:40, top:mat(0x21131f,.88,.12) } // Abismo
   ];
   for (const zone of worldZones) {
+    zone.top.map = dungeonTexture;
+    zone.top.bumpMap = dungeonTexture;
+    zone.top.bumpScale = .025;
+    zone.top.needsUpdate = true;
     box(30,.8,zone.depth,floor,0,-.5,zone.z);
     box(29.6,.08,zone.depth-.5,zone.top,0,-.055,zone.z);
     // Paredes separadas por mundo; os portais marcam as passagens entre biomas.
@@ -131,6 +146,7 @@ const stoneDark = mat(0x303744, .94, .04);
 
   // Marcas do piso em instâncias: muitos detalhes com uma única chamada de desenho.
   const tileMat = mat(0x343b45,.98);
+  tileMat.map = dungeonTexture;
   const tileGeometry = new THREE.BoxGeometry(2.72,.025,2.72);
   const tileInstances = new THREE.InstancedMesh(tileGeometry,tileMat,520);
   const tileDummy = new THREE.Object3D();
