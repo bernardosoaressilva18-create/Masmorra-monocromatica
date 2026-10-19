@@ -4,3 +4,10 @@
 
 /* Inventário e interação com baús */
 .inventory-panel{position:absolute;top:100px;right:12px;width:150px;padding:10px;border:1px solid #657080;background:rgba(9,13,20,.88);border-radius:10px;color:#e8edf5;font-size:11px;pointer-events:none}.inventory-panel>strong{display:block;font-size:10px;letter-spacing:1.5px;margin-bottom:6px}.inventory-list{display:grid;gap:3px}.loot-row{display:flex;justify-content:space-between;padding:3px 5px;background:rgba(255,255,255,.05);border-radius:4px;text-transform:capitalize}.rarity-comum{color:#e0e4ea}.rarity-incomum{color:#83e6a2}.rarity-raro{color:#70c7ff}.rarity-epico{color:#c6a0ff}.rarity-legendario{color:#ffc85e}.recent-loot{margin-top:7px;padding-top:6px;border-top:1px solid #46505e;display:grid;gap:4px}.loot-item{font-size:10px}.loot-item small{opacity:.8}.chest-btn{pointer-events:auto;position:absolute;right:155px;bottom:38px;width:66px;height:66px;border-radius:50%;border:2px solid #c49b55;background:rgba(50,35,22,.9);color:#ffe0a0;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none}.chest-btn span{font-size:25px}.chest-btn small{font-size:9px;letter-spacing:1px}@media(max-width:600px){.inventory-panel{top:92px;right:7px;width:125px;padding:7px}.chest-btn{right:135px;bottom:35px;width:56px;height:56px}}
+
+/* Barra da luta final */
+.boss-panel{position:absolute;top:150px;left:50%;transform:translateX(-50%);width:min(330px,72vw);padding:9px 12px;border:1px solid #a84a63;background:rgba(15,8,17,.92);border-radius:8px;box-shadow:0 0 22px #ff234522}
+.boss-title{text-align:center;font:800 10px Cinzel,serif;letter-spacing:2px;color:#ffc1ce;margin-bottom:7px}
+.boss-health{height:9px;background:#38202a;border:1px solid #8a4054;border-radius:5px;overflow:hidden}
+.boss-health i{display:block;width:100%;height:100%;background:linear-gradient(90deg,#a7183c,#ff5b70);transition:width .2s,background .2s}
+.boss-meta{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:8px;letter-spacing:.6px;color:#e8cbd3}
