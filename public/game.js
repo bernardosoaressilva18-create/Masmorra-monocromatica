@@ -624,6 +624,7 @@ function updateState(m) {
     started = true;
     $('lobby').classList.add('hidden');
     hud.classList.remove('hidden');
+    placeSpellButtons();
     showNotice('A partida começou!');
   }
   const incoming = new Set();
@@ -894,6 +895,41 @@ $('recentLoot').addEventListener('click', e => {
 $('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 
 let fireCooldown = 0, lightningCooldown = 0;
+function placeSpellButtons() {
+  const fire = $('fireBtn'), lightning = $('lightningBtn');
+  for (const btn of [fire, lightning]) {
+    if (!btn) continue;
+    btn.style.setProperty('display', 'flex', 'important');
+    btn.style.setProperty('position', 'fixed', 'important');
+    btn.style.setProperty('visibility', 'visible', 'important');
+    btn.style.setProperty('opacity', '1', 'important');
+    btn.style.setProperty('pointer-events', 'auto', 'important');
+    btn.style.setProperty('z-index', '9999', 'important');
+    btn.style.setProperty('width', '58px', 'important');
+    btn.style.setProperty('height', '58px', 'important');
+    btn.style.setProperty('border-radius', '50%', 'important');
+    btn.style.setProperty('color', '#fff', 'important');
+    btn.style.setProperty('background', 'rgba(12,20,32,.98)', 'important');
+    btn.style.setProperty('flex-direction', 'column', 'important');
+    btn.style.setProperty('align-items', 'center', 'important');
+    btn.style.setProperty('justify-content', 'center', 'important');
+    btn.style.setProperty('touch-action', 'none', 'important');
+  }
+  if (matchMedia('(orientation: portrait)').matches) {
+    fire.style.setProperty('right', '88px', 'important');
+    fire.style.setProperty('bottom', '86px', 'important');
+    lightning.style.setProperty('right', '18px', 'important');
+    lightning.style.setProperty('bottom', '96px', 'important');
+  } else {
+    fire.style.setProperty('right', '130px', 'important');
+    fire.style.setProperty('bottom', '16px', 'important');
+    lightning.style.setProperty('right', '70px', 'important');
+    lightning.style.setProperty('bottom', '84px', 'important');
+  }
+}
+addEventListener('resize', placeSpellButtons);
+placeSpellButtons();
+
 function castSpell(kind) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
   if (kind === 'fire') {
@@ -1105,7 +1141,7 @@ const right = new THREE.Vector3(
     bossMesh.position.x = THREE.MathUtils.lerp(bossMesh.position.x, bossMesh.userData.targetX, monsterSmooth);
     bossMesh.position.z = THREE.MathUtils.lerp(bossMesh.position.z, bossMesh.userData.targetZ, monsterSmooth);
     bossMesh.position.y = .08;
-    bossMesh.rotation.y += dt * (bossMesh.userData.lifePhase === 3 ? .65 : .25);
+    // Sem rotação contínua: o Guardião só muda de posição ao perseguir o jogador.
   }
   // Anima os portões: as grades somem ao liberar a passagem.
   for (const gate of gateMeshes) {
