@@ -28,11 +28,9 @@
 
 /* Tela inicial: o jogador precisa tocar para abrir o menu */
 .start-screen{z-index:7;text-align:center;background:radial-gradient(ellipse at 50% 42%,rgba(52,25,76,.52),transparent 48%),radial-gradient(ellipse at 50% 75%,rgba(15,78,101,.22),transparent 55%),linear-gradient(180deg,#05070df2,#080b12 70%,#030509)}
-.start-emblem{font-size:clamp(48px,12vw,82px);line-height:1;color:#e9c477;text-shadow:0 0 16px #e9c47788,0 0 44px #66dff755;margin-bottom:15px;animation:emblemGlow 3s ease-in-out infinite}
+.start-emblem{font-size:clamp(48px,12vw,82px);line-height:1;color:#e9c477;text-shadow:0 0 16px #e9c47788,0 0 44px #66dff755;margin-bottom:15px}
 .start-title{font:800 clamp(28px,7vw,52px)/1.02 Cinzel,serif;letter-spacing:1px;color:#f2f5fa;text-shadow:0 6px 30px #000;margin:0}
 .start-title span{font-size:.68em;letter-spacing:3px;color:#e9c477}
 .start-copy{max-width:300px;margin:20px auto 28px;color:#b1c1cc;font-size:12px;line-height:1.7}
 .start-button{width:min(100%,330px);min-height:54px;font-size:12px;position:relative;overflow:hidden}
 .start-tip{display:block;margin-top:16px;color:#7f929f;font-size:9px;letter-spacing:.6px}
-@keyframes emblemGlow{0%,100%{filter:brightness(.88);transform:scale(1)}50%{filter:brightness(1.2);transform:scale(1.035)}}
-@media(prefers-reduced-motion:reduce){.start-emblem{animation:none}}
