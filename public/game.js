@@ -14,7 +14,7 @@ let currentPhaseVisual = 0;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 46 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
-const renderPixelRatioCap = isMobileDevice ? 0.85 : 1.5;
+const renderPixelRatioCap = isMobileDevice ? 0.7 : 1.25;
 
 function init3D() {
   scene = new THREE.Scene();
@@ -231,7 +231,7 @@ for (let z = -30; z <= 8; z += 6) {
     threshold.position.set(0, -.035, z); scene.add(threshold);
   }
 
-  const particleCount = 45, particlePositions = new Float32Array(particleCount * 3);
+  const particleCount = 28, particlePositions = new Float32Array(particleCount * 3);
   for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -33+Math.random()*42; }
   const particleGeo = new THREE.BufferGeometry(); particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
   particleMaterial = new THREE.PointsMaterial({ color: 0x8be9ff, size: .055, transparent: true, opacity: .6, depthWrite: false }); ambientParticles = new THREE.Points(particleGeo, particleMaterial); scene.add(ambientParticles);
@@ -586,31 +586,37 @@ function handleMessage(m) {
     return;
   }
   if (m.type === 'spell') {
-    const color = m.spell === 'fire' ? 0xff6b24 : 0x69aaff;
+    const isFire = m.spell === 'fire';
+    const color = isFire ? 0xff6b24 : 0x69aaff;
     const origin = new THREE.Vector3(m.x, 1.35, m.z);
-    const targets = Array.isArray(m.targets) ? m.targets : [];
-    if (!targets.length) targets.push({ x: m.x, z: m.z });
-    for (const target of targets.slice(0, 4)) {
-      const end = new THREE.Vector3(target.x, 1.15, target.z);
-      const points = m.spell === 'lightning'
-        ? [origin.clone(), new THREE.Vector3((origin.x + end.x) / 2 + (Math.random() - .5) * .9, 1.1, (origin.z + end.z) / 2), end]
-        : [origin.clone(), end];
+    const targets = (Array.isArray(m.targets) ? m.targets : []).slice(0, 3);
+    if (!targets.length) targets.push({ x: m.x - Math.sin(yaw) * 4, z: m.z - Math.cos(yaw) * 4 });
+    let from = origin;
+    for (const target of targets) {
+      const end = new THREE.Vector3(target.x, isFire ? .85 : 1.15, target.z);
+      const mid = new THREE.Vector3((from.x + end.x) / 2 + (isFire ? 0 : (Math.random() - .5) * 1.2), isFire ? 1.05 : 1.35, (from.z + end.z) / 2);
+      const points = isFire ? [origin.clone(), end] : [from.clone(), mid, end];
       const geo = new THREE.BufferGeometry().setFromPoints(points);
-      const beam = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: .95 }));
-      scene.add(beam);
-      const glowGeo = new THREE.SphereGeometry(m.spell === 'fire' ? .24 : .16, 8, 6);
-      const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .9 }));
-      glow.position.copy(origin); scene.add(glow);
-      const start = performance.now(), duration = m.spell === 'fire' ? 330 : 260;
-      const animateSpell = () => {
-        const t = (performance.now() - start) / duration;
-        if (t >= 1) { scene.remove(beam, glow); geo.dispose(); beam.material.dispose(); glowGeo.dispose(); glow.material.dispose(); return; }
-        glow.position.lerpVectors(origin, end, t);
-        glow.scale.setScalar(1 + Math.sin(t * Math.PI) * .8);
-        beam.material.opacity = 1 - t * .8;
-        requestAnimationFrame(animateSpell);
+      const beamMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 1 });
+      const beam = new THREE.Line(geo, beamMat); scene.add(beam);
+      const impactGeo = isFire ? new THREE.ConeGeometry(.28, .72, 6) : new THREE.SphereGeometry(.2, 7, 5);
+      const impactMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
+      const impact = new THREE.Mesh(impactGeo, impactMat);
+      impact.position.copy(end); impact.position.y += isFire ? .35 : .15; scene.add(impact);
+      const startedAt = performance.now(), duration = isFire ? 420 : 230;
+      const animateImpact = () => {
+        const t = (performance.now() - startedAt) / duration;
+        if (t >= 1) {
+          scene.remove(beam, impact); geo.dispose(); beamMat.dispose(); impactGeo.dispose(); impactMat.dispose();
+          return;
+        }
+        beamMat.opacity = 1 - t;
+        impact.scale.setScalar(isFire ? 1 + t * .65 : 1 + Math.sin(t * Math.PI) * .8);
+        impactMat.opacity = 1 - t;
+        requestAnimationFrame(animateImpact);
       };
-      requestAnimationFrame(animateSpell);
+      requestAnimationFrame(animateImpact);
+      from = end;
     }
     return;
   }
