@@ -500,8 +500,17 @@ function connect(code = '') {
     if (started) {
       started = false;
       hud.classList.add('hidden');
-      menu.classList.remove('hidden');
-      setStatus('Conexão perdida. Tente entrar novamente.');
+      loading.classList.remove('hidden');
+      $('loadingText').textContent = 'Conexão interrompida. Tentando reconectar...';
+      setStatus('Conexão interrompida. Reconectando...');
+      // Não abre o lobby antigo sem uma conexão válida; tenta voltar à mesma sala.
+      const reconnectCode = roomCode;
+      setTimeout(() => {
+        if (!ws || ws.readyState === WebSocket.CLOSED) {
+          ws = null;
+          connect(reconnectCode);
+        }
+      }, 1800);
     }
   });
 }
