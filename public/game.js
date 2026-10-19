@@ -15,7 +15,7 @@ let currentPhaseVisual = 0;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 46 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
-const renderPixelRatioCap = isMobileDevice ? 0.7 : 1.25;
+const renderPixelRatioCap = isMobileDevice ? 0.85 : 1.5;
 
 function init3D() {
   scene = new THREE.Scene();
@@ -23,7 +23,7 @@ function init3D() {
   scene.fog = new THREE.FogExp2(0x090d14, .027);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
-  renderer = new THREE.WebGLRenderer({ antialias: !isMobileDevice, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
   renderer.setPixelRatio(Math.min(devicePixelRatio, renderPixelRatioCap));
@@ -35,7 +35,20 @@ function init3D() {
   $('game').appendChild(renderer.domElement);
 
   clock = new THREE.Clock();
-  scene.add(new THREE.HemisphereLight(0x9cc9e8, 0x16101c, 2.2));
+  scene.add(new THREE.HemisphereLight(0xb7d8f5, 0x21152b, 2.45));
+  // Luzes de preenchimento para dar mais volume às armaduras e às pedras.
+  const fillLight = new THREE.DirectionalLight(0x8daeff, 0.72);
+  fillLight.position.set(8, 7, -18);
+  scene.add(fillLight);
+  const cryptLight = new THREE.PointLight(0x62cfff, 10, 16, 2);
+  cryptLight.position.set(-8, 2.6, 1);
+  scene.add(cryptLight);
+  const caveLight = new THREE.PointLight(0x8c63ff, 13, 17, 2);
+  caveLight.position.set(8, 2.8, -21);
+  scene.add(caveLight);
+  const abyssLight = new THREE.PointLight(0xff4c79, 12, 17, 2);
+  abyssLight.position.set(-7, 2.8, -34);
+  scene.add(abyssLight);
   const dungeonGlow = new THREE.PointLight(0x4fcfff, 28, 30, 2); dungeonGlow.position.set(0, 3.2, -16); scene.add(dungeonGlow);
   const bossGlow = new THREE.PointLight(0xff245b, 32, 20, 2); bossGlow.position.set(0, 3, -29); scene.add(bossGlow);
 
@@ -70,13 +83,13 @@ function box(w, h, d, material, x, y, z) {
 }
 
 function buildDungeon() {
-  const floor = mat(0x252a31);
+  const floor = mat(0x292e38, .82, .08);
 const wall = mat(0x414751, 0.95);
 const dark = mat(0x171c24, 1);
 const trim = mat(0x8a7150, 0.75, 0.25);
 
-const stoneLight = mat(0x515965, 0.95);
-const stoneDark = mat(0x303640, 1);
+const stoneLight = mat(0x626c7b, 0.86, .06);
+const stoneDark = mat(0x303744, .94, .04);
   const crystal = new THREE.MeshStandardMaterial({
     color: 0x70dfff,
     emissive: 0x167ca0,
