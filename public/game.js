@@ -6,6 +6,8 @@ const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
+let renderScale = Math.min(window.devicePixelRatio || 1, 1.5);
+let fpsFrames = 0, fpsLastSample = performance.now(), fpsLastAdjust = performance.now(), fpsSmoothed = 60;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const world = { width: 30, depth: 46 };
 
@@ -16,7 +18,7 @@ function init3D() {
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(renderScale);
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -62,11 +64,7 @@ const stoneDark = mat(0x303640, 1);
 
   box(30, .8, 48, floor, 0, -.5, -11);
 
-  // Junta visual sutil: evita linhas pretas fortes atravessando o chão.
-  const floorJoint = mat(0x343a43, 1);
-  for (let z = -34; z <= 12; z += 4) {
-    box(29.8, .018, .035, floorJoint, 0, -.088, z);
-  }
+  // Piso contínuo, sem juntas elevadas que possam parecer riscos pretos.
 
   box(.7, 5, 48, wall, -15, 2, -11);
   box(.7, 5, 48, wall, 15, 2, -11);
@@ -643,6 +641,7 @@ function animate() {
   requestAnimationFrame(animate);
   if (!renderer) return;
 
+  updatePerformance(performance.now());
   const dt = Math.min(clock.getDelta(), 0.05);
   const remoteSmooth = 1 - Math.exp(-14 * dt);
   const monsterSmooth = 1 - Math.exp(-5 * dt);
