@@ -13,6 +13,7 @@ let bossMesh = null, bossData = null;
 let currentPhaseVisual = 0;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 46 };
+const renderPixelRatioCap = matchMedia('(pointer: coarse)').matches ? 1 : 1.25;
 
 function init3D() {
   scene = new THREE.Scene();
@@ -23,7 +24,7 @@ function init3D() {
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, renderPixelRatioCap));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -213,12 +214,12 @@ for (let z = -30; z <= 8; z += 6) {
     threshold.position.set(0, -.035, z); scene.add(threshold);
   }
 
-  const particleCount = 90, particlePositions = new Float32Array(particleCount * 3);
+  const particleCount = 45, particlePositions = new Float32Array(particleCount * 3);
   for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -33+Math.random()*42; }
   const particleGeo = new THREE.BufferGeometry(); particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
   particleMaterial = new THREE.PointsMaterial({ color: 0x8be9ff, size: .055, transparent: true, opacity: .6, depthWrite: false }); ambientParticles = new THREE.Points(particleGeo, particleMaterial); scene.add(ambientParticles);
 
-  for (let i = 0; i < 32; i++) {
+  for (let i = 0; i < 18; i++) {
     const x = (Math.random() - .5) * 25;
     const z = -30 + Math.random() * 39;
     if (Math.abs(x) < 3 && z > 0) continue;
