@@ -214,7 +214,7 @@ function state(room) {
     safeZoneUntil: room.safeZoneUntil || 0,
     started: room.started,
     hostId: room.hostId,
-    monsters: room.monsters,
+    monsters: [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])],
     boss: room.boss,
     chests: room.chests.map(chest => ({ id: chest.id, x: chest.x, z: chest.z, opened: chest.openedBy.length > 0, cursed: !!chest.cursed }))
   };
@@ -599,13 +599,13 @@ setInterval(() => {
         }
       }
 
-      if (target && nearest > 1.8 && nearest < 40) {
+      if (target && nearest > 1.8 && nearest < 70) {
         const dx = target.x - monster.x;
         const dz = target.z - monster.z;
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = (monster.kind === 'brute' ? 0.18 : monster.kind === 'wraith' ? 0.24 : 0.21) * (room.phase >= 4 ? 1.08 : 1);
+          const speed = (monster.kind === 'brute' ? 0.25 : monster.kind === 'wraith' ? 0.32 : 0.29) * (room.phase >= 4 ? 1.08 : 1);
 
           monster.x += (dx / distance) * speed;
           monster.z += (dz / distance) * speed;
