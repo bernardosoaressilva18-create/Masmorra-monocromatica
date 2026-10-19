@@ -273,6 +273,28 @@ wss.on('connection', ws => {
       sendInventory(player);
       ws.send(JSON.stringify({ type: 'notice', text: item.name + ': ' + effect }));
       broadcast(room, state(room));
+    } else if (msg.type === 'spell') {
+      if (!room.started || player.hp <= 0) return;
+      const spell = msg.spell === 'fire' ? 'fire' : msg.spell === 'lightning' ? 'lightning' : null;
+      if (!spell) return;
+      const damage = spell === 'fire' ? 3 : 2;
+      let target = null;
+      if (room.phase < 3) target = room.monsters.find(m => m.alive && Math.hypot(m.x-player.x,m.z-player.z) < 7);
+      else if (room.boss && room.boss.alive && Math.hypot(room.boss.x-player.x,room.boss.z-player.z) < 8) target = room.boss;
+      if (target) {
+        target.hp = Math.max(0, (target.hp || 1)-damage);
+        if (target.hp <= 0) {
+          target.alive = false;
+          if (room.phase < 3 && Math.random() < .25) grantLoot(player, 'monster');
+          if (room.phase === 3 && target === room.boss) {
+            const dropped = grantLoot(player, 'boss');
+            broadcast(room,{type:'notice',text:'CHEFE DERROTADO! Recompensa: '+dropped.name+' ('+dropped.rarity+')'});
+          } else broadcast(room,{type:'notice',text:'Magia '+(spell==='fire'?'de fogo':'de raio')+' derrotou um monstro!'});
+        } else player.ws.send(JSON.stringify({type:'notice',text:'Magia acertou! Vida restante: '+target.hp}));
+        sendInventory(player);
+      } else player.ws.send(JSON.stringify({type:'notice',text:'Nenhum inimigo ao alcance da magia.'}));
+      broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z});
+      broadcast(room,state(room));
     } else if (msg.type === 'attack') {
       if (!room.started || player.hp <= 0) return;
       if (room.phase < 3) {
