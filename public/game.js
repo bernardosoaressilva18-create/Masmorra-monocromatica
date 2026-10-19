@@ -502,6 +502,18 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     arm.rotation.z=side*-.12;
     if (!isMobileDevice) { arm.castShadow = true; arm.receiveShadow = true; }
     armPivot.add(arm);
+    // Cotovelo e antebraço separados para dar leitura de articulação durante o passo.
+    const elbow = new THREE.Group();
+    elbow.position.set(0,-.39,0);
+    armPivot.add(elbow);
+    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.105,.24,3,6), dark);
+    forearm.position.set(0,-.13,-.005);
+    if (!isMobileDevice) { forearm.castShadow = true; forearm.receiveShadow = true; }
+    elbow.add(forearm);
+    const wrist = new THREE.Mesh(new THREE.SphereGeometry(.09,8,6), gold);
+    wrist.position.set(0,-.27,-.01);
+    elbow.add(wrist);
+    armPivot.userData.elbow = elbow;
     arms.push({ mesh: armPivot, side });
     add(new THREE.SphereGeometry(.19,12,10), steel, side*.48,1.49,0,1.08,.65,1.0);
     add(new THREE.CapsuleGeometry(.12,.19,3,6), dark, side*.49,.91,-.015);
@@ -1772,7 +1784,11 @@ const right = new THREE.Vector3(
       leg.mesh.rotation.x = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .29 * stride;
     }
     for (const arm of myPlayer.userData.arms || []) {
-      arm.mesh.rotation.x = Math.sin(phase + (arm.side < 0 ? Math.PI : 0)) * .14 * stride;
+      const swing = Math.sin(phase + (arm.side < 0 ? Math.PI : 0));
+      arm.mesh.rotation.x = swing * .14 * stride;
+      if (arm.mesh.userData.elbow) {
+        arm.mesh.userData.elbow.rotation.x = Math.max(0, swing) * .32 * stride;
+      }
     }
     myPlayer.position.y = moving ? Math.abs(Math.sin(phase * 2)) * .008 : 0;
     if (myPlayer.userData.cape) {
@@ -1827,9 +1843,14 @@ const right = new THREE.Vector3(
       );
       obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
     }
+    // Cada família de monstro tem um ritmo próprio, sem acrescentar luzes ou objetos por frame.
+    const gait = obj.userData.kind === 'brute' ? .62
+      : obj.userData.kind === 'wraith' ? 1.28
+      : obj.userData.kind === 'stalker' ? 1.12 : .9;
     for (const limb of obj.userData.animatedLimbs || []) {
-      limb.mesh.rotation.x = Math.sin(phase + (limb.side > 0 ? Math.PI : 0)) * (moving ? .105 : .012);
-      limb.mesh.rotation.z = limb.baseRotationZ + Math.sin(phase * .65 + limb.side) * (moving ? .022 : .008);
+      const limbPhase = phase * gait + (limb.side > 0 ? Math.PI : 0);
+      limb.mesh.rotation.x = Math.sin(limbPhase) * (moving ? .105 : .012);
+      limb.mesh.rotation.z = limb.baseRotationZ + Math.sin(phase * .65 * gait + limb.side) * (moving ? .022 : .008);
     }
     if (obj.userData.kind === 'stalker') {
       obj.rotation.x = moving ? Math.sin(phase) * .015 : THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-5 * dt));
