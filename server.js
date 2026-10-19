@@ -36,8 +36,75 @@ const wss = new WebSocket.Server({ server });
 const rooms = new Map();
 let nextId = 1;
 
+const RARITIES = [
+  { name: 'comum', chance: 60, value: 1 },
+  { name: 'incomum', chance: 25, value: 2 },
+  { name: 'raro', chance: 10, value: 4 },
+  { name: 'épico', chance: 4, value: 8 },
+  { name: 'lendário', chance: 1, value: 16 }
+];
+const LOOT_TABLES = {
+  monster: [
+    { name: 'Fragmento Monocromático', weight: 45 },
+    { name: 'Pó de Cristal', weight: 30 },
+    { name: 'Moeda Antiga', weight: 20 },
+    { name: 'Núcleo Sombrio', weight: 5 }
+  ],
+  boss: [
+    { name: 'Coração do Guardião', weight: 35 },
+    { name: 'Relíquia Monocromática', weight: 30 },
+    { name: 'Cristal Ancestral', weight: 25 },
+    { name: 'Coroa do Abismo', weight: 10 }
+  ],
+  chest: [
+    { name: 'Poção de Vida', weight: 35 },
+    { name: 'Fragmento Monocromático', weight: 30 },
+    { name: 'Moeda Antiga', weight: 20 },
+    { name: 'Equipamento Antigo', weight: 15 }
+  ]
+};
+function weightedPick(items) {
+  const total = items.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.random() * total;
+  for (const item of items) {
+    roll -= item.weight;
+    if (roll <= 0) return item;
+  }
+  return items[items.length - 1];
+}
+function rollLoot(source) {
+  const rarityRoll = Math.random() * 100;
+  let sum = 0, rarity = RARITIES[0];
+  for (const entry of RARITIES) {
+    sum += entry.chance;
+    if (rarityRoll < sum) { rarity = entry; break; }
+  }
+  const item = weightedPick(LOOT_TABLES[source] || LOOT_TABLES.monster);
+  return { id: String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8),
+    name: item.name, rarity: rarity.name, value: rarity.value, source };
+}
+function sendInventory(player) {
+  if (player.ws.readyState === WebSocket.OPEN) {
+    player.ws.send(JSON.stringify({ type: 'inventory', inventory: player.inventory, lootDrops: player.lootDrops }));
+  }
+}
+function grantLoot(player, source) {
+  const item = rollLoot(source);
+  player.lootDrops.push(item);
+  player.inventory[item.rarity] = (player.inventory[item.rarity] || 0) + 1;
+  sendInventory(player);
+  if (player.ws.readyState === WebSocket.OPEN) {
+    player.ws.send(JSON.stringify({ type: 'loot', item }));
+  }
+  return item;
+}
+
 function newRoom(code) {
-  const room = { players: new Map(), monsters: [] };
+  const room = { players: new Map(), monsters: [], chests: [
+    { id: 'c0', x: -8, z: -8, openedBy: [] },
+    { id: 'c1', x: 8, z: -19, openedBy: [] },
+    { id: 'c2', x: 0, z: -29, openedBy: [] }
+  ] };
   for (let i = 0; i < 7; i++) {
     room.monsters.push({
       id: 'm' + i,
@@ -63,7 +130,8 @@ function state(room) {
     players: [...room.players.values()].map(p => ({
       id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color
     })),
-    monsters: room.monsters
+    monsters: room.monsters,
+    chests: room.chests.map(chest => ({ id: chest.id, x: chest.x, z: chest.z, opened: chest.openedBy.length > 0 }))
   };
 }
 
@@ -108,6 +176,7 @@ wss.on('connection', ws => {
       ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code }));
       broadcast(room, { type: 'notice', text: player.name + ' entrou na sala.' });
       broadcast(room, state(room));
+      sendInventory(player);
       return;
     }
 
@@ -124,9 +193,26 @@ wss.on('connection', ws => {
         Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
       if (target) {
         target.alive = false;
+        const dropped = grantLoot(player, 'monster');
+        if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: 'Drop: ' + dropped.name + ' (' + dropped.rarity + ')' }));
         broadcast(room, { type: 'notice', text: player.name + ' derrotou um monstro!' });
       }
       broadcast(room, { type: 'attack', id: player.id });
+      broadcast(room, state(room));
+    } else if (msg.type === 'openChest') {
+      const chest = room.chests.find(ch => ch.id === String(msg.id));
+      if (!chest) return;
+      if (Math.hypot(chest.x - player.x, chest.z - player.z) > 3.0) {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Chegue mais perto do baú.' }));
+        return;
+      }
+      if (chest.openedBy.includes(player.id)) {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Você já pegou o loot deste baú.' }));
+        return;
+      }
+      chest.openedBy.push(player.id);
+      const dropped = grantLoot(player, 'chest');
+      ws.send(JSON.stringify({ type: 'notice', text: 'Baú: ' + dropped.name + ' (' + dropped.rarity + ')' }));
       broadcast(room, state(room));
     } else if (msg.type === 'leave') {
       room.players.delete(player.id);
