@@ -1661,7 +1661,7 @@ function updatePerformanceMonitor() {
 
   let nextRatio = adaptivePixelRatio;
   if (slowFpsSamples >= 1) {
-    nextRatio = Math.max(isMobileDevice ? .65 : .75, adaptivePixelRatio - .1);
+    nextRatio = Math.max(isMobileDevice ? .75 : .8, adaptivePixelRatio - .08);
     slowFpsSamples = 0;
   } else if (fastFpsSamples >= 4) {
     nextRatio = Math.min(Math.min(devicePixelRatio, renderPixelRatioCap), adaptivePixelRatio + .05);
