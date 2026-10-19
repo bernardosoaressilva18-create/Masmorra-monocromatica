@@ -512,8 +512,14 @@ wss.on('connection', ws => {
         return;
       }
       chest.openedBy.push(player.id);
-      const dropped = grantLoot(player, 'chest');
+      if (Math.random() < 0.25) {
+        chest.cursed = true;
+        room.cursedBoss = { id:'cursed-'+chest.id, kind:'brute', x:chest.x, z:chest.z, hp:30+room.phase*8, maxHp:30+room.phase*8, alive:true, spawned:true, phase:room.phase, cursed:true, attackAt:0 };
+        broadcast(room,{type:'notice',text:'☠ BAÚ AMALDIÇOADO! Um mini-chefe apareceu. Derrote-o para ganhar um item lendário!'});
+      } else {
+        const dropped = grantLoot(player, 'chest');
       ws.send(JSON.stringify({ type: 'notice', text: 'Baú: ' + dropped.name + ' (' + dropped.rarity + ')' }));
+      }
       broadcast(room, state(room));
     } else if (msg.type === 'leave') {
       const oldCode = player.room;
