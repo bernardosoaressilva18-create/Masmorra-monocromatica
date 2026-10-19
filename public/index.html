@@ -5,7 +5,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#090c12">
-<title>Masmorra Monocromática</title>
+<meta name="description" content="Masmorra Monocromática: RPG 3D cooperativo com monstros, loot e chefes.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon.svg">
+<title>Masmorra Monocromática — RPG Cooperativo</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -102,6 +106,11 @@
   <small id="loadingText">Procurando aventureiros...</small>
 </div>
 
+<script>
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
+</script>
 <script type="module" src="game.js"></script>
 </body>
     </html>
