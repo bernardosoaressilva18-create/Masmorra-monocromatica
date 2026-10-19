@@ -100,10 +100,12 @@ function grantLoot(player, source) {
 }
 
 function createWave(phase) {
-  const count = phase === 1 ? 7 : 9, centerZ = phase === 1 ? -3 : -19;
+  const count = phase === 1 ? 5 : 6, centerZ = phase === 1 ? -3 : -19;
+  const kinds = phase === 1 ? ['stalker', 'stalker', 'brute', 'stalker', 'brute'] : ['wraith', 'stalker', 'wraith', 'brute', 'wraith', 'brute'];
   return Array.from({ length: count }, (_, i) => ({ id: 'p' + phase + 'm' + i,
+    kind: kinds[i % kinds.length], phase,
     x: (Math.random() - 0.5) * 20, z: centerZ + (Math.random() - 0.5) * 9,
-    alive: true, hp: phase === 1 ? 1 : 2, maxHp: phase === 1 ? 1 : 2, attackAt: 0 }));
+    alive: true, hp: phase === 1 ? (kinds[i % kinds.length] === 'brute' ? 2 : 1) : (kinds[i % kinds.length] === 'brute' ? 3 : 2), maxHp: phase === 1 ? (kinds[i % kinds.length] === 'brute' ? 2 : 1) : (kinds[i % kinds.length] === 'brute' ? 3 : 2), attackAt: 0 }));
 }
 function advancePhase(room) {
   if (room.phase === 1) {
@@ -281,8 +283,13 @@ wss.on('connection', ws => {
           if (player.damageBuffHits > 0) { player.damageBuffHits--; if (player.damageBuffHits === 0) player.damageBuff = 0; }
           if (target.hp <= 0) {
             target.alive = false;
-            const dropped = grantLoot(player, 'monster');
-            player.ws.send(JSON.stringify({ type: 'notice', text: 'Drop: ' + dropped.name + ' (' + dropped.rarity + ')' }));
+            // Monstros comuns não garantem item: chance de 25%, para loot não inundar o inventário.
+            if (Math.random() < 0.25) {
+              const dropped = grantLoot(player, 'monster');
+              player.ws.send(JSON.stringify({ type: 'notice', text: 'Drop raro do monstro: ' + dropped.name + ' (' + dropped.rarity + ')' }));
+            } else {
+              player.ws.send(JSON.stringify({ type: 'notice', text: 'Monstro derrotado. Nenhum item desta vez.' }));
+            }
             broadcast(room, { type: 'notice', text: player.name + ' derrotou um monstro!' });
           } else {
             player.ws.send(JSON.stringify({ type: 'notice', text: 'Monstro ferido! Vida restante: ' + target.hp }));
@@ -368,7 +375,7 @@ setInterval(() => {
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = 0.065;
+          const speed = monster.kind === 'brute' ? 0.105 : monster.kind === 'wraith' ? 0.19 : 0.16;
 
           monster.x += (dx / distance) * speed;
           monster.z += (dz / distance) * speed;
