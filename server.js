@@ -158,13 +158,13 @@ function advancePhase(room) {
   if (room.phase >= 5) return;
   const names = ['', 'Cripta Esquecida', 'Cavernas Mágicas', 'Floresta Amaldiçoada', 'Terras Vulcânicas', 'Abismo Final'];
   room.phase++;
-  room.safeZoneUntil = Date.now() + 10000;
+  room.safeZoneUntil = Date.now() + 20000;
   room.nextSafeBroadcast = 0;
   for (const player of room.players.values()) {
     player.talentPoints = (player.talentPoints || 0) + 1;
     const before = player.hp;
     player.hp = Math.min(player.maxHp || 100, player.hp + 15);
-    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 10 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
+    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 20 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
   }
   room.monsters = createWave(room.phase);
   room.boss = null;
