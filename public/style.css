@@ -34,3 +34,18 @@
 .start-copy{max-width:300px;margin:20px auto 28px;color:#b1c1cc;font-size:12px;line-height:1.7}
 .start-button{width:min(100%,330px);min-height:54px;font-size:12px;position:relative;overflow:hidden}
 .start-tip{display:block;margin-top:16px;color:#7f929f;font-size:9px;letter-spacing:.6px}
+
+
+/* Lobby real: lista de jogadores e estado de prontidão */
+.lobby-panel{max-width:390px}
+.lobby-players{display:grid;gap:8px;max-height:30vh;overflow:auto;margin:8px 0 12px}
+.lobby-player{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid #344651;border-radius:7px;background:#080e15;font-size:11px}
+.lobby-player .lobby-name{min-width:0;overflow-wrap:anywhere;color:#e7f3f8}
+.lobby-player .lobby-state{flex-shrink:0;color:#ffb5a9;font-size:9px;font-weight:900;letter-spacing:.6px}
+.lobby-player.ready .lobby-state{color:#8dffc3}
+.start-match{margin-top:8px;background:linear-gradient(110deg,#71d9b4,#c6ffe6 45%,#66c9a4)}
+.start-match:disabled{opacity:.38;filter:grayscale(.6)}
+.lobby-leave{display:block;width:100%;margin-top:12px;padding:10px;border:1px solid #52616d;border-radius:7px;color:#aab8c2;background:#0a1017;font-size:10px;font-weight:800;letter-spacing:1px}
+.death-screen{z-index:12;background:linear-gradient(180deg,rgba(20,4,10,.97),rgba(5,7,12,.98))}
+.death-screen .start-emblem{color:#ff6478;text-shadow:none}
+.death-screen .start-title{color:#ffb6c0}
