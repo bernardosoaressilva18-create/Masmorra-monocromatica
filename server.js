@@ -105,7 +105,7 @@ function createWave(phase) {
   return Array.from({ length: count }, (_, i) => ({ id: 'p' + phase + 'm' + i,
     kind: kinds[i % kinds.length], phase,
     x: (Math.random() - 0.5) * 20, z: centerZ + (Math.random() - 0.5) * 9,
-    alive: true, hp: phase === 1 ? (kinds[i % kinds.length] === 'brute' ? 2 : 1) : (kinds[i % kinds.length] === 'brute' ? 3 : 2), maxHp: phase === 1 ? (kinds[i % kinds.length] === 'brute' ? 2 : 1) : (kinds[i % kinds.length] === 'brute' ? 3 : 2), attackAt: 0 }));
+    alive: true, hp: phase === 1 ? (kinds[i % kinds.length] === 'brute' ? 8 : 5) : (kinds[i % kinds.length] === 'brute' ? 14 : 9), maxHp: phase === 1 ? (kinds[i % kinds.length] === 'brute' ? 8 : 5) : (kinds[i % kinds.length] === 'brute' ? 14 : 9), attackAt: 0 }));
 }
 function advancePhase(room) {
   if (room.phase === 1) {
