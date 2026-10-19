@@ -508,7 +508,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
   const matBody = (color, rough = .72, metal = .12) => mat(color, rough, metal);
   const dark = new THREE.MeshStandardMaterial({ color: 0x11131d, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .035, roughness: .84, metalness: .08 });
   const bone = matBody(0xb8c5d3, .48, .25);
-  const eyeColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x8ffcff : 0xff3f68;
+  const eyeColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x8ffcff : kind === 'thorn' ? 0x8dff74 : kind === 'inferno' ? 0xff692e : kind === 'abyss' ? 0xc08bff : 0xff3f68;
   const eyeMat = new THREE.MeshStandardMaterial({
     color: eyeColor, emissive: eyeColor, emissiveIntensity: 1.5, roughness: .3
   });
@@ -546,6 +546,53 @@ function makeMonster(kind = 'stalker', phase = 1) {
       const shard=addMesh(new THREE.OctahedronGeometry(.2),eyeMat,side*.25,.55,-.15);
       shard.rotation.z=side*.4;
     }
+  } else if (kind === 'thorn') {
+    // Criatura vegetal da floresta: casca, espinhos e cipós.
+    const bark = matBody(0x3c5a3e,.92,.04);
+    const leaf = matBody(0x527e46,.82,.02);
+    addMesh(new THREE.CapsuleGeometry(.34,.7,4,9),bark,0,.88,0,1.05,1,.85);
+    addMesh(new THREE.DodecahedronGeometry(.38,1),leaf,0,1.55,-.05,1,.9,.82);
+    for(const side of [-1,1]){
+      const horn=addMesh(new THREE.ConeGeometry(.15,.7,6),bark,side*.22,2.05,-.02);
+      horn.rotation.z=side*-.35;
+      const thorn=addMesh(new THREE.ConeGeometry(.11,.58,5),leaf,side*.36,1.22,.18);
+      thorn.rotation.z=side*.72;
+      addMesh(new THREE.SphereGeometry(.075,12,8),eyeMat,side*.13,1.63,-.34);
+      const vine=addMesh(new THREE.CapsuleGeometry(.07,.42,3,5),leaf,side*.42,.91,-.01);
+      vine.rotation.z=side*.55;
+      const claw=addMesh(new THREE.ConeGeometry(.09,.32,6),bone,side*.46,.57,-.2);
+      claw.rotation.x=Math.PI;
+    }
+    addMesh(new THREE.ConeGeometry(.25,.55,5),bark,0,.52,.23,1,.8,.75);
+  } else if (kind === 'inferno') {
+    // Demônio do vulcão com placas de basalto e fissuras laranja.
+    const basalt = matBody(0x31201d,.88,.16);
+    const magma = new THREE.MeshStandardMaterial({color:0xff6b32,emissive:0xff3210,emissiveIntensity:1.65,roughness:.4});
+    addMesh(new THREE.DodecahedronGeometry(.5,1),basalt,0,1.05,0,1.12,1.05,.9);
+    addMesh(new THREE.SphereGeometry(.32,18,12),basalt,0,1.75,-.03);
+    addMesh(new THREE.BoxGeometry(.32,.42,.05),magma,0,1.18,-.47);
+    for(const side of [-1,1]){
+      const horn=addMesh(new THREE.ConeGeometry(.16,.65,6),bone,side*.24,2.18,-.02);
+      horn.rotation.z=side*-.42;
+      addMesh(new THREE.SphereGeometry(.075,12,8),eyeMat,side*.13,1.79,-.32);
+      addMesh(new THREE.BoxGeometry(.07,.38,.08),magma,side*.21,1.03,-.47,1,1,.7);
+      const arm=addMesh(new THREE.CapsuleGeometry(.15,.4,4,7),basalt,side*.48,1.03,0);
+      arm.rotation.z=side*.22;
+      const claw=addMesh(new THREE.ConeGeometry(.12,.4,5),bone,side*.57,.64,-.15);
+      claw.rotation.x=Math.PI;
+    }
+  } else if (kind === 'abyss') {
+    // Variante do vazio reservada a encontros avançados.
+    const voidMat = new THREE.MeshStandardMaterial({color:0x21162f,roughness:.42,metalness:.28,emissive:0x30134d,emissiveIntensity:.55});
+    addMesh(new THREE.OctahedronGeometry(.55,1),voidMat,0,1.08,0,1.05,1.35,.8);
+    addMesh(new THREE.SphereGeometry(.3,18,12),voidMat,0,1.8,-.06);
+    for(const side of [-1,1]){
+      const shard=addMesh(new THREE.OctahedronGeometry(.28,1),eyeMat,side*.44,1.25,.02);
+      shard.rotation.z=side*.35;
+      const wing=addMesh(new THREE.ConeGeometry(.27,1.1,6),voidMat,side*.67,1.5,.16);
+      wing.rotation.z=side*(Math.PI*.36);
+      addMesh(new THREE.SphereGeometry(.07,12,8),eyeMat,side*.13,1.84,-.31);
+    }
   } else {
     // Predador ágil com carapaça, espinhos nas costas e garras.
     const hide = matBody(phase === 2 ? 0x385d66 : 0x51465d, .66, .12);
@@ -565,7 +612,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
     }
   }
   // Sombra/anel de identidade fixo no chão, sem pulsação.
-  const ringColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x63e9ff : 0xff4269;
+  const ringColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x63e9ff : kind === 'thorn' ? 0x8dff74 : kind === 'inferno' ? 0xff692e : kind === 'abyss' ? 0xc08bff : 0xff4269;
   const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,24),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.kind=kind;
