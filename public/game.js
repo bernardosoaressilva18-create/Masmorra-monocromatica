@@ -96,24 +96,24 @@ const stoneDark = mat(0x303744, .94, .04);
     emissiveIntensity: 1.8
   });
 
-  box(30, .8, 88, floor, 0, -.5, -30);
+  box(30, .8, 190, floor, 0, -.5, -82);
   // Cada fase recebe um piso próprio, não apenas uma mudança de cor na névoa.
-  box(29.6, .08, 17.6, mat(0x303b49, .96), 0, -.055, -3.1);  // Cripta
-  box(29.6, .08, 13.4, mat(0x33284c, .92), 0, -.055, -20.0); // Caverna mágica
-  box(29.6, .08, 13.4, mat(0x321b28, .88, .12), 0, -.055, -32.2); // Região vulcânica
-  box(29.6, .08, 13.4, mat(0x192a24, .88, .12), 0, -.055, -46.2); // Floresta
-  box(29.6, .08, 20.5, mat(0x21131f, .88, .12), 0, -.055, -62.8); // Abismo final
+  box(29.6, .08, 29.5, mat(0x303b49, .96), 0, -.055, -15);   // Mundo 1: Cripta
+  box(29.6, .08, 29.5, mat(0x33284c, .92), 0, -.055, -47);   // Mundo 2: Cavernas
+  box(29.6, .08, 29.5, mat(0x192a24, .88, .12), 0, -.055, -79); // Mundo 3: Floresta
+  box(29.6, .08, 29.5, mat(0x4a2414, .88, .12), 0, -.055, -111); // Mundo 4: Vulcão
+  box(29.6, .08, 39.5, mat(0x21131f, .88, .12), 0, -.055, -153); // Mundo 5: Abismo
   const tileMat = mat(0x343b45, .98);
   for (let z = -33; z <= 10; z += 3) for (let x = -12; x <= 12; x += 3) {
     if (Math.random() > .28) { const tile = box(2.72, .025, 2.72, tileMat, x, -.075, z); tile.position.y = -.075; }
   }
 
-  for (let z = -74; z <= 12; z += 4) {
+  for (let z = -174; z <= 12; z += 4) {
     box(29.8, .05, .06, dark, 0, -.07, z);
   }
 
-  box(.7, 5, 58, wall, -15, 2, -14);
-  box(.7, 5, 58, wall, 15, 2, -14);
+  box(.7, 5, 190, wall, -15, 2, -82);
+  box(.7, 5, 190, wall, 15, 2, -82);
 // Detalhes de pedra nas paredes
 for (let z = -30; z <= 8; z += 6) {
   box(0.12, 0.18, 2.2, stoneLight, -14.55, 1.2, z);
@@ -122,10 +122,10 @@ for (let z = -30; z <= 8; z += 6) {
   box(0.12, 0.18, 2.2, stoneLight, 14.55, 1.2, z);
   box(0.12, 0.12, 1.5, stoneDark, 14.55, 2.8, z + 2);
 }
-  box(30, 5, .8, wall, 0, 2, -76);
+  box(30, 5, .8, wall, 0, 2, -180);
   box(30, 5, .8, wall, 0, 2, 13);
 
-  for (let z = -72; z <= 9; z += 5) {
+  for (let z = -172; z <= 9; z += 5) {
     for (const side of [-1, 1]) {
       const x = side * 14.35;
       box(.8, .35, .9, trim, x, 4.25, z);
@@ -172,7 +172,7 @@ for (let z = -30; z <= 8; z += 6) {
   }
 
   // Portões mágicos entre as três fases.
-  for (const z of [-13, -27, -41, -55]) {
+  for (const z of [-30, -62, -94, -126]) {
     const gate = new THREE.Group();
     const stone = mat(0x656d7b, .72, .25), runeMat = new THREE.MeshStandardMaterial({ color: 0x56e6ff, emissive: 0x1aa5df, emissiveIntensity: 2.2, metalness: .2, roughness: .3 });
     for (const x of [-3.1, 3.1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(.42, 4.4, .55), stone); post.position.set(x, 2.2, 0); gate.add(post); }
@@ -188,7 +188,7 @@ for (let z = -30; z <= 8; z += 6) {
     gate.add(bars); gate.position.z = z; gate.userData.bars = bars; gate.userData.ring = ring; gate.userData.portal = portal; gate.userData.portalRim = portalRim; gate.userData.open = false; scene.add(gate); gateMeshes.push(gate);
   }
   // Cristais, braseiros e fragmentos decorativos para dar profundidade.
-  for (const z of [-5, -10, -18, -23, -30, -36, -44, -50, -58, -66]) {
+  for (const z of [-5, -10, -18, -23, -36, -42, -50, -58, -68, -74, -84, -90, -100, -106, -116, -122, -134, -142, -158, -166]) {
     for (const x of [-12.2, 12.2]) {
       const flame = new THREE.Mesh(new THREE.IcosahedronGeometry(.22, 1), new THREE.MeshStandardMaterial({ color: 0xffa84f, emissive: 0xff5b1f, emissiveIntensity: 2.5 }));
       flame.position.set(x, 2.1, z); scene.add(flame);
@@ -205,7 +205,7 @@ for (let z = -30; z <= 8; z += 6) {
   // FASE 2 — Caverna mágica: cristais grandes nas laterais, fora da rota central.
   const caveCrystal = new THREE.MeshStandardMaterial({ color: 0x7c63ff, emissive: 0x4b24d8, emissiveIntensity: 1.35, roughness: .28, metalness: .12 });
   const caveCrystalSmall = new THREE.MeshStandardMaterial({ color: 0x5de8ff, emissive: 0x1688bd, emissiveIntensity: 1.1, roughness: .3 });
-  for (const z of [-16.5, -21.5, -24, -37, -40]) {
+  for (const z of [-48, -53, -57, -80, -86]) {
     for (const side of [-1, 1]) {
       const cluster = new THREE.Group();
       for (let i = 0; i < 3; i++) {
@@ -221,7 +221,7 @@ for (let z = -30; z <= 8; z += 6) {
     }
   }
   // Veios luminosos no chão da caverna.
-  for (const z of [-15, -19, -23, -25, -37, -40]) {
+  for (const z of [-47, -51, -55, -58, -79, -83, -87]) {
     for (const side of [-1, 1]) {
       const vein = new THREE.Mesh(new THREE.BoxGeometry(2.2, .025, .07), new THREE.MeshBasicMaterial({ color: 0x7d5cff, transparent: true, opacity: .62 }));
       vein.position.set(side * 7.8, -.045, z); vein.rotation.y = side * .18; scene.add(vein);
@@ -231,7 +231,7 @@ for (let z = -30; z <= 8; z += 6) {
   // FASE 3 — Arena do Abismo: runas rubras e obeliscos ao redor do chefe.
   const abyssStone = mat(0x211821, .78, .25);
   const abyssRune = new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .62, side: THREE.DoubleSide });
-  for (const [x, z] of [[-8.8, -61.2], [8.8, -61.2], [-8.8, -65], [8.8, -65]]) {
+  for (const [x, z] of [[-8.8, -146.2], [8.8, -146.2], [-8.8, -150], [8.8, -150]]) {
     const obelisk = new THREE.Mesh(new THREE.CylinderGeometry(.28, .5, 3.2, 5), abyssStone);
     obelisk.position.set(x, 1.55, z); obelisk.rotation.z = x < 0 ? .08 : -.08; scene.add(obelisk);
     const crown = new THREE.Mesh(new THREE.OctahedronGeometry(.32), new THREE.MeshStandardMaterial({ color: 0xff315d, emissive: 0x9b102c, emissiveIntensity: 1.7 }));
@@ -239,22 +239,22 @@ for (let z = -30; z <= 8; z += 6) {
   }
   for (const radius of [2.2, 3.6, 5.1]) {
     const circle = new THREE.Mesh(new THREE.RingGeometry(radius, radius + .055, 64), abyssRune);
-    circle.rotation.x = -Math.PI / 2; circle.position.set(0, -.025, -64.1); scene.add(circle);
+    circle.rotation.x = -Math.PI / 2; circle.position.set(0, -.025, -150.1); scene.add(circle);
   }
   // Marca visual no chão entre as regiões para mostrar a passagem de fase.
-  for (const z of [-12.8, -26.7, -40.7, -54.7]) {
+  for (const z of [-29.8, -61.7, -93.7, -125.7]) {
     const threshold = new THREE.Mesh(new THREE.BoxGeometry(27, .035, .18), new THREE.MeshStandardMaterial({ color: 0x43515e, emissive: 0x182a38, emissiveIntensity: .7, metalness: .3 }));
     threshold.position.set(0, -.035, z); scene.add(threshold);
   }
 
   const particleCount = 28, particlePositions = new Float32Array(particleCount * 3);
-  for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -72+Math.random()*80; }
+  for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -174+Math.random()*184; }
   const particleGeo = new THREE.BufferGeometry(); particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
   particleMaterial = new THREE.PointsMaterial({ color: 0x8be9ff, size: .055, transparent: true, opacity: .6, depthWrite: false }); ambientParticles = new THREE.Points(particleGeo, particleMaterial); scene.add(ambientParticles);
 
   for (let i = 0; i < 18; i++) {
     const x = (Math.random() - .5) * 25;
-    const z = -70 + Math.random() * 78;
+    const z = -170 + Math.random() * 178;
     if (Math.abs(x) < 3 && z > 0) continue;
 
     const rock = new THREE.Mesh(
@@ -294,10 +294,13 @@ function makeSurfaceTexture() {
 }
 const surfaceTexture = makeSurfaceTexture();
 
-function makeHero(color = 0x72e6ff) {
+function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
-  const armor = new THREE.MeshStandardMaterial({ color, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x151d2a, metalness: .35, roughness: .55 });
+  const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : 0x72e6ff;
+  const armorColor = skin === 'shadow' ? 0x343a50 : skin === 'ember' ? 0x9b4a2b : (color ?? classColor);
+  const darkColor = skin === 'shadow' ? 0x11131d : skin === 'ember' ? 0x3b1915 : 0x151d2a;
+  const armor = new THREE.MeshStandardMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
+  const dark = new THREE.MeshStandardMaterial({ color: darkColor, metalness: .35, roughness: .55 });
   const skin = new THREE.MeshStandardMaterial({ color: 0xe2b99a, roughness: .82 });
   const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xc9a45d, metalness: .72, roughness: .3 });
@@ -350,7 +353,21 @@ function makeHero(color = 0x72e6ff) {
   const guard = new THREE.Mesh(new THREE.BoxGeometry(.31,.065,.12), gold); guard.position.y=.12; sword.add(guard);
   const grip = new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.2,8), dark); grip.position.y=.015; sword.add(grip);
   const pommel = new THREE.Mesh(new THREE.SphereGeometry(.07,8,6), gold); pommel.position.y=-.09; sword.add(pommel);
-  sword.position.set(.57,1.0,-.12); sword.rotation.z=-.25; g.add(sword); g.userData.sword=sword;
+  sword.position.set(.57,1.0,-.12); sword.rotation.z=-.25; g.add(sword);
+  sword.visible = heroClass === 'knight';
+  let classWeapon = sword;
+  if (heroClass === 'mage') {
+    const staff = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,.95,8), gold); shaft.position.y=.4; staff.add(shaft);
+    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.18,1), glow); orb.position.y=.98; staff.add(orb);
+    staff.position.set(.52,.65,-.04); staff.rotation.z=-.12; g.add(staff); classWeapon = staff;
+  } else if (heroClass === 'archer') {
+    const bow = new THREE.Group();
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(.34,.045,6,18,Math.PI*1.25), gold); arc.rotation.z=-Math.PI*.62; bow.add(arc);
+    const string = new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.66,5), steel); string.position.set(-.12,0,0); string.rotation.z=Math.PI*.1; bow.add(string);
+    bow.position.set(.56,1.08,-.08); bow.rotation.z=-.18; g.add(bow); classWeapon = bow;
+  }
+  g.userData.sword=classWeapon;
   const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.62,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.cape=cape;
@@ -362,7 +379,7 @@ function makeHero(color = 0x72e6ff) {
 }
 
 function createPlayer() {
-  myPlayer = makeHero();
+  myPlayer = makeHero(null, selectedClass || 'knight', selectedSkin || 'default');
   scene.add(myPlayer);
   myPlayer.position.set(0, 0, 3);
 }
@@ -586,7 +603,7 @@ const SKILL_BRANCHES = [
   ]},
   { id:'defense', title:'🛡 DEFESA', skills:[
     {id:'vitality',icon:'♥',name:'Vitalidade',desc:'+25 de vida máxima.'},
-    {id:'iron_skin',icon:'🛡',name:'Pele de ferro',desc'Recebe 20% menos dano.',req:'vitality'},
+    {id:'iron_skin',icon:'🛡',name:'Pele de ferro',desc:'Recebe 20% menos dano.'',req:'vitality'},
     {id:'regeneration',icon:'✚',name:'Regeneração',desc:'Recupera 2 de vida a cada 3 s.',req:'iron_skin'},
     {id:'second_wind',icon:'🌟',name:'Segunda chance',desc:'Uma vez, sobrevive a um golpe fatal.',req:'regeneration'},
     {id:'party_guard',icon:'🤝',name:'Guarda em grupo',desc:'Recebe menos dano perto de aliado.',req:'second_wind'}
@@ -627,15 +644,26 @@ function sendLoadout() {
     send({ type:'loadout', playerClass:selectedClass, skin:selectedSkin, skills:Array.from(unlockedSkills) });
   }
 }
+function refreshLocalHeroAppearance() {
+  if (!myPlayer || started) return;
+  const position = myPlayer.position.clone();
+  const hp = myPlayer.userData.serverHp ?? 100;
+  scene.remove(myPlayer);
+  myPlayer = makeHero(null, selectedClass, selectedSkin);
+  myPlayer.position.copy(position);
+  myPlayer.userData.serverHp = hp;
+  scene.add(myPlayer);
+}
 function chooseClass(className) {
   if (!classDescriptions[className]) return;
   selectedClass = className;
   document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
   if ($('classDescription')) $('classDescription').textContent = classDescriptions[selectedClass];
+  refreshLocalHeroAppearance();
   sendLoadout();
 }
 document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => chooseClass(card.dataset.class)));
-$('skinSelect')?.addEventListener('change', e => { selectedSkin = e.target.value; sendLoadout(); });
+$('skinSelect')?.addEventListener('change', e => { selectedSkin = e.target.value; refreshLocalHeroAppearance(); sendLoadout(); });
 function handleSkillClick(event) {
   const button = event.target.closest('[data-skill]');
   if (!button || button.disabled) return;
@@ -821,6 +849,16 @@ function updateState(m) {
     incoming.add(p.id);
 
     if (p.id === playerId) {
+      const incomingSkills = Array.isArray(p.skills) ? p.skills : [];
+      const changed = selectedClass !== (p.playerClass || 'knight') || selectedSkin !== (p.skin || 'default') || skillPoints !== (p.talentPoints ?? 5) || incomingSkills.slice().sort().join(',') !== Array.from(unlockedSkills).sort().join(',');
+      selectedClass = p.playerClass || selectedClass;
+      selectedSkin = p.skin || selectedSkin;
+      skillPoints = Number.isFinite(p.talentPoints) ? p.talentPoints : skillPoints;
+      unlockedSkills.clear(); incomingSkills.forEach(id => unlockedSkills.add(id));
+      if ($('skinSelect')) $('skinSelect').value = selectedSkin;
+      document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
+      if ($('classDescription')) $('classDescription').textContent = classDescriptions[selectedClass] || classDescriptions.knight;
+      if (changed) { lastSkillSignature = ''; syncLoadoutUI(); }
       if (myPlayer) {
         myPlayer.userData.serverX = p.x;
         myPlayer.userData.serverZ = p.z;
@@ -839,13 +877,20 @@ function updateState(m) {
 
     let obj = remotePlayers.get(p.id);
     if (!obj) {
-      obj = makeHero(p.color);
+      obj = makeHero(p.color, p.playerClass || 'knight', p.skin || 'default');
+      obj.userData.playerClass = p.playerClass || 'knight'; obj.userData.skin = p.skin || 'default';
       scene.add(obj);
       remotePlayers.set(p.id, obj);
     }
 
     obj.userData.targetX = p.x;
     obj.userData.targetZ = p.z;
+    if (obj.userData.playerClass !== (p.playerClass || 'knight') || obj.userData.skin !== (p.skin || 'default')) {
+      const replacement = makeHero(p.color, p.playerClass || 'knight', p.skin || 'default');
+      replacement.userData.targetX = p.x; replacement.userData.targetZ = p.z; replacement.userData.targetRot = p.rot;
+      replacement.userData.playerClass = p.playerClass || 'knight'; replacement.userData.skin = p.skin || 'default';
+      scene.remove(obj); scene.add(replacement); remotePlayers.set(p.id, replacement); obj = replacement;
+    }
     obj.userData.targetRot = p.rot;
     obj.userData.name = p.name;
   }
@@ -997,7 +1042,7 @@ function moveInput() {
 function attack() {
   if (!started || attackCooldown > 0 || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
 
-  attackCooldown = .45;
+  attackCooldown = selectedClass === 'archer' ? .29 : selectedClass === 'mage' ? .4 : .48;
   send({ type: 'attack' });
 
   const sword = myPlayer?.userData.sword;
@@ -1286,13 +1331,14 @@ const right = new THREE.Vector3(
         .normalize();
 
       myPlayer.position.x = THREE.MathUtils.clamp(
-        myPlayer.position.x + dir.x * dt * 5.8,
+        myPlayer.position.x + dir.x * dt * moveSpeed,
         -13, 13
       );
 
+      const moveSpeed = 5.8 * (selectedClass === 'archer' ? 1.12 : 1) * (unlockedSkills.has('swift_step') ? 1.18 : 1);
       myPlayer.position.z = THREE.MathUtils.clamp(
-        myPlayer.position.z + dir.z * dt * 5.8,
-        -39, 8
+        myPlayer.position.z + dir.z * dt * moveSpeed,
+        -174, 8
       );
 
       myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
