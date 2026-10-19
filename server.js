@@ -36,11 +36,49 @@ const wss = new WebSocket.Server({ server });
 const rooms = new Map();
 let nextId = 1;
 
+const LOOT_TABLES = {
+  monster: [
+    { name: 'Fragmento Sombrio', rarity: 'Comum', weight: 48 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', weight: 27 },
+    { name: 'Essência Antiga', rarity: 'Raro', weight: 15 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', weight: 8 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', weight: 2 }
+  ],
+  boss: [
+    { name: 'Fragmento Sombrio', rarity: 'Comum', weight: 10 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', weight: 20 },
+    { name: 'Essência Antiga', rarity: 'Raro', weight: 30 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', weight: 28 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', weight: 12 }
+  ],
+  chest: [
+    { name: 'Fragmento Sombrio', rarity: 'Comum', weight: 20 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', weight: 28 },
+    { name: 'Essência Antiga', rarity: 'Raro', weight: 27 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', weight: 18 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', weight: 7 }
+  ]
+};
+function rollLoot(kind) {
+  const table = LOOT_TABLES[kind] || LOOT_TABLES.monster;
+  const total = table.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.random() * total;
+  for (const item of table) {
+    roll -= item.weight;
+    if (roll < 0) return { name: item.name, rarity: item.rarity, kind };
+  }
+  return { ...table[0], kind };
+}
+function emptyInventory() {
+  return { Comum: 0, Incomum: 0, Raro: 0, Épico: 0, Lendário: 0 };
+}
+
 function newRoom(code) {
-  const room = { players: new Map(), monsters: [] };
+  const room = { players: new Map(), monsters: [], chests: [{ id: 'c0', x: -7, z: -14, opened: false }, { id: 'c1', x: 7, z: -24, opened: false }] };
   for (let i = 0; i < 7; i++) {
     room.monsters.push({
       id: 'm' + i,
+      boss: i === 6,
       x: (Math.random() - 0.5) * 20,
       z: -25 + Math.random() * 30,
       alive: true
@@ -57,13 +95,18 @@ function broadcast(room, message) {
   }
 }
 
+function playerInventoryForRoom(room) {
+  return [...room.players.values()].map(p => ({ id: p.id, inventory: p.inventory }));
+}
 function state(room) {
   return {
     type: 'state',
     players: [...room.players.values()].map(p => ({
       id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color
     })),
-    monsters: room.monsters
+    monsters: room.monsters,
+    chests: room.chests,
+    inventory: playerInventoryForRoom(room)
   };
 }
 
@@ -74,13 +117,7 @@ wss.on('connection', ws => {
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   room: null,
   lootDrops: [],
-  inventory: {
-    comum: 0,
-    incomum: 0,
-    raro: 0,
-    épico: 0,
-    lendário: 0
-  }
+  inventory: emptyInventory()
 };
 
   ws.on('message', raw => {
@@ -124,10 +161,25 @@ wss.on('connection', ws => {
         Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
       if (target) {
         target.alive = false;
-        broadcast(room, { type: 'notice', text: player.name + ' derrotou um monstro!' });
+        const loot = rollLoot(target.boss ? 'boss' : 'monster');
+        player.inventory[loot.rarity] = (player.inventory[loot.rarity] || 0) + 1;
+        broadcast(room, { type: 'loot', playerId: player.id, playerName: player.name, item: loot });
+        broadcast(room, { type: 'notice', text: player.name + (target.boss ? ' derrotou o CHEFE!' : ' derrotou um monstro!') });
       }
       broadcast(room, { type: 'attack', id: player.id });
       broadcast(room, state(room));
+    } else if (msg.type === 'openChest') {
+      const chest = room.chests.find(c => !c.opened && Math.hypot(c.x - player.x, c.z - player.z) < 3);
+      if (chest) {
+        chest.opened = true;
+        const loot = rollLoot('chest');
+        player.inventory[loot.rarity] = (player.inventory[loot.rarity] || 0) + 1;
+        broadcast(room, { type: 'loot', playerId: player.id, playerName: player.name, item: loot, chest: true });
+        broadcast(room, { type: 'notice', text: player.name + ' abriu um baú!' });
+        broadcast(room, state(room));
+      } else {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Chegue mais perto de um baú.' }));
+      }
     } else if (msg.type === 'leave') {
       room.players.delete(player.id);
       player.room = null;
