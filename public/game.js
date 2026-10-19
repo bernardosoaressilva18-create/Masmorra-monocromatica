@@ -1157,7 +1157,7 @@ const right = new THREE.Vector3(
       myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
     }
 
-    if (performance.now() - lastMove > 70) {
+    if (performance.now() - lastMove > 120) {
       send({
         type: 'move',
         x: myPlayer.position.x,
