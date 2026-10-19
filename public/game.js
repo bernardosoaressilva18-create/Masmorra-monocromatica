@@ -782,7 +782,23 @@ function attack() {
 }
 
 // A tela inicial precisa liberar o menu antes de o jogador entrar na sala.
-$('startBtn').addEventListener('click', () => {
+$('startBtn').addEventListener('click', async () => {
+  // No celular, tenta usar a tela inteira e manter o jogo em pé.
+  // O bloqueio de orientação só é permitido em alguns navegadores após um toque.
+  if (isMobileDevice) {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (_) {}
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock('portrait');
+      }
+    } catch (_) {
+      // Se o navegador não permitir bloquear a orientação, o jogo continua normalmente.
+    }
+  }
   $('startScreen').classList.add('hidden');
   menu.classList.remove('hidden');
   setStatus('Digite seu nome e toque em JOGAR ONLINE.');
