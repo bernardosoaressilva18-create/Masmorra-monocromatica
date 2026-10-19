@@ -55,6 +55,23 @@
     <p class="subtitle">Código da sala: <strong id="lobbyRoomCode">------</strong></p>
   </div>
   <div class="panel lobby-panel">
+    <div class="class-select">
+      <label>ESCOLHA SUA CLASSE</label>
+      <div class="class-cards">
+        <button type="button" class="class-card selected" data-class="knight"><span class="class-icon">🛡️</span><b>CAVALEIRO</b><small>Resistente · Corte pesado</small></button>
+        <button type="button" class="class-card" data-class="mage"><span class="class-icon">🔮</span><b>MAGO</b><small>Magia · Explosão arcana</small></button>
+        <button type="button" class="class-card" data-class="archer"><span class="class-icon">🏹</span><b>ARQUEIRO</b><small>Ágil · Disparo preciso</small></button>
+      </div>
+      <label for="skinSelect">SKIN</label>
+      <select id="skinSelect" class="lobby-select"><option value="default">Guardião clássico</option><option value="shadow">Sombra noturna</option><option value="ember">Chama antiga</option></select>
+      <div class="skill-head"><label>ÁRVORE DE HABILIDADES</label><span>Pontos: <b id="skillPoints">3</b></span></div>
+      <div class="skill-cards">
+        <button type="button" class="skill-card" data-skill="power"><b>⚔ Força +</b><small>Aumenta o poder de ataque</small><span>Melhorar · 1 ponto</span></button>
+        <button type="button" class="skill-card" data-skill="vitality"><b>♥ Vitalidade +</b><small>Aumenta a resistência</small><span>Melhorar · 1 ponto</span></button>
+        <button type="button" class="skill-card" data-skill="focus"><b>✦ Foco mágico</b><small>Especialização em habilidades</small><span>Melhorar · 1 ponto</span></button>
+      </div>
+      <p id="classDescription" class="class-description">Cavaleiro: defesa elevada e combate corpo a corpo.</p>
+    </div>
     <label>JOGADORES NA SALA</label>
     <div id="lobbyPlayers" class="lobby-players"><p>Esperando aventureiros...</p></div>
     <button id="readyBtn" class="primary">ESTOU PRONTO</button>
