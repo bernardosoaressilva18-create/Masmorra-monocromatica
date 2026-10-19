@@ -479,6 +479,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   };
   // Botas, pernas e braços guardados para animação procedural de caminhada.
   const legs = [], arms = [];
+  let torsoMesh = null, headMesh = null;
   for (const side of [-1,1]) {
     const leg = add(new THREE.CapsuleGeometry(.145,.34,4,8), dark, side*.2,.47,0);
     legs.push({ mesh: leg, side });
@@ -492,7 +493,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     add(new THREE.SphereGeometry(.105,10,8), gold, side*.49,.83,-.02);
   }
   // Peitoral em camadas, gola e cinto
-  add(new THREE.CapsuleGeometry(.36,.5,5,10), armor, 0,1.22,0,1.0,1.0,.82);
+  torsoMesh = add(new THREE.CapsuleGeometry(.36,.5,5,10), armor, 0,1.22,0,1.0,1.0,.82);
   add(new THREE.BoxGeometry(.48,.42,.12), steel, 0,1.25,-.31);
   add(new THREE.BoxGeometry(.19,.23,.05), glow, 0,1.27,-.39);
   add(new THREE.BoxGeometry(.64,.12,.43), dark, 0,.91,0);
@@ -502,7 +503,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   cape.rotation.x=-.08;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  add(new THREE.SphereGeometry(.255,20,14), skinMaterial,0,1.94,-.015);
+  headMesh = add(new THREE.SphereGeometry(.255,20,14), skinMaterial,0,1.94,-.015);
   add(new THREE.SphereGeometry(.27,20,12,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
   add(new THREE.BoxGeometry(.32,.09,.2), dark,0,2.04,-.17);
   for (const side of [-1,1]) add(new THREE.SphereGeometry(.035,8,6), glow,side*.09,1.96,-.239);
@@ -539,6 +540,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.heroClass = heroClass;
   g.userData.heroSkin = skin;
   g.userData.cape=cape;
+  g.userData.torso = torsoMesh;
+  g.userData.head = headMesh;
   g.userData.legs = legs;
   g.userData.arms = arms;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
@@ -568,16 +571,17 @@ function makeBoss() {
   const armor = mat(0x29202f, .55, .35), dark = mat(0x100e18, .7, .2), bone = mat(0x9c8aa8, .45, .35);
   const eye = new THREE.MeshStandardMaterial({ color: 0xff345d, emissive: 0xff123c, emissiveIntensity: 2.8 });
   const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, isMobileDevice ? 1 : 2), armor); torso.position.y = 1.65; g.add(torso);
+  const bossArms = [];
   const head = new THREE.Mesh(new THREE.SphereGeometry(.68, isMobileDevice ? 14 : 22, isMobileDevice ? 12 : 16), dark); head.position.y = 2.85; g.add(head);
   for (const side of [-1, 1]) {
     const horn = new THREE.Mesh(new THREE.ConeGeometry(.22, .95, isMobileDevice ? 6 : 9), bone); horn.position.set(side * .48, 3.55, 0); horn.rotation.z = side * -.38; g.add(horn);
     const e = new THREE.Mesh(new THREE.SphereGeometry(.12, isMobileDevice ? 8 : 12, isMobileDevice ? 6 : 10), eye); e.position.set(side * .25, 2.9, -.59); g.add(e);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.22, .9, isMobileDevice ? 4 : 6, isMobileDevice ? 7 : 10), armor); arm.position.set(side * 1.12, 1.6, 0); arm.rotation.z = side * -.22; g.add(arm);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.22, .9, isMobileDevice ? 4 : 6, isMobileDevice ? 7 : 10), armor); arm.position.set(side * 1.12, 1.6, 0); arm.rotation.z = side * -.22; g.add(arm); bossArms.push({ mesh: arm, side });
     const claw = new THREE.Mesh(new THREE.ConeGeometry(.18, .55, 5), bone); claw.position.set(side * 1.2, .82, -.05); claw.rotation.z = Math.PI; g.add(claw);
   }
   const rune = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.65, 32), new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .7, side: THREE.DoubleSide }));
   rune.rotation.x = -Math.PI / 2; rune.position.y = .04; g.add(rune);
-  g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; return g;
+  g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; g.userData.torso = torso; g.userData.arms = bossArms; g.userData.animPhase = Math.random()*Math.PI*2; return g;
 }
 function makeChest() {
   const group = new THREE.Group();
@@ -632,9 +636,12 @@ function makeMonster(kind = 'stalker', phase = 1) {
   const eyeMat = new THREE.MeshStandardMaterial({
     color: eyeColor, emissive: eyeColor, emissiveIntensity: 1.5, roughness: .3
   });
+  const animatedLimbs = [];
   const addMesh = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
     const m = new THREE.Mesh(geo, material);
-    m.position.set(x,y,z); m.scale.set(sx,sy,sz); g.add(m); return m;
+    m.position.set(x,y,z); m.scale.set(sx,sy,sz); g.add(m);
+    if (Math.abs(x) > .42 && y > .55 && y < 1.7 && (geo.type === 'CapsuleGeometry' || geo.type === 'BoxGeometry')) animatedLimbs.push({ mesh:m, side:Math.sign(x) || 1, baseRotationZ:m.rotation.z });
+    return m;
   };
 
   if (kind === 'brute') {
@@ -736,6 +743,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,24),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.kind=kind;
+  g.userData.animatedLimbs = animatedLimbs;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
   g.userData.lastX = undefined;
   g.userData.lastZ = undefined;
@@ -1742,9 +1750,12 @@ const right = new THREE.Vector3(
   if (myPlayer) {
     const v = moveInput();
     const moving = started && Math.hypot(v.x, v.y) > 0.04 && (myPlayer.userData.serverHp ?? 100) > 0;
-    myPlayer.userData.walkPhase = (myPlayer.userData.walkPhase || 0) + dt * (moving ? 10.5 : 2.2);
+    myPlayer.userData.walkPhase = (myPlayer.userData.walkPhase || 0) + dt * (moving ? 10.5 : 1.8);
     const phase = myPlayer.userData.walkPhase;
-    const stride = moving ? 1 : .08;
+    const stride = moving ? 1 : .12;
+    const breath = Math.sin(phase * .8);
+    if (myPlayer.userData.torso) { myPlayer.userData.torso.scale.y = 1 + breath * .018; myPlayer.userData.torso.rotation.z = moving ? Math.sin(phase) * .035 : Math.sin(phase * .5) * .012; }
+    if (myPlayer.userData.head) { myPlayer.userData.head.rotation.x = moving ? Math.sin(phase) * .035 : Math.sin(phase * .6) * .018; myPlayer.userData.head.rotation.z = Math.sin(phase * .4) * .012; }
     for (const leg of myPlayer.userData.legs || []) {
       leg.mesh.rotation.x = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .58 * stride;
     }
@@ -1777,6 +1788,12 @@ const right = new THREE.Vector3(
     );
 
     obj.rotation.y += angleDiff * remoteSmooth;
+    const remoteMoving = Math.hypot((obj.userData.targetX ?? obj.position.x) - obj.position.x, (obj.userData.targetZ ?? obj.position.z) - obj.position.z) > .035;
+    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (remoteMoving ? 9.5 : 1.8);
+    const rp = obj.userData.walkPhase;
+    for (const leg of obj.userData.legs || []) leg.mesh.rotation.x = Math.sin(rp + (leg.side > 0 ? Math.PI : 0)) * (remoteMoving ? .5 : .035);
+    for (const arm of obj.userData.arms || []) arm.mesh.rotation.x = Math.sin(rp + (arm.side < 0 ? Math.PI : 0)) * (remoteMoving ? .28 : .025);
+    if (obj.userData.cape) obj.userData.cape.rotation.x = -.08 + Math.sin(rp) * (remoteMoving ? .09 : .015);
   }
 
   // Monstros: suaviza o deslocamento e anima o corpo enquanto perseguem.
@@ -1798,6 +1815,10 @@ const right = new THREE.Vector3(
       );
       obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
     }
+    for (const limb of obj.userData.animatedLimbs || []) {
+      limb.mesh.rotation.x = Math.sin(phase + (limb.side > 0 ? Math.PI : 0)) * (moving ? .22 : .035);
+      limb.mesh.rotation.z = limb.baseRotationZ + Math.sin(phase * .65 + limb.side) * (moving ? .07 : .018);
+    }
     if (obj.userData.kind === 'stalker') {
       obj.rotation.x = moving ? Math.sin(phase) * .045 : THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-5 * dt));
     }
@@ -1806,8 +1827,14 @@ const right = new THREE.Vector3(
   if (bossMesh && bossMesh.visible && bossMesh.userData.targetX !== undefined) {
     bossMesh.position.x = THREE.MathUtils.lerp(bossMesh.position.x, bossMesh.userData.targetX, monsterSmooth);
     bossMesh.position.z = THREE.MathUtils.lerp(bossMesh.position.z, bossMesh.userData.targetZ, monsterSmooth);
-    bossMesh.position.y = .08;
-    // Sem rotação contínua: o Guardião só muda de posição ao perseguir o jogador.
+    bossMesh.userData.animPhase = (bossMesh.userData.animPhase || 0) + dt * (Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04 ? 5.5 : 1.7);
+    const bossPhase = bossMesh.userData.animPhase;
+    const bossMoving = Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04;
+    bossMesh.position.y = .08 + Math.sin(bossPhase * 1.5) * .045;
+    if (bossMesh.userData.torso) bossMesh.userData.torso.rotation.z = Math.sin(bossPhase) * (bossMoving ? .06 : .025);
+    for (const arm of bossMesh.userData.arms || []) arm.mesh.rotation.x = Math.sin(bossPhase + (arm.side > 0 ? Math.PI : 0)) * (bossMoving ? .28 : .07);
+    if (bossMesh.userData.eyeMaterial) bossMesh.userData.eyeMaterial.emissiveIntensity = 2.3 + (Math.sin(bossPhase * 2.1) + 1) * .55;
+    // O Guardião respira, balança os braços e pulsa os olhos durante a perseguição.
   }
   // Anima os portões: as grades somem ao liberar a passagem.
   for (const gate of gateMeshes) {
