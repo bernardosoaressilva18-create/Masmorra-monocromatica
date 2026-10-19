@@ -217,3 +217,23 @@ html, body { min-height: 100%; }
   #hud .inventory-panel { font-size: 9px; }
   #hud .loot-help, #hud .loot-item span, #hud .selected-item span { font-size: 7px; }
 }
+
+
+/* Portal e transição cinematográfica entre fases */
+.phase-transition {
+  position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px; text-align: center;
+  padding: 24px; background: radial-gradient(ellipse at center, rgba(31,116,158,.46), rgba(3,6,14,.94) 65%);
+  backdrop-filter: blur(5px); opacity: 0; pointer-events: none;
+}
+.phase-transition.hidden { display: none !important; }
+.phase-transition.phase-in { display: flex; animation: phaseReveal .7s ease-out forwards; }
+.phase-transition.phase-out { display: flex; animation: phaseFade .65s ease-in forwards; }
+.phase-transition-rune { font-size: 56px; color: #8ef3ff; text-shadow: 0 0 18px #27cfff, 0 0 45px #168bd9; animation: runeTurn 2s ease-in-out infinite; }
+.phase-transition p { margin: 0; color: #9eefff; font-size: 10px; font-weight: 900; letter-spacing: 4px; }
+.phase-transition h2 { max-width: 90vw; margin: 0; color: #f3f8ff; font: 800 clamp(22px,5vw,38px)/1.15 Cinzel,serif; text-shadow: 0 0 24px #56cfff; }
+.phase-transition span { color: #d1dce8; font-size: 12px; }
+@keyframes phaseReveal { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: scale(1); } }
+@keyframes phaseFade { from { opacity: 1; } to { opacity: 0; } }
+@keyframes runeTurn { 0%,100% { transform: rotate(0) scale(1); } 50% { transform: rotate(180deg) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .phase-transition-rune { animation: none; } }
