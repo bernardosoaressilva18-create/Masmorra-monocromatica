@@ -585,6 +585,35 @@ function handleMessage(m) {
     if (obj) obj.userData.attackAnim = 0.38;
     return;
   }
+  if (m.type === 'spell') {
+    const color = m.spell === 'fire' ? 0xff6b24 : 0x69aaff;
+    const origin = new THREE.Vector3(m.x, 1.35, m.z);
+    const targets = Array.isArray(m.targets) ? m.targets : [];
+    if (!targets.length) targets.push({ x: m.x, z: m.z });
+    for (const target of targets.slice(0, 4)) {
+      const end = new THREE.Vector3(target.x, 1.15, target.z);
+      const points = m.spell === 'lightning'
+        ? [origin.clone(), new THREE.Vector3((origin.x + end.x) / 2 + (Math.random() - .5) * .9, 1.1, (origin.z + end.z) / 2), end]
+        : [origin.clone(), end];
+      const geo = new THREE.BufferGeometry().setFromPoints(points);
+      const beam = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: .95 }));
+      scene.add(beam);
+      const glowGeo = new THREE.SphereGeometry(m.spell === 'fire' ? .24 : .16, 8, 6);
+      const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .9 }));
+      glow.position.copy(origin); scene.add(glow);
+      const start = performance.now(), duration = m.spell === 'fire' ? 330 : 260;
+      const animateSpell = () => {
+        const t = (performance.now() - start) / duration;
+        if (t >= 1) { scene.remove(beam, glow); geo.dispose(); beam.material.dispose(); glowGeo.dispose(); glow.material.dispose(); return; }
+        glow.position.lerpVectors(origin, end, t);
+        glow.scale.setScalar(1 + Math.sin(t * Math.PI) * .8);
+        beam.material.opacity = 1 - t * .8;
+        requestAnimationFrame(animateSpell);
+      };
+      requestAnimationFrame(animateSpell);
+    }
+    return;
+  }
 
   if (m.type === 'attack') {
     if (m.id !== playerId) {
@@ -939,26 +968,29 @@ function castSpell(kind) {
     if (lightningCooldown > 0) return;
     lightningCooldown = 3.5;
   }
-  send({ type: 'spell', spell: kind });
+  // O efeito de lançamento aparece na hora; o servidor confirma os alvos e o dano.
   const color = kind === 'fire' ? 0xff6b24 : 0x69aaff;
-  const geo = kind === 'fire' ? new THREE.SphereGeometry(.32, 12, 10) : new THREE.OctahedronGeometry(.4, 0);
-  const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:.95});
-  const effect = new THREE.Mesh(geo,mat);
+  const geo = kind === 'fire' ? new THREE.SphereGeometry(.25, 10, 8) : new THREE.OctahedronGeometry(.24, 0);
+  const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
+  const projectile = new THREE.Mesh(geo, material);
   const origin = myPlayer ? myPlayer.position.clone() : new THREE.Vector3();
   origin.y += 1.25;
-  effect.position.copy(origin);
-  scene.add(effect);
-  const start = performance.now();
-  const duration = kind === 'fire' ? 550 : 420;
-  const tick = () => {
-    const t = (performance.now()-start)/duration;
-    if (t>=1) { scene.remove(effect); geo.dispose(); mat.dispose(); return; }
-    effect.position.y += .018;
-    effect.scale.setScalar(1+t*2.3);
-    mat.opacity = 1-t;
-    requestAnimationFrame(tick);
+  projectile.position.copy(origin);
+  scene.add(projectile);
+  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  const destination = origin.clone().add(forward.multiplyScalar(5.5));
+  const start = performance.now(), duration = 300;
+  const fly = () => {
+    const t = (performance.now() - start) / duration;
+    if (t >= 1) { scene.remove(projectile); geo.dispose(); material.dispose(); return; }
+    projectile.position.lerpVectors(origin, destination, t);
+    projectile.position.y += Math.sin(t * Math.PI) * .35;
+    projectile.scale.setScalar(1 + t * 1.3);
+    material.opacity = 1 - t * .65;
+    requestAnimationFrame(fly);
   };
-  requestAnimationFrame(tick);
+  requestAnimationFrame(fly);
+  send({ type: 'spell', spell: kind });
   showNotice(kind === 'fire' ? '🔥 MAGIA DE FOGO!' : '⚡ MAGIA DE RAIO!');
 }
 $('fireBtn').addEventListener('pointerdown', e => { e.preventDefault(); castSpell('fire'); });
