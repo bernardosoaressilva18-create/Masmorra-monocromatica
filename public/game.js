@@ -679,6 +679,13 @@ function attack() {
   setTimeout(() => f.style.borderWidth = '0', 100);
 }
 
+// A tela inicial precisa liberar o menu antes de o jogador entrar na sala.
+$('startBtn').addEventListener('click', () => {
+  $('startScreen').classList.add('hidden');
+  menu.classList.remove('hidden');
+  setStatus('Digite seu nome e toque em JOGAR ONLINE.');
+});
+
 $('playBtn').addEventListener('click', () => connect(''));
 
 $('joinBtn').addEventListener('click', () => {
