@@ -600,3 +600,18 @@ html, body { min-height: 100%; }
 .skin-pick b{font-size:10px}.skin-pick small{font-size:8px;color:#9db2c1}
 .safe-zone-notice{position:fixed;top:55px;left:50%;transform:translateX(-50%);z-index:54;max-width:calc(100vw - 24px);padding:8px 12px;border:1px solid #8bf5c6aa;border-radius:999px;background:rgba(5,36,28,.96);box-shadow:0 4px 22px #0009,0 0 14px #41e0a222;color:#a9ffdd;font-size:9px;font-weight:900;letter-spacing:.7px;text-align:center;white-space:nowrap;pointer-events:none}
 @media(max-width:430px){.hero-showcase{gap:10px;padding:9px}.hero-preview-avatar{flex-basis:68px;width:68px;height:76px}.hero-preview-avatar span{font-size:35px}.hero-showcase-info>strong{font-size:16px}.skin-pick{padding:6px 3px}.safe-zone-notice{top:48px;font-size:8px;letter-spacing:.3px;padding:7px 9px}}
+
+/* Correção de interação: o HUD inteiro é pass-through, mas os controles precisam receber toque. */
+#hud .skill-toggle,#hud .skill-panel,#hud .skill-panel button,#hud .skill-tree,#hud .skill-tree button{pointer-events:auto}
+#hud .skill-toggle{touch-action:manipulation;z-index:120}
+#hud .skill-panel{pointer-events:auto;z-index:121}
+#hud .skill-panel .skill-tree{pointer-events:auto}
+#hud .skill-panel .skill-node{cursor:pointer;min-height:76px}
+#hud .skill-panel .skill-node:disabled{cursor:not-allowed}
+#hud .safe-zone-notice{z-index:119;pointer-events:none}
+.hero-preview-avatar{position:relative;overflow:hidden;isolation:isolate;box-shadow:inset 0 -12px 18px #0005,0 0 20px #76e7f222}
+.hero-preview-avatar:before{content:'';position:absolute;z-index:-1;left:31%;top:17%;width:38%;height:34%;border-radius:44% 44% 35% 35%;background:linear-gradient(120deg,#f1d5b4,#9b6c54);box-shadow:0 0 0 4px #18212b,0 13px 0 7px #293b50,0 24px 0 9px #111a27}
+.hero-preview-avatar:after{content:'✦';position:absolute;left:0;right:0;bottom:5px;text-align:center;font-size:18px;color:#fff2c1;text-shadow:0 0 12px currentColor}
+.hero-preview-avatar.class-mage:before{background:linear-gradient(120deg,#e7d6ff,#8972c8);box-shadow:0 0 0 4px #32284e,0 13px 0 7px #423477,0 24px 0 9px #171326}
+.hero-preview-avatar.class-archer:before{background:linear-gradient(120deg,#e8c69d,#8b6040);box-shadow:0 0 0 4px #293a2c,0 13px 0 7px #3f694b,0 24px 0 9px #152019}
+@media(max-width:560px){#hud .skill-panel{left:8px;top:136px;width:calc(100vw - 16px);max-height:66vh;padding:10px}#hud .skill-panel .skill-node{min-height:90px}}
