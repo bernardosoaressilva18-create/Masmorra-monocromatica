@@ -400,13 +400,13 @@ setInterval(() => {
         }
       }
 
-      if (target && nearest > 1.8 && nearest < 20) {
+      if (target && nearest > 1.8 && nearest < 28) {
         const dx = target.x - monster.x;
         const dz = target.z - monster.z;
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = monster.kind === 'brute' ? 0.055 : monster.kind === 'wraith' ? 0.085 : 0.07;
+          const speed = monster.kind === 'brute' ? 0.105 : monster.kind === 'wraith' ? 0.15 : 0.125;
 
           monster.x += (dx / distance) * speed;
           monster.z += (dz / distance) * speed;
@@ -432,7 +432,7 @@ setInterval(() => {
       for (const p of players) { if (p.hp <= 0) continue; const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
       if (target && nearest > 2.35 && nearest < 24) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
-        const speed = boss.lifePhase === 1 ? 0.055 : boss.lifePhase === 2 ? 0.075 : 0.105;
+        const speed = boss.lifePhase === 1 ? 0.09 : boss.lifePhase === 2 ? 0.12 : 0.16;
         boss.x = Math.max(-12, Math.min(12, boss.x + dx / distance * speed));
         boss.z = Math.max(-31, Math.min(-20, boss.z + dz / distance * speed));
       }
