@@ -366,3 +366,18 @@ html, body { min-height: 100%; }
   #hud .fire-btn {right:130px;bottom:14px}.lightning-btn{right:65px;bottom:95px}
   #hud .selected-item {left:auto!important;right:12px!important;bottom:160px!important;transform:none!important;z-index:16!important}
 }
+
+
+/* HUD mobile: item junto ao joystick, baú contextual e ataque sem colisão. */
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 700px) {
+  #hud .selected-item { left: 8px !important; right: auto !important; bottom: 198px !important; top: auto !important; transform: none !important; width: min(45vw, 165px) !important; z-index: 18 !important; }
+  #hud .joystick { left: 0 !important; bottom: 0 !important; width: 170px !important; height: 170px !important; }
+  #hud .stick { left: 60px !important; top: 60px !important; width: 48px !important; height: 48px !important; }
+  #hud .attack { right: 8px !important; bottom: 8px !important; width: 82px !important; height: 82px !important; z-index: 14 !important; background: radial-gradient(circle at 35% 25%,#a56d3d,#4b2521 65%,#21171a) !important; border: 2px solid #ffdda17d !important; }
+  #hud .attack span, #hud .attack small { opacity: 1 !important; }
+  #hud .chest-btn { right: 100px !important; bottom: 12px !important; width: 60px !important; height: 60px !important; z-index: 15 !important; }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  #hud .selected-item { left: 175px !important; right: auto !important; bottom: 12px !important; top: auto !important; transform: none !important; z-index: 18 !important; }
+  #hud .attack { width: 82px !important; height: 82px !important; }
+}
