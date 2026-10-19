@@ -64,12 +64,9 @@
       </div>
       <label for="skinSelect">SKIN</label>
       <select id="skinSelect" class="lobby-select"><option value="default">Guardião clássico</option><option value="shadow">Sombra noturna</option><option value="ember">Chama antiga</option></select>
-      <div class="skill-head"><label>ÁRVORE DE HABILIDADES</label><span>Pontos: <b id="skillPoints">3</b></span></div>
-      <div class="skill-cards">
-        <button type="button" class="skill-card" data-skill="power"><b>⚔ Força +</b><small>Aumenta o poder de ataque</small><span>Melhorar · 1 ponto</span></button>
-        <button type="button" class="skill-card" data-skill="vitality"><b>♥ Vitalidade +</b><small>Aumenta a resistência</small><span>Melhorar · 1 ponto</span></button>
-        <button type="button" class="skill-card" data-skill="focus"><b>✦ Foco mágico</b><small>Especialização em habilidades</small><span>Melhorar · 1 ponto</span></button>
-      </div>
+      <div class="skill-head"><label>ÁRVORE DE SKILLS · 15 TALENTOS</label><span>Disponíveis: <b id="skillPoints">5</b></span></div>
+      <p class="skill-intro">Comece com 5 pontos. Ganhe +1 ao liberar cada novo mundo. Cada talento custa 1 ponto e exige o talento anterior do mesmo ramo.</p>
+      <div id="skillTreeLobby" class="skill-tree"></div>
       <p id="classDescription" class="class-description">Cavaleiro: defesa elevada e combate corpo a corpo.</p>
     </div>
     <label>JOGADORES NA SALA</label>
@@ -108,6 +105,12 @@
     <div class="boss-title">GUARDIÃO DO ABISMO</div>
     <div class="boss-health"><i id="bossHealthFill"></i></div>
     <div class="boss-meta"><span id="bossPhaseText">FASE DE VIDA 1 / 3</span><b id="bossHealthText">15 / 15</b></div>
+  </div>
+  <button id="skillToggleBtn" class="skill-toggle" type="button">✦ SKILLS <b id="skillPointsHud">5</b></button>
+  <div id="skillPanel" class="skill-panel hidden">
+    <div class="skill-panel-head"><strong>ÁRVORE DE SKILLS</strong><button id="skillCloseBtn" type="button" aria-label="Fechar árvore">×</button></div>
+    <p class="skill-intro">Gaste pontos durante a aventura. Você recebe pontos ao avançar de mundo.</p>
+    <div id="skillTreeHud" class="skill-tree"></div>
   </div>
   <div class="inventory-panel"><strong>INVENTÁRIO</strong><div id="inventoryList" class="inventory-list"></div><div class="loot-help">Selecione um item e toque em USAR.</div><div id="recentLoot" class="recent-loot"><small>Nenhum item coletado ainda.</small></div><div class="selected-item"><span id="selectedItemLabel">Nenhum item selecionado</span><button id="useSelectedItemBtn" type="button" disabled>USAR ITEM</button></div></div>
   <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
