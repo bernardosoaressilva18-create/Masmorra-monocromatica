@@ -1,4 +1,4 @@
-const CACHE_NAME = 'masmorra-shell-v13';
+const CACHE_NAME = 'masmorra-shell-v14';
 const SHELL = ['./', './index.html', './style.css', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
