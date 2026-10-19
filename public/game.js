@@ -143,7 +143,8 @@ const stoneDark = mat(0x303744, .94, .04);
     }
   }
   for (const z of [-30.5,-62,-94,-130]) {
-    box(9,.06,3.1,mat(0x283743,.9,.1),0,-.018,z);
+    const bridgeDepth = z === -130 ? 9.5 : 3.1;
+    box(9,.06,bridgeDepth,mat(0x283743,.9,.1),0,-.018,z);
   }
 
   // Portões de fundo, início e limites externos do conjunto.
