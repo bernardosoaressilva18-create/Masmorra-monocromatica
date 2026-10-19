@@ -301,7 +301,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const darkColor = skin === 'shadow' ? 0x11131d : skin === 'ember' ? 0x3b1915 : 0x151d2a;
   const armor = new THREE.MeshStandardMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
   const dark = new THREE.MeshStandardMaterial({ color: darkColor, metalness: .35, roughness: .55 });
-  const skin = new THREE.MeshStandardMaterial({ color: 0xe2b99a, roughness: .82 });
+  const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xe2b99a, roughness: .82 });
   const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xc9a45d, metalness: .72, roughness: .3 });
   const glow = new THREE.MeshStandardMaterial({ color: 0x8beaff, emissive: 0x168fc0, emissiveIntensity: 1.4, metalness: .25, roughness: .25 });
@@ -336,7 +336,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   cape.rotation.x=-.08;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  add(new THREE.SphereGeometry(.255,16,12), skin,0,1.94,-.015);
+  add(new THREE.SphereGeometry(.255,16,12), skinMaterial,0,1.94,-.015);
   add(new THREE.SphereGeometry(.27,16,10,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
   add(new THREE.BoxGeometry(.32,.09,.2), dark,0,2.04,-.17);
   for (const side of [-1,1]) add(new THREE.SphereGeometry(.035,8,6), glow,side*.09,1.96,-.239);
@@ -603,7 +603,7 @@ const SKILL_BRANCHES = [
   ]},
   { id:'defense', title:'🛡 DEFESA', skills:[
     {id:'vitality',icon:'♥',name:'Vitalidade',desc:'+25 de vida máxima.'},
-    {id:'iron_skin',icon:'🛡',name:'Pele de ferro',desc:'Recebe 20% menos dano.'',req:'vitality'},
+    {id:'iron_skin',icon:'🛡',name:'Pele de ferro',desc:'Recebe 20% menos dano.',req:'vitality'},
     {id:'regeneration',icon:'✚',name:'Regeneração',desc:'Recupera 2 de vida a cada 3 s.',req:'iron_skin'},
     {id:'second_wind',icon:'🌟',name:'Segunda chance',desc:'Uma vez, sobrevive a um golpe fatal.',req:'regeneration'},
     {id:'party_guard',icon:'🤝',name:'Guarda em grupo',desc:'Recebe menos dano perto de aliado.',req:'second_wind'}
@@ -1330,12 +1330,11 @@ const right = new THREE.Vector3(
         .add(right.multiplyScalar(v.x))
         .normalize();
 
+      const moveSpeed = 5.8 * (selectedClass === 'archer' ? 1.12 : 1) * (unlockedSkills.has('swift_step') ? 1.18 : 1);
       myPlayer.position.x = THREE.MathUtils.clamp(
         myPlayer.position.x + dir.x * dt * moveSpeed,
         -13, 13
       );
-
-      const moveSpeed = 5.8 * (selectedClass === 'archer' ? 1.12 : 1) * (unlockedSkills.has('swift_step') ? 1.18 : 1);
       myPlayer.position.z = THREE.MathUtils.clamp(
         myPlayer.position.z + dir.z * dt * moveSpeed,
         -174, 8
