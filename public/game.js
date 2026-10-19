@@ -533,55 +533,68 @@ function setStatus(t) {
   menuStatus.textContent = t;
 }
 
-function connect(code = '') {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    sendJoin(code);
-    return;
-  }
+let connectionRequested = false, reconnectAttempts = 0, reconnectTimer = null, activeConnectCode = '';
 
-  if (!location.host) {
-    setStatus('Abra pelo link do servidor online para jogar.');
+function connect(code = '', automaticRetry = false) {
+  if (!automaticRetry) {
+    connectionRequested = true;
+    reconnectAttempts = 0;
+    activeConnectCode = code || roomCode || '';
+  }
+  if (ws && ws.readyState === WebSocket.OPEN) { sendJoin(code); return; }
+  if (ws && ws.readyState === WebSocket.CONNECTING) {
+    setStatus('Conectando ao servidor… aguarde um instante.');
     return;
   }
+  if (!location.host) { setStatus('Abra pelo link do servidor online para jogar.'); return; }
 
   loading.classList.remove('hidden');
-  $('loadingText').textContent = 'Conectando ao servidor...';
-  setStatus('Conectando...');
+  $('loadingText').textContent = automaticRetry ? 'Reconectando à sala…' : 'Conectando ao servidor…';
+  setStatus(automaticRetry ? 'A conexão caiu. Tentando voltar à sala…' : 'Conectando…');
 
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}`);
+  const socket = new WebSocket(`${proto}//${location.host}`);
+  ws = socket;
 
-  ws.addEventListener('open', () => sendJoin(code));
-  ws.addEventListener('message', e => {
+  socket.addEventListener('open', () => {
+    if (ws !== socket) return;
+    sendJoin(activeConnectCode || code);
+  });
+  socket.addEventListener('message', e => {
+    if (ws !== socket) return;
     let m;
     try { m = JSON.parse(e.data); } catch { return; }
     handleMessage(m);
   });
-
-  ws.addEventListener('error', () => {
-    loading.classList.add('hidden');
-    setStatus('Não foi possível conectar. Confira se o servidor online está publicado.');
+  socket.addEventListener('error', () => {
+    if (ws !== socket) return;
+    setStatus('Falha de conexão. Vou tentar novamente automaticamente.');
   });
+  socket.addEventListener('close', () => {
+    if (ws !== socket) return;
+    ws = null;
+    if (!connectionRequested) { loading.classList.add('hidden'); return; }
 
-  ws.addEventListener('close', () => {
     if (started) {
       started = false;
       hud.classList.add('hidden');
-      loading.classList.remove('hidden');
-      $('loadingText').textContent = 'Conexão interrompida. Tentando reconectar...';
-      setStatus('Conexão interrompida. Reconectando...');
-      // Não abre o lobby antigo sem uma conexão válida; tenta voltar à mesma sala.
-      const reconnectCode = roomCode;
-      setTimeout(() => {
-        if (!ws || ws.readyState === WebSocket.CLOSED) {
-          ws = null;
-          connect(reconnectCode);
-        }
-      }, 1800);
     }
+    if (reconnectAttempts >= 6) {
+      loading.classList.add('hidden');
+      setStatus('Não consegui reconectar depois de 6 tentativas. Toque em JOGAR ONLINE para tentar de novo.');
+      return;
+    }
+    reconnectAttempts++;
+    const delay = Math.min(1000 * (2 ** (reconnectAttempts - 1)), 8000);
+    loading.classList.remove('hidden');
+    $('loadingText').textContent = 'Reconectando… tentativa ' + reconnectAttempts + ' de 6';
+    setStatus('Conexão interrompida. Nova tentativa em ' + Math.ceil(delay / 1000) + ' s.');
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => {
+      if (connectionRequested) connect(roomCode || activeConnectCode || code, true);
+    }, delay);
   });
 }
-
 
 const classDescriptions = {
   knight: 'Cavaleiro: mais vida, defesa natural e golpes corpo a corpo.',
@@ -683,6 +696,7 @@ syncLoadoutUI();
 
 function sendJoin(code) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  activeConnectCode = code || activeConnectCode || roomCode || '';
   send({
     type: 'join',
     name: $('playerName').value.trim() || 'Aventureiro',
@@ -709,6 +723,10 @@ function handleMessage(m) {
   if (m.type === 'joined') {
     playerId = m.id;
     roomCode = m.room;
+    activeConnectCode = m.room;
+    connectionRequested = true;
+    reconnectAttempts = 0;
+    clearTimeout(reconnectTimer);
     started = false;
     menu.classList.add('hidden');
     loading.classList.add('hidden');
@@ -718,6 +736,7 @@ function handleMessage(m) {
     $('roomLabel').textContent = roomCode;
     $('loadingText').textContent = '';
     showNotice('Você entrou no lobby!');
+    sendLoadout();
     return;
   }
 
@@ -1086,6 +1105,9 @@ $('readyBtn').addEventListener('click', () => send({ type: 'ready' }));
 $('startMatchBtn').addEventListener('click', () => send({ type: 'startMatch' }));
 
 function leaveRoomToMenu() {
+  connectionRequested = false;
+  clearTimeout(reconnectTimer);
+  reconnectAttempts = 0;
   send({ type: 'leave' });
   if (ws) ws.close();
   started = false;
