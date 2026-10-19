@@ -528,3 +528,20 @@ html, body { min-height: 100%; }
 #joystick, #stick { touch-action: none !important; user-select: none; -webkit-user-select: none; }
 #joystick { z-index: 10001; }
 #stick { pointer-events: none; }
+
+/* Lobby de classes, skins e progressão */
+.lobby-panel{max-height:78vh;overflow-y:auto}
+.class-select{margin:14px 0;text-align:left}
+.class-select>label,.skill-head label{display:block;font-size:10px;letter-spacing:1.4px;color:#9eb6c8;margin:12px 0 8px}
+.class-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.class-card,.skill-card{min-width:0;border:1px solid rgba(160,190,210,.22);border-radius:12px;padding:10px 5px;background:rgba(15,24,36,.94);color:#eaf7ff;display:flex;align-items:center;flex-direction:column;gap:5px;text-align:center}
+.class-card.selected{border-color:#76e7f2;background:linear-gradient(150deg,rgba(31,83,100,.8),rgba(12,17,25,.96));box-shadow:0 0 15px #76e7f226}
+.class-icon{font-size:26px}.class-card b,.skill-card b{font-size:10px;letter-spacing:.4px}.class-card small,.skill-card small{font-size:9px;line-height:1.35;color:#aebfce}
+.lobby-select{width:100%;padding:11px;border:1px solid var(--line);border-radius:9px;background:#101925;color:#eefaff}
+.skill-head{display:flex;align-items:center;justify-content:space-between}.skill-head span{font-size:11px;color:#e9c477}
+.skill-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.skill-card{align-items:flex-start;text-align:left;padding:9px 7px}
+.skill-card span{font-size:9px;color:#e9c477;margin-top:3px}
+.skill-card.unlocked{border-color:#e9c477;background:rgba(76,57,23,.4)}
+.class-description{font-size:11px;color:#b9c9d6;line-height:1.4;margin:9px 0}
+@media(max-width:430px){.lobby-panel{padding:14px!important}.class-card{padding:8px 3px}.class-card b{font-size:9px}.class-card small{font-size:8px}.skill-card b{font-size:9px}.skill-card small,.skill-card span{font-size:8px}}
