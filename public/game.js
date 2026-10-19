@@ -6,7 +6,8 @@ const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-const remotePlayers = new Map(), monsterMeshes = new Map();
+const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
+let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [];
 const world = { width: 30, depth: 46 };
 
 function init3D() {
@@ -213,6 +214,39 @@ function createPlayer() {
   myPlayer.position.set(0, 0, 3);
 }
 
+function makeChest() {
+  const group = new THREE.Group();
+  const wood = mat(0x68452c, .8);
+  const metal = mat(0xb9944e, .35, .55);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.15, .65, .8), wood);
+  body.position.y = .38; group.add(body);
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(1.2, .2, .85), metal);
+  lid.position.y = .76; group.add(lid);
+  const lock = new THREE.Mesh(new THREE.BoxGeometry(.16, .22, .08), metal);
+  lock.position.set(0, .52, -.44); group.add(lock);
+  return group;
+}
+
+function renderInventory() {
+  const el = $('inventoryList');
+  if (!el) return;
+  const rarityOrder = ['comum', 'incomum', 'raro', 'épico', 'lendário'];
+  el.innerHTML = rarityOrder.map(r => '<div class="loot-row rarity-' + r.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + '"><span>' + r + '</span><b>' + (inventoryData[r] || 0) + '</b></div>').join('');
+  const recent = lootDrops.slice(-4).reverse();
+  $('recentLoot').innerHTML = recent.length ? recent.map(item => '<div class="loot-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + '">' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ')</small></div>').join('') : '<small>Nenhum item coletado ainda.</small>';
+}
+
+function interactChest() {
+  if (!started || !myPlayer) return;
+  let nearest = null, distance = Infinity;
+  for (const chest of latestChests) {
+    const d = Math.hypot(chest.x - myPlayer.position.x, chest.z - myPlayer.position.z);
+    if (d < distance) { nearest = chest; distance = d; }
+  }
+  if (!nearest || distance > 3.0) { showNotice('Chegue perto de um baú.'); return; }
+  send({ type: 'openChest', id: nearest.id });
+}
+
 function makeMonster() {
   const g = new THREE.Group();
 
@@ -329,6 +363,19 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'inventory') {
+    inventoryData = m.inventory || inventoryData;
+    lootDrops = m.lootDrops || lootDrops;
+    renderInventory();
+    return;
+  }
+
+  if (m.type === 'loot') {
+    showNotice('Loot: ' + m.item.name + ' · ' + m.item.rarity);
+    renderInventory();
+    return;
+  }
+
   if (m.type === 'notice') {
     showNotice(m.text);
     return;
@@ -382,6 +429,18 @@ function updateState(m) {
       scene.remove(obj);
       remotePlayers.delete(id);
     }
+  }
+
+  latestChests = m.chests || [];
+  for (const chest of latestChests) {
+    let obj = chestMeshes.get(chest.id);
+    if (!obj) {
+      obj = makeChest();
+      obj.position.set(chest.x, 0, chest.z);
+      scene.add(obj);
+      chestMeshes.set(chest.id, obj);
+    }
+    obj.userData.chestId = chest.id;
   }
 
   let alive = 0;
@@ -484,6 +543,8 @@ $('leaveBtn').addEventListener('click', () => {
   hud.classList.add('hidden');
   menu.classList.remove('hidden');
 });
+
+$('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); interactChest(); });
 
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
