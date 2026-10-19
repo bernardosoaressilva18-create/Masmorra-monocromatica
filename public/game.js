@@ -257,9 +257,31 @@ function trimMat() {
   return mat(0xc5a46b, .4, .6);
 }
 
+// Textura procedural leve: pequenas marcas de pedra/metal, sem baixar imagens externas.
+function makeSurfaceTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(64, 64);
+  for (let i = 0; i < image.data.length; i += 4) {
+    const shade = 205 + Math.floor(Math.random() * 46);
+    image.data[i] = shade;
+    image.data[i + 1] = shade;
+    image.data[i + 2] = shade;
+    image.data[i + 3] = 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2, 2);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+const surfaceTexture = makeSurfaceTexture();
+
 function makeHero(color = 0x72e6ff) {
   const g = new THREE.Group();
-  const armor = new THREE.MeshStandardMaterial({ color, metalness: .48, roughness: .32 });
+  const armor = new THREE.MeshStandardMaterial({ color, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x151d2a, metalness: .35, roughness: .55 });
   const skin = new THREE.MeshStandardMaterial({ color: 0xe2b99a, roughness: .82 });
   const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
@@ -271,13 +293,16 @@ function makeHero(color = 0x72e6ff) {
     if (!isMobileDevice) { mesh.castShadow = true; mesh.receiveShadow = true; }
     g.add(mesh); return mesh;
   };
-  // Botas e pernas articuladas
+  // Botas, pernas e braços guardados para animação procedural de caminhada.
+  const legs = [], arms = [];
   for (const side of [-1,1]) {
-    add(new THREE.CapsuleGeometry(.145,.34,4,8), dark, side*.2,.47,0);
+    const leg = add(new THREE.CapsuleGeometry(.145,.34,4,8), dark, side*.2,.47,0);
+    legs.push({ mesh: leg, side });
     add(new THREE.BoxGeometry(.27,.16,.4), steel, side*.2,.19,-.055);
     add(new THREE.SphereGeometry(.19,12,10), gold, side*.2,.68,0,.94,.62,.9);
     const arm=add(new THREE.CapsuleGeometry(.13,.42,4,8), armor, side*.48,1.23,0);
     arm.rotation.z=side*-.12;
+    arms.push({ mesh: arm, side });
     add(new THREE.SphereGeometry(.19,12,10), steel, side*.48,1.49,0,1.08,.65,1.0);
     add(new THREE.CapsuleGeometry(.12,.19,3,6), dark, side*.49,.91,-.015);
     add(new THREE.SphereGeometry(.105,10,8), gold, side*.49,.83,-.02);
@@ -314,6 +339,10 @@ function makeHero(color = 0x72e6ff) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.62,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.cape=cape;
+  g.userData.legs = legs;
+  g.userData.arms = arms;
+  g.userData.walkPhase = Math.random() * Math.PI * 2;
+  g.userData.baseY = 0;
   return g;
 }
 
@@ -386,7 +415,7 @@ function interactChest() {
 function makeMonster(kind = 'stalker', phase = 1) {
   const g = new THREE.Group();
   const matBody = (color, rough = .72, metal = .12) => mat(color, rough, metal);
-  const dark = matBody(0x11131d, .9);
+  const dark = new THREE.MeshStandardMaterial({ color: 0x11131d, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .035, roughness: .84, metalness: .08 });
   const bone = matBody(0xb8c5d3, .48, .25);
   const eyeColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x8ffcff : 0xff3f68;
   const eyeMat = new THREE.MeshStandardMaterial({
@@ -449,6 +478,11 @@ function makeMonster(kind = 'stalker', phase = 1) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,24),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.kind=kind;
+  g.userData.walkPhase = Math.random() * Math.PI * 2;
+  g.userData.lastX = undefined;
+  g.userData.lastZ = undefined;
+  g.userData.walking = false;
+  g.userData.baseY = 0;
   return g;
 }
 
@@ -1169,6 +1203,26 @@ const right = new THREE.Vector3(
     }
   }
 
+  // Animação de caminhada do personagem local: passos alternados, balanço do tronco e capa.
+  if (myPlayer) {
+    const v = moveInput();
+    const moving = started && Math.hypot(v.x, v.y) > 0.04 && (myPlayer.userData.serverHp ?? 100) > 0;
+    myPlayer.userData.walkPhase = (myPlayer.userData.walkPhase || 0) + dt * (moving ? 10.5 : 2.2);
+    const phase = myPlayer.userData.walkPhase;
+    const stride = moving ? 1 : .08;
+    for (const leg of myPlayer.userData.legs || []) {
+      leg.mesh.rotation.x = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .58 * stride;
+    }
+    for (const arm of myPlayer.userData.arms || []) {
+      arm.mesh.rotation.x = Math.sin(phase + (arm.side < 0 ? Math.PI : 0)) * .32 * stride;
+    }
+    myPlayer.position.y = moving ? Math.abs(Math.sin(phase * 2)) * .045 : 0;
+    if (myPlayer.userData.cape) {
+      myPlayer.userData.cape.rotation.x = -.08 + Math.sin(phase) * .09 * stride;
+      myPlayer.userData.cape.rotation.z = Math.sin(phase * .5) * .035 * stride;
+    }
+  }
+
   // Movimento suave dos outros jogadores
   for (const obj of remotePlayers.values()) {
     if (obj.userData.targetX === undefined) continue;
@@ -1188,6 +1242,22 @@ const right = new THREE.Vector3(
     );
 
     obj.rotation.y += angleDiff * remoteSmooth;
+  }
+
+  // Monstros: suaviza o deslocamento e anima o corpo enquanto perseguem.
+  for (const obj of monsterMeshes.values()) {
+    if (!obj.visible || obj.userData.targetX === undefined) continue;
+    const dx = obj.userData.targetX - obj.position.x;
+    const dz = obj.userData.targetZ - obj.position.z;
+    const distance = Math.hypot(dx, dz);
+    const moving = distance > .035;
+    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (moving ? 9 : 2);
+    const phase = obj.userData.walkPhase;
+    obj.position.y = moving ? Math.abs(Math.sin(phase * 2)) * (obj.userData.kind === 'wraith' ? .11 : .055) : 0;
+    obj.rotation.z = moving ? Math.sin(phase) * .035 : THREE.MathUtils.lerp(obj.rotation.z, 0, 1 - Math.exp(-5 * dt));
+    if (obj.userData.kind === 'stalker') {
+      obj.rotation.x = moving ? Math.sin(phase) * .045 : THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-5 * dt));
+    }
   }
 
   if (bossMesh && bossMesh.visible && bossMesh.userData.targetX !== undefined) {
