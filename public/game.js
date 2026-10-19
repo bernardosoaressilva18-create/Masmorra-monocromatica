@@ -245,10 +245,41 @@ function onResize() {
   if (!renderer) return;
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  renderer.setPixelRatio(renderScale);
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 }
 addEventListener('resize', onResize);
+
+// Ajusta a resolução interna em passos lentos para equilibrar nitidez e FPS.
+function updatePerformance(now) {
+  fpsFrames++;
+  const elapsed = now - fpsLastSample;
+  if (elapsed < 600) return;
+
+  const measuredFps = fpsFrames * 1000 / elapsed;
+  fpsSmoothed = fpsSmoothed * 0.65 + measuredFps * 0.35;
+  fpsFrames = 0;
+  fpsLastSample = now;
+
+  const meter = $('fpsMeter');
+  if (meter) meter.textContent = 'FPS ' + Math.round(fpsSmoothed);
+
+  if (now - fpsLastAdjust < 1800) return;
+  let nextScale = renderScale;
+  const maxScale = Math.min(window.devicePixelRatio || 1, 1.5);
+  if (fpsSmoothed < 42 && renderScale > 0.7) {
+    nextScale = Math.max(0.7, renderScale - 0.15);
+  } else if (fpsSmoothed > 56 && renderScale < maxScale) {
+    nextScale = Math.min(maxScale, renderScale + 0.1);
+  }
+
+  if (nextScale !== renderScale) {
+    renderScale = Math.round(nextScale * 100) / 100;
+    renderer.setPixelRatio(renderScale);
+    renderer.setSize(innerWidth, innerHeight);
+    fpsLastAdjust = now;
+  }
+}
 
 function setStatus(t) {
   menuStatus.textContent = t;
