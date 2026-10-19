@@ -8,6 +8,7 @@ let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
+const activeBurnEffects = [];
 let ambientParticles = null, particleMaterial = null;
 let bossMesh = null, bossData = null;
 let currentPhaseVisual = 0;
@@ -616,6 +617,18 @@ function handleMessage(m) {
         requestAnimationFrame(animateImpact);
       };
       requestAnimationFrame(animateImpact);
+      if (isFire) {
+        const burnGroup = new THREE.Group();
+        const flameMat = new THREE.MeshBasicMaterial({ color: 0xff4b16, transparent: true, opacity: .9 });
+        for (let i = 0; i < 3; i++) {
+          const flame = new THREE.Mesh(new THREE.ConeGeometry(.12 + i * .025, .38 + i * .06, 5), flameMat);
+          flame.position.set((i - 1) * .19, .22 + (i % 2) * .08, 0);
+          burnGroup.add(flame);
+        }
+        burnGroup.position.set(target.x, .05, target.z);
+        scene.add(burnGroup);
+        activeBurnEffects.push({ group: burnGroup, material: flameMat, expires: performance.now() + 3000, seed: Math.random() * 6 });
+      }
       from = end;
     }
     return;
@@ -1193,6 +1206,24 @@ const right = new THREE.Vector3(
     gate.userData.portalRim.rotation.z += dt * (gate.userData.open ? .65 : .12);
     gate.userData.portalRim.material.emissiveIntensity = gate.userData.open ? 2.8 : 1.0;
   }
+  // Efeitos de queimadura leves, atualizados no loop principal para evitar RAF extra.
+  const burnNow = performance.now();
+  for (let i = activeBurnEffects.length - 1; i >= 0; i--) {
+    const burn = activeBurnEffects[i];
+    if (burnNow >= burn.expires) {
+      scene.remove(burn.group);
+      burn.group.children.forEach(flame => flame.geometry.dispose());
+      burn.material.dispose();
+      activeBurnEffects.splice(i, 1);
+      continue;
+    }
+    const age = (burnNow + burn.seed * 100) * .006;
+    burn.group.children.forEach((flame, index) => {
+      flame.scale.y = .75 + (Math.sin(age + index * 1.7) + 1) * .3;
+      flame.rotation.y = age * .6 + index;
+    });
+  }
+
   // Partículas ambientais estáticas: sem oscilação que possa parecer pulsação.
   // Movimento suave dos monstros
   for (const obj of monsterMeshes.values()) {
