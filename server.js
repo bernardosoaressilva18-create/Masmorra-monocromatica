@@ -162,7 +162,9 @@ function advancePhase(room) {
   room.nextSafeBroadcast = 0;
   for (const player of room.players.values()) {
     player.talentPoints = (player.talentPoints || 0) + 1;
-    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 10 segundos! +1 ponto de habilidade. Abra ÁRVORE DE SKILLS.' }));
+    const before = player.hp;
+    player.hp = Math.min(player.maxHp || 100, player.hp + 15);
+    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 10 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
   }
   room.monsters = createWave(room.phase);
   room.boss = null;
@@ -358,6 +360,7 @@ wss.on('connection', ws => {
       broadcast(room, state(room));
     } else if (msg.type === 'spell') {
       if (!room.started || player.hp <= 0) return;
+      if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Você está na zona segura. Use esse tempo para melhorar suas habilidades.' })); return; }
       const spell = msg.spell === 'fire' ? 'fire' : msg.spell === 'lightning' ? 'lightning' : null;
       if (!spell) return;
 
@@ -418,11 +421,12 @@ wss.on('connection', ws => {
       broadcast(room, state(room));
     } else if (msg.type === 'attack') {
       if (!room.started || player.hp <= 0) return;
+      if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Zona segura: abra a árvore de skills antes do próximo combate.' })); return; }
+      const now = Date.now();
+      const attackInterval = Math.max(210, statsFor(player).attackMs - (hasSkill(player, 'swift_hands') ? 90 : 0));
+      if (now < (player.nextAttackAt || 0)) return;
+      player.nextAttackAt = now + attackInterval;
       if (room.phase < 5) {
-        const now = Date.now();
-        const attackInterval = Math.max(210, statsFor(player).attackMs - (hasSkill(player, 'swift_hands') ? 90 : 0));
-        if (now < (player.nextAttackAt || 0)) return;
-        player.nextAttackAt = now + attackInterval;
         const attackRange = statsFor(player).range + (player.playerClass === 'archer' && hasSkill(player, 'longshot') ? 2 : 0);
         const target = room.monsters.find(m => m.alive && m.spawned && Math.hypot(m.x - player.x, m.z - player.z) < attackRange);
         if (target) {
