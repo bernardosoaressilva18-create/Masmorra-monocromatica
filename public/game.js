@@ -911,6 +911,7 @@ function setJoy(e) {
 
 joyEl.addEventListener('pointerdown', e => {
   e.preventDefault();
+  if (joyPointer !== null) return;
   joyPointer = e.pointerId;
   joyEl.setPointerCapture(e.pointerId);
   setJoy(e);
