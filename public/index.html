@@ -56,14 +56,27 @@
   </div>
   <div class="panel lobby-panel">
     <div class="class-select">
+      <div class="hero-showcase">
+        <div id="heroPreviewAvatar" class="hero-preview-avatar skin-default"><span id="heroPreviewGlyph">🛡️</span></div>
+        <div class="hero-showcase-info">
+          <small>SEU AVENTUREIRO</small>
+          <strong id="heroPreviewName">Cavaleiro</strong>
+          <p id="heroPreviewDesc">Defesa alta · espada e escudo</p>
+          <div class="hero-showcase-tags"><span id="heroPreviewSkin">SKIN CLÁSSICA</span><span>3D · COOPERATIVO</span></div>
+        </div>
+      </div>
       <label>ESCOLHA SUA CLASSE</label>
       <div class="class-cards">
         <button type="button" class="class-card selected" data-class="knight"><span class="class-icon">🛡️</span><b>CAVALEIRO</b><small>Resistente · Corte pesado</small></button>
         <button type="button" class="class-card" data-class="mage"><span class="class-icon">🔮</span><b>MAGO</b><small>Magia · Explosão arcana</small></button>
         <button type="button" class="class-card" data-class="archer"><span class="class-icon">🏹</span><b>ARQUEIRO</b><small>Ágil · Disparo preciso</small></button>
       </div>
-      <label for="skinSelect">SKIN</label>
-      <select id="skinSelect" class="lobby-select"><option value="default">Guardião clássico</option><option value="shadow">Sombra noturna</option><option value="ember">Chama antiga</option></select>
+      <label>ESCOLHA UMA SKIN</label>
+      <div class="skin-picks">
+        <button type="button" class="skin-pick selected" data-skin="default"><span class="skin-swatch classic"></span><b>Clássica</b><small>Guardião</small></button>
+        <button type="button" class="skin-pick" data-skin="shadow"><span class="skin-swatch shadow"></span><b>Sombra</b><small>Noturna</small></button>
+        <button type="button" class="skin-pick" data-skin="ember"><span class="skin-swatch ember"></span><b>Brasa</b><small>Antiga</small></button>
+      </div>
       <div class="skill-head"><label>ÁRVORE DE SKILLS · 15 TALENTOS</label><span>Disponíveis: <b id="skillPoints">5</b></span></div>
       <p class="skill-intro">Comece com 5 pontos. Ganhe +1 ao liberar cada novo mundo. Cada talento custa 1 ponto e exige o talento anterior do mesmo ramo.</p>
       <div id="skillTreeLobby" class="skill-tree"></div>
@@ -106,6 +119,7 @@
     <div class="boss-health"><i id="bossHealthFill"></i></div>
     <div class="boss-meta"><span id="bossPhaseText">FASE DE VIDA 1 / 3</span><b id="bossHealthText">15 / 15</b></div>
   </div>
+  <div id="safeZoneNotice" class="safe-zone-notice hidden">ZONA SEGURA · Escolha uma melhoria</div>
   <button id="skillToggleBtn" class="skill-toggle" type="button">✦ SKILLS <b id="skillPointsHud">5</b></button>
   <div id="skillPanel" class="skill-panel hidden">
     <div class="skill-panel-head"><strong>ÁRVORE DE SKILLS</strong><button id="skillCloseBtn" type="button" aria-label="Fechar árvore">×</button></div>
