@@ -361,6 +361,9 @@ function updateState(m) {
   if (mine && mine.inventory) {
     const inv = mine.inventory;
     $('inventoryText').textContent = 'Comum ' + (inv['Comum'] || 0) + ' · Incomum ' + (inv['Incomum'] || 0) + ' · Raro ' + (inv['Raro'] || 0) + ' · Épico ' + (inv['Épico'] || 0) + ' · Lendário ' + (inv['Lendário'] || 0);
+    const gear = mine.equipped || {};
+    const gearText = ['Amuleto','Anel','Relíquia'].map(slot => slot + ': ' + (gear[slot] ? gear[slot].name + ' (+' + gear[slot].power + ')' : 'vazio')).join(' · ');
+    $('gearText').textContent = gearText;
   }
   const incoming = new Set();
 
