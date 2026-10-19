@@ -106,6 +106,7 @@ function weightedPick(items) {
   }
   return items[items.length - 1];
 }
+function rarityMultiplier(rarity) { return ({ 'comum':1, 'incomum':1.25, 'raro':1.6, 'épico':2.2, 'lendário':3 })[rarity] || 1; }
 function rollLoot(source) {
   const rarityRoll = Math.random() * 100;
   let sum = 0, rarity = RARITIES[0];
@@ -115,7 +116,7 @@ function rollLoot(source) {
   }
   const item = weightedPick(LOOT_TABLES[source] || LOOT_TABLES.monster);
   return { id: String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8),
-    name: item.name, rarity: rarity.name, value: rarity.value, source };
+    name: item.name, rarity: rarity.name, value: rarity.value, power: rarityMultiplier(rarity.name), source };
 }
 function sendInventory(player) {
   if (player.ws.readyState === WebSocket.OPEN) {
@@ -177,7 +178,7 @@ function advancePhase(room) {
   }
 }
 function newRoom(code, hostId) {
-  const room = { players: new Map(), hostId, started: false, phase: 1, monsters: createWave(1), boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0,
+  const room = { players: new Map(), hostId, started: false, phase: 1, monsters: createWave(1), boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0, cursedBoss: null, cursedBossAttackAt: 0,
     chests: [
       { id: 'c0', x: -8, z: -12, openedBy: [] },
       { id: 'c1', x: 8, z: -44, openedBy: [] },
@@ -331,27 +332,28 @@ wss.on('connection', ws => {
       const itemIndex = player.lootDrops.findIndex(item => item.id === String(msg.id));
       if (itemIndex < 0) { ws.send(JSON.stringify({ type: 'notice', text: 'Esse item não está mais no inventário.' })); return; }
       const item = player.lootDrops[itemIndex];
+      const rarityPower = item.power || rarityMultiplier(item.rarity);
       let effect = '';
       if (item.name === 'Poção de Vida') {
         if (player.hp >= (player.maxHp || 100)) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
-        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + 40); effect = 'Vida restaurada: +' + (player.hp - before) + '.';
+        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + Math.round(40 * rarityPower)); effect = 'Vida restaurada: +' + (player.hp - before) + ' (' + item.rarity + ' x' + rarityPower + ').';
       } else if (item.name === 'Moeda Antiga') {
         if (player.hp >= (player.maxHp || 100)) { ws.send(JSON.stringify({ type: 'notice', text: 'A Moeda Antiga só pode ser usada para recuperar vida. Sua vida já está cheia.' })); return; }
-        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + 15); effect = 'A moeda restaurou +' + (player.hp - before) + ' de vida.';
+        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + Math.round(15 * rarityPower)); effect = 'A moeda restaurou +' + (player.hp - before) + ' de vida (' + item.rarity + ').';
       } else if (item.name === 'Pó de Cristal') {
-        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + 20); player.damageBuff = Math.max(player.damageBuff, 1); player.damageBuffHits = Math.max(player.damageBuffHits, 2); effect = 'Cristal usado: +' + (player.hp - before) + ' de vida e +1 dano por 2 golpes.';
+        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + Math.round(20 * rarityPower)); player.damageBuff = Math.max(player.damageBuff, Math.round(1 * rarityPower)); player.damageBuffHits = Math.max(player.damageBuffHits, 2 + Math.floor(rarityPower)); effect = 'Cristal ' + item.rarity + ': +' + (player.hp - before) + ' vida, +' + Math.round(1 * rarityPower) + ' dano.';
       } else if (item.name === 'Fragmento Monocromático') {
-        player.damageBuff = Math.max(player.damageBuff, 1); player.damageBuffHits = Math.max(player.damageBuffHits, 3); effect = '+1 de dano nos próximos 3 golpes.';
+        player.damageBuff = Math.max(player.damageBuff, Math.round(1 * rarityPower)); player.damageBuffHits = Math.max(player.damageBuffHits, 3 + Math.floor(rarityPower)); effect = '+' + Math.round(1 * rarityPower) + ' dano por ' + (3 + Math.floor(rarityPower)) + ' golpes (' + item.rarity + ').';
       } else if (item.name === 'Núcleo Sombrio') {
-        player.damageBuff = Math.max(player.damageBuff, 2); player.damageBuffHits = Math.max(player.damageBuffHits, 4); effect = '+2 de dano nos próximos 4 golpes.';
+        player.damageBuff = Math.max(player.damageBuff, Math.round(2 * rarityPower)); player.damageBuffHits = Math.max(player.damageBuffHits, 4 + Math.floor(rarityPower)); effect = '+' + Math.round(2 * rarityPower) + ' dano por ' + (4 + Math.floor(rarityPower)) + ' golpes.';
       } else if (item.name === 'Equipamento Antigo' || item.name === 'Relíquia Monocromática') {
-        player.baseDamage = Math.min(5, player.baseDamage + 1); effect = 'Equipado! Seu dano permanente aumentou para ' + player.baseDamage + '.';
+        player.baseDamage = Math.min(12, player.baseDamage + Math.max(1, Math.round(rarityPower))); effect = 'Equipado! +' + Math.max(1, Math.round(rarityPower)) + ' ataque permanente (' + item.rarity + '). Ataque: ' + player.baseDamage + '.';
       } else if (item.name === 'Coração do Guardião') {
-        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + 50); effect = 'Coração ativado: +' + (player.hp - before) + ' de vida.';
+        const before = player.hp; player.hp = Math.min(player.maxHp || 100, player.hp + Math.round(50 * rarityPower)); effect = 'Coração ' + item.rarity + ': +' + (player.hp - before) + ' de vida.';
       } else if (item.name === 'Cristal Ancestral') {
-        player.damageBuff = Math.max(player.damageBuff, 3); player.damageBuffHits = Math.max(player.damageBuffHits, 5); effect = '+3 de dano nos próximos 5 golpes.';
+        player.damageBuff = Math.max(player.damageBuff, Math.round(3 * rarityPower)); player.damageBuffHits = Math.max(player.damageBuffHits, 5 + Math.floor(rarityPower)); effect = '+' + Math.round(3 * rarityPower) + ' dano por ' + (5 + Math.floor(rarityPower)) + ' golpes.';
       } else if (item.name === 'Coroa do Abismo') {
-        player.hp = player.maxHp || 100; player.baseDamage = Math.min(5, player.baseDamage + 1); effect = 'A Coroa restaurou toda a vida e aumentou seu dano permanente.';
+        player.hp = player.maxHp || 100; player.baseDamage = Math.min(12, player.baseDamage + Math.max(1, Math.round(rarityPower))); effect = 'Coroa ' + item.rarity + ': vida cheia e +' + Math.max(1, Math.round(rarityPower)) + ' ataque permanente.';
       }
       player.lootDrops.splice(itemIndex, 1);
       player.inventory[item.rarity] = Math.max(0, (player.inventory[item.rarity] || 0) - 1);
