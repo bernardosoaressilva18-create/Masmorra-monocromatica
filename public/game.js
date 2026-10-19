@@ -13,16 +13,16 @@ let ambientParticles = null, particleMaterial = null;
 let bossMesh = null, bossData = null;
 let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
-const world = { width: 30, depth: 88 };
+const world = { width: 30, depth: 190 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
 const renderPixelRatioCap = isMobileDevice ? 0.9 : 1.5;
 
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x090d14, .027);
+  scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .012 : .009);
 
-  camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
+  camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
@@ -40,13 +40,13 @@ function init3D() {
   const fillLight = new THREE.DirectionalLight(0x8daeff, 0.72);
   fillLight.position.set(8, 7, -18);
   scene.add(fillLight);
-  const cryptLight = new THREE.PointLight(0x62cfff, 10, 16, 2);
+  const cryptLight = new THREE.PointLight(0x62cfff, 10, 20, 2);
   cryptLight.position.set(-8, 2.6, 1);
   scene.add(cryptLight);
-  const caveLight = new THREE.PointLight(0x8c63ff, 13, 17, 2);
+  const caveLight = new THREE.PointLight(0x8c63ff, 13, 22, 2);
   caveLight.position.set(8, 2.8, -21);
   scene.add(caveLight);
-  const abyssLight = new THREE.PointLight(0xff4c79, 12, 17, 2);
+  const abyssLight = new THREE.PointLight(0xff4c79, 12, 24, 2);
   abyssLight.position.set(-7, 2.8, -34);
   scene.add(abyssLight);
   const dungeonGlow = new THREE.PointLight(0x4fcfff, 28, 30, 2); dungeonGlow.position.set(0, 3.2, -16); scene.add(dungeonGlow);
@@ -832,6 +832,8 @@ function syncLoadoutUI() {
 function sendLoadout() {
   if (ws && ws.readyState === WebSocket.OPEN && playerId) {
     send({ type:'loadout', playerClass:selectedClass, skin:selectedSkin, skills:Array.from(unlockedSkills) });
+  } else if (started && !ws) {
+    showNotice('Reconectando: aguarde para sincronizar suas skills.');
   }
 }
 function refreshLocalHeroAppearance() {
@@ -892,7 +894,12 @@ function handleSkillClick(event) {
 }
 $('skillTreeLobby')?.addEventListener('click', handleSkillClick);
 $('skillTreeHud')?.addEventListener('click', handleSkillClick);
-$('skillToggleBtn')?.addEventListener('click', () => $('skillPanel')?.classList.toggle('hidden'));
+$('skillToggleBtn')?.addEventListener('click', () => {
+  const panel = $('skillPanel');
+  if (!panel) return;
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) renderSkillTrees();
+});
 $('skillCloseBtn')?.addEventListener('click', () => $('skillPanel')?.classList.add('hidden'));
 syncLoadoutUI();
 updateHeroShowcase();
