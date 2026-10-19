@@ -489,3 +489,37 @@ html, body { min-height: 100%; }
   #hud .lightning-btn { right:70px !important; bottom:78px !important; }
   #hud .attack { width:76px !important; height:76px !important; }
 }
+
+
+/* FIX urgente: magias não dependem de regras antigas de media query. */
+#hud button.spell-btn {
+  display: flex !important;
+  position: fixed !important;
+  width: 58px !important;
+  height: 58px !important;
+  padding: 3px !important;
+  z-index: 50 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  border-radius: 50% !important;
+  color: #fff !important;
+  background: rgba(12,20,32,.97) !important;
+  box-shadow: 0 3px 14px #000b !important;
+  touch-action: none !important;
+}
+#hud button.spell-btn span { display:block !important; font-size:24px !important; line-height:1 !important; opacity:1 !important; }
+#hud button.spell-btn small { display:block !important; font-size:8px !important; line-height:1.1 !important; color:#fff !important; }
+#hud button.spell-btn b { color:#c9f6ff !important; font-size:7px !important; }
+@media (pointer: coarse) and (orientation: portrait) {
+  #hud button.fire-btn { right: 88px !important; bottom: 86px !important; left:auto !important; top:auto !important; border:2px solid #ff9a4a !important; }
+  #hud button.lightning-btn { right: 18px !important; bottom: 96px !important; left:auto !important; top:auto !important; border:2px solid #8caaff !important; }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  #hud button.fire-btn { right: 130px !important; bottom: 16px !important; left:auto !important; top:auto !important; }
+  #hud button.lightning-btn { right: 70px !important; bottom: 84px !important; left:auto !important; top:auto !important; }
+}
