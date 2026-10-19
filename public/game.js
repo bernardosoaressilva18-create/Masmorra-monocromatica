@@ -7,6 +7,8 @@ const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
+const gateMeshes = [];
+let ambientParticles = null, particleMaterial = null;
 let bossMesh = null, bossData = null;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [];
 const world = { width: 30, depth: 46 };
@@ -17,7 +19,9 @@ function init3D() {
   scene.fog = new THREE.FogExp2(0x090d14, .027);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
-  renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = false;
@@ -25,7 +29,9 @@ function init3D() {
   $('game').appendChild(renderer.domElement);
 
   clock = new THREE.Clock();
-  scene.add(new THREE.HemisphereLight(0x9cc9e8, 0x16101c, 2.0));
+  scene.add(new THREE.HemisphereLight(0x9cc9e8, 0x16101c, 2.2));
+  const dungeonGlow = new THREE.PointLight(0x4fcfff, 28, 30, 2); dungeonGlow.position.set(0, 3.2, -16); scene.add(dungeonGlow);
+  const bossGlow = new THREE.PointLight(0xff245b, 32, 20, 2); bossGlow.position.set(0, 3, -29); scene.add(bossGlow);
 
   const moon = new THREE.DirectionalLight(0xb5d9ff, 1.4);
   moon.position.set(-6, 12, 5);
@@ -63,6 +69,10 @@ const stoneDark = mat(0x303640, 1);
   });
 
   box(30, .8, 48, floor, 0, -.5, -11);
+  const tileMat = mat(0x343b45, .98);
+  for (let z = -33; z <= 10; z += 3) for (let x = -12; x <= 12; x += 3) {
+    if (Math.random() > .28) { const tile = box(2.72, .025, 2.72, tileMat, x, -.075, z); tile.position.y = -.075; }
+  }
 
   for (let z = -34; z <= 12; z += 4) {
     box(29.8, .05, .06, dark, 0, -.07, z);
@@ -126,6 +136,30 @@ for (let z = -30; z <= 8; z += 6) {
     crystalMesh.position.set(Math.cos(a) * 2, .4, -16 + Math.sin(a) * 2);
     scene.add(crystalMesh);
   }
+
+  // Portões mágicos entre as três fases.
+  for (const z of [-13, -27]) {
+    const gate = new THREE.Group();
+    const stone = mat(0x656d7b, .72, .25), runeMat = new THREE.MeshStandardMaterial({ color: 0x56e6ff, emissive: 0x1aa5df, emissiveIntensity: 2.2, metalness: .2, roughness: .3 });
+    for (const x of [-3.1, 3.1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(.42, 4.4, .55), stone); post.position.set(x, 2.2, 0); gate.add(post); }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(6.6, .5, .65), stone); lintel.position.y = 4.35; gate.add(lintel);
+    const ring = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 3.8), new THREE.MeshBasicMaterial({ color: 0x23b9ff, transparent: true, opacity: .25, side: THREE.DoubleSide, depthWrite: false })); ring.position.set(0, 2.1, 0); gate.add(ring);
+    const bars = new THREE.Group();
+    for (let x = -2.5; x <= 2.51; x += 1) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 3.7, .18), runeMat); bar.position.set(x, 1.95, -.05); bars.add(bar); }
+    gate.add(bars); gate.position.z = z; gate.userData.bars = bars; gate.userData.ring = ring; gate.userData.open = false; scene.add(gate); gateMeshes.push(gate);
+  }
+  // Cristais, braseiros e fragmentos decorativos para dar profundidade.
+  for (const z of [-5, -10, -18, -23, -30]) {
+    for (const x of [-12.2, 12.2]) {
+      const flame = new THREE.Mesh(new THREE.IcosahedronGeometry(.22, 1), new THREE.MeshStandardMaterial({ color: 0xffa84f, emissive: 0xff5b1f, emissiveIntensity: 2.5 }));
+      flame.position.set(x, 2.1, z); scene.add(flame);
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(.28, .045, 5, 12), mat(0xb88751, .45, .4)); halo.position.set(x, 1.75, z); scene.add(halo);
+    }
+  }
+  const particleCount = 90, particlePositions = new Float32Array(particleCount * 3);
+  for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -33+Math.random()*42; }
+  const particleGeo = new THREE.BufferGeometry(); particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+  particleMaterial = new THREE.PointsMaterial({ color: 0x8be9ff, size: .055, transparent: true, opacity: .6, depthWrite: false }); ambientParticles = new THREE.Points(particleGeo, particleMaterial); scene.add(ambientParticles);
 
   for (let i = 0; i < 32; i++) {
     const x = (Math.random() - .5) * 25;
@@ -249,8 +283,8 @@ function renderInventory() {
   if (!el) return;
   const rarityOrder = ['comum', 'incomum', 'raro', 'épico', 'lendário'];
   el.innerHTML = rarityOrder.map(r => '<div class="loot-row rarity-' + r.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + '"><span>' + r + '</span><b>' + (inventoryData[r] || 0) + '</b></div>').join('');
-  const recent = lootDrops.slice(-4).reverse();
-  $('recentLoot').innerHTML = recent.length ? recent.map(item => '<div class="loot-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + '">' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ')</small></div>').join('') : '<small>Nenhum item coletado ainda.</small>';
+  const recent = lootDrops.slice(-6).reverse();
+  $('recentLoot').innerHTML = recent.length ? recent.map(item => '<div class="loot-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + '"><span>' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ')</small></span><button class="use-item" data-item-id="' + escapeHTML(item.id) + '">USAR</button></div>').join('') : '<small>Nenhum item coletado ainda.</small>';
 }
 
 function interactChest() {
@@ -457,6 +491,10 @@ function updateState(m) {
   }
 
   const phase = m.phase || 1, phaseLabel = $('phaseLabel');
+  const aliveMonsters = m.monsters.filter(monster => monster.alive).length;
+  const gate1 = gateMeshes[0], gate2 = gateMeshes[1];
+  if (gate1) gate1.userData.open = phase > 1 || (phase === 1 && aliveMonsters === 0);
+  if (gate2) gate2.userData.open = phase > 2 || (phase === 2 && aliveMonsters === 0);
   const phaseObjective = document.querySelector('.objective strong');
   if (phaseObjective) phaseObjective.textContent = phase === 1 ? 'Derrote os monstros e atravesse o portão' : phase === 2 ? 'Elimine os guardiões e atravesse o portão' : 'Derrote o Guardião do Abismo';
   if (phaseLabel) phaseLabel.textContent = 'FASE ' + phase + ' / 3';
@@ -601,6 +639,11 @@ $('leaveBtn').addEventListener('click', () => {
 });
 
 $('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); interactChest(); });
+$('recentLoot').addEventListener('click', e => {
+  const button = e.target.closest('.use-item');
+  if (!button) return;
+  send({ type: 'useItem', id: button.dataset.itemId });
+});
 
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
@@ -774,6 +817,18 @@ const right = new THREE.Vector3(
     bossMesh.position.z = THREE.MathUtils.lerp(bossMesh.position.z, bossMesh.userData.targetZ, monsterSmooth);
     bossMesh.position.y = .08 + Math.sin(performance.now() * .0015) * .12;
     bossMesh.rotation.y += dt * (bossMesh.userData.lifePhase === 3 ? .65 : .25);
+  }
+  // Anima os portões: as grades somem ao liberar a passagem.
+  for (const gate of gateMeshes) {
+    const targetScale = gate.userData.open ? 0 : 1;
+    gate.userData.bars.scale.x = THREE.MathUtils.lerp(gate.userData.bars.scale.x, targetScale, 1 - Math.exp(-5 * dt));
+    gate.userData.bars.visible = gate.userData.bars.scale.x > .04;
+    gate.userData.ring.material.opacity = gate.userData.open ? .08 : .3 + Math.sin(performance.now() * .003) * .08;
+  }
+  if (ambientParticles) {
+    const positions = ambientParticles.geometry.attributes.position;
+    for (let i = 0; i < positions.count; i++) { positions.array[i*3+1] += Math.sin(performance.now()*.0006+i)*.0008; }
+    positions.needsUpdate = true;
   }
   // Movimento suave dos monstros
   for (const obj of monsterMeshes.values()) {
