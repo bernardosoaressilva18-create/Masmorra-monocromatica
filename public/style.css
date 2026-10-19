@@ -237,3 +237,54 @@ html, body { min-height: 100%; }
 @keyframes phaseFade { from { opacity: 1; } to { opacity: 0; } }
 @keyframes runeTurn { 0%,100% { transform: rotate(0) scale(1); } 50% { transform: rotate(180deg) scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { .phase-transition-rune { animation: none; } }
+
+
+/* Correção específica: deixar o uso de item ao alcance do polegar em modo retrato. */
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 700px) {
+  #hud .inventory-panel {
+    top: 54px !important;
+    right: 5px !important;
+    width: min(43vw, 158px) !important;
+    max-height: 25dvh !important;
+    overflow-y: auto !important;
+    padding-bottom: 5px !important;
+  }
+  #hud .selected-item {
+    position: fixed !important;
+    top: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: max(86px, calc(env(safe-area-inset-bottom) + 82px)) !important;
+    transform: translateX(-50%) !important;
+    z-index: 12 !important;
+    width: min(45vw, 165px) !important;
+    margin: 0 !important;
+    padding: 5px !important;
+    gap: 4px !important;
+    border: 1px solid #78e3ec !important;
+    border-radius: 9px !important;
+    background: rgba(7, 17, 28, .94) !important;
+    box-shadow: 0 4px 18px #0009, 0 0 12px #37d9f033 !important;
+    pointer-events: auto !important;
+  }
+  #hud .selected-item span {
+    display: block !important;
+    max-height: 2.4em !important;
+    overflow: hidden !important;
+    text-align: center !important;
+    font-size: 8px !important;
+  }
+  #hud .selected-item button {
+    min-height: 34px !important;
+    padding: 7px 4px !important;
+    font-size: 9px !important;
+    touch-action: manipulation !important;
+  }
+  #hud .chest-btn {
+    right: max(76px, calc(env(safe-area-inset-right) + 76px)) !important;
+    bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  }
+  #hud .attack {
+    bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  }
+}
