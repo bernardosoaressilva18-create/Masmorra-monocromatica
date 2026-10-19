@@ -875,6 +875,41 @@ $('recentLoot').addEventListener('click', e => {
 });
 $('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 
+let fireCooldown = 0, lightningCooldown = 0;
+function castSpell(kind) {
+  if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
+  if (kind === 'fire') {
+    if (fireCooldown > 0) return;
+    fireCooldown = 4;
+  } else {
+    if (lightningCooldown > 0) return;
+    lightningCooldown = 3.5;
+  }
+  send({ type: 'spell', spell: kind });
+  const color = kind === 'fire' ? 0xff6b24 : 0x69aaff;
+  const geo = kind === 'fire' ? new THREE.SphereGeometry(.32, 12, 10) : new THREE.OctahedronGeometry(.4, 0);
+  const mat = new THREE.MeshBasicMaterial({color, transparent:true, opacity:.95});
+  const effect = new THREE.Mesh(geo,mat);
+  const origin = myPlayer ? myPlayer.position.clone() : new THREE.Vector3();
+  origin.y += 1.25;
+  effect.position.copy(origin);
+  scene.add(effect);
+  const start = performance.now();
+  const duration = kind === 'fire' ? 550 : 420;
+  const tick = () => {
+    const t = (performance.now()-start)/duration;
+    if (t>=1) { scene.remove(effect); geo.dispose(); mat.dispose(); return; }
+    effect.position.y += .018;
+    effect.scale.setScalar(1+t*2.3);
+    mat.opacity = 1-t;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  showNotice(kind === 'fire' ? '🔥 MAGIA DE FOGO!' : '⚡ MAGIA DE RAIO!');
+}
+$('fireBtn').addEventListener('pointerdown', e => { e.preventDefault(); castSpell('fire'); });
+$('lightningBtn').addEventListener('pointerdown', e => { e.preventDefault(); castSpell('lightning'); });
+
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
   attack();
@@ -978,7 +1013,7 @@ function animate() {
   const monsterSmooth = 1 - Math.exp(-10 * dt);
   const cameraSmooth = 1 - Math.exp(-9 * dt);
 
-  attackCooldown = Math.max(0, attackCooldown - dt);
+  attackCooldown = Math.max(0, attackCooldown - dt);\n  fireCooldown = Math.max(0, fireCooldown - dt);\n  lightningCooldown = Math.max(0, lightningCooldown - dt);\n  const fireLabel = $('fireCooldown'), lightningLabel = $('lightningCooldown');\n  if (fireLabel) fireLabel.textContent = fireCooldown > 0 ? fireCooldown.toFixed(1)+'s' : 'OK';\n  if (lightningLabel) lightningLabel.textContent = lightningCooldown > 0 ? lightningCooldown.toFixed(1)+'s' : 'OK';
 
   // Movimento do jogador local
   if (started && myPlayer && (myPlayer.userData.serverHp ?? 100) > 0) {
