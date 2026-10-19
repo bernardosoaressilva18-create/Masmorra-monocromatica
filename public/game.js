@@ -1031,7 +1031,12 @@ function animate() {
   const monsterSmooth = 1 - Math.exp(-10 * dt);
   const cameraSmooth = 1 - Math.exp(-9 * dt);
 
-  attackCooldown = Math.max(0, attackCooldown - dt);\n  fireCooldown = Math.max(0, fireCooldown - dt);\n  lightningCooldown = Math.max(0, lightningCooldown - dt);\n  const fireLabel = $('fireCooldown'), lightningLabel = $('lightningCooldown');\n  if (fireLabel) fireLabel.textContent = fireCooldown > 0 ? fireCooldown.toFixed(1)+'s' : 'OK';\n  if (lightningLabel) lightningLabel.textContent = lightningCooldown > 0 ? lightningCooldown.toFixed(1)+'s' : 'OK';
+  attackCooldown = Math.max(0, attackCooldown - dt);
+  fireCooldown = Math.max(0, fireCooldown - dt);
+  lightningCooldown = Math.max(0, lightningCooldown - dt);
+  const fireLabel = $('fireCooldown'), lightningLabel = $('lightningCooldown');
+  if (fireLabel) fireLabel.textContent = fireCooldown > 0 ? fireCooldown.toFixed(1) + 's' : 'OK';
+  if (lightningLabel) lightningLabel.textContent = lightningCooldown > 0 ? lightningCooldown.toFixed(1) + 's' : 'OK';
 
   // Movimento do jogador local
   if (started && myPlayer && (myPlayer.userData.serverHp ?? 100) > 0) {
