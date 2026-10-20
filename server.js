@@ -36,11 +36,74 @@ const wss = new WebSocket.Server({ server });
 const rooms = new Map();
 let nextId = 1;
 
+const LOOT_TABLES = {
+  monster: [
+    { name: 'Fragmento Sombrio', rarity: 'Comum', slot: 'Amuleto', power: 1, weight: 48 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', slot: 'Anel', power: 2, weight: 27 },
+    { name: 'Essência Antiga', rarity: 'Raro', slot: 'Amuleto', power: 4, weight: 15 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', slot: 'Relíquia', power: 7, weight: 8 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', slot: 'Relíquia', power: 12, weight: 2 }
+  ],
+  boss: [
+    { name: 'Fragmento Sombrio', rarity: 'Comum', slot: 'Amuleto', power: 1, weight: 10 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', slot: 'Anel', power: 2, weight: 20 },
+    { name: 'Essência Antiga', rarity: 'Raro', slot: 'Amuleto', power: 4, weight: 30 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', slot: 'Relíquia', power: 7, weight: 28 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', slot: 'Relíquia', power: 12, weight: 12 }
+  ],
+  chest: [
+    { name: 'Fragmento Sombrio', rarity: 'Comum', slot: 'Amuleto', power: 1, weight: 20 },
+    { name: 'Pó de Cristal', rarity: 'Incomum', slot: 'Anel', power: 2, weight: 28 },
+    { name: 'Essência Antiga', rarity: 'Raro', slot: 'Amuleto', power: 4, weight: 27 },
+    { name: 'Núcleo Arcano', rarity: 'Épico', slot: 'Relíquia', power: 7, weight: 18 },
+    { name: 'Relíquia Monocromática', rarity: 'Lendário', slot: 'Relíquia', power: 12, weight: 7 }
+  ]
+};
+function rollLoot(kind) {
+  const table = LOOT_TABLES[kind] || LOOT_TABLES.monster;
+  const total = table.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.random() * total;
+  for (const item of table) {
+    roll -= item.weight;
+    if (roll < 0) return { name: item.name, rarity: item.rarity, slot: item.slot, power: item.power, kind };
+  }
+  return { ...table[0], kind };
+}
+function emptyInventory() {
+  return { Comum: 0, Incomum: 0, Raro: 0, Épico: 0, Lendário: 0 };
+}
+function addLootToPlayer(player, item) {
+  player.inventory[item.rarity] = (player.inventory[item.rarity] || 0) + 1;
+  player.items.push(item);
+  const old = player.equipped[item.slot];
+  if (!old || item.power > old.power) player.equipped[item.slot] = item;
+}
+function playerStats(player) {
+  const power = Object.values(player.equipped).reduce((sum, item) => sum + (item.power || 0), 0);
+  return {
+    maxHp: 100 + power * 2,
+    hp: Math.min(player.hp, 100 + power * 2),
+    maxMp: 100 + power * 3,
+    mp: Math.min(player.mp, 100 + power * 3),
+    damage: 20 + power,
+    defense: Math.floor(power / 3)
+  };
+}
+function sendCombatState(room) {
+  broadcast(room, { type: 'combat', players: [...room.players.values()].map(p => ({
+    id: p.id, ...playerStats(p)
+  })) });
+}
+
 function newRoom(code) {
-  const room = { players: new Map(), monsters: [] };
+  const room = { players: new Map(), monsters: [], chests: [{ id: 'c0', x: -7, z: -14, opened: false }, { id: 'c1', x: 7, z: -24, opened: false }] };
   for (let i = 0; i < 7; i++) {
     room.monsters.push({
       id: 'm' + i,
+      boss: i === 6,
+      hp: i === 6 ? 180 : 60,
+      maxHp: i === 6 ? 180 : 60,
+      attackAt: 0,
       x: (Math.random() - 0.5) * 20,
       z: -25 + Math.random() * 30,
       alive: true
@@ -57,13 +120,18 @@ function broadcast(room, message) {
   }
 }
 
+function playerInventoryForRoom(room) {
+  return [...room.players.values()].map(p => ({ id: p.id, inventory: p.inventory, equipped: p.equipped, items: p.items, ...playerStats(p) }));
+}
 function state(room) {
   return {
     type: 'state',
     players: [...room.players.values()].map(p => ({
       id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color
     })),
-    monsters: room.monsters
+    monsters: room.monsters,
+    chests: room.chests,
+    inventory: playerInventoryForRoom(room)
   };
 }
 
@@ -74,13 +142,10 @@ wss.on('connection', ws => {
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   room: null,
   lootDrops: [],
-  inventory: {
-    comum: 0,
-    incomum: 0,
-    raro: 0,
-    épico: 0,
-    lendário: 0
-  }
+  inventory: emptyInventory(),
+  hp: 100, mp: 100, lastHitAt: 0,
+  items: [],
+  equipped: {}
 };
 
   ws.on('message', raw => {
@@ -123,11 +188,51 @@ wss.on('connection', ws => {
       const target = room.monsters.find(m => m.alive &&
         Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
       if (target) {
+        target.hp -= playerStats(player).damage;
+        if (target.hp <= 0) {
         target.alive = false;
-        broadcast(room, { type: 'notice', text: player.name + ' derrotou um monstro!' });
+        const loot = rollLoot(target.boss ? 'boss' : 'monster');
+        addLootToPlayer(player, loot);
+        broadcast(room, { type: 'loot', playerId: player.id, playerName: player.name, item: loot });
+        broadcast(room, { type: 'notice', text: player.name + (target.boss ? ' derrotou o CHEFE!' : ' derrotou um monstro!') });
+        }
       }
       broadcast(room, { type: 'attack', id: player.id });
       broadcast(room, state(room));
+    } else if (msg.type === 'spell') {
+      if (player.mp < 20) {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Mana insuficiente! Aguarde recuperar.' }));
+        return;
+      }
+      player.mp -= 20;
+      let hit = false;
+      for (const target of room.monsters) {
+        if (!target.alive || Math.hypot(target.x - player.x, target.z - player.z) >= 6) continue;
+        target.hp -= 38 + playerStats(player).damage;
+        hit = true;
+        if (target.hp <= 0) {
+          target.alive = false;
+          const loot = rollLoot(target.boss ? 'boss' : 'monster');
+          addLootToPlayer(player, loot);
+          broadcast(room, { type: 'loot', playerId: player.id, playerName: player.name, item: loot });
+          broadcast(room, { type: 'notice', text: player.name + (target.boss ? ' derrotou o CHEFE com magia!' : ' derrotou um monstro com magia!') });
+        }
+      }
+      if (!hit) ws.send(JSON.stringify({ type: 'notice', text: 'Nenhum monstro no alcance da magia.' }));
+      broadcast(room, state(room));
+      sendCombatState(room);
+    } else if (msg.type === 'openChest') {
+      const chest = room.chests.find(c => !c.opened && Math.hypot(c.x - player.x, c.z - player.z) < 3);
+      if (chest) {
+        chest.opened = true;
+        const loot = rollLoot('chest');
+        addLootToPlayer(player, loot);
+        broadcast(room, { type: 'loot', playerId: player.id, playerName: player.name, item: loot, chest: true });
+        broadcast(room, { type: 'notice', text: player.name + ' abriu um baú!' });
+        broadcast(room, state(room));
+      } else {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Chegue mais perto de um baú.' }));
+      }
     } else if (msg.type === 'leave') {
       room.players.delete(player.id);
       player.room = null;
@@ -167,7 +272,19 @@ setInterval(() => {
         }
       }
 
-      if (target && nearest > 1.8 && nearest < 20) {
+      if (target && nearest <= 2.1 && Date.now() - target.lastHitAt > (monster.boss ? 850 : 1100)) {
+        const stats = playerStats(target);
+        const rawDamage = monster.boss ? 18 : 9;
+        target.hp = Math.max(0, target.hp - Math.max(2, rawDamage - stats.defense));
+        target.lastHitAt = Date.now();
+        if (target.hp <= 0) {
+          target.hp = 100;
+          target.mp = 100;
+          target.x = 0; target.z = 3;
+          broadcast(room, { type: 'notice', text: target.name + ' caiu e voltou ao início da masmorra.' });
+        }
+        sendCombatState(room);
+      } else if (target && nearest > 2.1 && nearest < 20) {
         const dx = target.x - monster.x;
         const dz = target.z - monster.z;
         const distance = Math.hypot(dx, dz);
@@ -184,7 +301,9 @@ setInterval(() => {
       }
     }
 
+    for (const p of players) p.mp = Math.min(playerStats(p).maxMp, p.mp + 0.25);
     broadcast(room, state(room));
+    sendCombatState(room);
   }
 }, 100);
 

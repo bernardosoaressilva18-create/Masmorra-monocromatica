@@ -6,17 +6,20 @@ const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-const remotePlayers = new Map(), monsterMeshes = new Map();
+// Resolução interna limitada para reduzir o custo da GPU, principalmente no celular.
+let renderScale = Math.min(window.devicePixelRatio || 1, 1.15);
+let fpsFrames = 0, fpsLastSample = performance.now(), fpsLastAdjust = performance.now(), fpsSmoothed = 60;
+const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const world = { width: 30, depth: 46 };
 
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x090d14, .027);
+  scene.fog = new THREE.FogExp2(0x090d14, .018);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
-  renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
+  renderer = new THREE.WebGLRenderer({ antialias: window.innerWidth > 900, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(renderScale);
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -62,9 +65,16 @@ const stoneDark = mat(0x303640, 1);
 
   box(30, .8, 48, floor, 0, -.5, -11);
 
-  for (let z = -34; z <= 12; z += 4) {
-    box(29.8, .05, .06, dark, 0, -.07, z);
-  }
+  // Superfície única ligeiramente acima da base para evitar artefatos visuais no piso.
+  const floorSurface = new THREE.Mesh(
+    new THREE.PlaneGeometry(29.9, 47.9),
+    new THREE.MeshStandardMaterial({ color: 0x292e36, roughness: 1, metalness: 0 })
+  );
+  floorSurface.rotation.x = -Math.PI / 2;
+  floorSurface.position.set(0, -0.092, -11);
+  scene.add(floorSurface);
+
+  // Piso contínuo, sem juntas elevadas que possam parecer riscos pretos.
 
   box(.7, 5, 48, wall, -15, 2, -11);
   box(.7, 5, 48, wall, 15, 2, -11);
@@ -245,10 +255,41 @@ function onResize() {
   if (!renderer) return;
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  renderer.setPixelRatio(renderScale);
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
 }
 addEventListener('resize', onResize);
+
+// Ajusta a resolução interna em passos lentos para equilibrar nitidez e FPS.
+function updatePerformance(now) {
+  fpsFrames++;
+  const elapsed = now - fpsLastSample;
+  if (elapsed < 600) return;
+
+  const measuredFps = fpsFrames * 1000 / elapsed;
+  fpsSmoothed = fpsSmoothed * 0.65 + measuredFps * 0.35;
+  fpsFrames = 0;
+  fpsLastSample = now;
+
+  const meter = $('fpsMeter');
+  if (meter) meter.textContent = 'FPS ' + Math.round(fpsSmoothed);
+
+  if (now - fpsLastAdjust < 1800) return;
+  let nextScale = renderScale;
+  const maxScale = Math.min(window.devicePixelRatio || 1, 1.15);
+  if (fpsSmoothed < 48 && renderScale > 0.55) {
+    nextScale = Math.max(0.55, renderScale - 0.12);
+  } else if (fpsSmoothed > 58 && renderScale < maxScale) {
+    nextScale = Math.min(maxScale, renderScale + 0.05);
+  }
+
+  if (nextScale !== renderScale) {
+    renderScale = Math.round(nextScale * 100) / 100;
+    renderer.setPixelRatio(renderScale);
+    renderer.setSize(innerWidth, innerHeight);
+    fpsLastAdjust = now;
+  }
+}
 
 function setStatus(t) {
   menuStatus.textContent = t;
@@ -334,6 +375,12 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'loot') {
+    const item = m.item || {};
+    showNotice((m.playerId === playerId ? 'Você encontrou: ' : (m.playerName + ' encontrou: ')) + item.name + ' [' + item.rarity + ']');
+    return;
+  }
+
   if (m.type === 'attack') {
     if (m.id !== playerId) {
       const p = remotePlayers.get(m.id);
@@ -347,10 +394,30 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'combat') updateCombat(m);
   if (m.type === 'state') updateState(m);
 }
 
+function updateCombat(m) {
+  const mine = (m.players || []).find(p => p.id === playerId);
+  if (!mine) return;
+  $('hpText').textContent = Math.ceil(mine.hp) + '/' + mine.maxHp;
+  $('mpText').textContent = Math.floor(mine.mp) + '/' + mine.maxMp;
+  $('hpFill').style.width = (mine.hp / mine.maxHp * 100) + '%';
+  $('mpFill').style.width = (mine.mp / mine.maxMp * 100) + '%';
+  $('combatText').textContent = 'Dano ' + mine.damage + ' · Defesa ' + mine.defense;
+}
+
 function updateState(m) {
+  const mine = (m.inventory || []).find(p => p.id === playerId);
+  if (mine && mine.hp != null) updateCombat({ players: [mine] });
+  if (mine && mine.inventory) {
+    const inv = mine.inventory;
+    $('inventoryText').textContent = 'Comum ' + (inv['Comum'] || 0) + ' · Incomum ' + (inv['Incomum'] || 0) + ' · Raro ' + (inv['Raro'] || 0) + ' · Épico ' + (inv['Épico'] || 0) + ' · Lendário ' + (inv['Lendário'] || 0);
+    const gear = mine.equipped || {};
+    const gearText = ['Amuleto','Anel','Relíquia'].map(slot => slot + ': ' + (gear[slot] ? gear[slot].name + ' (+' + gear[slot].power + ')' : 'vazio')).join(' · ');
+    $('gearText').textContent = gearText;
+  }
   const incoming = new Set();
 
   for (const p of m.players) {
@@ -382,6 +449,24 @@ function updateState(m) {
       scene.remove(obj);
       remotePlayers.delete(id);
     }
+  }
+
+  for (const chest of (m.chests || [])) {
+    let obj = chestMeshes.get(chest.id);
+    if (!obj) {
+      obj = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, .65, .75), new THREE.MeshStandardMaterial({ color: 0x64452e, roughness: .8 }));
+      body.position.y = .42;
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(1.14, .22, .8), new THREE.MeshStandardMaterial({ color: 0xb58a45, metalness: .25, roughness: .55 }));
+      lid.position.y = .86;
+      const lock = new THREE.Mesh(new THREE.BoxGeometry(.16, .22, .07), new THREE.MeshStandardMaterial({ color: 0xf0d58a, metalness: .7, roughness: .25 }));
+      lock.position.set(0, .62, .4);
+      obj.add(body, lid, lock);
+      scene.add(obj);
+      chestMeshes.set(chest.id, obj);
+    }
+    obj.position.set(chest.x, 0, chest.z);
+    obj.visible = !chest.opened;
   }
 
   let alive = 0;
@@ -443,6 +528,16 @@ function moveInput() {
   return { x, y };
 }
 
+function openChest() {
+  if (!started) return;
+  send({ type: 'openChest' });
+}
+function castSpell() {
+  if (!started) return;
+  send({ type: 'spell' });
+  showNotice('Magia lançada! Custo: 20 MP');
+}
+
 function attack() {
   if (!started || attackCooldown > 0) return;
 
@@ -485,6 +580,11 @@ $('leaveBtn').addEventListener('click', () => {
   menu.classList.remove('hidden');
 });
 
+$('chestBtn').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  openChest();
+});
+$('spellBtn').addEventListener('pointerdown', e => { e.preventDefault(); castSpell(); });
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
   attack();
@@ -582,6 +682,7 @@ function animate() {
   requestAnimationFrame(animate);
   if (!renderer) return;
 
+  updatePerformance(performance.now());
   const dt = Math.min(clock.getDelta(), 0.05);
   const remoteSmooth = 1 - Math.exp(-14 * dt);
   const monsterSmooth = 1 - Math.exp(-5 * dt);
@@ -667,7 +768,19 @@ const right = new THREE.Vector3(
     obj.position.y =
       0.05 + Math.sin(performance.now() * 0.002 + obj.position.x) * 0.08;
 
-    obj.rotation.y += dt * 0.35;
+    // Vira a frente do monstro para o jogador local, suavemente.
+    if (myPlayer) {
+      const dx = myPlayer.position.x - obj.position.x;
+      const dz = myPlayer.position.z - obj.position.z;
+      if (Math.hypot(dx, dz) > 0.05) {
+        const targetYaw = Math.atan2(-dx, -dz);
+        const angleDiff = Math.atan2(
+          Math.sin(targetYaw - obj.rotation.y),
+          Math.cos(targetYaw - obj.rotation.y)
+        );
+        obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
+      }
+    }
   }
 
   // Câmera em terceira pessoa com acompanhamento suave
