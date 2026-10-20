@@ -43,6 +43,37 @@
   <div class="footnote">MODO COOPERATIVO · ATÉ 4 JOGADORES</div>
 </div>
 
+
+<div id="lobby" class="lobby-screen hidden">
+  <header class="lobby-top">
+    <div class="lobby-brand"><p class="lobby-eyebrow">MASMORRA MONOCROMÁTICA · COOPERATIVO</p><h2>SALÃO DA <span>GUILDA</span></h2><p>Reúna sua equipe antes de atravessar o portal.</p></div>
+    <div class="lobby-room">SALA<strong id="lobbyRoomCode">------</strong><small>ATÉ 4 AVENTUREIROS</small></div>
+  </header>
+  <main class="lobby-layout">
+    <section class="lobby-panel lobby-loadout">
+      <div class="lobby-panel-kicker">SEU AVENTUREIRO</div><h3>Escolha sua classe</h3>
+      <div class="class-picks">
+        <button type="button" data-hero-class="guardiao" class="class-pick is-selected"><span>🛡</span><strong>Guardião</strong><small>Resistência e espada</small></button>
+        <button type="button" data-hero-class="mago" class="class-pick"><span>✦</span><strong>Mago</strong><small>Magia e cajado</small></button>
+        <button type="button" data-hero-class="assassino" class="class-pick"><span>⚔</span><strong>Assassino</strong><small>Velocidade e adagas</small></button>
+      </div>
+      <div class="lobby-tools">
+        <button id="skinOpenBtn" type="button" class="lobby-tool"><span>◈</span><span><strong>SKINS</strong><small>Trocar aparência</small></span><b>›</b></button>
+        <button id="skillOpenBtn" type="button" class="lobby-tool"><span>✧</span><span><strong>ÁRVORE DE SKILLS</strong><small>Escolher habilidade</small></span><b>›</b></button>
+      </div>
+    </section>
+    <div class="lobby-center-caption"><span class="portal-pulse"></span><strong>PORTAL DA MASMORRA</strong><small>Os aventureiros aparecem lado a lado no palco.</small></div>
+    <section class="lobby-panel lobby-team"><div class="lobby-panel-kicker">GRUPO ONLINE</div><h3>Sua equipe <span id="lobbyTeamCount">0/4</span></h3>
+      <div id="lobbyRoster" class="lobby-roster"><div class="lobby-empty">Conectando à equipe...</div></div>
+      <div class="lobby-team-note">Classes, skins e prontidão são sincronizadas com a sala.</div>
+    </section>
+  </main>
+  <footer class="lobby-footer">
+    <div class="lobby-status-wrap"><span class="lobby-status-dot"></span><div><strong id="lobbyStatus">Preparando o salão...</strong><small>Escolha seu personagem e entre quando estiver pronto.</small></div></div>
+    <div class="lobby-actions"><button id="readyBtn" type="button" class="ready-button">✓ MARCAR PRONTO</button><button id="startDungeonBtn" type="button" class="start-button">⚔ INICIAR MASMORRA</button><button id="leaveLobbyBtn" type="button" class="lobby-back-button">SAIR</button></div>
+  </footer>
+  <div id="lobbyModal" class="lobby-modal hidden" role="dialog" aria-modal="true" aria-labelledby="lobbyModalTitle"><div class="lobby-modal-card"><button id="lobbyModalClose" type="button" class="lobby-modal-close" aria-label="Fechar">×</button><div id="lobbyModalContent"></div></div></div>
+</div>
 <div id="hud" class="hidden">
   <div class="topbar">
     <div class="badge"><span class="dot"></span><div><small>MASMORRA</small><strong id="roomLabel">CONECTANDO</strong></div></div>
