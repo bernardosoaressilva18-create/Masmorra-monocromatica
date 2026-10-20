@@ -15,6 +15,73 @@ function formatHealth(value) {
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 }
 
+// Barra de vida 3D: acompanha a cabeça e vira para a câmera automaticamente.
+function makeHealthBar(parent, y, width = 1.25) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 56;
+  const ctx = canvas.getContext('2d');
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: true,
+    depthWrite: false
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.position.set(0, y, 0);
+  sprite.scale.set(width, 0.25, 1);
+  sprite.renderOrder = 4;
+  sprite.userData.healthCanvas = canvas;
+  sprite.userData.healthContext = ctx;
+  sprite.userData.healthTexture = texture;
+  sprite.userData.lastHp = null;
+  sprite.userData.lastMaxHp = null;
+  parent.add(sprite);
+  updateHealthBar(sprite, 100, 100);
+  return sprite;
+}
+
+function updateHealthBar(sprite, hp, maxHp = 100) {
+  if (!sprite) return;
+  const max = Math.max(1, formatHealth(maxHp));
+  const current = Math.min(max, formatHealth(hp));
+  if (sprite.userData.lastHp === current && sprite.userData.lastMaxHp === max) return;
+
+  const ctx = sprite.userData.healthContext;
+  const texture = sprite.userData.healthTexture;
+  if (!ctx || !texture) return;
+
+  const ratio = current / max;
+  ctx.clearRect(0, 0, 256, 56);
+  ctx.fillStyle = 'rgba(5, 9, 14, 0.92)';
+  ctx.fillRect(1, 1, 254, 54);
+  ctx.strokeStyle = 'rgba(230, 244, 250, 0.9)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, 252, 52);
+
+  ctx.fillStyle = '#252a32';
+  ctx.fillRect(8, 8, 240, 40);
+  const fillColor = ratio > 0.55 ? '#51e08a' : ratio > 0.28 ? '#f0c84b' : '#ff5364';
+  ctx.fillStyle = fillColor;
+  ctx.fillRect(8, 8, 240 * ratio, 40);
+
+  ctx.font = 'bold 23px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+  ctx.strokeText(current + ' / ' + max, 128, 29);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(current + ' / ' + max, 128, 29);
+
+  texture.needsUpdate = true;
+  sprite.userData.lastHp = current;
+  sprite.userData.lastMaxHp = max;
+}
+
+
 /* Áudio procedural: funciona sem baixar arquivos externos. */
 let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
 let musicEnabled = true, sfxEnabled = true, musicNodes = [], stepTimer = 0, lastGrowlAt = 0, lastDamageAt = 0, victoryPlayed = false, masterVolume = 0.55;
@@ -327,6 +394,7 @@ function makeHero(color = 0x72e6ff) {
   ring.position.y = .025;
   g.add(ring);
 
+  g.userData.healthBar = makeHealthBar(g, 2.58, 1.3);
   return g;
 }
 
@@ -365,6 +433,7 @@ function makeMonster(isBoss = false) {
     g.add(claw);
   }
 
+  g.userData.healthBar = makeHealthBar(g, isBoss ? 2.86 : 2.16, isBoss ? 1.55 : 1.25);
   return g;
 }
 
@@ -513,6 +582,7 @@ function updateState(m) {
       if (myPlayer) {
         myPlayer.userData.serverX = p.x;
         myPlayer.userData.serverZ = p.z;
+        updateHealthBar(myPlayer.userData.healthBar, p.hp ?? 100, p.maxHp ?? 100);
       }
       continue;
     }
@@ -528,6 +598,7 @@ function updateState(m) {
     obj.userData.targetZ = p.z;
     obj.userData.targetRot = p.rot;
     obj.userData.name = p.name;
+    updateHealthBar(obj.userData.healthBar, p.hp ?? 100, p.maxHp ?? 100);
   }
 
   for (const [id, obj] of remotePlayers) {
@@ -558,13 +629,14 @@ function updateState(m) {
   const mine = m.players.find(p => p.id === playerId);
   if (mine && mine.hp != null) $('hpText').textContent = formatHealth(mine.hp);
 
-  // Se monstros receberem HP no estado do servidor, mantém os valores inteiros
-  // para qualquer interface de vida que use estes dados.
+  // Atualiza a barra dos monstros e do guardião em todos os clientes.
   for (const mtr of m.monsters) {
     const obj = monsterMeshes.get(mtr.id);
-    if (!obj || mtr.hp == null) continue;
-    obj.userData.hp = formatHealth(mtr.hp);
-    obj.userData.maxHp = formatHealth(mtr.maxHp ?? mtr.hp);
+    if (!obj) continue;
+    const fallbackMax = mtr.isBoss ? 180 : 60;
+    obj.userData.hp = formatHealth(mtr.hp ?? fallbackMax);
+    obj.userData.maxHp = formatHealth(mtr.maxHp ?? fallbackMax);
+    updateHealthBar(obj.userData.healthBar, obj.userData.hp, obj.userData.maxHp);
   }
   if (alive > 0) victoryPlayed = false;
   $('progressFill').style.width = ((7 - alive) / 7 * 100) + '%';
