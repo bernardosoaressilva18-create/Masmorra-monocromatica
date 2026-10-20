@@ -11,7 +11,7 @@ const world = { width: 30, depth: 46 };
 
 /* Áudio procedural: funciona sem baixar arquivos externos. */
 let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
-let musicEnabled = true, sfxEnabled = true, musicNodes = [], stepTimer = 0;
+let musicEnabled = true, sfxEnabled = true, musicNodes = [], stepTimer = 0, lastGrowlAt = 0, lastDamageAt = 0, victoryPlayed = false;
 let lookSensitivity = 0.010, verticalSensitivity = 0.005;
 
 function initAudio() {
@@ -103,6 +103,26 @@ function playJoinSound() {
 }
 function playFootstep() {
   tone(90 + Math.random()*25, .055, 'triangle', .045, 45);
+}
+function playMonsterGrowl() {
+  tone(105, .28, 'sawtooth', .12, 42);
+  tone(68, .32, 'triangle', .10, 35);
+}
+function playDamageSound() {
+  tone(190, .20, 'sawtooth', .20, 48);
+  tone(75, .16, 'triangle', .15, 38);
+}
+function playMonsterDefeat() {
+  tone(360, .10, 'triangle', .12, 240);
+  setTimeout(() => tone(240, .18, 'sine', .10, 120), 80);
+}
+function playBossDefeat() {
+  tone(440, .18, 'sawtooth', .16, 220);
+  setTimeout(() => tone(330, .2, 'triangle', .16, 165), 130);
+  setTimeout(() => tone(660, .34, 'sine', .14, 880), 280);
+}
+function playVictory() {
+  [440, 554, 659, 880].forEach((freq, i) => setTimeout(() => tone(freq, .24, 'sine', .12, freq * 1.12), i * 135));
 }
 
 
@@ -310,26 +330,30 @@ function createPlayer() {
   myPlayer.position.set(0, 0, 3);
 }
 
-function makeMonster() {
+function makeMonster(isBoss = false) {
   const g = new THREE.Group();
+  g.userData.isBoss = isBoss;
 
-  const body = new THREE.Mesh(new THREE.DodecahedronGeometry(.68, 1), mat(0x423c55, .85));
-  body.position.y = .85;
+  const body = new THREE.Mesh(
+    new THREE.DodecahedronGeometry(isBoss ? 1.0 : .68, 1),
+    mat(isBoss ? 0x72512b : 0x423c55, .85, isBoss ? .28 : 0)
+  );
+  body.position.y = isBoss ? 1.15 : .85;
   g.add(body);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.4, 10, 8), mat(0x62536c));
-  head.position.y = 1.55;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(isBoss ? .52 : .4, 10, 8), mat(isBoss ? 0xb47b3c : 0x62536c));
+  head.position.y = isBoss ? 2.0 : 1.55;
   g.add(head);
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff425f });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: isBoss ? 0xffc44d : 0xff425f });
   for (const x of [-.16, .16]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(.065, 8, 6), eyeMat);
-    eye.position.set(x, 1.59, -.34);
+    eye.position.set(x * (isBoss ? 1.2 : 1), isBoss ? 2.04 : 1.59, isBoss ? -.45 : -.34);
     g.add(eye);
   }
 
   for (const x of [-.42, .42]) {
-    const claw = new THREE.Mesh(new THREE.ConeGeometry(.12, .48, 5), mat(0x8a7b91));
+    const claw = new THREE.Mesh(new THREE.ConeGeometry(isBoss ? .16 : .12, isBoss ? .62 : .48, 5), mat(isBoss ? 0xe3b75b : 0x8a7b91));
     claw.position.set(x, .55, -.05);
     claw.rotation.z = x > 0 ? -.4 : .4;
     g.add(claw);
@@ -432,6 +456,31 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'damage') {
+    if (m.id === playerId) {
+      lastDamageAt = performance.now();
+      playDamageSound();
+      $('hpText').textContent = m.hp;
+      showNotice(m.hp <= 0 ? 'Você foi derrotado e voltou à entrada!' : 'Você recebeu dano!');
+    }
+    return;
+  }
+
+  if (m.type === 'monsterDefeated') {
+    if (m.boss) {
+      playBossDefeat();
+      showNotice('O guardião da masmorra foi derrotado!');
+    } else {
+      playMonsterDefeat();
+    }
+    if (m.remaining === 0 && !victoryPlayed) {
+      victoryPlayed = true;
+      setTimeout(playVictory, m.boss ? 850 : 350);
+      showNotice('Masmorra concluída! Todos os monstros foram derrotados.');
+    }
+    return;
+  }
+
   if (m.type === 'attack') {
     if (m.id !== playerId) {
       const p = remotePlayers.get(m.id);
@@ -488,7 +537,7 @@ function updateState(m) {
 
     let obj = monsterMeshes.get(mtr.id);
     if (!obj) {
-      obj = makeMonster();
+      obj = makeMonster(Boolean(mtr.isBoss));
       scene.add(obj);
       monsterMeshes.set(mtr.id, obj);
     }
@@ -500,6 +549,8 @@ function updateState(m) {
   }
 
   $('monsterText').textContent = alive + ' monstros restantes';
+  $('hpText').textContent = (m.players.find(p => p.id === playerId)?.hp ?? $('hpText').textContent);
+  if (alive > 0) victoryPlayed = false;
   $('progressFill').style.width = ((7 - alive) / 7 * 100) + '%';
   $('killText').textContent = 7 - alive;
 
@@ -770,7 +821,14 @@ const right = new THREE.Vector3(
     obj.position.y =
       0.05 + Math.sin(performance.now() * 0.002 + obj.position.x) * 0.08;
 
-    obj.rotation.y += dt * 0.35;
+    obj.rotation.y += dt * (obj.userData.isBoss ? 0.22 : 0.35);
+    if (started && obj.visible && myPlayer) {
+      const distance = Math.hypot(obj.position.x - myPlayer.position.x, obj.position.z - myPlayer.position.z);
+      if (distance < 5 && performance.now() - lastGrowlAt > 4200) {
+        lastGrowlAt = performance.now();
+        playMonsterGrowl();
+      }
+    }
   }
 
   // Câmera em terceira pessoa com acompanhamento suave
@@ -804,6 +862,11 @@ const right = new THREE.Vector3(
 
 $('musicToggle')?.addEventListener('click', () => { initAudio(); toggleMusic(); });
 $('sfxToggle')?.addEventListener('click', () => { initAudio(); toggleSfx(); });
+$('volume')?.addEventListener('input', e => {
+  const value = Number(e.target.value);
+  $('volumeValue').textContent = Math.round(value * 100) + '%';
+  if (masterGain && audioCtx) masterGain.gain.setTargetAtTime(value, audioCtx.currentTime, .05);
+});
 $('sensitivity')?.addEventListener('input', e => {
   lookSensitivity = Number(e.target.value);
   verticalSensitivity = lookSensitivity * 0.5;
