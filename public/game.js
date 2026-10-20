@@ -842,6 +842,72 @@ function attack() {
   setTimeout(() => f.style.borderWidth = '0', 100);
 }
 
+
+function renderLobbyState(players = []) {
+  const roster=$('lobbyRoster');
+  if(roster){
+    const markup=players.length?players.slice(0,4).map(p=>`
+      <div class="lobby-player-row ${p.ready?'ready':''}">
+        <span class="lobby-player-icon">${p.heroClass==='mago'?'✦':p.heroClass==='assassino'?'⚔':'🛡'}</span>
+        <strong>${escapeHTML(p.name||'Aventureiro')}</strong>
+        <small>${escapeHTML(CLASS_NAMES[p.heroClass]||'Guardião')} · ${escapeHTML(SKIN_NAMES[p.skin]||'Padrão')}</small>
+        <em>${p.ready?'✓ PRONTO':'ESCOLHENDO'}</em>
+      </div>`).join(''):'<div class="lobby-empty">Entrando na sala e procurando aventureiros...</div>';
+    if(roster.innerHTML!==markup)roster.innerHTML=markup;
+  }
+  const count=$('lobbyTeamCount');if(count)count.textContent=Math.min(players.length,4)+'/4';
+  const code=$('lobbyRoomCode');if(code&&roomCode)code.textContent=roomCode;
+  document.querySelectorAll('[data-hero-class]').forEach(b=>b.classList.toggle('is-selected',b.dataset.heroClass===myHeroClass));
+  const ready=$('readyBtn');if(ready){ready.textContent=playerReady?'✓ PRONTO — CANCELAR':'✓ MARCAR PRONTO';ready.classList.toggle('is-ready',playerReady);}
+  const status=$('lobbyStatus');if(status&&players.length){const n=players.filter(p=>p.ready).length;status.textContent=n+'/'+players.length+' aventureiro(s) pronto(s).';}
+}
+function openLobbyModal(type){
+  const modal=$('lobbyModal'),content=$('lobbyModalContent');if(!modal||!content)return;
+  if(type==='skins'){
+    const skins=[['padrao','Padrão','#70d0df','Original'],['gelo','Gelo','#76c9ed','Cristalino'],['sombra','Sombra','#8065c4','Sombrio'],['ouro','Ouro','#d9aa4f','Dourado'],['brasa','Brasa','#e46b4f','Flamejante']];
+    content.innerHTML=`<div class="lobby-modal-heading"><div class="lobby-panel-kicker">PERSONALIZAÇÃO</div><h3 id="lobbyModalTitle">ESCOLHA SUA SKIN</h3><p>Toque em uma aparência para aplicá-la ao personagem 3D.</p></div><div class="skin-grid">${skins.map(([id,name,color,desc])=>`<button type="button" data-skin="${id}" class="skin-choice ${mySkin===id?'selected':''}"><span class="skin-swatch" style="background:${color};color:${color}"></span><strong>${name}</strong><small>${desc}</small></button>`).join('')}</div>`;
+  }else{
+    const skills=[['golpe_pesado','⚔','Golpe pesado','Ataque causa 30 de dano, em vez de 20.'],['passos_leves','➤','Passos leves','Movimento aumenta de 5,8 para 7,0.'],['vitalidade','♥','Vitalidade','Vida máxima aumenta para 120 e é recuperada ao selecionar.']];
+    content.innerHTML=`<div class="lobby-modal-heading"><div class="lobby-panel-kicker">PROGRESSÃO DO AVENTUREIRO</div><h3 id="lobbyModalTitle">ÁRVORE DE SKILLS</h3><p>Escolha uma habilidade passiva. A seleção sincroniza com o servidor e altera a missão.</p></div><div class="skill-tree">${skills.map(([id,icon,title,desc])=>`<button type="button" data-skill="${id}" class="skill-node ${mySkill===id?'selected':''}"><span class="skill-symbol">${icon}</span><strong>${title}</strong><p>${desc}</p><em>${mySkill===id?'✓ EQUIPADA':'EQUIPAR'}</em></button>`).join('')}</div><p class="skill-footnote">Uma habilidade fica equipada por vez; você pode trocar no lobby.</p>`;
+  }
+  modal.classList.remove('hidden');
+}
+function clearReadyAfterLoadoutChange(){if(playerReady){playerReady=false;send({type:'ready',ready:false});}}
+document.querySelectorAll('[data-hero-class]').forEach(button=>button.addEventListener('click',()=>{
+  const selected=button.dataset.heroClass;if(!CLASS_NAMES[selected])return;
+  myHeroClass=selected;clearReadyAfterLoadoutChange();applyLocalLook();
+  send({type:'heroClass',heroClass:myHeroClass});renderLobbyState(lobbyRosterData);
+}));
+$('skinOpenBtn').addEventListener('click',()=>openLobbyModal('skins'));
+$('skillOpenBtn').addEventListener('click',()=>openLobbyModal('skills'));
+$('lobbyModalClose').addEventListener('click',()=>$('lobbyModal').classList.add('hidden'));
+$('lobbyModal').addEventListener('pointerdown',e=>{if(e.target===$('lobbyModal'))$('lobbyModal').classList.add('hidden');});
+$('lobbyModalContent').addEventListener('click',e=>{
+  const skinButton=e.target.closest('[data-skin]');
+  if(skinButton){
+    const selected=skinButton.dataset.skin;if(!Object.prototype.hasOwnProperty.call(SKIN_NAMES,selected))return;
+    mySkin=selected;clearReadyAfterLoadoutChange();applyLocalLook();send({type:'skin',skin:mySkin});
+    renderLobbyState(lobbyRosterData);openLobbyModal('skins');return;
+  }
+  const skillButton=e.target.closest('[data-skill]');
+  if(skillButton){
+    const selected=skillButton.dataset.skill;if(!Object.prototype.hasOwnProperty.call(SKILL_INFO,selected))return;
+    mySkill=selected;clearReadyAfterLoadoutChange();if(myPlayer)myPlayer.userData.selectedSkill=mySkill;
+    send({type:'selectSkill',skill:mySkill});openLobbyModal('skills');
+  }
+});
+$('readyBtn').addEventListener('click',()=>{
+  if(!inLobby)return;playerReady=!playerReady;send({type:'ready',ready:playerReady});renderLobbyState(lobbyRosterData);
+});
+$('startDungeonBtn').addEventListener('click',()=>{
+  if(!inLobby)return;$('lobbyStatus').textContent='Abrindo o portal para toda a equipe...';send({type:'startGame'});
+});
+$('leaveLobbyBtn').addEventListener('click',()=>{
+  send({type:'leave'});started=false;inLobby=false;lobbyMode=true;if(ws)ws.close();
+  $('lobby').classList.add('hidden');$('lobbyModal').classList.add('hidden');hud.classList.add('hidden');menu.classList.remove('hidden');
+  if(dungeonGroup)dungeonGroup.visible=false;if(lobbyGroup)lobbyGroup.visible=true;setStatus('Você saiu do lobby.');
+});
+
 $('playBtn').addEventListener('click', () => connect(''));
 
 $('joinBtn').addEventListener('click', () => {
@@ -858,11 +924,9 @@ $('roomCode').addEventListener('input', e => {
 });
 
 $('leaveBtn').addEventListener('click', () => {
-  send({ type: 'leave' });
-  if (ws) ws.close();
-  started = false;
-  hud.classList.add('hidden');
-  menu.classList.remove('hidden');
+  send({type:'leave'});started=false;inLobby=false;lobbyMode=true;if(ws)ws.close();
+  hud.classList.add('hidden');$('lobby').classList.add('hidden');menu.classList.remove('hidden');
+  if(dungeonGroup)dungeonGroup.visible=false;if(lobbyGroup)lobbyGroup.visible=true;setStatus('Você saiu da masmorra.');
 });
 
 $('attackBtn').addEventListener('pointerdown', e => {
@@ -989,12 +1053,12 @@ const right = new THREE.Vector3(
         .normalize();
 
       myPlayer.position.x = THREE.MathUtils.clamp(
-        myPlayer.position.x + dir.x * dt * 5.8,
+        myPlayer.position.x + dir.x * dt * (myPlayer.userData.selectedSkill === 'passos_leves' ? 7.0 : 5.8),
         -13, 13
       );
 
       myPlayer.position.z = THREE.MathUtils.clamp(
-        myPlayer.position.z + dir.z * dt * 5.8,
+        myPlayer.position.z + dir.z * dt * (myPlayer.userData.selectedSkill === 'passos_leves' ? 7.0 : 5.8),
         -31, 8
       );
 
@@ -1035,6 +1099,7 @@ const right = new THREE.Vector3(
 
     obj.rotation.y += angleDiff * remoteSmooth;
     updateHealthBarDistance(obj.userData.healthBar, obj);
+    updateHealthBarOcclusion(obj.userData.healthBar, obj);
   }
 
   // Movimento suave dos monstros
@@ -1054,6 +1119,7 @@ const right = new THREE.Vector3(
 
     obj.rotation.y += dt * (obj.userData.isBoss ? 0.22 : 0.35);
     updateHealthBarDistance(obj.userData.healthBar, obj);
+    updateHealthBarOcclusion(obj.userData.healthBar, obj);
     if (started && obj.visible && myPlayer) {
       const distance = Math.hypot(obj.position.x - myPlayer.position.x, obj.position.z - myPlayer.position.z);
       if (distance < 5 && performance.now() - lastGrowlAt > 4200) {
@@ -1063,30 +1129,19 @@ const right = new THREE.Vector3(
     }
   }
 
-  // Câmera em terceira pessoa com acompanhamento suave
-  if (myPlayer) {
-    updateHealthBarDistance(myPlayer.userData.healthBar, myPlayer);
-    const target = new THREE.Vector3(
-      myPlayer.position.x,
-      1.2,
-      myPlayer.position.z
-    );
-
-    const dist = 8.5;
-
-    const cameraTarget = new THREE.Vector3(
-      target.x + Math.sin(yaw) * dist,
-      target.y + 3.0 + pitch * 2,
-      target.z + Math.cos(yaw) * dist
-    );
-
-    camera.position.lerp(cameraTarget, cameraSmooth);
-
-    camera.lookAt(
-      target.x,
-      target.y + 0.15,
-      target.z
-    );
+  // Câmera panorâmica no lobby e terceira pessoa na masmorra.
+  if(lobbyMode){
+    const lobbyCameraTarget=new THREE.Vector3(0,5.8,15.2);
+    camera.position.lerp(lobbyCameraTarget,cameraSmooth);
+    camera.lookAt(0,1.45,-1.1);
+  }else if(myPlayer){
+    updateHealthBarDistance(myPlayer.userData.healthBar,myPlayer);
+    updateHealthBarOcclusion(myPlayer.userData.healthBar,myPlayer);
+    const target=new THREE.Vector3(myPlayer.position.x,1.2,myPlayer.position.z);
+    const dist=8.5;
+    const cameraTarget=new THREE.Vector3(target.x+Math.sin(yaw)*dist,target.y+3+pitch*2,target.z+Math.cos(yaw)*dist);
+    camera.position.lerp(cameraTarget,cameraSmooth);
+    camera.lookAt(target.x,target.y+.15,target.z);
   }
 
   renderer.render(scene, camera);
