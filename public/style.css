@@ -8,3 +8,5 @@
 .audio-settings label{display:flex;justify-content:space-between;gap:8px;margin:8px 0;color:#a9bdc9;font-size:9px;letter-spacing:1px}
 .audio-settings label span{color:var(--gold)}
 .audio-settings input[type=range]{height:22px;padding:0;accent-color:var(--cyan);background:transparent;border:0;box-shadow:none}
+
+.audio-settings input[type=range]{display:block;width:100%;cursor:pointer}
