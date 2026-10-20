@@ -5,8 +5,17 @@ const $ = id => document.getElementById(id);
 const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('menuStatus');
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
+let inLobby = false, lobbyMode = true, dungeonGroup = null, lobbyGroup = null;
+let myHeroClass = 'guardiao', mySkin = 'padrao', mySkill = null, playerReady = false, lobbyRosterData = [];
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map();
+const CLASS_NAMES = { guardiao: 'Guardião', mago: 'Mago', assassino: 'Assassino' };
+const SKIN_NAMES = { padrao: 'Padrão', gelo: 'Gelo', sombra: 'Sombra', ouro: 'Ouro', brasa: 'Brasa' };
+const SKILL_INFO = {
+  golpe_pesado: { title: 'Golpe pesado', description: 'Seus ataques causam 30 de dano em vez de 20.', icon: '⚔' },
+  passos_leves: { title: 'Passos leves', description: 'Sua velocidade aumenta de 5,8 para 7.', icon: '➤' },
+  vitalidade: { title: 'Vitalidade', description: 'Aumenta sua vida máxima para 120 e recupera sua vida ao selecionar.', icon: '♥' }
+};
 const world = { width: 30, depth: 46 };
 
 // Exibe HP sempre como número inteiro, mesmo que o servidor envie decimais.
@@ -100,8 +109,27 @@ function updateHealthBarDistance(sprite, owner) {
   const base = sprite.userData.baseScale || { width: 1.25, height: 0.42 };
   const scale = THREE.MathUtils.clamp(12 / Math.max(distance, 1), 0.68, 1.12);
   sprite.scale.set(base.width * scale, base.height * scale, 1);
-  // Ao longe, a barra fica mais discreta sem desaparecer completamente.
   sprite.material.opacity = THREE.MathUtils.clamp(1.15 - distance / 38, 0.38, 1);
+}
+
+const healthOcclusionRaycaster = new THREE.Raycaster();
+const healthOcclusionTarget = new THREE.Vector3();
+const healthOcclusionDirection = new THREE.Vector3();
+function updateHealthBarOcclusion(sprite, owner) {
+  if (!sprite || !owner || !camera) return;
+  if (lobbyMode || !started || !dungeonGroup) { sprite.visible = false; return; }
+  const now = performance.now();
+  if (now < (sprite.userData.nextOcclusionCheck || 0)) return;
+  sprite.userData.nextOcclusionCheck = now + 100;
+  sprite.getWorldPosition(healthOcclusionTarget);
+  healthOcclusionDirection.subVectors(healthOcclusionTarget, camera.position);
+  const distance = healthOcclusionDirection.length();
+  if (distance < 0.01) { sprite.visible = true; return; }
+  healthOcclusionDirection.normalize();
+  healthOcclusionRaycaster.set(camera.position, healthOcclusionDirection);
+  healthOcclusionRaycaster.far = Math.max(0, distance - 0.28);
+  const hits = healthOcclusionRaycaster.intersectObjects(dungeonGroup.children, true);
+  sprite.visible = !(hits.length && hits[0].distance < distance - 0.28);
 }
 
 /* Áudio procedural: funciona sem baixar arquivos externos. */
@@ -224,11 +252,11 @@ function playVictory() {
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x090d14, .027);
+  scene.fog = new THREE.FogExp2(0x090d14, .018);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
-  renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -236,13 +264,18 @@ function init3D() {
 
   clock = new THREE.Clock();
   scene.add(new THREE.HemisphereLight(0x9cc9e8, 0x16101c, 2.0));
-
   const moon = new THREE.DirectionalLight(0xb5d9ff, 1.4);
   moon.position.set(-6, 12, 5);
   scene.add(moon);
 
+  dungeonGroup = new THREE.Group();
+  dungeonGroup.name = 'dungeon-world';
+  scene.add(dungeonGroup);
   buildDungeon();
   createPlayer();
+  buildLobby();
+  dungeonGroup.visible = false;
+  lobbyGroup.visible = true;
   onResize();
   animate();
 }
@@ -254,7 +287,7 @@ function mat(color, rough = .9, metal = 0) {
 function box(w, h, d, material, x, y, z) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   m.position.set(x, y, z);
-  scene.add(m);
+  dungeonGroup.add(m);
   return m;
 }
 
@@ -298,7 +331,7 @@ for (let z = -30; z <= 8; z += 6) {
 
       const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.22), crystal);
       orb.position.set(side * 13.9, 3.7, z);
-      scene.add(orb);
+      dungeonGroup.add(orb);
 
 // O brilho dos cristais continua, sem luzes dinâmicas extras.
     }
@@ -328,13 +361,13 @@ for (let z = -30; z <= 8; z += 6) {
   );
   rune.rotation.x = -Math.PI / 2;
   rune.position.set(0, .02, -16);
-  scene.add(rune);
+  dungeonGroup.add(rune);
 
   for (let i = 0; i < 6; i++) {
     const a = i * Math.PI / 3;
     const crystalMesh = new THREE.Mesh(new THREE.OctahedronGeometry(.35), crystal);
     crystalMesh.position.set(Math.cos(a) * 2, .4, -16 + Math.sin(a) * 2);
-    scene.add(crystalMesh);
+    dungeonGroup.add(crystalMesh);
   }
 
   for (let i = 0; i < 32; i++) {
@@ -349,81 +382,146 @@ for (let z = -30; z <= 8; z += 6) {
     rock.position.set(x, .02, z);
     rock.rotation.set(Math.random(), Math.random(), Math.random());
     rock.scale.y = .45;
-    scene.add(rock);
+    dungeonGroup.add(rock);
   }
+}
+
+function buildLobby() {
+  lobbyGroup = new THREE.Group();
+  lobbyGroup.name = 'guild-lobby';
+  scene.add(lobbyGroup);
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x101c27, roughness: .8, metalness: .22 });
+  const stageMat = new THREE.MeshStandardMaterial({ color: 0x293b49, roughness: .48, metalness: .42 });
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xe2bd70, roughness: .35, metalness: .58, emissive: 0x573b12, emissiveIntensity: .4 });
+  const glowMat = new THREE.MeshStandardMaterial({ color: 0x62dff2, roughness: .25, metalness: .25, emissive: 0x146a8b, emissiveIntensity: 1.4 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x111923, roughness: .75, metalness: .25 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(52, 52), floorMat);
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -.34; lobbyGroup.add(floor);
+  const platform = new THREE.Mesh(new THREE.CylinderGeometry(8.4, 9, .32, 64), stageMat);
+  platform.position.set(0, -.16, 0); lobbyGroup.add(platform);
+  for (const [r1,r2,material,y] of [[7.35,7.52,goldMat,.012],[6.45,6.53,glowMat,.018]]) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(r1,r2,64),material);
+    ring.rotation.x=-Math.PI/2; ring.position.y=y; lobbyGroup.add(ring);
+  }
+  for(let i=0;i<4;i++){
+    const x=(i-1.5)*3.1;
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.72,.79,32),i%2?glowMat:goldMat);
+    ring.rotation.x=-Math.PI/2;ring.position.set(x,.025,.1);lobbyGroup.add(ring);
+    const sigil=new THREE.Mesh(new THREE.CircleGeometry(.52,32),darkMat);
+    sigil.rotation.x=-Math.PI/2;sigil.position.set(x,.014,.1);lobbyGroup.add(sigil);
+  }
+  const pillarMat=new THREE.MeshStandardMaterial({color:0x364653,roughness:.75,metalness:.3});
+  const left=new THREE.Mesh(new THREE.BoxGeometry(.72,4.8,.86),pillarMat);
+  left.position.set(-2.65,2.05,-5.15);lobbyGroup.add(left);
+  const right=left.clone();right.position.x=2.65;lobbyGroup.add(right);
+  const lintel=new THREE.Mesh(new THREE.BoxGeometry(6,.72,1.02),goldMat);
+  lintel.position.set(0,4.48,-5.15);lobbyGroup.add(lintel);
+  const portal=new THREE.Mesh(new THREE.TorusGeometry(2.2,.16,12,56),glowMat);
+  portal.position.set(0,2.56,-5.72);lobbyGroup.add(portal);
+  const portalInner=new THREE.Mesh(new THREE.CircleGeometry(2.08,48),new THREE.MeshBasicMaterial({color:0x11617e,transparent:true,opacity:.26,side:THREE.DoubleSide}));
+  portalInner.position.set(0,2.56,-5.82);lobbyGroup.add(portalInner);
+  for(const side of [-1,1]){
+    const plinth=new THREE.Mesh(new THREE.CylinderGeometry(.62,.78,.55,8),darkMat);
+    plinth.position.set(side*9.3,-.03,-3.2);lobbyGroup.add(plinth);
+    const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.7,1),new THREE.MeshStandardMaterial({color:side<0?0x69dff6:0xb9a0ff,emissive:side<0?0x167b9d:0x58358e,emissiveIntensity:1.5,metalness:.25,roughness:.25}));
+    crystal.position.set(side*9.3,1,-3.2);crystal.rotation.y=Math.PI/4;lobbyGroup.add(crystal);
+  }
+  for(let i=0;i<10;i++){
+    const a=i*Math.PI*2/10;
+    const rune=new THREE.Mesh(new THREE.OctahedronGeometry(.15,0),glowMat);
+    rune.position.set(Math.cos(a)*6.9,.25,Math.sin(a)*6.9);lobbyGroup.add(rune);
+  }
+  const portalLight=new THREE.PointLight(0x55d9ff,2.2,15);portalLight.position.set(0,3.1,-4.7);lobbyGroup.add(portalLight);
+  const warmLight=new THREE.PointLight(0xe9be72,1.1,17);warmLight.position.set(0,6,2);lobbyGroup.add(warmLight);
 }
 
 function trimMat() {
   return mat(0xc5a46b, .4, .6);
 }
 
-function makeHero(color = 0x72e6ff) {
+function makeHero(color = 0x72e6ff, heroClass = 'guardiao', skin = 'padrao') {
   const g = new THREE.Group();
-  const armor = mat(color, .55, .2);
-  const dark = mat(0x1b2430, .8);
-  const skin = mat(0xe2b99a);
-  const metal = mat(0x8fa6b4, .35, .6);
-
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.38, .55, 4, 7), armor);
-  torso.position.y = 1.2;
-  g.add(torso);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.27, 10, 8), skin);
-  head.position.y = 1.95;
-  g.add(head);
-
-  const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(.28, 10, 6, 0, Math.PI * 2, 0, Math.PI * .55),
-    dark
-  );
-  hair.position.y = 2.08;
-  g.add(hair);
-
-  const cape = new THREE.Mesh(new THREE.BoxGeometry(.56, .72, .12), dark);
-  cape.position.set(0, 1.25, .32);
-  g.add(cape);
-
-  for (const s of [-1, 1]) {
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.12, .43, 3, 5), armor);
-    arm.position.set(s * .48, 1.25, 0);
-    arm.rotation.z = s * -.13;
-    g.add(arm);
-
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.15, .45, 3, 5), dark);
-    leg.position.set(s * .2, .48, 0);
-    g.add(leg);
+  const classStyles = {
+    guardiao: { armor: 0x72cfe0, dark: 0x1b2a35, metal: 0xb5dce6 },
+    mago: { armor: 0x9b87e8, dark: 0x25203d, metal: 0xd5c8ff },
+    assassino: { armor: 0x5dc79b, dark: 0x142c28, metal: 0xa8f0d1 }
+  };
+  const skinStyles = {
+    padrao: null,
+    gelo: { armor: 0x76c9ed, dark: 0x153246, metal: 0xd2f5ff },
+    sombra: { armor: 0x8065c4, dark: 0x1b142c, metal: 0xc4b0ff },
+    ouro: { armor: 0xd9aa4f, dark: 0x49321b, metal: 0xffe7a0 },
+    brasa: { armor: 0xe46b4f, dark: 0x451e23, metal: 0xffbd86 }
+  };
+  heroClass = classStyles[heroClass] ? heroClass : 'guardiao';
+  skin = Object.prototype.hasOwnProperty.call(skinStyles, skin) ? skin : 'padrao';
+  const look = { ...classStyles[heroClass], ...(skinStyles[skin] || {}) };
+  const armor = mat(look.armor, .52, .24), dark = mat(look.dark, .8);
+  const metal = mat(look.metal, .3, .64);
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.38,.55,4,7),armor);
+  torso.position.y=1.2;g.add(torso);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.27,12,10),mat(0xe2b99a));
+  head.position.y=1.95;g.add(head);
+  const hair=new THREE.Mesh(new THREE.SphereGeometry(.28,12,8,0,Math.PI*2,0,Math.PI*.55),dark);
+  hair.position.y=2.08;g.add(hair);
+  const cape=new THREE.Mesh(new THREE.BoxGeometry(.56,.72,.12),dark);
+  cape.position.set(0,1.25,.32);g.add(cape);
+  for(const s of [-1,1]){
+    const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.12,.43,3,6),armor);
+    arm.position.set(s*.48,1.25,0);arm.rotation.z=s*-.13;g.add(arm);
+    const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.15,.45,3,6),dark);
+    leg.position.set(s*.2,.48,0);g.add(leg);
   }
-
-  const sword = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(.09, .75, .12), metal);
-  blade.position.y = .47;
-  sword.add(blade);
-
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(.32, .07, .16), trimMat());
-  guard.position.y = .12;
-  sword.add(guard);
-
-  sword.position.set(.56, 1.02, -.1);
-  sword.rotation.z = -.25;
-  g.add(sword);
-  g.userData.sword = sword;
-
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(.43, .49, 24),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .55, side: THREE.DoubleSide })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = .025;
-  g.add(ring);
-
-  g.userData.healthBar = makeHealthBar(g, 2.58, 1.3);
+  const weapon=new THREE.Group();
+  if(heroClass==='mago'){
+    const staff=new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,1.45,7),dark);staff.position.y=.46;weapon.add(staff);
+    const orb=new THREE.Mesh(new THREE.SphereGeometry(.19,12,10),new THREE.MeshStandardMaterial({color:look.metal,emissive:look.armor,emissiveIntensity:1.8,roughness:.2,metalness:.2}));
+    orb.position.y=1.2;weapon.add(orb);
+  }else if(heroClass==='assassino'){
+    for(const side of [-1,1]){
+      const dagger=new THREE.Mesh(new THREE.ConeGeometry(.105,.68,5),metal);dagger.position.set(side*.16,.44,0);dagger.rotation.z=Math.PI;weapon.add(dagger);
+      const hilt=new THREE.Mesh(new THREE.BoxGeometry(.12,.22,.12),dark);hilt.position.set(side*.16,.05,0);weapon.add(hilt);
+    }
+  }else{
+    const blade=new THREE.Mesh(new THREE.BoxGeometry(.09,.75,.12),metal);blade.position.y=.47;weapon.add(blade);
+    const guard=new THREE.Mesh(new THREE.BoxGeometry(.32,.07,.16),trimMat());guard.position.y=.12;weapon.add(guard);
+  }
+  weapon.position.set(.56,1.02,-.1);weapon.rotation.z=-.25;g.add(weapon);g.userData.sword=weapon;
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.43,.49,28),new THREE.MeshBasicMaterial({color:look.armor,transparent:true,opacity:.62,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.y=.025;g.add(ring);
+  g.userData.heroClass=heroClass;g.userData.skin=skin;g.userData.serverColor=color;g.userData.selectedSkill=null;
+  g.userData.healthBar=makeHealthBar(g,2.58,1.3);
   return g;
 }
 
+function replaceHeroModel(oldModel, heroClass, skin, color = undefined) {
+  if(!oldModel)return oldModel;
+  const previous={...oldModel.userData};
+  const savedColor=color??previous.serverColor??0x72e6ff;
+  const position=oldModel.position.clone(), rotation=oldModel.rotation.clone();
+  const next=makeHero(savedColor,heroClass,skin);
+  next.position.copy(position);next.rotation.copy(rotation);
+  const visualRefs={sword:next.userData.sword,healthBar:next.userData.healthBar,heroClass:next.userData.heroClass,skin:next.userData.skin,serverColor:savedColor,selectedSkill:previous.selectedSkill??null};
+  Object.assign(next.userData,previous,visualRefs);
+  scene.add(next);scene.remove(oldModel);
+  if(myPlayer===oldModel)myPlayer=next;
+  for(const [id,obj] of remotePlayers){if(obj===oldModel){remotePlayers.set(id,next);break;}}
+  return next;
+}
+function applyLocalLook(){
+  if(!myPlayer)return;
+  if(myPlayer.userData.heroClass!==myHeroClass||myPlayer.userData.skin!==mySkin)myPlayer=replaceHeroModel(myPlayer,myHeroClass,mySkin);
+  myPlayer.userData.selectedSkill=mySkill;
+  if(myPlayer.userData.healthBar)myPlayer.userData.healthBar.visible=!lobbyMode;
+}
+
 function createPlayer() {
-  myPlayer = makeHero();
+  myPlayer = makeHero(0x72e6ff, myHeroClass, mySkin);
   scene.add(myPlayer);
   myPlayer.position.set(0, 0, 3);
+  myPlayer.userData.serverX = 0;
+  myPlayer.userData.serverZ = 3;
+  myPlayer.userData.healthBar.visible = false;
 }
 
 function makeMonster(isBoss = false) {
@@ -464,7 +562,7 @@ function onResize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
 }
 addEventListener('resize', onResize);
 
