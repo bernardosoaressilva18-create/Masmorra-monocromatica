@@ -45,6 +45,8 @@ function newRoom(code) {
       z: -25 + Math.random() * 30,
       alive: true,
       isBoss: i === 6,
+      hp: i === 6 ? 180 : 60,
+      maxHp: i === 6 ? 180 : 60,
       lastAttackAt: 0
     });
   }
@@ -83,7 +85,7 @@ function state(room) {
 wss.on('connection', ws => {
   const player = {
   id: String(nextId++),
-  ws, name: 'Aventureiro', x: 0, z: 3, rot: 0, hp: 100,
+  ws, name: 'Aventureiro', x: 0, z: 3, rot: 0, hp: 100, maxHp: 100,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   room: null,
   lootDrops: [],
@@ -117,6 +119,7 @@ wss.on('connection', ws => {
       player.x = 0;
       player.z = 3;
       player.hp = 100;
+      player.maxHp = 100;
       room.players.set(player.id, player);
 
       ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code }));
@@ -137,11 +140,16 @@ wss.on('connection', ws => {
       const target = room.monsters.find(m => m.alive &&
         Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
       if (target) {
-        target.alive = false;
-        const remaining = room.monsters.filter(monster => monster.alive).length;
-        broadcast(room, { type: 'notice', text: player.name + (target.isBoss ? ' derrotou o guardião!' : ' derrotou um monstro!') });
-        broadcast(room, { type: 'monsterDefeated', id: target.id, boss: Boolean(target.isBoss), remaining });
-        if (remaining === 0) broadcast(room, { type: 'notice', text: 'Masmorra concluída! Todos os monstros foram derrotados.' });
+        const maxHp = target.maxHp || (target.isBoss ? 180 : 60);
+        target.maxHp = maxHp;
+        target.hp = integerHealth(Math.max(0, (target.hp ?? maxHp) - 20));
+        if (target.hp <= 0) {
+          target.alive = false;
+          const remaining = room.monsters.filter(monster => monster.alive).length;
+          broadcast(room, { type: 'notice', text: player.name + (target.isBoss ? ' derrotou o guardião!' : ' derrotou um monstro!') });
+          broadcast(room, { type: 'monsterDefeated', id: target.id, boss: Boolean(target.isBoss), remaining });
+          if (remaining === 0) broadcast(room, { type: 'notice', text: 'Masmorra concluída! Todos os monstros foram derrotados.' });
+        }
       }
       broadcast(room, { type: 'attack', id: player.id });
       broadcast(room, state(room));
