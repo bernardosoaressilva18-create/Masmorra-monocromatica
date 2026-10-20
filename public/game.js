@@ -9,6 +9,12 @@ let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackC
 const remotePlayers = new Map(), monsterMeshes = new Map();
 const world = { width: 30, depth: 46 };
 
+// Exibe HP sempre como número inteiro, mesmo que o servidor envie decimais.
+function formatHealth(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+}
+
 /* Áudio procedural: funciona sem baixar arquivos externos. */
 let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
 let musicEnabled = true, sfxEnabled = true, musicNodes = [], stepTimer = 0, lastGrowlAt = 0, lastDamageAt = 0, victoryPlayed = false, masterVolume = 0.55;
@@ -460,7 +466,7 @@ function handleMessage(m) {
     if (m.id === playerId) {
       lastDamageAt = performance.now();
       playDamageSound();
-      $('hpText').textContent = m.hp;
+      $('hpText').textContent = formatHealth(m.hp);
       showNotice(m.hp <= 0 ? 'Você foi derrotado e voltou à entrada!' : 'Você recebeu dano!');
     }
     return;
@@ -549,7 +555,17 @@ function updateState(m) {
   }
 
   $('monsterText').textContent = alive + ' monstros restantes';
-  $('hpText').textContent = (m.players.find(p => p.id === playerId)?.hp ?? $('hpText').textContent);
+  const mine = m.players.find(p => p.id === playerId);
+  if (mine && mine.hp != null) $('hpText').textContent = formatHealth(mine.hp);
+
+  // Se monstros receberem HP no estado do servidor, mantém os valores inteiros
+  // para qualquer interface de vida que use estes dados.
+  for (const mtr of m.monsters) {
+    const obj = monsterMeshes.get(mtr.id);
+    if (!obj || mtr.hp == null) continue;
+    obj.userData.hp = formatHealth(mtr.hp);
+    obj.userData.maxHp = formatHealth(mtr.maxHp ?? mtr.hp);
+  }
   if (alive > 0) victoryPlayed = false;
   $('progressFill').style.width = ((7 - alive) / 7 * 100) + '%';
   $('killText').textContent = 7 - alive;
