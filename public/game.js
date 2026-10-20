@@ -11,7 +11,7 @@ const world = { width: 30, depth: 46 };
 
 /* Áudio procedural: funciona sem baixar arquivos externos. */
 let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
-let musicEnabled = true, sfxEnabled = true, musicNodes = [], stepTimer = 0, lastGrowlAt = 0, lastDamageAt = 0, victoryPlayed = false;
+let musicEnabled = true, sfxEnabled = true, musicNodes = [], stepTimer = 0, lastGrowlAt = 0, lastDamageAt = 0, victoryPlayed = false, masterVolume = 0.55;
 let lookSensitivity = 0.010, verticalSensitivity = 0.005;
 
 function initAudio() {
@@ -22,7 +22,7 @@ function initAudio() {
     masterGain = audioCtx.createGain();
     musicGain = audioCtx.createGain();
     sfxGain = audioCtx.createGain();
-    masterGain.gain.value = 0.55;
+    masterGain.gain.value = masterVolume;
     musicGain.gain.value = musicEnabled ? 0.19 : 0;
     sfxGain.gain.value = sfxEnabled ? 0.65 : 0;
     musicGain.connect(masterGain);
@@ -864,6 +864,7 @@ $('musicToggle')?.addEventListener('click', () => { initAudio(); toggleMusic(); 
 $('sfxToggle')?.addEventListener('click', () => { initAudio(); toggleSfx(); });
 $('volume')?.addEventListener('input', e => {
   const value = Number(e.target.value);
+  masterVolume = value;
   $('volumeValue').textContent = Math.round(value * 100) + '%';
   if (masterGain && audioCtx) masterGain.gain.setTargetAtTime(value, audioCtx.currentTime, .05);
 });
