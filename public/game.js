@@ -564,8 +564,8 @@ function rendererPointerSetup() {
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    yaw -= dx * .006;
-    pitch = THREE.MathUtils.clamp(pitch + dy * .003, -.1, .8);
+    yaw -= dx * .010;
+    pitch = THREE.MathUtils.clamp(pitch + dy * .005, -.1, .8);
   });
 
   const end = e => {
