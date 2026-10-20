@@ -23,6 +23,14 @@
     <label for="playerName">NOME DO AVENTUREIRO</label>
     <input id="playerName" maxlength="16" placeholder="Digite seu nome" autocomplete="nickname" value="Aventureiro">
     <button id="playBtn" class="primary">⚔ JOGAR ONLINE</button>
+    <div class="audio-settings">
+      <div class="audio-buttons">
+        <button id="musicToggle" type="button">♫ MÚSICA: LIGADA</button>
+        <button id="sfxToggle" type="button">🔊 EFEITOS: LIGADOS</button>
+      </div>
+      <label for="sensitivity">SENSIBILIDADE DA CÂMERA <span id="sensitivityValue">10%</span></label>
+      <input id="sensitivity" type="range" min="0.003" max="0.020" step="0.001" value="0.010">
+    </div>
     <div class="split"><span></span><small>OU ENTRE NA SALA DE UM AMIGO</small><span></span></div>
     <div class="joinrow">
       <input id="roomCode" maxlength="6" placeholder="CÓDIGO DA SALA" autocapitalize="characters">
