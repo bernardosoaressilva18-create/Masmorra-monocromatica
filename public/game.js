@@ -6,7 +6,8 @@ const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-let renderScale = Math.min(window.devicePixelRatio || 1, 1.5);
+// Resolução interna limitada para reduzir o custo da GPU, principalmente no celular.
+let renderScale = Math.min(window.devicePixelRatio || 1, 1.15);
 let fpsFrames = 0, fpsLastSample = performance.now(), fpsLastAdjust = performance.now(), fpsSmoothed = 60;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const world = { width: 30, depth: 46 };
@@ -17,7 +18,7 @@ function init3D() {
   scene.fog = new THREE.FogExp2(0x090d14, .018);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 120);
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: window.innerWidth > 900, powerPreference: 'high-performance' });
   renderer.setPixelRatio(renderScale);
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = false;
@@ -63,6 +64,15 @@ const stoneDark = mat(0x303640, 1);
   });
 
   box(30, .8, 48, floor, 0, -.5, -11);
+
+  // Superfície única ligeiramente acima da base para evitar artefatos visuais no piso.
+  const floorSurface = new THREE.Mesh(
+    new THREE.PlaneGeometry(29.9, 47.9),
+    new THREE.MeshStandardMaterial({ color: 0x292e36, roughness: 1, metalness: 0 })
+  );
+  floorSurface.rotation.x = -Math.PI / 2;
+  floorSurface.position.set(0, -0.092, -11);
+  scene.add(floorSurface);
 
   // Piso contínuo, sem juntas elevadas que possam parecer riscos pretos.
 
@@ -266,11 +276,11 @@ function updatePerformance(now) {
 
   if (now - fpsLastAdjust < 1800) return;
   let nextScale = renderScale;
-  const maxScale = Math.min(window.devicePixelRatio || 1, 1.5);
-  if (fpsSmoothed < 42 && renderScale > 0.7) {
-    nextScale = Math.max(0.7, renderScale - 0.15);
-  } else if (fpsSmoothed > 56 && renderScale < maxScale) {
-    nextScale = Math.min(maxScale, renderScale + 0.1);
+  const maxScale = Math.min(window.devicePixelRatio || 1, 1.15);
+  if (fpsSmoothed < 48 && renderScale > 0.55) {
+    nextScale = Math.max(0.55, renderScale - 0.12);
+  } else if (fpsSmoothed > 58 && renderScale < maxScale) {
+    nextScale = Math.min(maxScale, renderScale + 0.05);
   }
 
   if (nextScale !== renderScale) {
