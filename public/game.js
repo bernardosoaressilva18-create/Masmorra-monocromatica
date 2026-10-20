@@ -601,10 +601,12 @@ function connect(code = '') {
   });
 
   ws.addEventListener('close', () => {
-    if (started) {
-      started = false;
-      hud.classList.add('hidden');
-      menu.classList.remove('hidden');
+    if (started || inLobby) {
+      started=false; inLobby=false; lobbyMode=true;
+      hud.classList.add('hidden'); $('lobby').classList.add('hidden');
+      $('lobbyModal').classList.add('hidden'); menu.classList.remove('hidden');
+      if(dungeonGroup)dungeonGroup.visible=false;
+      if(lobbyGroup)lobbyGroup.visible=true;
       setStatus('Conexão perdida. Tente entrar novamente.');
     }
   });
@@ -633,21 +635,33 @@ function handleMessage(m) {
   }
 
   if (m.type === 'joined') {
-    playerId = m.id;
-    roomCode = m.room;
-    started = true;
-    menu.classList.add('hidden');
-    loading.classList.add('hidden');
-    hud.classList.remove('hidden');
-    $('roomLabel').textContent = roomCode;
-    $('loadingText').textContent = '';
-    showNotice('Você entrou na masmorra!');
-    playJoinSound();
-    return;
+    playerId=m.id; roomCode=m.room; started=false; inLobby=true; lobbyMode=true; playerReady=false;
+    menu.classList.add('hidden'); hud.classList.add('hidden');
+    $('lobby').classList.remove('hidden'); $('lobbyModal').classList.add('hidden');
+    loading.classList.add('hidden'); $('lobbyRoomCode').textContent=roomCode;
+    $('lobbyStatus').textContent='Conectado! Escolha sua classe e prepare-se.';
+    if(dungeonGroup)dungeonGroup.visible=false; if(lobbyGroup)lobbyGroup.visible=true;
+    if(myPlayer){myPlayer.position.set(0,0,.1);myPlayer.userData.healthBar.visible=false;}
+    send({type:'heroClass',heroClass:myHeroClass}); send({type:'skin',skin:mySkin});
+    if(mySkill)send({type:'selectSkill',skill:mySkill});
+    renderLobbyState(lobbyRosterData); playJoinSound(); return;
+  }
+  if (m.type === 'gameStarted') {
+    inLobby=false; lobbyMode=false; started=true;
+    menu.classList.add('hidden'); $('lobby').classList.add('hidden'); $('lobbyModal').classList.add('hidden');
+    loading.classList.add('hidden'); hud.classList.remove('hidden'); $('roomLabel').textContent=roomCode;
+    if(dungeonGroup)dungeonGroup.visible=true; if(lobbyGroup)lobbyGroup.visible=false;
+    if(myPlayer){myPlayer.position.set(myPlayer.userData.serverX??0,0,myPlayer.userData.serverZ??3);myPlayer.userData.healthBar.visible=true;}
+    for(const obj of remotePlayers.values()){
+      obj.position.set(obj.userData.serverX??0,0,obj.userData.serverZ??3);
+      obj.userData.targetX=obj.userData.serverX??0;obj.userData.targetZ=obj.userData.serverZ??3;
+      if(obj.userData.healthBar)obj.userData.healthBar.visible=true;
+    }
+    showNotice('A equipe entrou na masmorra!'); return;
   }
 
   if (m.type === 'notice') {
-    showNotice(m.text);
+    if(inLobby)$('lobbyStatus').textContent=m.text; else showNotice(m.text);
     return;
   }
 
@@ -694,77 +708,85 @@ function handleMessage(m) {
 
 function updateState(m) {
   const incoming = new Set();
-
-  for (const p of m.players) {
+  const players = Array.isArray(m.players) ? m.players : [];
+  lobbyRosterData = players;
+  for (let index = 0; index < players.length; index++) {
+    const p = players[index];
     incoming.add(p.id);
-
+    const slotX = (index - (players.length - 1) / 2) * 3.1;
     if (p.id === playerId) {
-      if (myPlayer) {
-        myPlayer.userData.serverX = p.x;
-        myPlayer.userData.serverZ = p.z;
-        updateHealthBar(myPlayer.userData.healthBar, p.hp ?? 100, p.maxHp ?? 100, p.name || $('playerName').value || 'Você');
+      if (myPlayer && (myPlayer.userData.heroClass !== (p.heroClass || 'guardiao') || myPlayer.userData.skin !== (p.skin || 'padrao'))) {
+        myPlayer = replaceHeroModel(myPlayer, p.heroClass || 'guardiao', p.skin || 'padrao', p.color);
       }
+      if (myPlayer) {
+        myPlayer.userData.serverX = Number(p.x) || 0;
+        myPlayer.userData.serverZ = Number(p.z) || 0;
+        myPlayer.userData.serverColor = p.color;
+        myPlayer.userData.selectedSkill = p.selectedSkill || null;
+        if (lobbyMode) { myPlayer.position.set(slotX, 0, .1); myPlayer.rotation.y = 0; }
+        if (myPlayer.userData.healthBar) {
+          myPlayer.userData.healthBar.visible = !lobbyMode;
+          updateHealthBar(myPlayer.userData.healthBar, p.hp ?? 100, p.maxHp ?? 100, p.name || $('playerName').value || 'Você');
+        }
+      }
+      myHeroClass = p.heroClass || myHeroClass;
+      mySkin = p.skin || mySkin;
+      mySkill = p.selectedSkill || null;
+      playerReady = Boolean(p.ready);
       continue;
     }
-
     let obj = remotePlayers.get(p.id);
     if (!obj) {
-      obj = makeHero(p.color);
-      scene.add(obj);
-      remotePlayers.set(p.id, obj);
+      obj = makeHero(p.color, p.heroClass || 'guardiao', p.skin || 'padrao');
+      scene.add(obj); remotePlayers.set(p.id, obj);
+    } else if (obj.userData.heroClass !== (p.heroClass || 'guardiao') || obj.userData.skin !== (p.skin || 'padrao')) {
+      obj = replaceHeroModel(obj, p.heroClass || 'guardiao', p.skin || 'padrao', p.color);
     }
-
-    obj.userData.targetX = p.x;
-    obj.userData.targetZ = p.z;
-    obj.userData.targetRot = p.rot;
+    obj.userData.serverColor = p.color;
+    obj.userData.serverX = Number(p.x) || 0;
+    obj.userData.serverZ = Number(p.z) || 0;
+    obj.userData.selectedSkill = p.selectedSkill || null;
+    obj.userData.targetX = lobbyMode ? slotX : p.x;
+    obj.userData.targetZ = lobbyMode ? .1 : p.z;
+    obj.userData.targetRot = lobbyMode ? 0 : p.rot;
     obj.userData.name = p.name;
-    updateHealthBar(obj.userData.healthBar, p.hp ?? 100, p.maxHp ?? 100, p.name || 'Aliado');
-  }
-
-  for (const [id, obj] of remotePlayers) {
-    if (!incoming.has(id)) {
-      scene.remove(obj);
-      remotePlayers.delete(id);
+    if (obj.userData.healthBar) {
+      obj.userData.healthBar.visible = !lobbyMode;
+      updateHealthBar(obj.userData.healthBar, p.hp ?? 100, p.maxHp ?? 100, p.name || 'Aliado');
     }
   }
-
+  for (const [id,obj] of remotePlayers) {
+    if (!incoming.has(id)) { scene.remove(obj); remotePlayers.delete(id); }
+  }
+  if (lobbyMode) {
+    for (const obj of monsterMeshes.values()) obj.visible = false;
+    renderLobbyState(players);
+    return;
+  }
   let alive = 0;
-  for (const mtr of m.monsters) {
+  for (const mtr of m.monsters || []) {
     if (mtr.alive) alive++;
-
     let obj = monsterMeshes.get(mtr.id);
-    if (!obj) {
-      obj = makeMonster(Boolean(mtr.isBoss));
-      scene.add(obj);
-      monsterMeshes.set(mtr.id, obj);
-    }
-
-    obj.userData.targetX = mtr.x;
-    obj.userData.targetZ = mtr.z;
-    obj.userData.alive = mtr.alive;
-    obj.visible = mtr.alive;
+    if (!obj) { obj = makeMonster(Boolean(mtr.isBoss)); scene.add(obj); monsterMeshes.set(mtr.id,obj); }
+    obj.userData.targetX = mtr.x; obj.userData.targetZ = mtr.z;
+    obj.userData.alive = mtr.alive; obj.visible = mtr.alive;
+    if (obj.userData.healthBar) obj.userData.healthBar.visible = mtr.alive;
   }
-
   $('monsterText').textContent = alive + ' monstros restantes';
-  const mine = m.players.find(p => p.id === playerId);
+  const mine = players.find(p => p.id === playerId);
   if (mine && mine.hp != null) $('hpText').textContent = formatHealth(mine.hp);
-
-  // Atualiza a barra dos monstros e do guardião em todos os clientes.
-  for (const mtr of m.monsters) {
+  for (const mtr of m.monsters || []) {
     const obj = monsterMeshes.get(mtr.id);
     if (!obj) continue;
     const fallbackMax = mtr.isBoss ? 180 : 60;
     obj.userData.hp = formatHealth(mtr.hp ?? fallbackMax);
     obj.userData.maxHp = formatHealth(mtr.maxHp ?? fallbackMax);
-    updateHealthBar(obj.userData.healthBar, obj.userData.hp, obj.userData.maxHp, mtr.isBoss ? 'GUARDIÃO' : 'MONSTRO');
+    updateHealthBar(obj.userData.healthBar,obj.userData.hp,obj.userData.maxHp,mtr.isBoss?'GUARDIÃO':'MONSTRO');
   }
   if (alive > 0) victoryPlayed = false;
-  $('progressFill').style.width = ((7 - alive) / 7 * 100) + '%';
-  $('killText').textContent = 7 - alive;
-
-  $('playersList').innerHTML = m.players.map(p =>
-    `<div class="player-chip">● ${escapeHTML(p.name)}${p.id === playerId ? ' (você)' : ''}</div>`
-  ).join('');
+  $('progressFill').style.width = ((7-alive)/7*100)+'%';
+  $('killText').textContent = 7-alive;
+  $('playersList').innerHTML = players.map(p => `<div class="player-chip">● ${escapeHTML(p.name)}${p.id===playerId?' (você)':''}</div>`).join('');
 }
 
 function escapeHTML(s) {
