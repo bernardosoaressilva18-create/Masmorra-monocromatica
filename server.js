@@ -112,8 +112,13 @@ wss.on('connection', ws => {
         || Math.random().toString(36).slice(2, 8).toUpperCase();
 
       if (player.room) {
-        const old = rooms.get(player.room);
-        if (old) old.players.delete(player.id);
+        const oldCode = player.room;
+        const oldRoom = rooms.get(oldCode);
+        if (oldRoom) {
+          oldRoom.players.delete(player.id);
+          broadcast(oldRoom, state(oldRoom));
+          if (oldRoom.players.size === 0) rooms.delete(oldCode);
+        }
       }
 
       let room = rooms.get(code);
@@ -200,9 +205,11 @@ wss.on('connection', ws => {
       broadcast(room, { type: 'attack', id: player.id });
       broadcast(room, state(room));
     } else if (msg.type === 'leave') {
+      const oldCode = player.room;
       room.players.delete(player.id);
       player.room = null;
       broadcast(room, state(room));
+      if (room.players.size === 0 && oldCode) rooms.delete(oldCode);
     }
   });
 
