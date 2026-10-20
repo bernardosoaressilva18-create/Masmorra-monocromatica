@@ -59,13 +59,24 @@ function broadcast(room, message) {
   }
 }
 
+function integerHealth(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+}
+
 function state(room) {
   return {
     type: 'state',
     players: [...room.players.values()].map(p => ({
-      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp
+      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color,
+      ...(p.hp == null ? {} : { hp: integerHealth(p.hp) }),
+      ...(p.maxHp == null ? {} : { maxHp: integerHealth(p.maxHp) })
     })),
-    monsters: room.monsters
+    monsters: room.monsters.map(m => ({
+      ...m,
+      ...(m.hp == null ? {} : { hp: integerHealth(m.hp) }),
+      ...(m.maxHp == null ? {} : { maxHp: integerHealth(m.maxHp) })
+    }))
   };
 }
 
@@ -175,7 +186,7 @@ setInterval(() => {
 
       if (target && nearest <= 1.8 && Date.now() - monster.lastAttackAt > 1000) {
         monster.lastAttackAt = Date.now();
-        target.hp = Math.max(0, target.hp - 8);
+        target.hp = integerHealth(Math.max(0, target.hp - 8));
         const damage = { type: 'damage', id: target.id, hp: target.hp };
         if (target.ws.readyState === WebSocket.OPEN) target.ws.send(JSON.stringify(damage));
         if (target.hp <= 0) {
