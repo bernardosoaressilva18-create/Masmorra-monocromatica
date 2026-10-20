@@ -32,6 +32,7 @@ function makeHealthBar(parent, y, width = 1.25) {
   const sprite = new THREE.Sprite(material);
   sprite.position.set(0, y, 0);
   sprite.scale.set(width, 0.42, 1);
+  sprite.userData.baseScale = { width, height: 0.42 };
   sprite.renderOrder = 4;
   sprite.userData.healthCanvas = canvas;
   sprite.userData.healthContext = ctx;
@@ -91,6 +92,17 @@ function updateHealthBar(sprite, hp, maxHp = 100, name = '') {
   sprite.userData.lastName = displayName;
 }
 
+
+// Barras discretas à distância e mais legíveis quando o personagem está perto.
+function updateHealthBarDistance(sprite, owner) {
+  if (!sprite || !owner || !camera) return;
+  const distance = camera.position.distanceTo(owner.getWorldPosition(new THREE.Vector3()));
+  const base = sprite.userData.baseScale || { width: 1.25, height: 0.42 };
+  const scale = THREE.MathUtils.clamp(12 / Math.max(distance, 1), 0.68, 1.12);
+  sprite.scale.set(base.width * scale, base.height * scale, 1);
+  // Ao longe, a barra fica mais discreta sem desaparecer completamente.
+  sprite.material.opacity = THREE.MathUtils.clamp(1.15 - distance / 38, 0.38, 1);
+}
 
 /* Áudio procedural: funciona sem baixar arquivos externos. */
 let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
@@ -902,6 +914,7 @@ const right = new THREE.Vector3(
     );
 
     obj.rotation.y += angleDiff * remoteSmooth;
+    updateHealthBarDistance(obj.userData.healthBar, obj);
   }
 
   // Movimento suave dos monstros
@@ -920,6 +933,7 @@ const right = new THREE.Vector3(
       0.05 + Math.sin(performance.now() * 0.002 + obj.position.x) * 0.08;
 
     obj.rotation.y += dt * (obj.userData.isBoss ? 0.22 : 0.35);
+    updateHealthBarDistance(obj.userData.healthBar, obj);
     if (started && obj.visible && myPlayer) {
       const distance = Math.hypot(obj.position.x - myPlayer.position.x, obj.position.z - myPlayer.position.z);
       if (distance < 5 && performance.now() - lastGrowlAt > 4200) {
@@ -931,6 +945,7 @@ const right = new THREE.Vector3(
 
   // Câmera em terceira pessoa com acompanhamento suave
   if (myPlayer) {
+    updateHealthBarDistance(myPlayer.userData.healthBar, myPlayer);
     const target = new THREE.Vector3(
       myPlayer.position.x,
       1.2,
