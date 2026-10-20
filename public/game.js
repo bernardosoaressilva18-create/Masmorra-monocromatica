@@ -641,7 +641,7 @@ function handleMessage(m) {
     loading.classList.add('hidden'); $('lobbyRoomCode').textContent=roomCode;
     $('lobbyStatus').textContent='Conectado! Escolha sua classe e prepare-se.';
     if(dungeonGroup)dungeonGroup.visible=false; if(lobbyGroup)lobbyGroup.visible=true;
-    if(myPlayer){myPlayer.position.set(0,0,.1);myPlayer.userData.healthBar.visible=false;}
+    if(myPlayer){myPlayer.position.set(0,0,.1);myPlayer.rotation.y=Math.PI;myPlayer.userData.healthBar.visible=false;}
     send({type:'heroClass',heroClass:myHeroClass}); send({type:'skin',skin:mySkin});
     if(mySkill)send({type:'selectSkill',skill:mySkill});
     renderLobbyState(lobbyRosterData); playJoinSound(); return;
@@ -651,10 +651,10 @@ function handleMessage(m) {
     menu.classList.add('hidden'); $('lobby').classList.add('hidden'); $('lobbyModal').classList.add('hidden');
     loading.classList.add('hidden'); hud.classList.remove('hidden'); $('roomLabel').textContent=roomCode;
     if(dungeonGroup)dungeonGroup.visible=true; if(lobbyGroup)lobbyGroup.visible=false;
-    if(myPlayer){myPlayer.position.set(myPlayer.userData.serverX??0,0,myPlayer.userData.serverZ??3);myPlayer.userData.healthBar.visible=true;}
+    if(myPlayer){myPlayer.position.set(myPlayer.userData.serverX??0,0,myPlayer.userData.serverZ??3);myPlayer.rotation.y=0;myPlayer.userData.healthBar.visible=true;}
     for(const obj of remotePlayers.values()){
       obj.position.set(obj.userData.serverX??0,0,obj.userData.serverZ??3);
-      obj.userData.targetX=obj.userData.serverX??0;obj.userData.targetZ=obj.userData.serverZ??3;
+      obj.userData.targetX=obj.userData.serverX??0;obj.userData.targetZ=obj.userData.serverZ??3;obj.userData.targetRot=0;
       if(obj.userData.healthBar)obj.userData.healthBar.visible=true;
     }
     showNotice('A equipe entrou na masmorra!'); return;
@@ -723,7 +723,7 @@ function updateState(m) {
         myPlayer.userData.serverZ = Number(p.z) || 0;
         myPlayer.userData.serverColor = p.color;
         myPlayer.userData.selectedSkill = p.selectedSkill || null;
-        if (lobbyMode) { myPlayer.position.set(slotX, 0, .1); myPlayer.rotation.y = 0; }
+        if (lobbyMode) { myPlayer.position.set(slotX, 0, .1); myPlayer.rotation.y = Math.PI; }
         if (myPlayer.userData.healthBar) {
           myPlayer.userData.healthBar.visible = !lobbyMode;
           updateHealthBar(myPlayer.userData.healthBar, p.hp ?? 100, p.maxHp ?? 100, p.name || $('playerName').value || 'Você');
@@ -748,7 +748,7 @@ function updateState(m) {
     obj.userData.selectedSkill = p.selectedSkill || null;
     obj.userData.targetX = lobbyMode ? slotX : p.x;
     obj.userData.targetZ = lobbyMode ? .1 : p.z;
-    obj.userData.targetRot = lobbyMode ? 0 : p.rot;
+    obj.userData.targetRot = lobbyMode ? Math.PI : p.rot;
     obj.userData.name = p.name;
     if (obj.userData.healthBar) {
       obj.userData.healthBar.visible = !lobbyMode;
@@ -1131,7 +1131,10 @@ const right = new THREE.Vector3(
 
   // Câmera panorâmica no lobby e terceira pessoa na masmorra.
   if(lobbyMode){
-    const lobbyCameraTarget=new THREE.Vector3(0,5.8,15.2);
+    const halfVerticalFov = camera.fov * Math.PI / 360;
+    const tanHalfHorizontalFov = Math.tan(Math.atan(Math.tan(halfVerticalFov) * camera.aspect));
+    const viewingDistance = Math.max(10.5, 5.4 / Math.max(tanHalfHorizontalFov, .1));
+    const lobbyCameraTarget = new THREE.Vector3(0, camera.aspect < .7 ? 5.8 : 5.2, -1.1 + viewingDistance);
     camera.position.lerp(lobbyCameraTarget,cameraSmooth);
     camera.lookAt(0,1.45,-1.1);
   }else if(myPlayer){
