@@ -218,6 +218,11 @@ wss.on('connection', ws => {
 
 setInterval(() => {
   for (const room of rooms.values()) {
+    // Enquanto a equipe está no lobby, não iniciar ataques nem mover monstros.
+    if (!room.started) {
+      broadcast(room, state(room));
+      continue;
+    }
     const players = [...room.players.values()];
 
     for (const monster of room.monsters) {
