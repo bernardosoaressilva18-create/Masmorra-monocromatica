@@ -43,7 +43,9 @@ function newRoom(code) {
       id: 'm' + i,
       x: (Math.random() - 0.5) * 20,
       z: -25 + Math.random() * 30,
-      alive: true
+      alive: true,
+      isBoss: i === 6,
+      lastAttackAt: 0
     });
   }
   rooms.set(code, room);
@@ -61,7 +63,7 @@ function state(room) {
   return {
     type: 'state',
     players: [...room.players.values()].map(p => ({
-      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color
+      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp
     })),
     monsters: room.monsters
   };
@@ -70,7 +72,7 @@ function state(room) {
 wss.on('connection', ws => {
   const player = {
   id: String(nextId++),
-  ws, name: 'Aventureiro', x: 0, z: 3, rot: 0,
+  ws, name: 'Aventureiro', x: 0, z: 3, rot: 0, hp: 100,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   room: null,
   lootDrops: [],
@@ -103,6 +105,7 @@ wss.on('connection', ws => {
       player.name = String(msg.name || 'Aventureiro').slice(0, 18);
       player.x = 0;
       player.z = 3;
+      player.hp = 100;
       room.players.set(player.id, player);
 
       ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code }));
@@ -124,7 +127,10 @@ wss.on('connection', ws => {
         Math.hypot(m.x - player.x, m.z - player.z) < 3.2);
       if (target) {
         target.alive = false;
-        broadcast(room, { type: 'notice', text: player.name + ' derrotou um monstro!' });
+        const remaining = room.monsters.filter(monster => monster.alive).length;
+        broadcast(room, { type: 'notice', text: player.name + (target.isBoss ? ' derrotou o guardião!' : ' derrotou um monstro!') });
+        broadcast(room, { type: 'monsterDefeated', id: target.id, boss: Boolean(target.isBoss), remaining });
+        if (remaining === 0) broadcast(room, { type: 'notice', text: 'Masmorra concluída! Todos os monstros foram derrotados.' });
       }
       broadcast(room, { type: 'attack', id: player.id });
       broadcast(room, state(room));
@@ -167,7 +173,20 @@ setInterval(() => {
         }
       }
 
-      if (target && nearest > 1.8 && nearest < 20) {
+      if (target && nearest <= 1.8 && Date.now() - monster.lastAttackAt > 1000) {
+        monster.lastAttackAt = Date.now();
+        target.hp = Math.max(0, target.hp - 8);
+        const damage = { type: 'damage', id: target.id, hp: target.hp };
+        if (target.ws.readyState === WebSocket.OPEN) target.ws.send(JSON.stringify(damage));
+        if (target.hp <= 0) {
+          target.hp = 100;
+          target.x = 0;
+          target.z = 3;
+          if (target.ws.readyState === WebSocket.OPEN) {
+            target.ws.send(JSON.stringify({ type: 'damage', id: target.id, hp: target.hp, respawned: true }));
+          }
+        }
+      } else if (target && nearest > 1.8 && nearest < 20) {
         const dx = target.x - monster.x;
         const dz = target.z - monster.z;
         const distance = Math.hypot(dx, dz);
