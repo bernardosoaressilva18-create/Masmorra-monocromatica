@@ -123,6 +123,10 @@ wss.on('connection', ws => {
 
       let room = rooms.get(code);
       if (!room) room = newRoom(code);
+      if (room.players.size >= 4 && !room.players.has(player.id)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Esta sala já tem 4 aventureiros. Crie outra sala para jogar.' }));
+        return;
+      }
 
       player.room = code;
       player.name = String(msg.name || 'Aventureiro').slice(0, 18);
