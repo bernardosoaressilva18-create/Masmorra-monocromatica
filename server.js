@@ -205,7 +205,16 @@ function broadcast(room, message) {
   }
 }
 
+function ensureRoomHost(room) {
+  const currentHost = room.hostId ? room.players.get(room.hostId) : null;
+  if (!currentHost || currentHost.connected === false) {
+    room.hostId = [...room.players.values()].find(p => p.connected !== false)?.id || null;
+  }
+}
+
 function state(room) {
+  // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
+  ensureRoomHost(room);
   return {
     type: 'state',
     players: [...room.players.values()].filter(p => p.connected !== false).map(p => ({
@@ -256,8 +265,17 @@ wss.on('connection', ws => {
         || Math.random().toString(36).slice(2, 8).toUpperCase();
 
       if (player.room) {
-        const old = rooms.get(player.room);
-        if (old) old.players.delete(player.id);
+        const oldCode = player.room;
+        const old = rooms.get(oldCode);
+        if (old) {
+          old.players.delete(player.id);
+          ensureRoomHost(old);
+          if (old.players.size === 0 && !old.started) {
+            rooms.delete(oldCode);
+          } else {
+            broadcast(old, state(old));
+          }
+        }
         player.room = null;
       }
 
@@ -299,6 +317,8 @@ wss.on('connection', ws => {
         room.players.set(player.id, player);
       }
 
+      // Se o anfitrião anterior saiu ou deixou um ID inválido, promover alguém conectado.
+      ensureRoomHost(room);
       if (!room.hostId) room.hostId = player.id;
       room.emptySince = 0;
       ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code, resumeToken: player.resumeToken, resumed }));
