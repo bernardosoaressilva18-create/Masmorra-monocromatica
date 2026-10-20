@@ -9,7 +9,7 @@ let inLobby = false, lobbyMode = true, dungeonGroup = null, lobbyGroup = null;
 let myHeroClass = 'guardiao', mySkin = 'padrao', mySkill = null, playerReady = false, lobbyRosterData = [];
 let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map();
-const CLASS_NAMES = { cavalheiro: 'cavalheiro', mago: 'Mago', assassino: 'Assassino' };
+const CLASS_NAMES = { punheteiro: 'punheteiro', mago: 'Mago', assassino: 'Assassino' };
 const SKIN_NAMES = { padrao: 'Padrão', gelo: 'Gelo', sombra: 'Sombra', ouro: 'Ouro', brasa: 'Brasa' };
 const SKILL_INFO = {
   golpe_pesado: { title: 'Golpe pesado', description: 'Seus ataques causam 30 de dano em vez de 20.', icon: '⚔' },
