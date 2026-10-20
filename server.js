@@ -37,7 +37,7 @@ const rooms = new Map();
 let nextId = 1;
 
 function newRoom(code) {
-  const room = { players: new Map(), monsters: [] };
+  const room = { players: new Map(), monsters: [], started: false };
   for (let i = 0; i < 7; i++) {
     room.monsters.push({
       id: 'm' + i,
@@ -71,6 +71,10 @@ function state(room) {
     type: 'state',
     players: [...room.players.values()].map(p => ({
       id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color,
+      heroClass: p.heroClass || 'guardiao',
+      skin: p.skin || 'padrao',
+      ready: Boolean(p.ready),
+      selectedSkill: p.selectedSkill || null,
       ...(p.hp == null ? {} : { hp: integerHealth(p.hp) }),
       ...(p.maxHp == null ? {} : { maxHp: integerHealth(p.maxHp) })
     })),
@@ -87,6 +91,7 @@ wss.on('connection', ws => {
   id: String(nextId++),
   ws, name: 'Aventureiro', x: 0, z: 3, rot: 0, hp: 100, maxHp: 100,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
+  heroClass: 'guardiao', skin: 'padrao', ready: false, selectedSkill: null,
   room: null,
   lootDrops: [],
   inventory: {
@@ -118,11 +123,13 @@ wss.on('connection', ws => {
       player.name = String(msg.name || 'Aventureiro').slice(0, 18);
       player.x = 0;
       player.z = 3;
-      player.hp = 100;
-      player.maxHp = 100;
+      player.hp = player.selectedSkill === 'vitalidade' ? 120 : 100;
+      player.maxHp = player.selectedSkill === 'vitalidade' ? 120 : 100;
+      player.ready = false;
       room.players.set(player.id, player);
 
       ws.send(JSON.stringify({ type: 'joined', id: player.id, room: code }));
+      if (room.started) ws.send(JSON.stringify({ type: 'gameStarted' }));
       broadcast(room, { type: 'notice', text: player.name + ' entrou na sala.' });
       broadcast(room, state(room));
       return;
@@ -131,7 +138,45 @@ wss.on('connection', ws => {
     const room = player.room && rooms.get(player.room);
     if (!room) return;
 
-    if (msg.type === 'move') {
+    if (msg.type === 'heroClass') {
+      const allowed = ['guardiao', 'mago', 'assassino'];
+      if (allowed.includes(msg.heroClass)) {
+        player.heroClass = msg.heroClass;
+        player.ready = false;
+        if (player.heroClass === 'mago') player.color = 0x9b87e8;
+        else if (player.heroClass === 'assassino') player.color = 0x5dc79b;
+        else player.color = 0x72cfe0;
+      }
+      broadcast(room, state(room));
+    } else if (msg.type === 'skin') {
+      const allowed = ['padrao', 'gelo', 'sombra', 'ouro', 'brasa'];
+      if (allowed.includes(msg.skin)) {
+        player.skin = msg.skin;
+        player.ready = false;
+      }
+      broadcast(room, state(room));
+    } else if (msg.type === 'selectSkill') {
+      const allowed = ['golpe_pesado', 'passos_leves', 'vitalidade'];
+      if (msg.skill == null) player.selectedSkill = null;
+      else if (allowed.includes(msg.skill)) player.selectedSkill = msg.skill;
+      else return;
+      if (player.selectedSkill === 'vitalidade') {
+        player.maxHp = 120;
+        player.hp = 120;
+      } else {
+        player.maxHp = 100;
+        player.hp = Math.min(integerHealth(player.hp), 100);
+      }
+      player.ready = false;
+      broadcast(room, state(room));
+    } else if (msg.type === 'ready') {
+      player.ready = Boolean(msg.ready);
+      broadcast(room, state(room));
+    } else if (msg.type === 'startGame') {
+      room.started = true;
+      broadcast(room, { type: 'gameStarted' });
+      broadcast(room, state(room));
+    } else if (msg.type === 'move') {
       player.x = Math.max(-13, Math.min(13, Number(msg.x) || 0));
       player.z = Math.max(-31, Math.min(8, Number(msg.z) || 0));
       player.rot = Number(msg.rot) || 0;
@@ -142,7 +187,8 @@ wss.on('connection', ws => {
       if (target) {
         const maxHp = target.maxHp || (target.isBoss ? 180 : 60);
         target.maxHp = maxHp;
-        target.hp = integerHealth(Math.max(0, (target.hp ?? maxHp) - 20));
+        const damage = player.selectedSkill === 'golpe_pesado' ? 30 : 20;
+        target.hp = integerHealth(Math.max(0, (target.hp ?? maxHp) - damage));
         if (target.hp <= 0) {
           target.alive = false;
           const remaining = room.monsters.filter(monster => monster.alive).length;
@@ -198,11 +244,11 @@ setInterval(() => {
         const damage = { type: 'damage', id: target.id, hp: target.hp };
         if (target.ws.readyState === WebSocket.OPEN) target.ws.send(JSON.stringify(damage));
         if (target.hp <= 0) {
-          target.hp = 100;
+          target.hp = target.maxHp || 100;
           target.x = 0;
           target.z = 3;
           if (target.ws.readyState === WebSocket.OPEN) {
-            target.ws.send(JSON.stringify({ type: 'damage', id: target.id, hp: target.hp, respawned: true }));
+            target.ws.send(JSON.stringify({ type: 'damage', id: target.id, hp: target.hp, maxHp: target.maxHp || 100, respawned: true }));
           }
         }
       } else if (target && nearest > 1.8 && nearest < 20) {
