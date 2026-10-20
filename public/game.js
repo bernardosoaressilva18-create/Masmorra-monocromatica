@@ -9,6 +9,103 @@ let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackC
 const remotePlayers = new Map(), monsterMeshes = new Map();
 const world = { width: 30, depth: 46 };
 
+/* Áudio procedural: funciona sem baixar arquivos externos. */
+let audioCtx = null, masterGain = null, musicGain = null, sfxGain = null;
+let musicEnabled = true, sfxEnabled = true, musicNodes = [], stepTimer = 0;
+let lookSensitivity = 0.010, verticalSensitivity = 0.005;
+
+function initAudio() {
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return;
+  if (!audioCtx) {
+    audioCtx = new AudioCtor();
+    masterGain = audioCtx.createGain();
+    musicGain = audioCtx.createGain();
+    sfxGain = audioCtx.createGain();
+    masterGain.gain.value = 0.55;
+    musicGain.gain.value = musicEnabled ? 0.19 : 0;
+    sfxGain.gain.value = sfxEnabled ? 0.65 : 0;
+    musicGain.connect(masterGain);
+    sfxGain.connect(masterGain);
+    masterGain.connect(audioCtx.destination);
+    // Camada ambiente grave e suave para dar clima de masmorra.
+    for (const [freq, type, volume] of [[55, 'sine', .34], [82.41, 'triangle', .12], [110, 'sine', .08]]) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = volume;
+      osc.connect(gain);
+      gain.connect(musicGain);
+      osc.start();
+      musicNodes.push({osc, gain});
+    }
+    const lfo = audioCtx.createOscillator();
+    const lfoGain = audioCtx.createGain();
+    lfo.frequency.value = 0.09;
+    lfoGain.gain.value = 0.025;
+    lfo.connect(lfoGain);
+    lfoGain.connect(musicGain.gain);
+    lfo.start();
+    musicNodes.push({osc:lfo, gain:lfoGain});
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  updateAudioButtons();
+}
+
+function updateAudioButtons() {
+  const musicBtn = $('musicToggle');
+  const sfxBtn = $('sfxToggle');
+  if (musicBtn) musicBtn.textContent = musicEnabled ? '♫ MÚSICA: LIGADA' : '♫ MÚSICA: DESLIGADA';
+  if (sfxBtn) sfxBtn.textContent = sfxEnabled ? '🔊 EFEITOS: LIGADOS' : '🔇 EFEITOS: DESLIGADOS';
+}
+
+function toggleMusic() {
+  musicEnabled = !musicEnabled;
+  if (musicGain && audioCtx) musicGain.gain.setTargetAtTime(musicEnabled ? 0.19 : 0, audioCtx.currentTime, .15);
+  if (musicEnabled) initAudio();
+  updateAudioButtons();
+}
+
+function toggleSfx() {
+  sfxEnabled = !sfxEnabled;
+  if (sfxGain && audioCtx) sfxGain.gain.setTargetAtTime(sfxEnabled ? 0.65 : 0, audioCtx.currentTime, .03);
+  if (sfxEnabled) initAudio();
+  updateAudioButtons();
+}
+
+function tone(freq, duration, type='sine', volume=.2, endFreq=null) {
+  if (!sfxEnabled) return;
+  initAudio();
+  if (!audioCtx || !sfxGain) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const now = audioCtx.currentTime;
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  if (endFreq !== null) osc.frequency.exponentialRampToValueAtTime(Math.max(1, endFreq), now + duration);
+  gain.gain.setValueAtTime(.0001, now);
+  gain.gain.exponentialRampToValueAtTime(volume, now + .012);
+  gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+  osc.connect(gain);
+  gain.connect(sfxGain);
+  osc.start(now);
+  osc.stop(now + duration + .02);
+}
+
+function playSwordSound() {
+  tone(520, .13, 'sawtooth', .16, 115);
+  tone(170, .10, 'triangle', .10, 70);
+}
+function playJoinSound() {
+  tone(440, .14, 'sine', .12, 660);
+  setTimeout(() => tone(660, .22, 'sine', .12, 880), 100);
+}
+function playFootstep() {
+  tone(90 + Math.random()*25, .055, 'triangle', .045, 45);
+}
+
+
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
@@ -326,6 +423,7 @@ function handleMessage(m) {
     $('roomLabel').textContent = roomCode;
     $('loadingText').textContent = '';
     showNotice('Você entrou na masmorra!');
+    playJoinSound();
     return;
   }
 
@@ -447,6 +545,7 @@ function attack() {
   if (!started || attackCooldown > 0) return;
 
   attackCooldown = .45;
+  playSwordSound();
   send({ type: 'attack' });
 
   const sword = myPlayer?.userData.sword;
@@ -564,8 +663,8 @@ function rendererPointerSetup() {
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    yaw -= dx * .010;
-    pitch = THREE.MathUtils.clamp(pitch + dy * .005, -.1, .8);
+    yaw -= dx * lookSensitivity;
+    pitch = THREE.MathUtils.clamp(pitch + dy * verticalSensitivity, -.1, .8);
   });
 
   const end = e => {
@@ -594,6 +693,8 @@ function animate() {
     const v = moveInput();
 
     if (Math.hypot(v.x, v.y) > 0.04) {
+      stepTimer -= dt;
+      if (stepTimer <= 0) { playFootstep(); stepTimer = 0.38; }
       const forward = new THREE.Vector3(
   -Math.sin(yaw), 0, -Math.cos(yaw)
 );
@@ -617,6 +718,8 @@ const right = new THREE.Vector3(
       );
 
       myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+    } else {
+      stepTimer = 0;
     }
 
     if (performance.now() - lastMove > 70) {
@@ -698,4 +801,15 @@ const right = new THREE.Vector3(
   renderer.render(scene, camera);
 }
 
+
+$('musicToggle')?.addEventListener('click', () => { initAudio(); toggleMusic(); });
+$('sfxToggle')?.addEventListener('click', () => { initAudio(); toggleSfx(); });
+$('sensitivity')?.addEventListener('input', e => {
+  lookSensitivity = Number(e.target.value);
+  verticalSensitivity = lookSensitivity * 0.5;
+  $('sensitivityValue').textContent = Math.round(lookSensitivity * 1000) + '%';
+});
+$('playBtn').addEventListener('click', initAudio);
+$('joinBtn').addEventListener('click', initAudio);
+updateAudioButtons();
 init3D();
