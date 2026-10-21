@@ -6,6 +6,10 @@ const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
 let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null, lobbyPreviewRing = null, lobbyPreviewParticles = null, lobbyPreviewRunes = null;
+let activeEnvironmentGroup=null;
+const environmentGroups=Object.create(null);
+let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=null,astralStarField=null;
+const astralFloaters=[];
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
@@ -41,43 +45,35 @@ function updateAudioLevels() {
   musicBus.gain.setTargetAtTime(gameSettings.musicEnabled ? gameSettings.musicVolume * 0.8 : 0, now, 0.12);
   sfxBus.gain.setTargetAtTime(gameSettings.sfxVolume, now, 0.06);
 }
-function scheduleMusicNote(frequency) {
-  if (!audioContext || !musicBus || !gameSettings.musicEnabled || gameSettings.musicVolume <= 0) return;
-  const now = audioContext.currentTime;
-  const oscillator = audioContext.createOscillator();
-  const envelope = audioContext.createGain();
-  oscillator.type = 'triangle';
-  oscillator.frequency.setValueAtTime(frequency, now);
-  envelope.gain.setValueAtTime(0.0001, now);
-  envelope.gain.exponentialRampToValueAtTime(0.12, now + 0.11);
-  envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.82);
-  oscillator.connect(envelope); envelope.connect(musicBus);
-  oscillator.start(now); oscillator.stop(now + 0.84);
+function scheduleMusicNote(frequency,duration=.72,peak=.095,waveform='triangle'){
+  if(!audioContext||!musicBus||!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
+  const now=audioContext.currentTime,oscillator=audioContext.createOscillator(),envelope=audioContext.createGain();
+  oscillator.type=waveform;oscillator.frequency.setValueAtTime(Math.max(20,frequency),now);
+  envelope.gain.setValueAtTime(.0001,now);envelope.gain.exponentialRampToValueAtTime(Math.max(.001,peak),now+.035);
+  envelope.gain.exponentialRampToValueAtTime(.0001,now+Math.max(.12,duration));
+  oscillator.connect(envelope);envelope.connect(musicBus);oscillator.start(now);oscillator.stop(now+Math.max(.14,duration)+.025);
 }
-function ensureAudio() {
-  const AudioConstructor = window.AudioContext || window.webkitAudioContext;
-  if (!AudioConstructor) return;
-  try {
-    if (!audioContext) {
-      audioContext = new AudioConstructor();
-      musicBus = audioContext.createGain(); sfxBus = audioContext.createGain();
-      musicBus.connect(audioContext.destination); sfxBus.connect(audioContext.destination);
-      for (const [frequency, volume] of [[55, 0.035], [82.41, 0.022], [110, 0.012]]) {
-        const drone = audioContext.createOscillator();
-        const droneGain = audioContext.createGain();
-        drone.type = 'sine'; drone.frequency.value = frequency; droneGain.gain.value = volume;
-        drone.connect(droneGain); droneGain.connect(musicBus); drone.start();
+function ensureAudio(){
+  const AudioConstructor=window.AudioContext||window.webkitAudioContext;if(!AudioConstructor)return;
+  try{
+    if(!audioContext){
+      audioContext=new AudioConstructor();musicBus=audioContext.createGain();sfxBus=audioContext.createGain();
+      musicBus.connect(audioContext.destination);sfxBus.connect(audioContext.destination);
+      for(const [frequency,volume] of [[55,.018],[82.41,.011],[110,.005]]){
+        const drone=audioContext.createOscillator(),gain=audioContext.createGain();drone.type='sine';drone.frequency.value=frequency;gain.gain.value=volume;drone.connect(gain);gain.connect(musicBus);drone.start();
       }
-      const melody = [146.83, 174.61, 220, 196, 164.81, 146.83, 130.81, 164.81, 196, 174.61];
-      const tick = () => {
-        if (!gameSettings.musicEnabled || gameSettings.musicVolume <= 0) return;
-        scheduleMusicNote(melody[musicStep % melody.length]); musicStep++;
+      const dungeonLead=[293.66,349.23,392,440,392,349.23,293.66,261.63,293.66,349.23,392,349.23];
+      const astralLead=[392,440,523.25,587.33,523.25,659.25,587.33,493.88,440,523.25,659.25,587.33];
+      const dungeonBass=[73.42,110,82.41,123.47],astralBass=[98,146.83,110,164.81];
+      const tick=()=>{if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;const step=musicStep++,lead=currentRealmVisual===2?astralLead:dungeonLead,bass=currentRealmVisual===2?astralBass:dungeonBass;
+        scheduleMusicNote(lead[step%lead.length],.48,.095,'triangle');
+        if(step%4===0)scheduleMusicNote(bass[Math.floor(step/4)%bass.length],1.65,.07,'sine');
+        if(step%2===1)scheduleMusicNote(lead[(step+4)%lead.length]*2,.23,.022,'sine');
       };
-      tick(); musicTimer = window.setInterval(tick, 980);
+      tick();musicTimer=window.setInterval(tick,560);
     }
-    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
-    updateAudioLevels();
-  } catch (_) {}
+    if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
+  }catch(_){}
 }
 function playSfx(kind = 'ui') {
   if (gameSettings.sfxVolume <= 0) return;
@@ -87,7 +83,7 @@ function playSfx(kind = 'ui') {
     ui: [510, 680, 'sine', 0.09], attack: [235, 92, 'sawtooth', 0.16],
     fire: [390, 125, 'sawtooth', 0.24], lightning: [780, 190, 'square', 0.20],
     chest: [420, 760, 'triangle', 0.20], loot: [610, 920, 'sine', 0.24],
-    damage: [165, 70, 'sawtooth', 0.22]
+    damage: [165, 70, 'sawtooth', 0.22], portal: [240, 880, 'sine', 0.62]
   };
   const [startFrequency, endFrequency, waveform, duration] = profiles[kind] || profiles.ui;
   const now = audioContext.currentTime;
@@ -215,11 +211,13 @@ function box(w, h, d, material, x, y, z) {
   m.position.set(x, y, z);
   // Geometria principal recebe e projeta sombras no PC.
   if (!isMobileDevice) { m.castShadow = true; m.receiveShadow = true; }
-  scene.add(m);
+  (activeEnvironmentGroup || scene).add(m);
   return m;
 }
 
 function buildDungeon() {
+  const dungeonGroup=new THREE.Group();dungeonGroup.name='environment-monochrome';scene.add(dungeonGroup);activeEnvironmentGroup=dungeonGroup;
+
   // Uma única textura partilhada mantém o detalhe visual sem criar materiais por objeto.
   const dungeonTexture = surfaceTexture.clone();
   dungeonTexture.repeat.set(3, 3);
@@ -291,7 +289,7 @@ stoneDark.needsUpdate = true;
   }
   tileInstances.count = tileIndex;
   tileInstances.instanceMatrix.needsUpdate = true;
-  scene.add(tileInstances);
+  activeEnvironmentGroup.add(tileInstances);
 
   // Juntas de pedra e passadiços curtos sobre a transição de cada mundo.
   const groutMat = mat(0x171c24,1);
@@ -317,7 +315,7 @@ stoneDark.needsUpdate = true;
         box(.8,.35,.9,trim,x,4.25,z);
         const orb=new THREE.Mesh(new THREE.OctahedronGeometry(.22),crystal);
         orb.position.set(side*13.9,3.7,z);
-        scene.add(orb);
+        activeEnvironmentGroup.add(orb);
       }
     }
   }
@@ -348,7 +346,7 @@ for (let z = -30; z <= 8; z += 6) {
 
       const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.22), crystal);
       orb.position.set(side * 13.9, 3.7, z);
-      scene.add(orb);
+      activeEnvironmentGroup.add(orb);
 
 // O brilho dos cristais continua, sem luzes dinâmicas extras.
     }
@@ -378,13 +376,13 @@ for (let z = -30; z <= 8; z += 6) {
   );
   rune.rotation.x = -Math.PI / 2;
   rune.position.set(0, .02, -16);
-  scene.add(rune);
+  activeEnvironmentGroup.add(rune);
 
   for (let i = 0; i < 6; i++) {
     const a = i * Math.PI / 3;
     const crystalMesh = new THREE.Mesh(new THREE.OctahedronGeometry(.35), crystal);
     crystalMesh.position.set(Math.cos(a) * 2, .4, -16 + Math.sin(a) * 2);
-    scene.add(crystalMesh);
+    activeEnvironmentGroup.add(crystalMesh);
   }
 
   // Portões mágicos entre as três fases.
@@ -401,14 +399,14 @@ for (let z = -30; z <= 8; z += 6) {
     portal.position.set(0, 2.05, -.12); gate.add(portal);
     const portalRim = new THREE.Mesh(new THREE.TorusGeometry(1.42,.055,8,48), new THREE.MeshStandardMaterial({color:0x77edff,emissive:0x159dcc,emissiveIntensity:1.8,metalness:.35,roughness:.25}));
     portalRim.position.set(0,2.05,-.2); portalRim.scale.set(1.55,1.25,1); gate.add(portalRim);
-    gate.add(bars); gate.position.z = z; gate.userData.bars = bars; gate.userData.ring = ring; gate.userData.portal = portal; gate.userData.portalRim = portalRim; gate.userData.open = false; scene.add(gate); gateMeshes.push(gate);
+    gate.add(bars); gate.position.z = z; gate.userData.bars = bars; gate.userData.ring = ring; gate.userData.portal = portal; gate.userData.portalRim = portalRim; gate.userData.open = false; activeEnvironmentGroup.add(gate); gateMeshes.push(gate);
   }
   // Cristais, braseiros e fragmentos decorativos para dar profundidade.
   for (const z of [-5, -10, -18, -23, -36, -42, -50, -58, -68, -74, -84, -90, -100, -106, -116, -122, -134, -142, -158, -166]) {
     for (const x of [-12.2, 12.2]) {
       const flame = new THREE.Mesh(new THREE.IcosahedronGeometry(.22, 1), new THREE.MeshStandardMaterial({ color: 0xffa84f, emissive: 0xff5b1f, emissiveIntensity: 2.5 }));
-      flame.position.set(x, 2.1, z); scene.add(flame);
-      const halo = new THREE.Mesh(new THREE.TorusGeometry(.28, .045, 5, 12), mat(0xb88751, .45, .4)); halo.position.set(x, 1.75, z); scene.add(halo);
+      flame.position.set(x, 2.1, z); activeEnvironmentGroup.add(flame);
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(.28, .045, 5, 12), mat(0xb88751, .45, .4)); halo.position.set(x, 1.75, z); activeEnvironmentGroup.add(halo);
     }
   }
   // FASE 1 — Cripta antiga: altar e marcas de pedra azuladas.
@@ -416,7 +414,7 @@ for (let z = -30; z <= 8; z += 6) {
   box(2.4, .35, 1.5, altarStone, 0, .16, 1.2);
   box(1.65, .42, 1.05, trim, 0, .52, 1.2);
   const altarRune = new THREE.Mesh(new THREE.RingGeometry(.55, .72, 24), new THREE.MeshBasicMaterial({ color: 0x75dff2, transparent: true, opacity: .65, side: THREE.DoubleSide }));
-  altarRune.rotation.x = -Math.PI / 2; altarRune.position.set(0, .75, 1.2); scene.add(altarRune);
+  altarRune.rotation.x = -Math.PI / 2; altarRune.position.set(0, .75, 1.2); activeEnvironmentGroup.add(altarRune);
 
   // FASE 2 — Caverna mágica: cristais grandes nas laterais, fora da rota central.
   const caveCrystal = new THREE.MeshStandardMaterial({ color: 0x7c63ff, emissive: 0x4b24d8, emissiveIntensity: 1.35, roughness: .28, metalness: .12 });
@@ -433,14 +431,14 @@ for (let z = -30; z <= 8; z += 6) {
         cluster.add(crystalMesh);
       }
       cluster.position.set(side * (10.8 + (z === -24 ? .7 : 0)), .05, z);
-      scene.add(cluster);
+      activeEnvironmentGroup.add(cluster);
     }
   }
   // Veios luminosos no chão da caverna.
   for (const z of [-47, -51, -55, -58]) {
     for (const side of [-1, 1]) {
       const vein = new THREE.Mesh(new THREE.BoxGeometry(2.2, .025, .07), new THREE.MeshBasicMaterial({ color: 0x7d5cff, transparent: true, opacity: .62 }));
-      vein.position.set(side * 7.8, -.045, z); vein.rotation.y = side * .18; scene.add(vein);
+      vein.position.set(side * 7.8, -.045, z); vein.rotation.y = side * .18; activeEnvironmentGroup.add(vein);
     }
   }
 
@@ -463,7 +461,7 @@ for (let z = -30; z <= 8; z += 6) {
       }
       const branch = new THREE.Mesh(new THREE.CylinderGeometry(.055,.1,.95,5), barkEdge);
       branch.position.set(side*.38,1.9,.02); branch.rotation.z=side*-.9; tree.add(branch);
-      tree.position.set(x,0,z); tree.rotation.y=side*.16; scene.add(tree);
+      tree.position.set(x,0,z); tree.rotation.y=side*.16; activeEnvironmentGroup.add(tree);
     }
   }
   // MUNDO 4 — Vulcão: fissuras luminosas no piso e pedras basálticas nas margens.
@@ -474,40 +472,40 @@ for (let z = -30; z <= 8; z += 6) {
     for(const side of [-1,1]){
       const crack = new THREE.Mesh(new THREE.BoxGeometry(2.1+Math.random()*1.3,.035,.09),Math.random()>.55?lava:lavaGold);
       crack.position.set(side*(3.7+Math.random()*4),-.005,z+(Math.random()-.5)*1.1);
-      crack.rotation.y=side*(Math.random()*.24); scene.add(crack);
+      crack.rotation.y=side*(Math.random()*.24); activeEnvironmentGroup.add(crack);
       if(Math.random()>.3){
         const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(.35+Math.random()*.32,0),basalt);
-        rock.position.set(side*(10.2+Math.random()*2),.08,z+.6); rock.rotation.set(Math.random(),Math.random(),Math.random()); rock.scale.y=.7; scene.add(rock);
+        rock.position.set(side*(10.2+Math.random()*2),.08,z+.6); rock.rotation.set(Math.random(),Math.random(),Math.random()); rock.scale.y=.7; activeEnvironmentGroup.add(rock);
       }
     }
   }
   // MUNDO 5 — anéis maiores e rubros ao redor do Guardião Supremo.
   const finalSigil = new THREE.Mesh(new THREE.RingGeometry(6.1,6.22,64),new THREE.MeshBasicMaterial({color:0xaa3cff,transparent:true,opacity:.55,side:THREE.DoubleSide}));
-  finalSigil.rotation.x=-Math.PI/2; finalSigil.position.set(0,-.02,-150); scene.add(finalSigil);
+  finalSigil.rotation.x=-Math.PI/2; finalSigil.position.set(0,-.02,-150); activeEnvironmentGroup.add(finalSigil);
 
   // FASE 3 — Arena do Abismo: runas rubras e obeliscos ao redor do chefe.
   const abyssStone = mat(0x211821, .78, .25);
   const abyssRune = new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .62, side: THREE.DoubleSide });
   for (const [x, z] of [[-8.8, -146.2], [8.8, -146.2], [-8.8, -150], [8.8, -150]]) {
     const obelisk = new THREE.Mesh(new THREE.CylinderGeometry(.28, .5, 3.2, 5), abyssStone);
-    obelisk.position.set(x, 1.55, z); obelisk.rotation.z = x < 0 ? .08 : -.08; scene.add(obelisk);
+    obelisk.position.set(x, 1.55, z); obelisk.rotation.z = x < 0 ? .08 : -.08; activeEnvironmentGroup.add(obelisk);
     const crown = new THREE.Mesh(new THREE.OctahedronGeometry(.32), new THREE.MeshStandardMaterial({ color: 0xff315d, emissive: 0x9b102c, emissiveIntensity: 1.7 }));
-    crown.position.set(x, 3.3, z); scene.add(crown);
+    crown.position.set(x, 3.3, z); activeEnvironmentGroup.add(crown);
   }
   for (const radius of [2.2, 3.6, 5.1]) {
     const circle = new THREE.Mesh(new THREE.RingGeometry(radius, radius + .055, 64), abyssRune);
-    circle.rotation.x = -Math.PI / 2; circle.position.set(0, -.025, -150.1); scene.add(circle);
+    circle.rotation.x = -Math.PI / 2; circle.position.set(0, -.025, -150.1); activeEnvironmentGroup.add(circle);
   }
   // Marca visual no chão entre as regiões para mostrar a passagem de fase.
   for (const z of [-29.8, -61.7, -93.7, -125.7]) {
     const threshold = new THREE.Mesh(new THREE.BoxGeometry(27, .035, .18), new THREE.MeshStandardMaterial({ color: 0x43515e, emissive: 0x182a38, emissiveIntensity: .7, metalness: .3 }));
-    threshold.position.set(0, -.035, z); scene.add(threshold);
+    threshold.position.set(0, -.035, z); activeEnvironmentGroup.add(threshold);
   }
 
   const particleCount = 28, particlePositions = new Float32Array(particleCount * 3);
   for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -174+Math.random()*184; }
   const particleGeo = new THREE.BufferGeometry(); particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-  particleMaterial = new THREE.PointsMaterial({ color: 0x8be9ff, size: .055, transparent: true, opacity: .6, depthWrite: false }); ambientParticles = new THREE.Points(particleGeo, particleMaterial); scene.add(ambientParticles);
+  particleMaterial = new THREE.PointsMaterial({ color: 0x8be9ff, size: .055, transparent: true, opacity: .6, depthWrite: false }); ambientParticles = new THREE.Points(particleGeo, particleMaterial); activeEnvironmentGroup.add(ambientParticles);
 
   for (let i = 0; i < 18; i++) {
     const x = (Math.random() - .5) * 25;
@@ -521,8 +519,59 @@ for (let z = -30; z <= 8; z += 6) {
     rock.position.set(x, .02, z);
     rock.rotation.set(Math.random(), Math.random(), Math.random());
     rock.scale.y = .45;
-    scene.add(rock);
+    activeEnvironmentGroup.add(rock);
   }
+  realmPortal=new THREE.Group();realmPortal.name='gate-to-astral-realm';
+  const realmStone=new THREE.MeshStandardMaterial({color:0x34364f,roughness:.55,metalness:.35});
+  const realmFrame=new THREE.MeshStandardMaterial({color:0x9874df,emissive:0x5935b6,emissiveIntensity:.7,metalness:.25,roughness:.28});
+  for(const x of [-3.05,3.05]){const post=new THREE.Mesh(new THREE.BoxGeometry(.5,4.2,.65),realmStone);post.position.set(x,2.1,0);realmPortal.add(post);const rune=new THREE.Mesh(new THREE.BoxGeometry(.09,3.3,.08),realmFrame);rune.position.set(x*.91,2.15,-.36);realmPortal.add(rune);}
+  const lintel=new THREE.Mesh(new THREE.BoxGeometry(6.55,.48,.7),realmStone);lintel.position.set(0,4.28,0);realmPortal.add(lintel);
+  realmPortalCore=new THREE.Mesh(new THREE.PlaneGeometry(5.1,3.65),new THREE.MeshBasicMaterial({color:0x9b69ff,transparent:true,opacity:.07,side:THREE.DoubleSide,depthWrite:false}));realmPortalCore.position.set(0,2.08,-.22);realmPortal.add(realmPortalCore);
+  realmPortalRing=new THREE.Mesh(new THREE.TorusGeometry(1.72,.095,10,64),realmFrame);realmPortalRing.position.set(0,2.08,-.3);realmPortalRing.scale.set(1.48,1.17,1);realmPortal.add(realmPortalRing);
+  realmPortal.position.set(0,0,-168);realmPortal.userData.open=false;activeEnvironmentGroup.add(realmPortal);
+  environmentGroups.dungeon=activeEnvironmentGroup;activeEnvironmentGroup=null;buildAstralWorld();
+
+}
+
+
+function buildAstralWorld(){
+  const astral=new THREE.Group();astral.name='environment-vale-astral';scene.add(astral);activeEnvironmentGroup=astral;
+  const deepStone=new THREE.MeshStandardMaterial({color:0x17132f,roughness:.82,metalness:.12});
+  const islandTop=new THREE.MeshStandardMaterial({color:0x29224b,roughness:.75,metalness:.2,emissive:0x110c2c,emissiveIntensity:.38});
+  const islandEdge=new THREE.MeshStandardMaterial({color:0x251b42,roughness:.92,metalness:.08});
+  const bridgeMat=new THREE.MeshStandardMaterial({color:0x463c74,roughness:.48,metalness:.35,emissive:0x1c1550,emissiveIntensity:.65});
+  const crystalMat=new THREE.MeshStandardMaterial({color:0x8f7aff,emissive:0x6a38ff,emissiveIntensity:1.6,roughness:.24,metalness:.16});
+  const cyanMat=new THREE.MeshStandardMaterial({color:0x5ceaff,emissive:0x168cda,emissiveIntensity:1.35,roughness:.28,metalness:.16});
+  const zones=[{z:-14,depth:34},{z:-46,depth:30},{z:-78,depth:30},{z:-110,depth:30},{z:-153,depth:40}];
+  zones.forEach((zone,index)=>{
+    box(27.5,.78,zone.depth,islandEdge,0,-.47,zone.z);box(27.1,.11,zone.depth-.7,islandTop,0,-.025,zone.z);
+    const underside=new THREE.Mesh(new THREE.ConeGeometry(5.6+(index%2)*.5,4.3,7),deepStone);underside.position.set(0,-2.65,zone.z);underside.rotation.y=index*.31;activeEnvironmentGroup.add(underside);
+    const seal=new THREE.Mesh(new THREE.RingGeometry(3.15,3.3,48),new THREE.MeshBasicMaterial({color:index%2?0x66e7ff:0xa98cff,transparent:true,opacity:.24,side:THREE.DoubleSide,depthWrite:false}));seal.rotation.x=-Math.PI/2;seal.position.set(0,.045,zone.z);activeEnvironmentGroup.add(seal);
+    for(const side of [-1,1]){const pylon=new THREE.Mesh(new THREE.OctahedronGeometry(.85+(index%3)*.12,0),side===-1?crystalMat:cyanMat);pylon.scale.set(.72,2.2,.72);pylon.position.set(side*11.2,1.15,zone.z+(index%2?5:-5));activeEnvironmentGroup.add(pylon);}
+  });
+  for(const z of [-30.5,-62,-94,-130]){box(8.6,.18,z===-130?9.5:3.8,bridgeMat,0,-.025,z);for(const x of [-3.7,3.7]){const c=new THREE.Mesh(new THREE.OctahedronGeometry(.24,0),cyanMat);c.position.set(x,.22,z);activeEnvironmentGroup.add(c);}}
+  for(const z of [-30,-62,-94,-126]){
+    const arch=new THREE.Group(),frame=new THREE.MeshStandardMaterial({color:0x68569e,emissive:0x4c35aa,emissiveIntensity:1.15,metalness:.35,roughness:.28});
+    for(const x of [-3.15,3.15]){const p=new THREE.Mesh(new THREE.BoxGeometry(.3,4.2,.35),frame);p.position.set(x,2.1,0);arch.add(p);}
+    const top=new THREE.Mesh(new THREE.BoxGeometry(6.6,.32,.4),frame);top.position.set(0,4.22,0);arch.add(top);
+    const loop=new THREE.Mesh(new THREE.TorusGeometry(1.72,.065,8,48),new THREE.MeshStandardMaterial({color:0x9e83ff,emissive:0x754dff,emissiveIntensity:1.8,roughness:.25,metalness:.2}));loop.position.set(0,2.08,-.1);loop.scale.set(1.45,1.12,1);arch.add(loop);
+    const veil=new THREE.Mesh(new THREE.PlaneGeometry(5.15,3.6),new THREE.MeshBasicMaterial({color:0x6639d9,transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false}));veil.position.set(0,2.08,-.08);arch.add(veil);arch.position.z=z;activeEnvironmentGroup.add(arch);
+  }
+  const starCount=isMobileDevice?90:180,starPositions=new Float32Array((isMobileDevice?90:180)*3);
+  for(let i=0;i<starCount;i++){starPositions[i*3]=(Math.random()-.5)*105;starPositions[i*3+1]=4+Math.random()*34;starPositions[i*3+2]=-184+Math.random()*198;}
+  const starGeometry=new THREE.BufferGeometry();starGeometry.setAttribute('position',new THREE.BufferAttribute(starPositions,3));
+  astralStarField=new THREE.Points(starGeometry,new THREE.PointsMaterial({color:0xd9d1ff,size:isMobileDevice?0.11:0.16,transparent:true,opacity:.78,depthWrite:false}));activeEnvironmentGroup.add(astralStarField);
+  for(let i=0;i<12;i++){const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.28+Math.random()*.28,0),i%3===0?cyanMat:crystalMat);crystal.position.set((Math.random()-.5)*20,1.4+Math.random()*2.3,-5-Math.random()*165);crystal.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);activeEnvironmentGroup.add(crystal);astralFloaters.push({mesh:crystal,baseY:crystal.position.y,phase:Math.random()*Math.PI*2,speed:.45+Math.random()*.65});}
+  if(!isMobileDevice){const l=new THREE.PointLight(0x9168ff,25,62,2);l.position.set(0,5,-78);activeEnvironmentGroup.add(l);const sky=new THREE.PointLight(0x39cfff,17,52,2);sky.position.set(-8,4,-150);activeEnvironmentGroup.add(sky);}
+  environmentGroups.astral=activeEnvironmentGroup;activeEnvironmentGroup.visible=false;activeEnvironmentGroup=null;
+}
+function showRealmTransition(realm){
+  const overlay=$('phaseTransition');if(!overlay)return;
+  $('phaseTransitionTitle').textContent=realm===2?'VALE ASTRAL':'MUNDO MONOCROMÁTICO';
+  $('phaseTransitionSub').textContent=realm===2?'Você atravessou o portão e chegou a um mapa totalmente novo':'Você retornou ao domínio da masmorra';
+  overlay.classList.remove('hidden','phase-out');overlay.classList.add('phase-in');
+  setTimeout(()=>{overlay.classList.remove('phase-in');overlay.classList.add('phase-out');},2300);
+  setTimeout(()=>{overlay.classList.add('hidden');overlay.classList.remove('phase-out');},3000);
 }
 
 function trimMat() {
@@ -1528,6 +1577,8 @@ function updateState(m) {
     for (const obj of chestMeshes.values()) obj.visible = false;
     return;
   }
+  const realm=Number(m.realm)===2?2:1,realmChanged=realm!==currentRealmVisual;
+  if(realmChanged){currentRealmVisual=realm;for(const [name,group] of Object.entries(environmentGroups))group.visible=(realm===1&&name==='dungeon')||(realm===2&&name==='astral');document.body.classList.toggle('realm-astral',realm===2);appliedInitialServerPosition=false;yaw=targetYaw=0;pitch=targetPitch=.25;if(realmPortal)realmPortal.visible=realm===1;showRealmTransition(realm);playSfx('portal');showNotice(realm===2?'Novo mundo descoberto: Vale Astral!':'Você voltou ao mundo da masmorra.');}
   if (!started) {
     started = true;
     $('lobby').classList.add('hidden');
@@ -1616,7 +1667,7 @@ function updateState(m) {
   if (phase !== currentPhaseVisual) {
     const previousPhase = currentPhaseVisual;
     currentPhaseVisual = phase;
-    if (previousPhase > 0 && phase > previousPhase) {
+    if (!realmChanged && previousPhase > 0 && phase > previousPhase) {
       $('skillPanel')?.classList.remove('hidden');
       showNotice('ZONA SEGURA: habilidades liberadas por 10 segundos!');
       const overlay = $('phaseTransition');
@@ -1629,15 +1680,10 @@ function updateState(m) {
         setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('phase-out'); }, 2550);
       }
     }
-    const palettes = [
-      { bg: 0x090d14, fog: 0x090d14 },
-      { bg: 0x100c20, fog: 0x17112a },
-      { bg: 0x16070f, fog: 0x210914 },
-      { bg: 0x071810, fog: 0x10271a },
-      { bg: 0x24100a, fog: 0x35150b },
-      { bg: 0x160817, fog: 0x210d28 }
-    ];
-    const palette = palettes[phase - 1] || palettes[0];
+    const dungeonPalettes=[{bg:0x090d14,fog:0x090d14},{bg:0x100c20,fog:0x17112a},{bg:0x16070f,fog:0x210914},{bg:0x071810,fog:0x10271a},{bg:0x24100a,fog:0x35150b},{bg:0x160817,fog:0x210d28}];
+    const astralPalettes=[{bg:0x08051a,fog:0x130c2b},{bg:0x100826,fog:0x1c1040},{bg:0x07172a,fog:0x0c2541},{bg:0x1b0b36,fog:0x2c1550},{bg:0x0c0c22,fog:0x171238},{bg:0x17062c,fog:0x270d42}];
+    const palettes=realm===2?astralPalettes:dungeonPalettes;
+    const palette=palettes[phase-1]||palettes[0];
     scene.background.setHex(palette.bg);
     if (scene.fog) scene.fog.color.setHex(palette.fog);
   }
@@ -1652,11 +1698,12 @@ function updateState(m) {
     safeNotice.classList.toggle('hidden', safeRemaining <= 0);
     safeNotice.textContent = safeRemaining > 0 ? 'ZONA SEGURA · ' + safeRemaining + 's · MELHORE SUAS SKILLS' : '';
   }
-  const aliveMonsters = m.monsters.filter(monster => monster.alive).length;
-  gateMeshes.forEach((gate, index) => { const gatePhase = index + 1; gate.userData.open = phase > gatePhase || (phase === gatePhase && aliveMonsters === 0); });
-  const phaseObjective = document.querySelector('.objective strong');
-  if (phaseObjective) phaseObjective.textContent = phase === 5 ? 'Derrote o Guardião Supremo' : 'Derrote os monstros e atravesse o portal para o próximo mundo';
-  if (phaseLabel) phaseLabel.textContent = 'MUNDO ' + phase + ' / 5';
+  const aliveMonsters=m.monsters.filter(monster=>monster.alive).length;
+  gateMeshes.forEach((gate,index)=>{const n=index+1;gate.userData.open=phase>n||(phase===n&&aliveMonsters===0);});
+  if(realmPortal){realmPortal.visible=realm===1;realmPortal.userData.open=realm===1&&phase===5&&!!m.boss&&!m.boss.alive;}
+  const phaseObjective=document.querySelector('.objective strong');
+  if(phaseObjective)phaseObjective.textContent=realm===1&&phase===5&&m.boss&&!m.boss.alive?'O portão do Vale Astral foi aberto: siga até o fim do Abismo!':realm===2&&phase===5&&m.boss&&!m.boss.alive?'O Guardião Astral caiu. O Vale Astral foi conquistado!':phase===5?'Derrote o Guardião Supremo':'Derrote os monstros e atravesse o portal da região';
+  if(phaseLabel)phaseLabel.textContent=realm===2?'VALE ASTRAL · FASE '+phase+' / 5':'MUNDO MONOCROMÁTICO · FASE '+phase+' / 5';
   const bossPanel = $('bossPanel');
   if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 5 || !m.boss || !m.boss.alive);
   bossData = m.boss || null;
@@ -1673,7 +1720,7 @@ function updateState(m) {
     bossMesh.visible = false;
     if (bossData && !bossData.alive) {
       bossPanel?.classList.remove('hidden'); $('bossPhaseText').textContent = 'GUARDIÃO DERROTADO';
-      $('bossHealthFill').style.width = '0%'; $('bossHealthText').textContent = '0 / 95';
+      $('bossHealthFill').style.width = '0%'; $('bossHealthText').textContent = '0 / ' + (bossData.maxHp || 95);
     }
   }
   latestChests = m.chests || [];
@@ -2208,7 +2255,10 @@ function animate() {
   requestAnimationFrame(animate);
   if (!renderer) return;
 
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const dt=Math.min(clock.getDelta(),.05),worldTime=clock.elapsedTime;
+  if(realmPortal&&realmPortalRing){const open=!!realmPortal.userData.open;realmPortalRing.rotation.z+=dt*(open?.48:.12);realmPortalRing.material.emissiveIntensity=open?1.8+Math.sin(worldTime*3.2)*.7:.35;if(realmPortalCore)realmPortalCore.material.opacity=open?.31+Math.sin(worldTime*2.4)*.12:.035+Math.sin(worldTime*1.25)*.018;}
+  if(astralStarField&&environmentGroups.astral?.visible)astralStarField.rotation.y+=dt*.0016;
+  for(const f of astralFloaters){f.mesh.position.y=f.baseY+Math.sin(worldTime*f.speed+f.phase)*.24;f.mesh.rotation.y+=dt*f.speed*.32;f.mesh.rotation.x+=dt*f.speed*.12;}
   // Amortece o giro da câmera para o arrasto ficar mais fluido sem reduzir a sensibilidade.
   const cameraInputSmooth = 1 - Math.exp(-18 * dt);
   yaw += (targetYaw - yaw) * cameraInputSmooth;
