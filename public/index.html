@@ -109,8 +109,13 @@
       </section>
 
       <section class="lobby-editor-section hidden" data-lobby-editor-panel="config">
-        <label class="setting-range" for="lobbySensitivity">Sensibilidade da câmera <output id="lobbySensitivityValue">1,2×</output></label>
+        <label class="setting-range" for="lobbySensitivity">Sensibilidade horizontal <output id="lobbySensitivityValue">1,2×</output></label>
         <input id="lobbySensitivity" type="range" min="0.5" max="3" step="0.1" value="1.2">
+        <label class="setting-range" for="lobbyVerticalSensitivity">Sensibilidade vertical <output id="lobbyVerticalSensitivityValue">0,9×</output></label>
+        <input id="lobbyVerticalSensitivity" type="range" min="0.5" max="3" step="0.1" value="0.9">
+        <label class="setting-range" for="lobbyGraphicsQuality">Qualidade gráfica</label>
+        <select id="lobbyGraphicsQuality" class="settings-select"><option value="low">Baixa · mais FPS</option><option value="balanced" selected>Equilibrada</option><option value="high">Alta · mais detalhes</option></select>
+        <label class="setting-toggle"><input id="lobbyHapticsEnabled" type="checkbox" checked> Vibração ao atacar e esquivar</label>
         <label class="setting-range" for="lobbyMusicVolume">Volume da música <output id="lobbyMusicVolumeValue">32%</output></label>
         <input id="lobbyMusicVolume" type="range" min="0" max="1" step="0.05" value="0.32">
         <label class="setting-toggle"><input id="lobbyMusicEnabled" type="checkbox" checked> Música ambiente</label>
@@ -152,8 +157,13 @@
   </div>
   <div id="settingsPanel" class="settings-panel hidden" aria-label="Configurações do jogo">
     <div class="settings-head"><strong>⚙ CONFIGURAÇÕES</strong><button id="settingsCloseBtn" type="button" aria-label="Fechar configurações">✕</button></div>
-    <label class="setting-range" for="lookSensitivity">Sensibilidade da câmera <output id="lookSensitivityValue">1,2×</output></label>
+    <label class="setting-range" for="lookSensitivity">Sensibilidade horizontal <output id="lookSensitivityValue">1,2×</output></label>
     <input id="lookSensitivity" type="range" min="0.5" max="3" step="0.1" value="1.2">
+    <label class="setting-range" for="lookVerticalSensitivity">Sensibilidade vertical <output id="lookVerticalSensitivityValue">0,9×</output></label>
+    <input id="lookVerticalSensitivity" type="range" min="0.5" max="3" step="0.1" value="0.9">
+    <label class="setting-range" for="graphicsQuality">Qualidade gráfica</label>
+    <select id="graphicsQuality" class="settings-select"><option value="low">Baixa · mais FPS</option><option value="balanced" selected>Equilibrada</option><option value="high">Alta · mais detalhes</option></select>
+    <label class="setting-toggle"><input id="hapticsEnabled" type="checkbox" checked> Vibração ao atacar e esquivar</label>
     <label class="setting-range" for="musicVolume">Volume da música <output id="musicVolumeValue">32%</output></label>
     <input id="musicVolume" type="range" min="0" max="1" step="0.05" value="0.32">
     <label class="setting-toggle"><input id="musicEnabled" type="checkbox" checked> Música ambiente</label>
@@ -185,6 +195,7 @@
   <div id="joystick" class="joystick"><div id="stick" class="stick"></div><span class="joystick-label">MOVIMENTO</span></div>
   <div class="hint">CELULAR: JOYSTICK + ARRASTE · PC: WASD + MOUSE · ESPAÇO ATACA · E BAÚ · R ITEM</div>
   <button id="chestBtn" class="chest-btn"><span>▣</span><small>BAÚ</small></button>
+  <button id="dodgeBtn" class="dodge-btn" aria-label="Esquivar"><span>➤</span><small>ESQUIVA <b id="dodgeCooldown">OK</b></small></button>
   <button id="attackBtn" class="attack"><span>⚔</span><small>ATACAR</small></button>
   <button id="fireBtn" class="spell-btn fire-btn" aria-label="Magia de fogo"><span>🔥</span><small>FOGO <b id="fireCooldown">OK</b></small></button>
   <button id="lightningBtn" class="spell-btn lightning-btn" aria-label="Magia de raio"><span>ϟ</span><small>RAIO <b id="lightningCooldown">OK</b></small></button>
