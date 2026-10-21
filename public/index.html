@@ -164,6 +164,7 @@
   <div class="topbar">
     <div class="badge"><span class="dot"></span><div><small>O ÚLTIMO LEGADO</small><strong id="roomLabel">CONECTANDO</strong></div></div>
     <div class="stats"><span>♥ <b id="hpText">100</b></span><span>✦ <b id="killText">0</b></span></div>
+    <button id="orientationToggleBtn" class="orientation-toggle" type="button" aria-label="Alternar entre retrato e paisagem" title="Alternar orientação">↔ HORIZONTAL</button>
     <button id="settingsBtn" class="settings-toggle" type="button" aria-label="Abrir configurações" title="Configurações">⚙</button>
     <button id="leaveBtn" class="leave">SAIR</button>
   </div>
@@ -238,28 +239,17 @@
 </div>
 
 <script>
-/* Em navegadores compatíveis, tente manter a experiência móvel em retrato após o primeiro toque.
-   O APK nativo também fixa a orientação pelo AndroidManifest. */
-async function requestPortraitGameMode() {
+/* Em celulares, entrar em tela cheia não deve travar a orientação: o botão do HUD controla isso. */
+async function prepareMobileGame() {
   if (!matchMedia('(pointer: coarse)').matches) return;
-  const lockPortrait = async () => {
-    try {
-      if (screen.orientation && typeof screen.orientation.lock === 'function') {
-        await screen.orientation.lock('portrait');
-      }
-    } catch (_) {
-      // A API pode ser bloqueada pelo navegador; o APK mantém retrato nativamente.
-    }
-  };
   try {
     if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
       await document.documentElement.requestFullscreen();
     }
   } catch (_) {}
-  await lockPortrait();
 }
 ['startBtn', 'playBtn', 'joinBtn'].forEach(id => {
-  document.getElementById(id)?.addEventListener('click', requestPortraitGameMode, {passive:true});
+  document.getElementById(id)?.addEventListener('click', prepareMobileGame, {passive:true});
 });
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
