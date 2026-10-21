@@ -599,7 +599,7 @@ wss.on('connection', ws => {
       };
       const damageEnemy = (enemy, amount, burnMs = 0, pushFrom = null, pushDistance = 0) => {
         if (!enemy || !enemy.alive) return;
-        enemy.hp = Math.max(0, (enemy.hp || 1) - amount * statsFor(player).spellPower);
+        enemy.hp = Math.max(0, (enemy.hp || 1) - amount);
         if (burnMs > 0 && enemy.hp > 0) {
           enemy.burnUntil = Math.max(enemy.burnUntil || 0, now + burnMs);
           enemy.burnNextAt = Math.min(enemy.burnNextAt || now + 1000, now + 1000);
