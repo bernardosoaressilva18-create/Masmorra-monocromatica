@@ -919,6 +919,14 @@ setInterval(() => {
               const dropped = grantLoot(owner, 'boss');
               broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
               if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
+            } else if (target.cursed) {
+              const prize = { id: String(Date.now()) + '-curse-summon', name: 'Cristal Ancestral', rarity: 'lendário', value: 16, power: 5, source: 'cursed-chest' };
+              owner.lootDrops.push(prize);
+              owner.inventory['lendário'] = (owner.inventory['lendário'] || 0) + 1;
+              sendInventory(owner);
+              owner.ws.send(JSON.stringify({ type: 'loot', item: prize }));
+              room.cursedBoss = null;
+              broadcast(room, { type: 'notice', text: 'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!' });
             } else if (Math.random() < dropChance(owner, .2)) grantLoot(owner, 'monster');
           }
         }
