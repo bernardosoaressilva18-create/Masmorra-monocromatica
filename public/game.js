@@ -16,6 +16,39 @@ let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosit
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 190 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
+
+// Colisores 2D alinhados aos pilares, suportes dos portões e cristais sólidos.
+const staticDungeonColliders = (() => {
+  const list = [];
+  for (let z = -30; z <= 8; z += 9) {
+    for (const x of [-10, 10]) list.push({ x, z, r: 0.88 });
+  }
+  for (const z of [-31.8, -63.8, -95.8, -127.8]) {
+    for (const x of [-3.4, 3.4]) list.push({ x, z, r: 0.48 });
+  }
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3;
+    list.push({ x: Math.cos(a) * 2, z: -16 + Math.sin(a) * 2, r: 0.38 });
+  }
+  return list;
+})();
+function isDungeonPositionBlocked(x, z) {
+  const playerRadius = 0.43;
+  for (const obstacle of staticDungeonColliders) {
+    if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
+  }
+  for (const chest of latestChests || []) {
+    if (Math.hypot(x - chest.x, z - chest.z) < playerRadius + 0.62) return true;
+  }
+  return false;
+}
+function resolveDungeonMovement(fromX, fromZ, nextX, nextZ) {
+  let x = THREE.MathUtils.clamp(nextX, -13, 13);
+  let z = THREE.MathUtils.clamp(nextZ, -174, 8);
+  if (isDungeonPositionBlocked(x, fromZ)) x = fromX;
+  if (isDungeonPositionBlocked(x, z)) z = fromZ;
+  return { x, z };
+}
 const renderPixelRatioCap = isMobileDevice ? 1.25 : 1.5;
 let adaptivePixelRatio = Math.min(devicePixelRatio, renderPixelRatioCap);
 let perfBadge = null, perfFrames = 0, perfWindowStart = performance.now();
@@ -463,9 +496,9 @@ const surfaceTexture = makeSurfaceTexture();
 
 function attachHealthBar(entity) {
   const bar = new THREE.Group();
-  bar.position.set(0, 2.35, 0);
-  const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 0.12), new THREE.MeshBasicMaterial({ color: 0x171923, transparent: true, opacity: 0.92, depthTest: false }));
-  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.075), new THREE.MeshBasicMaterial({ color: 0x39e66b, depthTest: false }));
+  bar.position.set(0, 2.55, 0);
+  const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 0.17), new THREE.MeshBasicMaterial({ color: 0x090c12, transparent: true, opacity: 0.96, depthTest: false }));
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.22, 0.095), new THREE.MeshBasicMaterial({ color: 0x39e66b, depthTest: false }));
   fill.position.z = 0.012;
   bar.add(bg, fill);
   bar.renderOrder = 20;
@@ -480,7 +513,7 @@ function setHealthBar(entity, hp, maxHp) {
   const ratio = THREE.MathUtils.clamp(current / max, 0, 1);
   const fill = entity.userData.healthFill;
   fill.scale.x = Math.max(0.001, ratio);
-  fill.position.x = -0.5 * (1 - ratio);
+  fill.position.x = -0.61 * (1 - ratio);
   fill.material.color.set(ratio > 0.55 ? 0x39e66b : ratio > 0.25 ? 0xffc247 : 0xff4545);
 }
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
@@ -513,8 +546,15 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     if (!isMobileDevice) { leg.castShadow = true; leg.receiveShadow = true; }
     legPivot.add(leg);
     legs.push({ mesh: legPivot, side });
-    add(new THREE.BoxGeometry(.27,.16,.4), steel, side*.2,.19,-.055);
-    add(new THREE.SphereGeometry(.19,12,10), gold, side*.2,.68,0,.94,.62,.9);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(.27,.16,.4), steel);
+    boot.position.set(0,-.49,-.055);
+    if (!isMobileDevice) { boot.castShadow = true; boot.receiveShadow = true; }
+    legPivot.add(boot);
+    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.19,12,10), gold);
+    kneePad.position.set(0,0,0);
+    kneePad.scale.set(.94,.62,.9);
+    if (!isMobileDevice) { kneePad.castShadow = true; kneePad.receiveShadow = true; }
+    legPivot.add(kneePad);
     // Ombro: o braço acompanha uma articulação dedicada.
     const armPivot = new THREE.Group();
     armPivot.position.set(side*.48,1.51,0);
@@ -1422,7 +1462,7 @@ function updateState(m) {
       const faceX = myPlayer.position.x - mtr.x;
       const faceZ = myPlayer.position.z - mtr.z;
       if (Math.hypot(faceX, faceZ) > 0.05) {
-        obj.userData.targetRot = Math.atan2(faceX, faceZ);
+        obj.userData.targetRot = Math.atan2(faceX, faceZ) + Math.PI;
       }
     }
     obj.userData.alive = mtr.alive;
@@ -1826,14 +1866,14 @@ const right = new THREE.Vector3(
         .normalize();
 
       const moveSpeed = 5.8 * (selectedClass === 'archer' ? 1.12 : 1) * (unlockedSkills.has('swift_step') ? 1.18 : 1);
-      myPlayer.position.x = THREE.MathUtils.clamp(
+      const nextPosition = resolveDungeonMovement(
+        myPlayer.position.x,
+        myPlayer.position.z,
         myPlayer.position.x + dir.x * dt * moveSpeed,
-        -13, 13
+        myPlayer.position.z + dir.z * dt * moveSpeed
       );
-      myPlayer.position.z = THREE.MathUtils.clamp(
-        myPlayer.position.z + dir.z * dt * moveSpeed,
-        -174, 8
-      );
+      myPlayer.position.x = nextPosition.x;
+      myPlayer.position.z = nextPosition.z;
 
       myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
     }
