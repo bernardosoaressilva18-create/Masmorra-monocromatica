@@ -2016,7 +2016,7 @@ function handleMessage(m) {
 function setHeroInvisible(hero, invisible) {
   if (!hero || hero.userData.invisibilityActive === !!invisible) return;
   hero.traverse(node => {
-    if (!node.isMesh) return;
+    if (!node.isMesh || !node.material) return;
     if (invisible) {
       const original = node.material;
       const ghost = Array.isArray(original)
