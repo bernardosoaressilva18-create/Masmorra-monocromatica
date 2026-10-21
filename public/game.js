@@ -2337,9 +2337,14 @@ const right = new THREE.Vector3(
     const tanHalfHorizontal = Math.tan(halfFov) * camera.aspect;
     const lineupWidth = 6.6;
     const viewDistance = THREE.MathUtils.clamp(lineupWidth / Math.max(2 * tanHalfHorizontal, .12), 8.5, 13.5);
-    const lobbyCameraTarget = new THREE.Vector3(0, 3.8, viewDistance + 0.8);
-    camera.position.lerp(lobbyCameraTarget, cameraSmooth);
-    camera.lookAt(0, 1.05, -0.25);
+    const lobbyTime = clock.elapsedTime;
+    const lobbyCameraTarget = new THREE.Vector3(
+      Math.sin(lobbyTime * 0.16) * 0.22,
+      3.8 + Math.sin(lobbyTime * 0.42) * 0.07,
+      viewDistance + 0.8 + Math.sin(lobbyTime * 0.22) * 0.16
+    );
+    camera.position.lerp(lobbyCameraTarget, 1 - Math.exp(-3.8 * dt));
+    camera.lookAt(Math.sin(lobbyTime * 0.16) * 0.12, 1.05, -0.25);
   } else if (myPlayer) {
     const target = new THREE.Vector3(myPlayer.position.x, 1.2, myPlayer.position.z);
     const dist = 8.5;
