@@ -1324,3 +1324,16 @@ body.realm-astral .phase-transition{background:radial-gradient(ellipse at center
 @keyframes astral-rune-pulse{0%,100%{filter:drop-shadow(0 0 5px rgba(161,119,255,.45));}50%{filter:drop-shadow(0 0 17px rgba(161,119,255,.95));}}
 body.realm-astral .phase-transition-rune{animation:astral-rune-pulse 2.3s ease-in-out infinite;}
 @media(prefers-reduced-motion:reduce){body.realm-astral .phase-transition-rune{animation:none;}}
+
+/* PACOTE DE POLIMENTO v32 — chegada cinematográfica e HUD contextual. */
+#phaseTransition[data-realm="2"]{background:radial-gradient(ellipse at center,rgba(91,55,178,.48),rgba(4,3,17,.96) 68%);}
+#phaseTransition[data-realm="2"] .phase-transition-rune{color:#c4a4ff;text-shadow:0 0 22px #925cff,0 0 54px #5830bb;}
+#phaseTransition[data-realm="1"] .phase-transition-rune{color:#8ef3ff;}
+#hud .objective .progress i{transition:width .35s ease,background .35s ease;}
+body.realm-astral #hud .objective{border-left-color:#a98cff;box-shadow:0 8px 26px #0006,0 0 18px #7950d522;}
+body.realm-astral #hud .objective .progress i{background:linear-gradient(90deg,#6b52dd,#79e9ff);}
+body.realm-astral .boss-health i{background:linear-gradient(90deg,#8b55ff,#65e6ff);}
+#chestBtn:not(.hidden){animation:chest-ready-pulse 1.6s ease-in-out infinite;filter:drop-shadow(0 0 8px #f4d17b88);}
+@keyframes chest-ready-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d933;}
+@media(prefers-reduced-motion:reduce){#chestBtn:not(.hidden){animation:none}#hud .objective .progress i{transition:none}}
