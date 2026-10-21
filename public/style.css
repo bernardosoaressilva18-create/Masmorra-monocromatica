@@ -1210,3 +1210,57 @@ html, body { min-height: 100%; }
     max-height:min(48dvh,420px);
   }
 }
+
+/* FIX v27: lobby vertical on phones and visible hero preview */
+#lobby .hero-preview-avatar{
+  display:flex!important;
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-53%);
+  width:clamp(92px,19vw,176px);
+  height:clamp(150px,34vh,270px);
+  align-items:center;
+  justify-content:center;
+  z-index:1;
+  border:0;
+  border-radius:44% 44% 18% 18%;
+  background:radial-gradient(ellipse at 50% 35%,rgba(72,175,224,.22),rgba(8,17,29,.08) 68%,transparent 70%);
+  box-shadow:none;
+  overflow:visible;
+  opacity:.96;
+}
+#lobby .hero-preview-avatar:before{
+  width:42%;height:31%;top:7%;left:29%;
+  border-radius:42% 42% 34% 34%;
+  background:linear-gradient(145deg,#e6c58a,#8e653e 68%,#3d2c29);
+  border:2px solid #f2d9a4;
+  box-shadow:0 0 24px #e9c47738;
+}
+#lobby .hero-preview-avatar:after{
+  width:68%;height:48%;left:16%;top:36%;
+  border-radius:18px 18px 10px 10px;
+  background:linear-gradient(100deg,#334e66,#182d43 42%,#527187 70%,#1b2a3c);
+  border:2px solid #a7d8e8a8;
+  box-shadow:0 10px 20px #0008,inset 0 0 14px #b7edff24;
+}
+#lobby .hero-preview-avatar #heroPreviewGlyph{
+  position:absolute;z-index:3;top:39%;left:50%;transform:translateX(-50%);
+  font-size:clamp(28px,5vw,48px);filter:drop-shadow(0 3px 5px #000);
+}
+#lobby .hero-showcase-info{z-index:3}
+@media (orientation:portrait) and (max-width:760px){
+  #lobby .lobby-header{flex-basis:48px;padding: max(8px,env(safe-area-inset-top)) 12px 5px}
+  #lobby .lobby-nav{flex-basis:48px;width:calc(100% - 20px);gap:6px}
+  #lobby .lobby-layout{inset:100px 0 124px}
+  #lobby .lobby-stage{min-height:0}
+  #lobby .hero-preview-avatar{width:clamp(120px,38vw,210px);height:clamp(190px,36vh,300px);top:44%}
+  #lobby .hero-showcase-info{bottom:4px;width:min(240px,58vw)}
+  #lobby .lobby-player{width:min(28vw,132px);min-height:48px}
+  #lobby .lobby-player:nth-child(1){left:7px;top:22%}
+  #lobby .lobby-player:nth-child(2){left:7px;top:54%}
+  #lobby .lobby-player:nth-child(3){right:7px;top:22%}
+  #lobby .lobby-player:nth-child(4){right:7px;top:54%}
+  #lobby .lobby-bottom-bar{bottom:max(28px,calc(env(safe-area-inset-bottom) + 22px));width:calc(100% - 18px);gap:6px}
+  #lobby .lobby-hint{bottom:max(6px,env(safe-area-inset-bottom));font-size:8px}
+}
