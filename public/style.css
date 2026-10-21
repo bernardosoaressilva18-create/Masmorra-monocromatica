@@ -1968,6 +1968,7 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
   font-weight: 900;
   letter-spacing: .35px;
   white-space: nowrap;
+  pointer-events: auto;
   touch-action: manipulation;
 }
 .orientation-toggle:active { transform: scale(.96); background: #1b3a49; }
