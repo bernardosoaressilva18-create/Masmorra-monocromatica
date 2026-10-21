@@ -33,7 +33,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, maxPayload: 32 * 1024 });
 // Ping periódico ajuda a detectar/evitar conexões WebSocket ociosas.
 const heartbeat = setInterval(() => {
   for (const socket of wss.clients) {
@@ -61,6 +61,8 @@ function refreshPlayerStats(player, restoreHealth = false) {
 }
 function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player, 'treasure_luck') ? .2 : 0)); }
 function takeDamage(room, player, amount) {
+  // A esquiva é validada pelo servidor e concede uma janela curta contra dano.
+  if (Date.now() < (player.dodgeUntil || 0)) return 0;
   let damage = amount * (1 - (statsFor(player).reduction || 0));
   if (hasSkill(player, 'iron_skin')) damage *= .8;
   if (hasSkill(player, 'party_guard') && [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7)) damage *= .9;
@@ -270,6 +272,7 @@ wss.on('connection', ws => {
   let player = {
   id: String(nextId++),
   ws, connected: true, disconnectedAt: 0, resumeToken: crypto.randomBytes(24).toString('hex'),
+  rateWindowStartedAt: Date.now(), rateMessageCount: 0, nextDodgeAt: 0, dodgeUntil: 0,
   name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   hp: 130, maxHp: 130, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
@@ -288,8 +291,19 @@ wss.on('connection', ws => {
 
   ws.on('message', raw => {
     if (player.ws !== ws) return;
+    const rateNow = Date.now();
+    if (rateNow - (player.rateWindowStartedAt || 0) >= 1000) {
+      player.rateWindowStartedAt = rateNow;
+      player.rateMessageCount = 0;
+    }
+    player.rateMessageCount = (player.rateMessageCount || 0) + 1;
+    if (player.rateMessageCount > 90) {
+      try { ws.close(1008, 'Too many messages'); } catch {}
+      return;
+    }
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
+    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
 
     if (msg.type === 'ping') {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'pong', sentAt: Number(msg.sentAt) || 0 }));
@@ -349,6 +363,7 @@ wss.on('connection', ws => {
         player.secondWindUsed = false;
         player.x = 0; player.z = room.started ? -((room.phase - 1) * 32 + 1) : 3; player.ready = false;
         player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
+        player.nextDodgeAt = 0; player.dodgeUntil = 0;
         refreshPlayerStats(player, true);
         room.players.set(player.id, player);
       }
@@ -428,6 +443,27 @@ wss.on('connection', ws => {
       player.rot = Number(msg.rot) || 0;
       // O loop do servidor já envia o estado a cada 100 ms; evitar duplicar
       // um pacote completo a cada movimento reduz tráfego e desconexões.
+    } else if (msg.type === 'dodge') {
+      if (!room.started || player.hp <= 0) return;
+      const dodgeNow = Date.now();
+      if (dodgeNow < (player.nextDodgeAt || 0)) return;
+      const requestedHeading = Number(msg.rot);
+      const heading = Number.isFinite(requestedHeading) ? requestedHeading : (Number(player.rot) || 0);
+      const dashDistance = 2.2;
+      const landing = resolveServerMovement(room, player,
+        player.x - Math.sin(heading) * dashDistance,
+        player.z - Math.cos(heading) * dashDistance
+      );
+      player.x = landing.x;
+      player.z = landing.z;
+      player.rot = heading;
+      player.dodgeUntil = dodgeNow + 420;
+      player.nextDodgeAt = dodgeNow + 2600;
+      if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({
+        type: 'notice', text: '↗ Esquiva! Proteção ativada por um instante.'
+      }));
+      broadcast(room, { type: 'dodge', id: player.id, x: player.x, z: player.z, until: player.dodgeUntil });
+      broadcast(room, state(room));
     } else if (msg.type === 'useItem') {
       if (!room.started || player.hp <= 0) return;
       const itemIndex = player.lootDrops.findIndex(item => item.id === String(msg.id));
@@ -665,7 +701,7 @@ setInterval(() => {
     }
     if (!room.started && room.players.size === 0) { rooms.delete(roomCode); continue; }
     if (!room.started || players.length === 0) continue;
-    if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0)continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}
+    if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0)continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;if(now<(t.dodgeUntil||0)){t.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você evitou o golpe.'}));}else{takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}}
     if (room.safeZoneUntil && now >= room.safeZoneUntil) {
       room.safeZoneUntil = 0;
       broadcast(room, { type: 'notice', text: 'A zona segura terminou. Prepare-se para os inimigos!' });
@@ -724,8 +760,12 @@ setInterval(() => {
       if (target && nearest <= 2.0 && Date.now() - (monster.attackAt || 0) > 1900) {
         monster.attackAt = Date.now();
         broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
-        takeDamage(room, target, 4);
-        target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
+        if (Date.now() < (target.dodgeUntil || 0)) {
+          target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você evitou o golpe.' }));
+        } else {
+          takeDamage(room, target, 4);
+          target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
+        }
         if (target.hp <= 0) {
           target.hp = 0;
           target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
@@ -763,8 +803,12 @@ setInterval(() => {
       }
       if (target && nearest <= 2.8 && Date.now() - boss.attackAt > (boss.lifePhase === 3 ? 800 : 1200)) {
         boss.attackAt = Date.now();
-        takeDamage(room, target, boss.lifePhase === 3 ? 22 : 14);
-        target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + (boss.lifePhase === 3 ? 22 : 14) + ' de vida.' }));
+        if (Date.now() < (target.dodgeUntil || 0)) {
+          target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você escapou do golpe do Guardião.' }));
+        } else {
+          takeDamage(room, target, boss.lifePhase === 3 ? 22 : 14);
+          target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + (boss.lifePhase === 3 ? 22 : 14) + ' de vida.' }));
+        }
         if (target.hp <= 0) {
           target.hp = 0;
           target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
