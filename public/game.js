@@ -461,6 +461,28 @@ function makeSurfaceTexture() {
 }
 const surfaceTexture = makeSurfaceTexture();
 
+function attachHealthBar(entity) {
+  const bar = new THREE.Group();
+  bar.position.set(0, 2.35, 0);
+  const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 0.12), new THREE.MeshBasicMaterial({ color: 0x171923, transparent: true, opacity: 0.92, depthTest: false }));
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.075), new THREE.MeshBasicMaterial({ color: 0x39e66b, depthTest: false }));
+  fill.position.z = 0.012;
+  bar.add(bg, fill);
+  bar.renderOrder = 20;
+  entity.add(bar);
+  entity.userData.healthBar = bar;
+  entity.userData.healthFill = fill;
+}
+function setHealthBar(entity, hp, maxHp) {
+  if (!entity?.userData?.healthFill) return;
+  const max = Number.isFinite(maxHp) && maxHp > 0 ? maxHp : 100;
+  const current = Number.isFinite(hp) ? Math.max(0, hp) : max;
+  const ratio = THREE.MathUtils.clamp(current / max, 0, 1);
+  const fill = entity.userData.healthFill;
+  fill.scale.x = Math.max(0.001, ratio);
+  fill.position.x = -0.5 * (1 - ratio);
+  fill.material.color.set(ratio > 0.55 ? 0x39e66b : ratio > 0.25 ? 0xffc247 : 0xff4545);
+}
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
   const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : 0x72e6ff;
@@ -573,6 +595,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.arms = arms;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
   g.userData.baseY = 0;
+  attachHealthBar(g);
   return g;
 }
 
@@ -776,6 +799,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
   g.userData.lastZ = undefined;
   g.userData.walking = false;
   g.userData.baseY = 0;
+  attachHealthBar(g);
   return g;
 }
 
@@ -1238,7 +1262,8 @@ function updateState(m) {
         myPlayer.userData.serverX = p.x;
         myPlayer.userData.serverZ = p.z;
         myPlayer.userData.serverHp = p.hp ?? 100;
-        $('hpText').textContent = String(myPlayer.userData.serverHp);
+        setHealthBar(myPlayer, myPlayer.userData.serverHp, p.maxHp ?? p.maxHP ?? 100);
+        $('hpText').textContent = String(Math.round(myPlayer.userData.serverHp));
         $('deathScreen').classList.toggle('hidden', myPlayer.userData.serverHp > 0);
         // Ao entrar/reconectar, alinhar uma vez com a posição de spawn do servidor.
         // Depois disso, corrigimos só pequenos desvios para evitar teletransportes.
@@ -1266,6 +1291,8 @@ function updateState(m) {
 
     obj.userData.targetX = p.x;
     obj.userData.targetZ = p.z;
+    obj.userData.serverHp = p.hp ?? 100;
+    setHealthBar(obj, obj.userData.serverHp, p.maxHp ?? p.maxHP ?? 100);
     if (obj.userData.playerClass !== (p.playerClass || 'knight') || obj.userData.skin !== (p.skin || 'default')) {
       const replacement = makeHero(p.color, p.playerClass || 'knight', p.skin || 'default');
       replacement.userData.targetX = p.x; replacement.userData.targetZ = p.z; replacement.userData.targetRot = p.rot;
@@ -1388,6 +1415,8 @@ function updateState(m) {
     obj.userData.targetX = mtr.x;
     obj.userData.targetZ = mtr.z;
     obj.userData.kind = mtr.kind || 'stalker';
+    obj.userData.serverHp = mtr.hp ?? 100;
+    setHealthBar(obj, mtr.hp ?? 100, mtr.maxHp ?? mtr.maxHP ?? 100);
     // Calcula a direção do rosto/corpo para o jogador local.
     if (myPlayer) {
       const faceX = myPlayer.position.x - mtr.x;
@@ -1698,8 +1727,8 @@ function rendererPointerSetup() {
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    yaw -= dx * .006;
-    pitch = THREE.MathUtils.clamp(pitch + dy * .003, -.1, .8);
+    yaw -= dx * .015; // sensibilidade 2,5
+    pitch = THREE.MathUtils.clamp(pitch + dy * .0075, -.1, .8);
   });
 
   const end = e => {
@@ -1996,6 +2025,14 @@ const right = new THREE.Vector3(
     obj.position.y = obj.userData.attackAnim > 0 ? Math.sin((obj.userData.attackAnim / 0.38) * Math.PI) * 0.22 : 0;
 
     // Mantém a orientação do monstro; não gira continuamente no próprio eixo.
+  }
+
+  // Barras acompanham a câmera para ficarem legíveis acima de aliados e monstros.
+  for (const obj of [myPlayer, ...remotePlayers.values(), ...monsterMeshes.values()]) {
+    if (obj?.userData?.healthBar) {
+      obj.userData.healthBar.quaternion.copy(camera.quaternion);
+      obj.userData.healthBar.visible = obj.visible !== false;
+    }
   }
 
   // Enquadramento panorâmico do lobby, adaptado à largura da tela.
