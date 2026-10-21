@@ -222,8 +222,11 @@ const STATIC_DUNGEON_COLLIDERS = (() => {
 })();
 function isServerPositionBlocked(room, x, z) {
   const playerRadius = 0.43;
-  for (const obstacle of STATIC_DUNGEON_COLLIDERS) {
-    if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
+  // Colisores de pilares são exclusivos do mundo original.
+  if ((room.realm || 1) !== 2) {
+    for (const obstacle of STATIC_DUNGEON_COLLIDERS) {
+      if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
+    }
   }
   for (const chest of room.chests || []) {
     if (Math.hypot(x - chest.x, z - chest.z) < playerRadius + 0.62) return true;
