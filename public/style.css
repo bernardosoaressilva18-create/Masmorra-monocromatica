@@ -669,3 +669,35 @@ html, body { min-height: 100%; }
   .settings-toggle { flex-basis:32px; width:32px; height:32px; font-size:17px; }
   .settings-panel { top:max(52px, calc(env(safe-area-inset-top) + 48px)); }
 }
+
+
+/* Lobby: acabamento visual mais marcante e melhor leitura em telas pequenas */
+#lobby{justify-content:flex-start;overflow-y:auto;overscroll-behavior:contain;padding-top:max(20px,env(safe-area-inset-top));padding-bottom:24px;background:radial-gradient(ellipse at 50% 8%,rgba(91,168,196,.22),transparent 48%),linear-gradient(180deg,rgba(4,8,14,.72),rgba(4,7,12,.97))}
+#lobby .brand{width:min(100%,620px);margin:0 auto 16px}
+#lobby .sigil{font-size:42px;margin-bottom:2px;filter:drop-shadow(0 0 15px #e9c47770)}
+#lobby .eyebrow{margin-bottom:8px}
+#lobby .subtitle{margin:12px 0 0}
+#lobby .subtitle strong{display:inline-block;color:var(--gold);letter-spacing:3px;padding:5px 10px;border:1px solid #e9c47750;border-radius:6px;background:#e9c4770d}
+#lobby .lobby-panel{width:min(100%,620px);padding:clamp(14px,3vw,24px);border-radius:18px;border-color:#86d7e43b;background:linear-gradient(145deg,rgba(18,29,41,.97),rgba(6,11,18,.98));box-shadow:0 18px 65px #000b,inset 0 1px #d6f7ff0b}
+#lobby .class-select>label,#lobby .lobby-panel>label{font-size:10px;letter-spacing:2px;color:#b7cbd6}
+#lobby .hero-showcase{border:1px solid #8ce5f333;border-radius:13px;background:linear-gradient(110deg,#16303b99,#0a111bcf);padding:14px;margin-bottom:20px;box-shadow:inset 0 0 24px #8ce5f309}
+#lobby .hero-showcase-info strong{font-family:Cinzel,serif;letter-spacing:.5px}
+#lobby .class-cards{gap:9px}
+#lobby .class-card{min-height:100px;border-radius:11px;border:1px solid #91b9c52a;background:linear-gradient(145deg,#111d29,#0a1018);transition:border-color .16s,transform .16s,box-shadow .16s}
+#lobby .class-card.selected{border-color:#76e7f2;background:linear-gradient(145deg,#193642,#0d1b25);box-shadow:0 0 0 1px #76e7f229,0 0 22px #76e7f211}
+#lobby .class-card:active,#lobby .skin-pick:active{transform:scale(.98)}
+#lobby .skin-picks{gap:9px}
+#lobby .skin-pick{border-radius:9px;border:1px solid #91b9c52b;background:#0a111a;min-height:68px}
+#lobby .skin-pick.selected{border-color:var(--gold);background:linear-gradient(145deg,#332b1b,#12151a);box-shadow:0 0 16px #e9c47712}
+#lobby .skill-head{margin-top:18px;padding-top:14px;border-top:1px solid #b7dce21a}
+#lobby .skill-tree{gap:8px}
+#lobby .lobby-players{display:grid;gap:8px;margin:10px 0 14px}
+#lobby .lobby-player{padding:12px 13px;border-radius:9px;border:1px solid #9bd6e522;background:linear-gradient(100deg,#11202b,#0a1119);display:flex;align-items:center;justify-content:space-between;gap:10px}
+#lobby .lobby-player.ready{border-color:#6fffc25c;background:linear-gradient(100deg,#102a26,#0a1518)}
+#lobby .lobby-name{font-size:11px;color:#eaf7fb}
+#lobby .lobby-state{font-size:9px;letter-spacing:1px;color:#91a8b7}
+#lobby .lobby-player.ready .lobby-state{color:#6fffc2}
+#lobby #readyBtn,#lobby #startMatchBtn{margin-top:10px;min-height:48px}
+#lobby .lobby-leave{margin-top:12px;border:1px solid #ff8b9b33;border-radius:7px;background:#2a1219;color:#ffb1bc;padding:10px 16px;font-size:9px;font-weight:800;letter-spacing:1px}
+#lobby .footnote{margin-top:15px;text-align:center}
+@media(max-width:420px){#lobby{padding-left:12px;padding-right:12px}#lobby .brand h1{font-size:clamp(27px,8vw,38px)}#lobby .class-card{padding:9px 5px;min-height:92px}#lobby .class-card small{font-size:9px}#lobby .hero-showcase{padding:10px}}
