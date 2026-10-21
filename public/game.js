@@ -2405,7 +2405,45 @@ $('recentLoot').addEventListener('click', e => {
 });
 $('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 
+const CLASS_ABILITY_CONFIG = {
+  knight: [
+    { ability: 'knight_shield', icon: '🛡️', label: 'ESCUDO', cooldown: 12 },
+    { ability: 'knight_dash', icon: '⚔️', label: 'AVANÇO', cooldown: 9 }
+  ],
+  mage: [
+    { ability: 'fire', icon: '🔥', label: 'FOGO', cooldown: 4, spell: true },
+    { ability: 'lightning', icon: 'ϟ', label: 'RAIO', cooldown: 3.5, spell: true }
+  ],
+  archer: [
+    { ability: 'arrow_rain', icon: '🏹', label: 'CHUVA', cooldown: 8 },
+    { ability: 'incendiary_arrows', icon: '🔥', label: 'INCENDIÁRIAS', cooldown: 12 }
+  ],
+  goblin: [
+    { ability: 'goblin_invis', icon: '👻', label: 'INVISÍVEL', cooldown: 14 },
+    { ability: 'goblin_summon', icon: '👺', label: 'INVOCAR 2', cooldown: 20 }
+  ],
+  ogre: [
+    { ability: 'ogre_slam', icon: '💥', label: 'SOCO NO CHÃO', cooldown: 10 },
+    { ability: 'ogre_haste', icon: '💨', label: 'VELOCIDADE', cooldown: 15 }
+  ]
+};
+let ogreHasteUntil = 0;
+function updateClassAbilityButtons() {
+  const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
+  const first = $('fireBtn'), second = $('lightningBtn');
+  [[first, abilities[0], 'fireCooldown'], [second, abilities[1], 'lightningCooldown']].forEach(([button, ability, timerId]) => {
+    if (!button || !ability) return;
+    const icon = button.querySelector('span');
+    const small = button.querySelector('small');
+    if (icon) icon.textContent = ability.icon;
+    if (small) small.innerHTML = ability.label + ' <b id="' + timerId + '">OK</b>';
+    button.setAttribute('aria-label', ability.label);
+    button.title = ability.label;
+    button.dataset.classAbility = ability.ability;
+  });
+}
 let fireCooldown = 0, lightningCooldown = 0;
+updateClassAbilityButtons();
 function placeSpellButtons() {
   const fire = $('fireBtn'), lightning = $('lightningBtn');
   if (!fire || !lightning) return;
