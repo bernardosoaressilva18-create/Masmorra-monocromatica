@@ -1299,3 +1299,19 @@ html, body { min-height: 100%; }
   #lobby .lobby-player:nth-child(3){right:6px;top:23%}
   #lobby .lobby-player:nth-child(4){right:6px;top:55%}
 }
+
+
+/* LOBBY v30 — cinco polimentos visuais: energia por classe, runas, brilho, seleção e prontidão. */
+#lobby .lobby-nav-btn{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease}
+#lobby .lobby-nav-btn:active{transform:translateY(1px) scale(.98)}
+#lobby .lobby-nav-btn[aria-expanded="true"]{border-color:#9ceaff;background:linear-gradient(145deg,#183c52,#0b1725);box-shadow:0 0 18px #5fdfff22,inset 0 0 0 1px #8de8ff2b}
+#lobby .class-card,#lobby .skin-pick{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,filter .18s ease}
+#lobby .class-card:active,#lobby .skin-pick:active{transform:scale(.98)}
+#lobby .class-card.selected{box-shadow:inset 0 0 0 1px #8be5ff55,0 0 22px #4bcaf03b}
+#lobby .skin-pick.selected{box-shadow:inset 0 0 0 1px #e9c47745,0 0 17px #e9c47720}
+#lobby .lobby-player.ready{box-shadow:0 0 16px #52f2a022,0 7px 20px #0008}
+#lobby .lobby-player.ready .lobby-state{ text-shadow:0 0 9px #55ffad55 }
+#lobby .hero-showcase-info{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+@media(prefers-reduced-motion:reduce){
+ #lobby .lobby-nav-btn,#lobby .class-card,#lobby .skin-pick{transition:none!important}
+}
