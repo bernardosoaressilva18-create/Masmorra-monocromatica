@@ -115,8 +115,11 @@ const staticDungeonColliders = (() => {
 })();
 function isDungeonPositionBlocked(x, z) {
   const playerRadius = 0.43;
-  for (const obstacle of staticDungeonColliders) {
-    if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
+  // Obstáculos da masmorra antiga não devem bloquear o movimento no Vale Astral.
+  if (currentRealmVisual !== 2) {
+    for (const obstacle of staticDungeonColliders) {
+      if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
+    }
   }
   for (const chest of latestChests || []) {
     if (Math.hypot(x - chest.x, z - chest.z) < playerRadius + 0.62) return true;
@@ -2255,8 +2258,13 @@ function animate() {
   requestAnimationFrame(animate);
   if (!renderer) return;
 
-  const dt=Math.min(clock.getDelta(),.05),worldTime=clock.elapsedTime;
-  if(realmPortal&&realmPortalRing){const open=!!realmPortal.userData.open;realmPortalRing.rotation.z+=dt*(open?.48:.12);realmPortalRing.material.emissiveIntensity=open?1.8+Math.sin(worldTime*3.2)*.7:.35;if(realmPortalCore)realmPortalCore.material.opacity=open?.31+Math.sin(worldTime*2.4)*.12:.035+Math.sin(worldTime*1.25)*.018;}
+  const dt = Math.min(clock.getDelta(), 0.05), worldTime = clock.elapsedTime;
+  if (realmPortal && realmPortalRing) {
+    const open = !!realmPortal.userData.open;
+    realmPortalRing.rotation.z += dt * (open ? 0.48 : 0.12);
+    realmPortalRing.material.emissiveIntensity = open ? 1.8 + Math.sin(worldTime * 3.2) * 0.7 : 0.35;
+    if (realmPortalCore) realmPortalCore.material.opacity = open ? 0.31 + Math.sin(worldTime * 2.4) * 0.12 : 0.035 + Math.sin(worldTime * 1.25) * 0.018;
+  }
   if(astralStarField&&environmentGroups.astral?.visible)astralStarField.rotation.y+=dt*.0016;
   for(const f of astralFloaters){f.mesh.position.y=f.baseY+Math.sin(worldTime*f.speed+f.phase)*.24;f.mesh.rotation.y+=dt*f.speed*.32;f.mesh.rotation.x+=dt*f.speed*.12;}
   // Amortece o giro da câmera para o arrasto ficar mais fluido sem reduzir a sensibilidade.
