@@ -1720,3 +1720,16 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
 @media (prefers-reduced-motion:reduce) {
   #hitFlash.damage-flash,#hud .boss-panel.warning { animation:none!important; }
 }
+
+
+/* Compact filters keep the item list usable even in a short landscape viewport. */
+.inventory-tools { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin:5px 0; }
+.inventory-tools select {
+  min-width:0; width:100%; padding:4px 3px; border:1px solid #455968;
+  border-radius:5px; color:#dff7ff; background:#0a1420; font-size:8px;
+  touch-action:manipulation;
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  #hud .inventory-tools { grid-template-columns:1fr; gap:3px; }
+  #hud .inventory-tools select { font-size:7px; padding:3px 2px; }
+}
