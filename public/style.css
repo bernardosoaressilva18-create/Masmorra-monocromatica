@@ -1377,3 +1377,123 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
  #lobby .hero-showcase-info{bottom:70px;width:300px;padding:7px 10px;}
  #lobby .hero-showcase-info>strong{font-size:20px;}
 }
+
+
+/* v35 — 50+ focused lobby, clarity, mobile and accessibility refinements.
+   Existing combat/network/gameplay styles are intentionally left intact. */
+
+/* 15–20: isolate the stage visually without covering the canvas-based 3D hero. */
+#lobby.lobby-screen{
+  background:
+    radial-gradient(ellipse at 50% 38%,rgba(28,88,125,.20),transparent 44%),
+    radial-gradient(ellipse at 50% 86%,rgba(22,48,76,.34),transparent 52%),
+    linear-gradient(180deg,rgba(3,8,16,.62),rgba(3,8,16,.30) 42%,rgba(3,8,16,.76));
+  isolation:isolate;
+}
+#lobby .lobby-stage:after{filter:none!important;opacity:.78;pointer-events:none;}
+#lobby .lobby-stage-top{z-index:6;max-width:calc(100% - 10px);white-space:normal;line-height:1.3;}
+#lobby .hero-showcase{z-index:1;pointer-events:none;}
+#lobby .hero-showcase-info{z-index:6;backdrop-filter:none;-webkit-backdrop-filter:none;}
+#lobby .lobby-team-box{z-index:5;}
+
+/* 21–29: keep the roster inside its card instead of letting legacy absolute
+   player-slot rules scatter members around the screen. */
+#lobby .lobby-team-box{position:absolute;left:10px;bottom:106px;width:min(320px,34vw);min-width:0;}
+#lobby .lobby-players{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:150px;overflow:auto;}
+#lobby .lobby-players .lobby-player{
+  position:relative!important;inset:auto!important;top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;
+  transform:none!important;float:none!important;width:auto!important;min-width:0;max-width:100%;
+  min-height:42px;padding:8px 9px;overflow-wrap:anywhere;
+}
+#lobby .lobby-player .lobby-name{display:block;max-width:100%;overflow-wrap:anywhere;line-height:1.25;}
+#lobby .lobby-player .lobby-state{display:block;margin-top:4px;line-height:1.2;}
+#lobby .lobby-empty{grid-column:1/-1;margin:0;padding:10px;border:1px dashed #8acfe633;border-radius:8px;color:#a9c1d2;font-size:11px;text-align:center;}
+#lobby .lobby-section-title{gap:8px;}
+#lobby .lobby-section-title>span{color:#ffe5a0;}
+#lobby .lobby-section-title>small{line-height:1.3;text-align:right;}
+#lobby .lobby-player.ready{border-color:#58ecac9c;}
+#lobby .lobby-player:not(.ready){border-color:#7eb1ce38;}
+#lobby .lobby-player:focus-within{outline:2px solid #93e8ff;outline-offset:2px;}
+
+/* 30–38: make the main avatar, class card and action bar easier to read. */
+#lobby .hero-showcase-info{
+  width:min(380px,58vw);padding:12px 15px;
+  border-color:#8ce6ff70;
+  background:linear-gradient(180deg,rgba(5,18,31,.95),rgba(5,13,24,.93));
+  box-shadow:0 12px 30px rgba(0,0,0,.5),0 0 22px rgba(59,188,239,.10);
+}
+#lobby .hero-showcase-info>small{font-size:9px;letter-spacing:2px;}
+#lobby .hero-showcase-info>strong{line-height:1.12;text-wrap:balance;}
+#lobby .hero-showcase-info p{line-height:1.45;text-wrap:balance;}
+#lobby .hero-showcase-tags{gap:6px;}
+#lobby .hero-showcase-tags span{font-size:8px;line-height:1.25;}
+#lobby .lobby-nav-btn{min-width:0;min-height:44px;line-height:1.25;white-space:normal;}
+#lobby .lobby-bottom-bar{bottom:max(42px,calc(env(safe-area-inset-bottom) + 34px));width:min(590px,calc(100% - 24px));gap:8px;}
+#lobby .lobby-class-button,#lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:52px;min-width:0;}
+#lobby .lobby-ready-button,#lobby .lobby-start-button{flex:1 1 42%;font-weight:900;letter-spacing:.4px;}
+#lobby .lobby-class-button{flex-basis:29%;}
+#lobby .lobby-hint{bottom:max(8px,calc(env(safe-area-inset-bottom) + 5px));z-index:8;max-width:calc(100% - 24px);line-height:1.3;text-align:center;}
+#lobby .lobby-header{padding-top:max(10px,env(safe-area-inset-top));}
+#lobby .lobby-room-pill{max-width:52vw;overflow:hidden;text-overflow:ellipsis;}
+#lobby .lobby-header-meta{min-width:0;flex-shrink:0;}
+#lobby .lobby-leave-mini{min-height:32px;touch-action:manipulation;}
+
+/* 39–45: robust phone portrait layout and safe-area-aware controls. */
+@media (orientation:portrait) and (max-width:760px){
+  #lobby .lobby-layout{flex:1 1 auto;min-height:0;height:auto;padding:0 8px 8px;overflow:visible;}
+  #lobby .lobby-stage{height:100%;min-height:0;padding-top:8px;}
+  #lobby .lobby-stage-top{top:5px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px);justify-content:center;font-size:7px;letter-spacing:.65px;}
+  #lobby .lobby-team-box{left:8px;bottom:190px;width:min(220px,54vw);padding:8px;}
+  #lobby .lobby-players{grid-template-columns:1fr;max-height:92px;gap:5px;}
+  #lobby .lobby-players .lobby-player{min-height:34px;padding:6px 7px;font-size:9px;}
+  #lobby .hero-showcase-info{left:50%;bottom:92px;transform:translateX(-50%);width:min(330px,78vw);padding:9px 10px;}
+  #lobby .hero-showcase-info>small{font-size:8px;}
+  #lobby .hero-showcase-info>strong{font-size:clamp(20px,5.4vw,26px);}
+  #lobby .hero-showcase-info p{font-size:10px;margin:5px 0 7px;}
+  #lobby .hero-showcase-tags span{font-size:7px;padding:4px 6px;}
+  #lobby .lobby-bottom-bar{bottom:max(43px,calc(env(safe-area-inset-bottom) + 36px));width:calc(100% - 18px);gap:5px;}
+  #lobby .lobby-class-button{flex-basis:30%;padding:6px 8px;}
+  #lobby .lobby-class-button small{font-size:8px;}
+  #lobby .lobby-class-button strong{font-size:10px;line-height:1.2;overflow-wrap:anywhere;}
+  #lobby .lobby-ready-button,#lobby .lobby-start-button{font-size:11px;padding:7px 8px;}
+  #lobby .lobby-hint{font-size:8px;bottom:max(5px,env(safe-area-inset-bottom));}
+  #lobby .lobby-nav{width:calc(100% - 20px);gap:6px;}
+  #lobby .lobby-nav-btn{padding:7px 4px;font-size:clamp(8px,2.4vw,10px);}
+}
+@media (orientation:portrait) and (max-width:390px){
+  #lobby .lobby-team-box{width:calc(100% - 16px);bottom:204px;}
+  #lobby .lobby-players{grid-template-columns:repeat(2,minmax(0,1fr));max-height:58px;}
+  #lobby .lobby-players .lobby-player{font-size:8px;padding:5px;}
+  #lobby .hero-showcase-info{bottom:112px;width:calc(100% - 32px);}
+  #lobby .lobby-bottom-bar{bottom:50px;}
+  #lobby .lobby-ready-button,#lobby .lobby-start-button{font-size:10px;}
+}
+@media (orientation:landscape) and (max-height:560px){
+  #lobby .lobby-layout{min-height:0;padding:0 12px;}
+  #lobby .lobby-stage{min-height:0;height:100%;}
+  #lobby .lobby-team-box{left:0;bottom:62px;width:min(250px,27vw);padding:7px;}
+  #lobby .lobby-players{max-height:60px;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
+  #lobby .lobby-players .lobby-player{min-height:30px;padding:4px;font-size:8px;}
+  #lobby .hero-showcase-info{bottom:66px;width:min(320px,39vw);padding:7px 10px;}
+  #lobby .hero-showcase-info>strong{font-size:20px;}
+  #lobby .lobby-bottom-bar{bottom:max(33px,calc(env(safe-area-inset-bottom) + 25px));min-height:38px;}
+  #lobby .lobby-class-button,#lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:38px;}
+  #lobby .lobby-hint{font-size:7px;}
+}
+@media (max-height:640px){
+  #lobby .hero-showcase-info{padding-top:7px;padding-bottom:7px;}
+  #lobby .lobby-team-box{padding-top:7px;padding-bottom:7px;}
+}
+
+/* 46–50: usability, touch, focus, and motion preferences. */
+#lobby button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+#lobby button:focus-visible{outline:2px solid #9deaff;outline-offset:3px;}
+#lobby .lobby-nav-btn:active,#lobby .lobby-class-button:active,#lobby .lobby-ready-button:active{filter:brightness(1.12);}
+#lobby .lobby-editor-backdrop{background:rgba(1,5,12,.72);backdrop-filter:none;-webkit-backdrop-filter:none;}
+#lobby .lobby-editor{box-shadow:0 24px 70px rgba(0,0,0,.78);overscroll-behavior:contain;}
+#lobby .lobby-editor-content{overscroll-behavior:contain;scrollbar-gutter:stable;}
+#lobby .lobby-players{scrollbar-width:thin;scrollbar-color:#3a6c87 #06111d;}
+@media(prefers-reduced-motion:reduce){
+  #lobby .hero-showcase-info,#lobby .lobby-online-dot,#lobby .lobby-player,#lobby .lobby-stage:after{animation:none!important;}
+  #lobby .lobby-nav-btn,#lobby .class-card,#lobby .skin-pick{transition:none!important;}
+}
