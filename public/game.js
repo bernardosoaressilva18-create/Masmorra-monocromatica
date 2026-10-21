@@ -17,6 +17,90 @@ let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico'
 const world = { width: 30, depth: 190 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
 
+function clampSetting(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+let storedGameSettings = {};
+try { storedGameSettings = JSON.parse(localStorage.getItem('mmGameSettings') || '{}') || {}; } catch {}
+const gameSettings = {
+  sensitivity: clampSetting(storedGameSettings.sensitivity, 0.5, 3, 1.2),
+  musicVolume: clampSetting(storedGameSettings.musicVolume, 0, 1, 0.32),
+  sfxVolume: clampSetting(storedGameSettings.sfxVolume, 0, 1, 0.72),
+  musicEnabled: storedGameSettings.musicEnabled !== false
+};
+let audioContext = null, musicBus = null, sfxBus = null, musicTimer = null, musicStep = 0;
+
+function saveGameSettings() {
+  try { localStorage.setItem('mmGameSettings', JSON.stringify(gameSettings)); } catch {}
+}
+function updateAudioLevels() {
+  if (!audioContext || !musicBus || !sfxBus) return;
+  const now = audioContext.currentTime;
+  musicBus.gain.setTargetAtTime(gameSettings.musicEnabled ? gameSettings.musicVolume * 0.8 : 0, now, 0.12);
+  sfxBus.gain.setTargetAtTime(gameSettings.sfxVolume, now, 0.06);
+}
+function scheduleMusicNote(frequency) {
+  if (!audioContext || !musicBus || !gameSettings.musicEnabled || gameSettings.musicVolume <= 0) return;
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const envelope = audioContext.createGain();
+  oscillator.type = 'triangle';
+  oscillator.frequency.setValueAtTime(frequency, now);
+  envelope.gain.setValueAtTime(0.0001, now);
+  envelope.gain.exponentialRampToValueAtTime(0.12, now + 0.11);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.82);
+  oscillator.connect(envelope); envelope.connect(musicBus);
+  oscillator.start(now); oscillator.stop(now + 0.84);
+}
+function ensureAudio() {
+  const AudioConstructor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioConstructor) return;
+  try {
+    if (!audioContext) {
+      audioContext = new AudioConstructor();
+      musicBus = audioContext.createGain(); sfxBus = audioContext.createGain();
+      musicBus.connect(audioContext.destination); sfxBus.connect(audioContext.destination);
+      for (const [frequency, volume] of [[55, 0.035], [82.41, 0.022], [110, 0.012]]) {
+        const drone = audioContext.createOscillator();
+        const droneGain = audioContext.createGain();
+        drone.type = 'sine'; drone.frequency.value = frequency; droneGain.gain.value = volume;
+        drone.connect(droneGain); droneGain.connect(musicBus); drone.start();
+      }
+      const melody = [146.83, 174.61, 220, 196, 164.81, 146.83, 130.81, 164.81, 196, 174.61];
+      const tick = () => {
+        if (!gameSettings.musicEnabled || gameSettings.musicVolume <= 0) return;
+        scheduleMusicNote(melody[musicStep % melody.length]); musicStep++;
+      };
+      tick(); musicTimer = window.setInterval(tick, 980);
+    }
+    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    updateAudioLevels();
+  } catch (_) {}
+}
+function playSfx(kind = 'ui') {
+  if (gameSettings.sfxVolume <= 0) return;
+  ensureAudio();
+  if (!audioContext || !sfxBus) return;
+  const profiles = {
+    ui: [510, 680, 'sine', 0.09], attack: [235, 92, 'sawtooth', 0.16],
+    fire: [390, 125, 'sawtooth', 0.24], lightning: [780, 190, 'square', 0.20],
+    chest: [420, 760, 'triangle', 0.20], loot: [610, 920, 'sine', 0.24],
+    damage: [165, 70, 'sawtooth', 0.22]
+  };
+  const [startFrequency, endFrequency, waveform, duration] = profiles[kind] || profiles.ui;
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator(); const envelope = audioContext.createGain();
+  oscillator.type = waveform;
+  oscillator.frequency.setValueAtTime(startFrequency, now);
+  oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), now + duration);
+  envelope.gain.setValueAtTime(0.0001, now);
+  envelope.gain.exponentialRampToValueAtTime(0.16, now + 0.012);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  oscillator.connect(envelope); envelope.connect(sfxBus);
+  oscillator.start(now); oscillator.stop(now + duration + 0.02);
+}
+
 // Colisores 2D alinhados aos pilares, suportes dos portões e cristais sólidos.
 const staticDungeonColliders = (() => {
   const list = [];
@@ -497,10 +581,12 @@ const surfaceTexture = makeSurfaceTexture();
 function attachHealthBar(entity) {
   const bar = new THREE.Group();
   bar.position.set(0, 2.55, 0);
-  const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 0.17), new THREE.MeshBasicMaterial({ color: 0x090c12, transparent: true, opacity: 0.96, depthTest: false }));
-  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.22, 0.095), new THREE.MeshBasicMaterial({ color: 0x39e66b, depthTest: false }));
+  const rim = new THREE.Mesh(new THREE.PlaneGeometry(1.40, 0.23), new THREE.MeshBasicMaterial({ color: 0x7d0b25, depthTest: false }));
+  rim.position.z = -0.018;
+  const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 0.17), new THREE.MeshBasicMaterial({ color: 0x26040b, transparent: true, opacity: 0.99, depthTest: false }));
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.22, 0.095), new THREE.MeshBasicMaterial({ color: 0xff1e43, depthTest: false }));
   fill.position.z = 0.012;
-  bar.add(bg, fill);
+  bar.add(rim, bg, fill);
   bar.renderOrder = 20;
   entity.add(bar);
   entity.userData.healthBar = bar;
@@ -514,7 +600,7 @@ function setHealthBar(entity, hp, maxHp) {
   const fill = entity.userData.healthFill;
   fill.scale.x = Math.max(0.001, ratio);
   fill.position.x = -0.61 * (1 - ratio);
-  fill.material.color.set(ratio > 0.55 ? 0x39e66b : ratio > 0.25 ? 0xffc247 : 0xff4545);
+  fill.material.color.set(ratio > 0.35 ? 0xff1538 : ratio > 0.12 ? 0xff4b69 : 0xb9072c);
 }
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
@@ -714,6 +800,7 @@ function interactChest() {
     if (d < distance) { nearest = chest; distance = d; }
   }
   if (!nearest || distance > 3.0) { showNotice('Chegue perto de um baú.'); return; }
+  playSfx('chest');
   send({ type: 'openChest', id: nearest.id });
 }
 
@@ -1121,6 +1208,7 @@ function handleMessage(m) {
   }
 
   if (m.type === 'loot') {
+    playSfx('loot');
     showNotice('Loot: ' + m.item.name + ' · ' + m.item.rarity);
     renderInventory();
     return;
@@ -1129,6 +1217,7 @@ function handleMessage(m) {
   if (m.type === 'notice') {
     showNotice(m.text);
     if (/acertou você|foi derrotado/i.test(m.text)) {
+      playSfx('damage');
       const f = $('hitFlash'); f.style.borderWidth = '7px'; f.style.borderColor = '#ff315d';
       setTimeout(() => { f.style.borderWidth = '0'; f.style.borderColor = ''; }, 220);
     }
@@ -1532,6 +1621,7 @@ function attack() {
   if (!started || attackCooldown > 0 || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
 
   attackCooldown = selectedClass === 'archer' ? .29 : selectedClass === 'mage' ? .4 : .48;
+  playSfx('attack');
   send({ type: 'attack' });
 
   const sword = myPlayer?.userData.sword;
@@ -1549,6 +1639,8 @@ function attack() {
 
 // A tela inicial precisa liberar o menu antes de o jogador entrar na sala.
 $('startBtn').addEventListener('click', async () => {
+  ensureAudio();
+  playSfx('ui');
   // No celular, tenta usar a tela inteira e manter o jogo em pé.
   // O bloqueio de orientação só é permitido em alguns navegadores após um toque.
   if (isMobileDevice) {
@@ -1658,6 +1750,44 @@ function placeSpellButtons() {
 addEventListener('resize', placeSpellButtons);
 placeSpellButtons();
 
+function refreshSettingsUI() {
+  $('lookSensitivity').value = String(gameSettings.sensitivity);
+  $('lookSensitivityValue').textContent = gameSettings.sensitivity.toFixed(1).replace('.', ',') + '×';
+  $('musicVolume').value = String(gameSettings.musicVolume);
+  $('musicVolumeValue').textContent = Math.round(gameSettings.musicVolume * 100) + '%';
+  $('musicEnabled').checked = gameSettings.musicEnabled;
+  $('sfxVolume').value = String(gameSettings.sfxVolume);
+  $('sfxVolumeValue').textContent = Math.round(gameSettings.sfxVolume * 100) + '%';
+}
+refreshSettingsUI();
+
+$('settingsBtn').addEventListener('click', e => {
+  e.preventDefault(); e.stopPropagation(); ensureAudio(); playSfx('ui');
+  $('settingsPanel').classList.toggle('hidden');
+});
+$('settingsCloseBtn').addEventListener('click', () => {
+  playSfx('ui'); $('settingsPanel').classList.add('hidden');
+});
+$('lookSensitivity').addEventListener('input', e => {
+  gameSettings.sensitivity = clampSetting(e.target.value, 0.5, 3, 1.2);
+  $('lookSensitivityValue').textContent = gameSettings.sensitivity.toFixed(1).replace('.', ',') + '×';
+  saveGameSettings();
+});
+$('musicVolume').addEventListener('input', e => {
+  gameSettings.musicVolume = clampSetting(e.target.value, 0, 1, 0.32);
+  $('musicVolumeValue').textContent = Math.round(gameSettings.musicVolume * 100) + '%';
+  saveGameSettings(); updateAudioLevels();
+});
+$('musicEnabled').addEventListener('change', e => {
+  gameSettings.musicEnabled = e.target.checked;
+  saveGameSettings(); ensureAudio(); updateAudioLevels();
+});
+$('sfxVolume').addEventListener('input', e => {
+  gameSettings.sfxVolume = clampSetting(e.target.value, 0, 1, 0.72);
+  $('sfxVolumeValue').textContent = Math.round(gameSettings.sfxVolume * 100) + '%';
+  saveGameSettings(); updateAudioLevels();
+});
+
 function castSpell(kind) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
   if (kind === 'fire') {
@@ -1668,6 +1798,7 @@ function castSpell(kind) {
     lightningCooldown = 3.5;
   }
   // O efeito de lançamento aparece na hora; o servidor confirma os alvos e o dano.
+  playSfx(kind);
   const color = kind === 'fire' ? 0xff6b24 : 0x69aaff;
   const geo = kind === 'fire' ? new THREE.SphereGeometry(.25, 7, 5) : new THREE.OctahedronGeometry(.24, 0);
   const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
@@ -1767,8 +1898,8 @@ function rendererPointerSetup() {
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    targetYaw -= dx * .015; // sensibilidade 2,5, com amortecimento aplicado no loop
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0075, -.1, .8);
+    targetYaw -= dx * .022 * gameSettings.sensitivity;
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .011 * gameSettings.sensitivity, -.1, .8);
   });
 
   const end = e => {
