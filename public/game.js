@@ -77,16 +77,17 @@ function ensureAudio(){
       for(const [frequency,volume] of [[55,.018],[82.41,.011],[110,.005]]){
         const drone=audioContext.createOscillator(),gain=audioContext.createGain();drone.type='sine';drone.frequency.value=frequency;gain.gain.value=volume;drone.connect(gain);gain.connect(musicBus);drone.start();
       }
-      const dungeonLead=[220,261.63,329.63,392,349.23,293.66,261.63,196,220,293.66,349.23,440,392,329.63,261.63,220];
-      const astralLead=[440,523.25,659.25,783.99,698.46,587.33,659.25,880,783.99,659.25,523.25,493.88,587.33,698.46,523.25,440];
-      const dungeonBass=[55,82.41,65.41,98],astralBass=[110,164.81,130.81,196];
+      const dungeonLead=[261.63,329.63,392,523.25,392,329.63,293.66,349.23,440,523.25,440,349.23,261.63,293.66,349.23,392];
+      const astralLead=[392,523.25,659.25,783.99,659.25,587.33,698.46,880,783.99,659.25,587.33,523.25,440,587.33,698.46,880];
+      const dungeonBass=[65.41,98,73.42,110],astralBass=[82.41,123.47,98,146.83];
       const tick=()=>{if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;const step=musicStep++,lead=currentRealmVisual===2?astralLead:dungeonLead,bass=currentRealmVisual===2?astralBass:dungeonBass;
-        scheduleMusicNote(lead[step%lead.length],.38,.105,step%4===0?'sine':'triangle');
-        if(step%4===0)scheduleMusicNote(bass[Math.floor(step/4)%bass.length],1.65,.07,'sine');
-        if(step%2===1)scheduleMusicNote(lead[(step+5)%lead.length]*2,.19,.026,'sine');
-        if(step%8===4)scheduleMusicNote(bass[(Math.floor(step/4)+1)%bass.length]*2,.12,.018,'square');
+        scheduleMusicNote(lead[step%lead.length],.42,.10,step%4===0?'sine':'triangle');
+        if(step%4===0)scheduleMusicNote(bass[Math.floor(step/4)%bass.length],1.45,.065,'sine');
+        if(step%4===2)scheduleMusicNote(lead[(step+2)%lead.length]*1.5,.22,.018,'sine');
+        if(step%2===1)scheduleMusicNote(lead[(step+5)%lead.length]*2,.17,.022,'sine');
+        if(step%8===4)scheduleMusicNote(bass[(Math.floor(step/4)+1)%bass.length]*2,.11,.014,'square');
       };
-      tick();musicTimer=window.setInterval(tick,430);
+      tick();musicTimer=window.setInterval(tick,470);
     }
     if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
   }catch(_){}
@@ -1236,7 +1237,7 @@ function refreshLobby3DPreview() {
   if (!lobbyPreviewScene) return;
   if (lobbyPreviewHero) { lobbyPreviewScene.remove(lobbyPreviewHero); disposeObject3D(lobbyPreviewHero); lobbyPreviewHero = null; }
   lobbyPreviewHero = makeHero(null, selectedClass || 'knight', selectedSkin || 'default');
-  lobbyPreviewHero.scale.setScalar(1.28);
+  lobbyPreviewHero.scale.setScalar(1.36);
   lobbyPreviewHero.position.set(0,0,0);
   lobbyPreviewHero.rotation.y = Math.PI;
   if (lobbyPreviewHero.userData.healthBar) lobbyPreviewHero.userData.healthBar.visible = false;
@@ -1250,9 +1251,9 @@ function renderLobby3DPreview() {
   const height = renderer.domElement.clientHeight || innerHeight;
   if (width < 2 || height < 2) return;
   const portrait = height >= width;
-  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.62,300) : Math.min(width*0.43,590)));
-  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.49,430) : Math.min(height*0.66,520)));
-  const centerTop = Math.floor(height*(portrait ? 0.445 : 0.465));
+  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.66,320) : Math.min(width*0.46,620)));
+  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.52,450) : Math.min(height*0.69,540)));
+  const centerTop = Math.floor(height*(portrait ? 0.43 : 0.455));
   const left = Math.floor((width-previewWidth)/2);
   const top = Math.max(0,Math.min(height-previewHeight,centerTop-Math.floor(previewHeight/2)));
   const bottom = height-top-previewHeight;
@@ -1335,7 +1336,7 @@ function renderLobby3DPreview() {
     });
   }
   lobbyPreviewCamera.aspect = previewWidth/previewHeight;
-  lobbyPreviewCamera.position.z = portrait ? 5.25 : 5.6;
+  lobbyPreviewCamera.position.z = portrait ? 5.05 : 5.35;
   lobbyPreviewCamera.updateProjectionMatrix();
   lobbyPreviewCamera.lookAt(0,1.1,0);
   renderer.autoClear = false;
@@ -2654,7 +2655,21 @@ const right = new THREE.Vector3(
   if (myPlayer) myPlayer.visible = !lobbyVisible;
   for (const obj of remotePlayers.values()) obj.visible = !lobbyVisible;
   updatePerformanceMonitor();
-  renderer.render(scene, camera);
+  const lobbyOverlayVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
+  if (lobbyOverlayVisible) {
+    // The lobby uses the same canvas for its independent hero preview. Hide the
+    // gameplay scene only for this frame so dungeon geometry/camera cannot bleed
+    // through the translucent lobby. Restore each exact previous visibility.
+    const priorVisibility = scene.children.map(child => [child, child.visible]);
+    try {
+      for (const child of scene.children) child.visible = false;
+      renderer.render(scene, camera);
+    } finally {
+      for (const [child, wasVisible] of priorVisibility) child.visible = wasVisible;
+    }
+  } else {
+    renderer.render(scene, camera);
+  }
   renderLobby3DPreview();
 }
 
