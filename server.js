@@ -143,30 +143,15 @@ function grantLoot(player, source) {
   return item;
 }
 
-function createWave(phase) {
-  const count = phase === 1 ? 5 : 6 + phase;
-  const kindsByPhase = {
-    1: ['stalker','stalker','brute','stalker','brute'],
-    2: ['wraith','stalker','wraith','brute','wraith','brute'],
-    3: ['thorn','thorn','brute','wraith','thorn','brute','wraith'],
-    4: ['inferno','brute','inferno','wraith','brute','inferno','wraith','brute'],
-    5: ['abyss','abyss','brute','abyss','wraith','abyss','brute','abyss','wraith']
-  };
-  const kinds = kindsByPhase[phase] || kindsByPhase[5];
-  const center = -((phase - 1) * 32 + 14);
-  const now = Date.now();
-  return Array.from({ length: count }, (_, i) => {
-    const kind = kinds[i % kinds.length];
-    const base = phase === 1 ? 5 : 7 + phase * 2;
-    const hp = (kind === 'brute' ? base * 2 : base) + (phase - 1) * 2;
-    return { id: 'p' + phase + 'm' + i, kind, phase,
-      x: (Math.random() - 0.5) * 22, z: center + (Math.random() - 0.5) * 8,
-      spawned: false, spawnAt: now + i * 1700, alive: true, hp, maxHp: hp, attackAt: 0 };
-  });
+function createWave(phase,realm=1){
+ const original={1:['stalker','stalker','brute','stalker','brute'],2:['wraith','stalker','wraith','brute','wraith','brute'],3:['thorn','thorn','brute','wraith','thorn','brute','wraith'],4:['inferno','brute','inferno','wraith','brute','inferno','wraith','brute'],5:['abyss','abyss','brute','abyss','wraith','abyss','brute','abyss','wraith']};
+ const astral={1:['wraith','thorn','stalker','wraith','brute','thorn'],2:['thorn','inferno','wraith','thorn','brute','wraith','inferno'],3:['abyss','thorn','wraith','abyss','brute','thorn','inferno','wraith'],4:['inferno','abyss','brute','wraith','inferno','thorn','abyss','brute','wraith'],5:['abyss','abyss','inferno','brute','abyss','wraith','inferno','abyss','brute']};
+ const kindsByPhase=realm===2?astral:original,count=phase===1?(realm===2?6:5):6+phase+(realm===2?1:0),kinds=kindsByPhase[phase]||kindsByPhase[5],center=-((phase-1)*32+14),now=Date.now();
+ return Array.from({length:count},(_,i)=>{const kind=kinds[i%kinds.length],base=phase===1?5:7+phase*2,scale=realm===2?1.3:1,hp=Math.round(((kind==='brute'?base*2:base)+(phase-1)*2)*scale);return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*22,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:now+i*1700,alive:true,hp,maxHp:hp,attackAt:0};});
 }
 function advancePhase(room) {
   if (room.phase >= 5) return;
-  const names = ['', 'Cripta Esquecida', 'Cavernas Mágicas', 'Floresta Amaldiçoada', 'Terras Vulcânicas', 'Abismo Final'];
+  const names=room.realm===2?['','Jardins Estelares','Ponte do Vazio','Bosque de Cristal','Coroa Celeste','Trono Astral']:['','Cripta Esquecida','Cavernas Mágicas','Floresta Amaldiçoada','Terras Vulcânicas','Abismo Final'];
   room.phase++;
   room.safeZoneUntil = Date.now() + 20000;
   room.nextSafeBroadcast = 0;
@@ -176,18 +161,27 @@ function advancePhase(room) {
     player.hp = Math.min(player.maxHp || 100, player.hp + 15);
     if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 20 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
   }
-  room.monsters = createWave(room.phase);
+  room.monsters = createWave(room.phase, room.realm || 1);
   room.boss = null;
   if (room.phase === 5) {
     room.monsters = [];
-    room.boss = { id: 'final-boss', x: 0, z: -150, alive: true, hp: 95, maxHp: 95, lifePhase: 1, attackAt: 0 };
+    const bossHp=room.realm===2?145:95;
+    room.boss={id:'realm-'+(room.realm||1)+'-final-boss',x:0,z:-150,alive:true,hp:bossHp,maxHp:bossHp,lifePhase:1,attackAt:0};
     broadcast(room, { type: 'notice', text: 'FASE 5: ' + names[5] + '! O Guardião Supremo despertou.' });
   } else {
     broadcast(room, { type: 'notice', text: 'MUNDO ' + room.phase + ' / 5: ' + names[room.phase] + '. Nova região descoberta!' });
   }
 }
+
+function enterAstralRealm(room){
+ room.realm=2;room.phase=1;room.monsters=createWave(1,2);room.boss=null;room.cursedBoss=null;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;
+ room.chests=[{id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},{id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}];
+ for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
+ broadcast(room,state(room));
+}
+
 function newRoom(code, hostId) {
-  const room = { players: new Map(), hostId, started: false, phase: 1, monsters: createWave(1), boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0, cursedBoss: null, cursedBossAttackAt: 0,
+  const room = { players: new Map(), hostId, started: false, realm: 1, phase: 1, monsters: createWave(1,1), boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0, cursedBoss: null, cursedBossAttackAt: 0,
     chests: [
       { id: 'c0', x: -8, z: -12, openedBy: [] },
       { id: 'c1', x: 8, z: -44, openedBy: [] },
@@ -253,6 +247,7 @@ function state(room) {
       id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId
     })),
     phase: room.phase,
+    realm: room.realm || 1,
     safeZoneUntil: room.safeZoneUntil || 0,
     started: room.started,
     hostId: room.hostId,
@@ -401,9 +396,11 @@ wss.on('connection', ws => {
       const requestedZ = Math.max(-174, Math.min(8, Number(msg.z) || 0));
       const collisionResolved = resolveServerMovement(room, player, requestedX, requestedZ);
       player.x = collisionResolved.x;
-      const gateZ = room.phase < 5 ? -(30 + (room.phase - 1) * 32) : -999;
-      const enemiesAlive = room.phase === 5 ? !!(room.boss && room.boss.alive) : room.monsters.some(m => m.alive);
-      if (room.phase < 5 && requestedZ < gateZ && enemiesAlive) {
+      const gateZ=room.phase<5?-(30+(room.phase-1)*32):-163.2;
+      const enemiesAlive=room.phase===5?!!(room.boss&&room.boss.alive):room.monsters.some(m=>m.alive);
+      if(room.realm===1&&room.phase===5&&requestedZ<gateZ&&room.boss&&room.boss.alive){player.z=gateZ+.9;if(Date.now()-player.lastGateNotice>1800){player.lastGateNotice=Date.now();player.ws.send(JSON.stringify({type:'notice',text:'O portão do Vale Astral está selado! Derrote o Guardião Supremo.'}));}}
+      else if(room.realm===1&&room.phase===5&&requestedZ<gateZ&&room.boss&&!room.boss.alive){enterAstralRealm(room);}
+      else if(room.phase<5&&requestedZ<gateZ&&enemiesAlive){
         player.z = gateZ + 0.7;
         if (Date.now() - player.lastGateNotice > 1800) {
           player.lastGateNotice = Date.now();
@@ -505,6 +502,7 @@ wss.on('connection', ws => {
           if (room.phase === 5 && enemy === room.boss) {
             const dropped = grantLoot(player, 'boss');
             broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
+            if(room.realm===1)broadcast(room,{type:'notice',text:'✦ O portão do Vale Astral despertou no fundo do Abismo!'});
           }
         }
       };
@@ -575,6 +573,7 @@ wss.on('connection', ws => {
         if (boss.hp <= 0) {
           boss.alive = false; const dropped = grantLoot(player, 'boss');
           broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
+          if(room.realm===1)broadcast(room,{type:'notice',text:'✦ O portão do Vale Astral despertou no fundo do Abismo!'});
         }
       } else if (room.phase === 5 && room.boss && room.boss.alive) {
         player.ws.send(JSON.stringify({ type: 'notice', text: 'Chegue perto do Guardião para acertar o golpe.' }));
@@ -732,6 +731,7 @@ setInterval(() => {
           if (enemy === room.boss) {
             const dropped = grantLoot(owner, 'boss');
             broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO PELA QUEIMADURA! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
+            if(room.realm===1)broadcast(room,{type:'notice',text:'✦ O portão do Vale Astral despertou no fundo do Abismo!'});
           } else if (Math.random() < dropChance(owner, .25)) grantLoot(owner, 'monster');
         }
       }
