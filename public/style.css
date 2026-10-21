@@ -615,3 +615,57 @@ html, body { min-height: 100%; }
 .hero-preview-avatar.class-mage:before{background:linear-gradient(120deg,#e7d6ff,#8972c8);box-shadow:0 0 0 4px #32284e,0 13px 0 7px #423477,0 24px 0 9px #171326}
 .hero-preview-avatar.class-archer:before{background:linear-gradient(120deg,#e8c69d,#8b6040);box-shadow:0 0 0 4px #293a2c,0 13px 0 7px #3f694b,0 24px 0 9px #152019}
 @media(max-width:560px){#hud .skill-panel{left:8px;top:136px;width:calc(100vw - 16px);max-height:66vh;padding:10px}#hud .skill-panel .skill-node{min-height:90px}}
+
+
+/* Controles e configurações: versão visível para celular e desktop. */
+.settings-toggle {
+  pointer-events: auto; flex: 0 0 38px; width: 38px; height: 38px; margin-left: auto;
+  border: 1px solid rgba(118,231,242,.55); border-radius: 10px; color: #e6fbff;
+  background: rgba(9,18,29,.96); box-shadow: 0 3px 14px #0008; font-size: 20px;
+  line-height: 1; touch-action: manipulation;
+}
+.topbar .leave { margin-left: 0; }
+.settings-panel {
+  position: absolute; z-index: 140; top: max(62px, calc(env(safe-area-inset-top) + 54px));
+  right: 8px; width: min(310px, calc(100vw - 16px)); max-height: min(70dvh, 490px);
+  overflow-y: auto; padding: 14px; border: 1px solid rgba(118,231,242,.48);
+  border-radius: 13px; color: #edf8ff; background: rgba(5,11,20,.97);
+  box-shadow: 0 12px 35px #000c, 0 0 20px #54d8ff17; pointer-events: auto; touch-action: pan-y;
+}
+.settings-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; color:#e9c477; font-size:11px; letter-spacing:1px; }
+.settings-head button { width:30px; height:30px; border:1px solid #566575; border-radius:8px; color:#fff; background:#15202c; pointer-events:auto; }
+.setting-range { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:13px 0 5px; color:#dce8f2; font-size:11px; font-weight:700; }
+.setting-range output { flex:0 0 auto; color:#76e7f2; font-variant-numeric:tabular-nums; }
+.settings-panel input[type="range"] { display:block; width:100%; height:25px; margin:0; accent-color:#76e7f2; touch-action:pan-y; }
+.setting-toggle { display:flex; align-items:center; gap:8px; margin:11px 0; color:#dce8f2; font-size:11px; font-weight:700; }
+.settings-panel input[type="checkbox"] { width:18px; height:18px; margin:0; accent-color:#76e7f2; }
+.settings-note { margin:13px 0 0; color:#8ca2b4; font-size:9px; line-height:1.4; }
+.joystick-label { position:absolute; left:0; right:0; bottom:7px; text-align:center; color:#c9f7ff; font-size:7px; font-weight:900; letter-spacing:1.2px; text-shadow:0 1px 5px #000; pointer-events:none; }
+@media (pointer: coarse) {
+  #hud .joystick {
+    left: max(9px, env(safe-area-inset-left)) !important; bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    width: 142px !important; height: 142px !important; border: 2px solid rgba(160,239,255,.72) !important;
+    background: radial-gradient(circle, rgba(73,161,183,.38), rgba(5,14,25,.83) 68%) !important;
+    box-shadow: inset 0 0 20px #000a, 0 0 0 4px rgba(77,191,218,.10), 0 0 22px rgba(61,196,225,.22) !important;
+    border-radius: 50% !important; opacity: 1 !important; touch-action: none !important;
+  }
+  #hud .joystick:before { display:block !important; inset:15px !important; border:2px dashed rgba(189,242,255,.45) !important; }
+  #hud .stick {
+    left:46px !important; top:46px !important; width:48px !important; height:48px !important;
+    border:2px solid rgba(229,252,255,.95) !important;
+    background: radial-gradient(circle at 33% 25%, #c8fbff, #57b8d0 48%, #14516c) !important;
+    box-shadow: inset 0 2px 6px #ffffff59, 0 4px 14px #000c, 0 0 13px #64e7ff55 !important; opacity:1 !important;
+  }
+  #hud .joystick-label { bottom:7px !important; font-size:7px !important; color:#e3fbff !important; }
+  #hud .attack {
+    right:max(12px, env(safe-area-inset-right)) !important; bottom:max(12px, env(safe-area-inset-bottom)) !important;
+    width:78px !important; height:78px !important; border:2px solid rgba(255,219,153,.9) !important;
+    border-radius:50% !important; background:radial-gradient(circle at 35% 25%, #b87945, #622e29 70%, #24151a) !important;
+    box-shadow:0 0 0 4px #080d1577, 0 0 18px #e9a35444 !important; color:#fff4db !important; opacity:1 !important;
+  }
+  #hud .attack span, #hud .attack small { opacity:1 !important; }
+}
+@media (max-width: 560px) {
+  .settings-toggle { flex-basis:32px; width:32px; height:32px; font-size:17px; }
+  .settings-panel { top:max(52px, calc(env(safe-area-inset-top) + 48px)); }
+}
