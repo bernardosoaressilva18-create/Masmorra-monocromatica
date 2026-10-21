@@ -683,7 +683,7 @@ wss.on('connection', ws => {
       broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text });
       broadcast(room, state(room));
     } else if (msg.type === 'spell') {
-      if (!room.started || player.hp <= 0) return;
+      if (!room.started || player.hp <= 0 || player.playerClass !== 'mage') return;
       if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Você está na zona segura. Use esse tempo para melhorar suas habilidades.' })); return; }
       const spell = msg.spell === 'fire' ? 'fire' : msg.spell === 'lightning' ? 'lightning' : null;
       if (!spell) return;
