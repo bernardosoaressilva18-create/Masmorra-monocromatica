@@ -5,6 +5,7 @@ const $ = id => document.getElementById(id);
 const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('menuStatus');
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
+let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null;
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
@@ -200,6 +201,7 @@ function init3D() {
 
   buildDungeon();
   createPlayer();
+  initLobby3DPreview();
   onResize();
   animate();
 }
@@ -1117,6 +1119,69 @@ function updateHeroShowcase() {
   if($('heroPreviewSkin')) $('heroPreviewSkin').textContent=skinInfo.label;
   if($('lobbyClassCurrent')) $('lobbyClassCurrent').textContent=classInfo.name.toUpperCase();
   document.querySelectorAll('.skin-pick').forEach(el=>el.classList.toggle('selected',el.dataset.skin===selectedSkin));
+  refreshLobby3DPreview();
+}
+function initLobby3DPreview() {
+  if (lobbyPreviewScene || !renderer) return;
+  lobbyPreviewScene = new THREE.Scene();
+  lobbyPreviewScene.background = null;
+  lobbyPreviewCamera = new THREE.PerspectiveCamera(31, 0.56, 0.1, 50);
+  lobbyPreviewCamera.position.set(0, 1.32, 6.1);
+  lobbyPreviewCamera.lookAt(0, 1.12, 0);
+  lobbyPreviewScene.add(new THREE.HemisphereLight(0xe3f6ff, 0x263448, 2.5));
+  const keyLight = new THREE.DirectionalLight(0xffe5b0, 3.0);
+  keyLight.position.set(-3.8, 6, 4.5); lobbyPreviewScene.add(keyLight);
+  const fillLight = new THREE.DirectionalLight(0x63ccff, 2.2);
+  fillLight.position.set(4, 3, 2.5); lobbyPreviewScene.add(fillLight);
+  const rimLight = new THREE.PointLight(0x4fcfff, 8, 10, 2);
+  rimLight.position.set(0, 2.5, -1.3); lobbyPreviewScene.add(rimLight);
+  const baseMaterial = new THREE.MeshStandardMaterial({color:0x132638,metalness:0.55,roughness:0.35,emissive:0x10384a,emissiveIntensity:0.55});
+  lobbyPreviewPlatform = new THREE.Mesh(new THREE.CylinderGeometry(0.78,0.88,0.13,36),baseMaterial);
+  lobbyPreviewPlatform.position.y = -0.105; lobbyPreviewScene.add(lobbyPreviewPlatform);
+  const platformRing = new THREE.Mesh(new THREE.TorusGeometry(0.82,0.025,7,48),new THREE.MeshBasicMaterial({color:0x80eaff}));
+  platformRing.position.y = -0.025; lobbyPreviewScene.add(platformRing);
+  refreshLobby3DPreview();
+}
+function refreshLobby3DPreview() {
+  if (!lobbyPreviewScene) return;
+  if (lobbyPreviewHero) { lobbyPreviewScene.remove(lobbyPreviewHero); disposeObject3D(lobbyPreviewHero); lobbyPreviewHero = null; }
+  lobbyPreviewHero = makeHero(null, selectedClass || 'knight', selectedSkin || 'default');
+  lobbyPreviewHero.scale.setScalar(1.12);
+  lobbyPreviewHero.position.set(0,0,0);
+  lobbyPreviewHero.rotation.y = Math.PI;
+  if (lobbyPreviewHero.userData.healthBar) lobbyPreviewHero.userData.healthBar.visible = false;
+  lobbyPreviewScene.add(lobbyPreviewHero);
+}
+function renderLobby3DPreview() {
+  if (!renderer || !lobbyPreviewScene || !lobbyPreviewCamera || !lobbyPreviewHero) return;
+  const lobbyVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
+  if (!lobbyVisible) return;
+  const width = renderer.domElement.clientWidth || innerWidth;
+  const height = renderer.domElement.clientHeight || innerHeight;
+  if (width < 2 || height < 2) return;
+  const portrait = height >= width;
+  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.47,220) : Math.min(width*0.36,500)));
+  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.39,340) : Math.min(height*0.53,410)));
+  const centerTop = Math.floor(height*(portrait ? 0.465 : 0.475));
+  const left = Math.floor((width-previewWidth)/2);
+  const top = Math.max(0,Math.min(height-previewHeight,centerTop-Math.floor(previewHeight/2)));
+  const bottom = height-top-previewHeight;
+  const time = clock ? clock.elapsedTime : 0;
+  lobbyPreviewHero.rotation.y = Math.PI + Math.sin(time*0.32)*0.12;
+  lobbyPreviewHero.position.y = Math.sin(time*1.25)*0.025;
+  lobbyPreviewCamera.aspect = previewWidth/previewHeight;
+  lobbyPreviewCamera.position.z = portrait ? 6.0 : 6.2;
+  lobbyPreviewCamera.updateProjectionMatrix();
+  lobbyPreviewCamera.lookAt(0,1.1,0);
+  renderer.autoClear = false;
+  renderer.setScissorTest(true);
+  renderer.setViewport(left,bottom,previewWidth,previewHeight);
+  renderer.setScissor(left,bottom,previewWidth,previewHeight);
+  renderer.clearDepth();
+  renderer.render(lobbyPreviewScene,lobbyPreviewCamera);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0,0,width,height);
+  renderer.autoClear = true;
 }
 function handleSkillClick(event) {
   const button = event.target.closest('[data-skill]');
@@ -2357,8 +2422,12 @@ const right = new THREE.Vector3(
     camera.lookAt(target.x, target.y + 0.15, target.z);
   }
 
+  const lobbyVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
+  if (myPlayer) myPlayer.visible = !lobbyVisible;
+  for (const obj of remotePlayers.values()) obj.visible = !lobbyVisible;
   updatePerformanceMonitor();
   renderer.render(scene, camera);
+  renderLobby3DPreview();
 }
 
 init3D();
