@@ -1161,7 +1161,7 @@ $('volume')?.addEventListener('input', e => {
 });
 $('sensitivity')?.addEventListener('input', e => {
   lookSensitivity = Number(e.target.value);
-  verticalSensitivity = lookSensitivity * 2.00;
+  verticalSensitivity = lookSensitivity * 300.00;
   $('sensitivityValue').textContent = Math.round(lookSensitivity * 1000) + '%';
 });
 $('playBtn').addEventListener('click', initAudio);
