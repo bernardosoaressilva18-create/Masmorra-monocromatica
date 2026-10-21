@@ -771,3 +771,39 @@ html, body { min-height: 100%; }
 @media(prefers-reduced-motion:reduce){
   #lobby .class-card,#lobby .skin-pick,#lobby .lobby-leave{transition:none}
 }
+
+
+/* Janela de heróis 3D no lobby: deixa o palco da cena visível atrás do painel. */
+#lobby .hero-showcase{
+  min-height:228px;
+  display:flex;
+  align-items:flex-end;
+  padding:14px;
+  margin:0 0 18px;
+  border-color:#8ce5f344;
+  background:
+    linear-gradient(180deg,rgba(7,12,20,.04) 0%,rgba(7,12,20,.18) 38%,rgba(7,12,20,.92) 100%),
+    radial-gradient(ellipse at 50% 42%,rgba(87,185,211,.10),transparent 62%);
+  box-shadow:inset 0 -1px #c9f8ff20,0 10px 28px #0005;
+}
+#lobby .hero-preview-avatar{display:none}
+#lobby .hero-showcase-info{
+  position:relative;z-index:2;width:100%;padding:10px 12px;
+  border:1px solid #8ce5f32b;border-radius:10px;
+  background:linear-gradient(100deg,rgba(5,11,19,.88),rgba(8,15,24,.65));
+  backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+}
+#lobby .hero-showcase-info>small{font-size:8px;letter-spacing:1.8px}
+#lobby .hero-showcase-info>strong{font-size:20px}
+#lobby .hero-showcase-info p{font-size:10px}
+#lobby .hero-showcase-tags span:last-child{color:#a5dce8}
+#lobby .hero-showcase:before{
+  content:"";position:absolute;left:50%;top:14px;width:90px;height:90px;
+  transform:translateX(-50%);border:1px solid #e9c47725;border-radius:50%;
+  box-shadow:0 0 0 12px #e9c47708,0 0 0 24px #e9c47705;
+  pointer-events:none;
+}
+@media(max-width:560px){
+  #lobby .hero-showcase{min-height:205px;padding:10px}
+  #lobby .hero-showcase-info{padding:9px 10px}
+}
