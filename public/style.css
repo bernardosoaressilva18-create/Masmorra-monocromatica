@@ -1953,3 +1953,28 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
 .skill-branch-title{min-height:28px;line-height:1.4}
 @media(min-width:1050px){.skill-tree{grid-template-columns:repeat(5,minmax(0,1fr))}.skill-node{min-height:126px}}
 @media(max-width:560px){.skill-tree{grid-template-columns:1fr}.skill-branch-list{grid-template-columns:repeat(2,minmax(0,1fr))}.skill-head{align-items:flex-start;gap:8px}.skill-head span{max-width:45%}}
+
+
+/* Botão de orientação retrato/paisagem */
+.orientation-toggle {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid #76e7f25c;
+  border-radius: 8px;
+  background: #10212bdd;
+  color: #c8f8ff;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .35px;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.orientation-toggle:active { transform: scale(.96); background: #1b3a49; }
+@media (max-width: 420px) {
+  #hud .orientation-toggle { padding: 0 5px; font-size: 7px; letter-spacing: 0; }
+  #hud .topbar { gap: 3px !important; }
+  #hud .badge { min-width: 0; padding: 6px; }
+  #hud .badge strong { font-size: 9px; letter-spacing: .6px; }
+  #hud .stats { font-size: 10px; }
+}
