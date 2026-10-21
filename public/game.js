@@ -14,7 +14,7 @@ const SKIN_NAMES = { padrao: 'Padrão', gelo: 'Gelo', sombra: 'Sombra', ouro: 'O
 const SKILL_INFO = {
   golpe_pesado: { title: 'Golpe pesado', description: 'Seus ataques causam 30 de dano em vez de 20.', icon: '⚔' },
   passos_leves: { title: 'Passos leves', description: 'Sua velocidade aumenta de 5,8 para 7.', icon: '➤' },
-  vitalidade: { title: 'Vitalidade', description: 'Aumenta sua vida máxima para 1000 e recupera sua vida ao selecionar.', icon: '♥' }
+  vitalidade: { title: 'Vitalidade', description: 'Aumenta sua vida máxima para 120 e recupera sua vida ao selecionar.', icon: '♥' }
 };
 const world = { width: 30, depth: 46 };
 
