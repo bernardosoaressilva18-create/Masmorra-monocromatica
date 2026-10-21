@@ -796,12 +796,13 @@ function setHealthBar(entity, hp, maxHp) {
 }
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
-  const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : 0x72e6ff;
+  const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : 0x72e6ff;
   const armorColor = skin === 'shadow' ? 0x343a50 : skin === 'ember' ? 0x9b4a2b : (color ?? classColor);
   const darkColor = skin === 'shadow' ? 0x11131d : skin === 'ember' ? 0x3b1915 : 0x151d2a;
   const armor = new THREE.MeshStandardMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
   const dark = new THREE.MeshStandardMaterial({ color: darkColor, metalness: .35, roughness: .55 });
-  const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xe2b99a, roughness: .82 });
+  const skinTone = heroClass === 'goblin' ? 0x83bb56 : heroClass === 'ogre' ? 0x8c7952 : 0xe2b99a;
+  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .82 });
   const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xc9a45d, metalness: .72, roughness: .3 });
   const glow = new THREE.MeshStandardMaterial({ color: 0x8beaff, emissive: 0x168fc0, emissiveIntensity: 1.4, metalness: .25, roughness: .25 });
@@ -884,8 +885,27 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   capeCrest.rotation.z=Math.PI/4;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  headMesh = add(new THREE.SphereGeometry(.255,20,14), skinMaterial,0,1.94,-.015);
+  headMesh = add(new THREE.SphereGeometry(.255,20,14), skinMaterial,0,1.94,-.015,
+    heroClass === 'ogre' ? 1.28 : heroClass === 'goblin' ? .93 : 1,
+    heroClass === 'ogre' ? 1.12 : heroClass === 'goblin' ? 1.04 : 1,
+    heroClass === 'ogre' ? 1.12 : 1);
   add(new THREE.SphereGeometry(.27,20,12,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
+  if (heroClass === 'goblin') {
+    const eyeMat = new THREE.MeshStandardMaterial({color:0xd9d56a,emissive:0x817c24,emissiveIntensity:.35});
+    for (const side of [-1,1]) {
+      const ear = add(new THREE.ConeGeometry(.095,.34,4), skinMaterial, side*.32,2.00,.005,1,1,.62);
+      ear.rotation.z = side * -.88;
+      add(new THREE.SphereGeometry(.052,8,6), eyeMat, side*.09,1.96,-.239);
+    }
+  } else if (heroClass === 'ogre') {
+    for (const side of [-1,1]) {
+      const tusk = add(new THREE.ConeGeometry(.075,.23,6), new THREE.MeshStandardMaterial({color:0xf1e0b3,roughness:.6}), side*.15,1.79,-.205);
+      tusk.rotation.z = Math.PI + side*.18;
+      add(new THREE.SphereGeometry(.075,8,6), dark, side*.27,1.91,-.11,1.2,.8,.7);
+    }
+    add(new THREE.ConeGeometry(.09,.20,5), dark, -.12,2.25,.02,1,1,.8).rotation.z = -.3;
+    add(new THREE.ConeGeometry(.09,.20,5), dark, .12,2.25,.02,1,1,.8).rotation.z = .3;
+  }
   add(new THREE.BoxGeometry(.32,.09,.2), dark,0,2.04,-.17);
   for (const side of [-1,1]) add(new THREE.SphereGeometry(.035,8,6), glow,side*.09,1.96,-.239);
   // Ombreiras e pequenos rebites metálicos
@@ -914,6 +934,26 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const arc = new THREE.Mesh(new THREE.TorusGeometry(.34,.045,6,18,Math.PI*1.25), gold); arc.rotation.z=-Math.PI*.62; bow.add(arc);
     const string = new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.66,5), steel); string.position.set(-.12,0,0); string.rotation.z=Math.PI*.1; bow.add(string);
     bow.position.set(.56,1.08,-.08); bow.rotation.z=-.18; g.add(bow); classWeapon = bow;
+  } else if (heroClass === 'goblin') {
+    const daggers = new THREE.Group();
+    for (const side of [-1,1]) {
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(.075,.52,5), steel);
+      blade.position.set(side*.08,.27,0); blade.rotation.z = Math.PI + side*.18; daggers.add(blade);
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(.035,.045,.18,6), dark);
+      grip.position.set(side*.08,-.06,0); daggers.add(grip);
+    }
+    daggers.position.set(.55,1.02,-.13); daggers.rotation.z=-.20; g.add(daggers); classWeapon = daggers;
+  } else if (heroClass === 'ogre') {
+    const club = new THREE.Group();
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(.07,.10,.95,8), dark);
+    handle.position.y=.32; handle.rotation.z=-.12; club.add(handle);
+    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(.25,1), new THREE.MeshStandardMaterial({color:0x795239,roughness:.88}));
+    head.position.set(.04,.83,0); head.scale.set(1.1,1,.92); club.add(head);
+    for (const side of [-1,1]) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(.055,.18,5), gold);
+      spike.position.set(side*.20,.85,0); spike.rotation.z=side*-Math.PI/2; club.add(spike);
+    }
+    club.position.set(.58,.78,-.12); club.rotation.z=-.30; g.add(club); classWeapon = club;
   }
   // Detail pass: layered armor, class sigils, trim and distinct silhouettes.
   const collar = add(new THREE.TorusGeometry(.205,.035,6,20), gold, 0,1.56,0);
@@ -935,7 +975,17 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   capeTailL.rotation.z = .10;
   const capeTailR = add(new THREE.ConeGeometry(.19,.54,5), dark, .19,.73,.33,1,.92,.48);
   capeTailR.rotation.z = -.10;
-  if (heroClass === 'knight') {
+  if (heroClass === 'goblin') {
+    g.scale.setScalar(.88);
+    cape.visible = false; capeTailL.visible = false; capeTailR.visible = false;
+    add(new THREE.BoxGeometry(.22,.09,.16), dark, 0,1.87,-.24);
+    add(new THREE.BoxGeometry(.12,.035,.06), gold, 0,1.88,-.29);
+  } else if (heroClass === 'ogre') {
+    g.scale.setScalar(1.18);
+    cape.visible = false; capeTailL.visible = false; capeTailR.visible = false;
+    add(new THREE.BoxGeometry(.42,.20,.14), dark, 0,1.54,-.25);
+    add(new THREE.BoxGeometry(.24,.06,.05), gold, 0,1.54,-.34);
+  } else if (heroClass === 'knight') {
     add(new THREE.BoxGeometry(.38,.075,.095), steel, 0,2.08,-.205);
     add(new THREE.BoxGeometry(.10,.23,.09), steel, -.215,1.91,-.12);
     add(new THREE.BoxGeometry(.10,.23,.09), steel, .215,1.91,-.12);
@@ -1308,9 +1358,11 @@ function connect(code = '', automaticRetry = false) {
 }
 
 const classDescriptions = {
-  knight: 'Cavaleiro: mais vida, defesa natural e golpes corpo a corpo.',
-  mage: 'Mago: menos vida, mas magia mais poderosa.',
-  archer: 'Arqueiro: ataques rápidos e maior alcance.'
+  knight: 'Cavaleiro: muita vida, boa defesa e golpes confiáveis.',
+  mage: 'Mago: pouca vida, mas feitiços poderosos em área.',
+  archer: 'Arqueiro: ataque rápido e grande alcance.',
+  goblin: 'Goblin: pequeno, veloz e especialista em ataques rápidos.',
+  ogre: 'Ogro: enorme, resistente e lento, com golpes devastadores.'
 };
 let selectedClass = 'knight';
 let selectedSkin = 'default';
@@ -1332,22 +1384,45 @@ const SKILL_BRANCHES = [
     {id:'second_wind',icon:'🌟',name:'Segunda chance',desc:'Uma vez, sobrevive a um golpe fatal.',req:'regeneration'},
     {id:'party_guard',icon:'🤝',name:'Guarda em grupo',desc:'Recebe menos dano perto de aliado.',req:'second_wind'}
   ]},
-  { id:'arcane', title:'✦ MAGIA & UTILIDADE', skills:[
-    {id:'arcane_mastery',icon:'🔮',name:'Maestria arcana',desc:'Mago causa mais dano mágico.'},
+  { id:'arcane', title:'✦ MAGIA & TESOUROS', skills:[
+    {id:'arcane_mastery',icon:'🔮',name:'Maestria arcana',desc:'+50% de poder mágico.'},
     {id:'ember_core',icon:'🔥',name:'Núcleo de brasa',desc:'Fogo mais forte e queimadura maior.',req:'arcane_mastery'},
     {id:'storm_bond',icon:'⚡',name:'Vínculo da tempestade',desc:'Raio salta para mais inimigos.',req:'ember_core'},
     {id:'treasure_luck',icon:'💎',name:'Sorte do tesouro',desc:'Maior chance de loot.',req:'storm_bond'},
     {id:'swift_step',icon:'👟',name:'Passo veloz',desc:'Movimento mais rápido.',req:'treasure_luck'}
+  ]},
+  { id:'mobility', title:'💨 MOBILIDADE', skills:[
+    {id:'dodge_mastery',icon:'↗',name:'Esquiva treinada',desc:'Esquiva mais longa e segura.'},
+    {id:'quick_recovery',icon:'⏱',name:'Recuperação rápida',desc:'Reduz a recarga da esquiva.',req:'dodge_mastery'},
+    {id:'hunter_instinct',icon:'🐾',name:'Instinto caçador',desc:'+1 dano base adicional.',req:'quick_recovery'},
+    {id:'battle_focus',icon:'🎯',name:'Foco de batalha',desc:'Ataques básicos mais rápidos.',req:'hunter_instinct'},
+    {id:'phantom_step',icon:'👻',name:'Passo fantasma',desc:'Avança mais e amplia a proteção.',req:'battle_focus'}
+  ]},
+  { id:'support', title:'✚ SUPORTE', skills:[
+    {id:'healing_aura',icon:'💚',name:'Aura curativa',desc:'Cura aliados próximos com o tempo.'},
+    {id:'loot_sense',icon:'🧭',name:'Sentido de loot',desc:'Aumenta a chance de encontrar itens.',req:'healing_aura'},
+    {id:'mana_surge',icon:'✨',name:'Surto arcano',desc:'+25% de dano mágico.',req:'loot_sense'},
+    {id:'team_resolve',icon:'🤝',name:'União resistente',desc:'Menor dano perto dos aliados.',req:'mana_surge'},
+    {id:'final_blessing',icon:'🌠',name:'Bênção final',desc:'+15 de vida máxima.',req:'team_resolve'}
   ]}
 ];
 function renderSkillTrees() {
+  const allSkills = SKILL_BRANCHES.flatMap(branch => branch.skills.map(skill => ({...skill, branch:branch.id})));
+  const activeBranches = new Set(allSkills.filter(skill => unlockedSkills.has(skill.id)).map(skill => skill.branch));
+  const activeCount = unlockedSkills.size;
   const html = SKILL_BRANCHES.map(branch =>
     '<section class="skill-branch"><div class="skill-branch-title">' + branch.title + '</div><div class="skill-branch-list">' +
     branch.skills.map(skill => {
       const unlocked = unlockedSkills.has(skill.id);
       const available = !skill.req || unlockedSkills.has(skill.req);
-      const canBuy = !unlocked && available && skillPoints > 0;
-      const state = unlocked ? 'DESBLOQUEADA ✓' : !available ? 'REQUER: ' + SKILL_BRANCHES.flatMap(b=>b.skills).find(s=>s.id===skill.req).name : skillPoints > 0 ? 'DESBLOQUEAR · 1 PONTO' : 'SEM PONTOS';
+      const branchAllowed = activeBranches.has(branch.id) || activeBranches.size < 3;
+      const canBuy = !unlocked && available && skillPoints > 0 && activeCount < 15 && branchAllowed;
+      const required = skill.req ? allSkills.find(item => item.id === skill.req)?.name : '';
+      const state = unlocked ? 'DESBLOQUEADA ✓' :
+        activeCount >= 15 ? 'LIMITE: 15 SKILLS' :
+        !branchAllowed ? 'LIMITE: 3 RAMOS' :
+        !available ? 'REQUER: ' + (required || 'talento anterior') :
+        skillPoints > 0 ? 'DESBLOQUEAR · 1 PONTO' : 'SEM PONTOS';
       return '<button type="button" class="skill-node ' + (unlocked?'unlocked':canBuy?'available':'locked') + '" data-skill="' + skill.id + '"' + (canBuy?'':' disabled') + '><span class="skill-node-top"><span class="skill-node-icon">' + skill.icon + '</span>' + skill.name + '</span><small>' + skill.desc + '</small><span class="skill-node-state">' + state + '</span></button>';
     }).join('') + '</div></section>'
   ).join('');
@@ -1356,6 +1431,8 @@ function renderSkillTrees() {
   if (hudTree) hudTree.innerHTML = html;
   if ($('skillPoints')) $('skillPoints').textContent = String(skillPoints);
   if ($('skillPointsHud')) $('skillPointsHud').textContent = String(skillPoints);
+  if ($('skillCountLobby')) $('skillCountLobby').textContent = activeCount + '/15';
+  if ($('skillCountHud')) $('skillCountHud').textContent = activeCount + '/15';
 }
 function syncLoadoutUI() {
   const signature = selectedClass + '|' + selectedSkin + '|' + skillPoints + '|' + Array.from(unlockedSkills).sort().join(',');
@@ -1406,7 +1483,9 @@ function updateHeroShowcase() {
   const classInfo = {
     knight:{name:'Cavaleiro',glyph:'🛡️',desc:'Vida elevada · defesa natural · espada'},
     mage:{name:'Mago',glyph:'🔮',desc:'Magia fortalecida · cajado arcano'},
-    archer:{name:'Arqueiro',glyph:'🏹',desc:'Ataque rápido · alcance maior'}
+    archer:{name:'Arqueiro',glyph:'🏹',desc:'Ataque rápido · alcance maior'},
+    goblin:{name:'Goblin',glyph:'👺',desc:'Ágil · duas adagas · esquiva rápida'},
+    ogre:{name:'Ogro',glyph:'👹',desc:'Tanque · clava pesada · dano alto'}
   }[selectedClass] || {name:'Cavaleiro',glyph:'🛡️',desc:'Defesa elevada'};
   const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
   const avatar=$('heroPreviewAvatar');
@@ -1587,7 +1666,11 @@ function renderLobby3DPreview() {
     ? {color:0xb49aff,glow:0x8064ff}
     : heroClass === 'archer'
       ? {color:0x8cffb0,glow:0x42d985}
-      : {color:0x8beaff,glow:0x3ebee8};
+      : heroClass === 'goblin'
+        ? {color:0xc7ff7a,glow:0x63b448}
+        : heroClass === 'ogre'
+          ? {color:0xffbe7c,glow:0xb56d3e}
+          : {color:0x8beaff,glow:0x3ebee8};
   if (lobbyPreviewRing) {
     lobbyPreviewRing.material.color.setHex(effectPalette.color);
     lobbyPreviewRing.material.opacity = .72 + Math.sin(time*2.2)*.18;
@@ -1636,7 +1719,14 @@ function handleSkillClick(event) {
   const button = event.target.closest('[data-skill]');
   if (!button || button.disabled) return;
   const skill = SKILL_BRANCHES.flatMap(branch => branch.skills).find(item => item.id === button.dataset.skill);
-  if (!skill || unlockedSkills.has(skill.id) || skillPoints < 1 || (skill.req && !unlockedSkills.has(skill.req))) return;
+  const branch = SKILL_BRANCHES.find(item => item.skills.some(entry => entry.id === skill?.id));
+  const activeBranches = new Set(SKILL_BRANCHES.filter(item => item.skills.some(entry => unlockedSkills.has(entry.id))).map(item => item.id));
+  if (!skill || !branch || unlockedSkills.size >= 15 || unlockedSkills.has(skill.id) || skillPoints < 1 ||
+      (skill.req && !unlockedSkills.has(skill.req)) ||
+      (!activeBranches.has(branch.id) && activeBranches.size >= 3)) {
+    showNotice(unlockedSkills.size >= 15 ? 'Limite de 15 skills atingido.' : 'Você pode desenvolver no máximo 3 ramos da árvore.');
+    return;
+  }
   unlockedSkills.add(skill.id);
   skillPoints--;
   lastSkillSignature = '';
@@ -2194,8 +2284,8 @@ function moveInput() {
 let dodgeTimer = 0;
 function dodge() {
   if (!started || dodgeTimer > 0 || !myPlayer || (myPlayer.userData.serverHp ?? 100) <= 0) return;
-  dodgeTimer = 2.6;
-  const distance = 2.2;
+  dodgeTimer = Math.max(1.5, 2.6 - (unlockedSkills.has('quick_recovery') ? .65 : 0));
+  const distance = 2.2 + (unlockedSkills.has('dodge_mastery') ? .55 : 0) + (unlockedSkills.has('phantom_step') ? .75 : 0);
   const landing = resolveDungeonMovement(myPlayer.position.x, myPlayer.position.z,
     myPlayer.position.x - Math.sin(yaw) * distance,
     myPlayer.position.z - Math.cos(yaw) * distance
@@ -2211,7 +2301,7 @@ function dodge() {
 function attack() {
   if (!started || attackCooldown > 0 || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
 
-  attackCooldown = selectedClass === 'archer' ? .29 : selectedClass === 'mage' ? .4 : .48;
+  attackCooldown = selectedClass === 'goblin' ? .25 : selectedClass === 'ogre' ? .72 : selectedClass === 'archer' ? .29 : selectedClass === 'mage' ? .4 : .48;
   vibrateGame(10);
   playSfx('attack');
   send({ type: 'attack' });
@@ -2797,7 +2887,8 @@ const right = new THREE.Vector3(
         .add(right.multiplyScalar(v.x))
         .normalize();
 
-      const moveSpeed = 5.8 * (selectedClass === 'archer' ? 1.12 : 1) * (unlockedSkills.has('swift_step') ? 1.18 : 1);
+      const classMoveMultiplier = selectedClass === 'goblin' ? 1.18 : selectedClass === 'ogre' ? .82 : selectedClass === 'archer' ? 1.12 : 1;
+      const moveSpeed = 5.8 * classMoveMultiplier * (unlockedSkills.has('swift_step') ? 1.18 : 1);
       const nextPosition = resolveDungeonMovement(
         myPlayer.position.x,
         myPlayer.position.z,
