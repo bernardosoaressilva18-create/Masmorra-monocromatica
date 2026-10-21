@@ -89,6 +89,7 @@ function takeDamage(room, player, amount) {
   if (Date.now() < (player.dodgeUntil || 0)) return 0;
   let damage = amount * (1 - (statsFor(player).reduction || 0));
   if (hasSkill(player, 'iron_skin')) damage *= .8;
+  if (Date.now() < (player.shieldUntil || 0)) damage *= .35;
   const nearbyAlly = [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7);
   if (hasSkill(player, 'party_guard') && nearbyAlly) damage *= .9;
   if (hasSkill(player, 'team_resolve') && nearbyAlly) damage *= .85;
@@ -220,7 +221,7 @@ function enterAstralRealm(room){
 }
 
 function newRoom(code, hostId) {
-  const room = { players: new Map(), hostId, started: false, realm: 1, phase: 1, monsters: createWave(1,1), boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0, cursedBoss: null, cursedBossAttackAt: 0,
+  const room = { players: new Map(), hostId, started: false, realm: 1, phase: 1, monsters: createWave(1,1), summons: [], boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0, cursedBoss: null, cursedBossAttackAt: 0,
     chests: [
       { id: 'c0', x: -8, z: -12, openedBy: [] },
       { id: 'c1', x: 8, z: -44, openedBy: [] },
@@ -286,8 +287,10 @@ function state(room) {
   return {
     type: 'state',
     players: [...room.players.values()].filter(p => p.connected !== false).map(p => ({
-      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId
+      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId,
+      invisible: Date.now() < (p.invisibleUntil || 0), shielded: Date.now() < (p.shieldUntil || 0), ogreHasteUntil: p.ogreHasteUntil || 0
     })),
+    summons: (room.summons || []).filter(s => s.hp > 0 && s.expiresAt > Date.now()).map(s => ({ id: 'summon:' + s.id, name: 'Goblin aliado', x: s.x, z: s.z, rot: s.rot || 0, color: s.color || 0x80c86b, hp: s.hp, maxHp: s.maxHp, playerClass: 'goblin', skin: 'default', summon: true })),
     phase: room.phase,
     realm: room.realm || 1,
     safeZoneUntil: room.safeZoneUntil || 0,
@@ -304,6 +307,7 @@ wss.on('connection', ws => {
   id: String(nextId++),
   ws, connected: true, disconnectedAt: 0, resumeToken: crypto.randomBytes(24).toString('hex'),
   rateWindowStartedAt: Date.now(), rateMessageCount: 0, nextDodgeAt: 0, dodgeUntil: 0,
+  shieldUntil: 0, invisibleUntil: 0, ogreHasteUntil: 0, abilityCooldowns: {},
   name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   hp: 130, maxHp: 130, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
@@ -546,6 +550,138 @@ wss.on('connection', ws => {
       sendInventory(player);
       ws.send(JSON.stringify({ type: 'notice', text: item.name + ': ' + effect }));
       broadcast(room, state(room));
+    } else if (msg.type === 'classAbility') {
+      if (!room.started || player.hp <= 0) return;
+      if (Date.now() < (room.safeZoneUntil || 0)) {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Zona segura: habilidades de combate ficam disponíveis quando a luta começar.' }));
+        return;
+      }
+      const ability = typeof msg.ability === 'string' ? msg.ability : '';
+      const abilityClass = {
+        knight_shield: 'knight', knight_dash: 'knight',
+        arrow_rain: 'archer', incendiary_arrows: 'archer',
+        goblin_invis: 'goblin', goblin_summon: 'goblin',
+        ogre_slam: 'ogre', ogre_haste: 'ogre'
+      };
+      const cooldownMs = {
+        knight_shield: 12000, knight_dash: 9000,
+        arrow_rain: 8000, incendiary_arrows: 12000,
+        goblin_invis: 14000, goblin_summon: 20000,
+        ogre_slam: 10000, ogre_haste: 15000
+      };
+      if (abilityClass[ability] !== player.playerClass) return;
+      const now = Date.now();
+      player.abilityCooldowns = player.abilityCooldowns || {};
+      const remaining = (player.abilityCooldowns[ability] || 0) - now;
+      if (remaining > 0) {
+        ws.send(JSON.stringify({ type: 'notice', text: 'Habilidade recarregando: ' + Math.ceil(remaining / 1000) + 's.' }));
+        return;
+      }
+      player.abilityCooldowns[ability] = now + cooldownMs[ability];
+      const enemies = () => [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss && room.boss.alive ? [room.boss] : [])]
+        .filter(enemy => enemy && enemy.alive && enemy.spawned !== false);
+      const findCenter = (range) => {
+        const target = enemies().filter(enemy => Math.hypot(enemy.x - player.x, enemy.z - player.z) <= range)
+          .sort((a, b) => Math.hypot(a.x - player.x, a.z - player.z) - Math.hypot(b.x - player.x, b.z - player.z))[0];
+        if (target) return { x: target.x, z: target.z };
+        const heading = Number(player.rot) || 0;
+        return { x: player.x - Math.sin(heading) * 7, z: player.z - Math.cos(heading) * 7 };
+      };
+      const targets = [];
+      const killEnemy = enemy => {
+        if (enemy === room.boss) {
+          const dropped = grantLoot(player, 'boss');
+          broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
+          if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
+        } else if (enemy.cursed) {
+          broadcast(room, { type: 'notice', text: 'MINI-CHEFE AMALDIÇOADO DERROTADO!' });
+        } else if (Math.random() < dropChance(player, .25)) grantLoot(player, 'monster');
+      };
+      const damageEnemy = (enemy, amount, burnMs = 0, pushFrom = null, pushDistance = 0) => {
+        if (!enemy || !enemy.alive) return;
+        enemy.hp = Math.max(0, (enemy.hp || 1) - amount * statsFor(player).spellPower);
+        if (burnMs > 0 && enemy.hp > 0) {
+          enemy.burnUntil = Math.max(enemy.burnUntil || 0, now + burnMs);
+          enemy.burnNextAt = Math.min(enemy.burnNextAt || now + 1000, now + 1000);
+        }
+        if (pushFrom && pushDistance > 0) {
+          const dx = enemy.x - pushFrom.x, dz = enemy.z - pushFrom.z, dist = Math.hypot(dx, dz) || 1;
+          enemy.x = Math.max(-13, Math.min(13, enemy.x + dx / dist * pushDistance));
+          enemy.z = Math.max(-170, Math.min(8, enemy.z + dz / dist * pushDistance));
+        }
+        targets.push({ x: enemy.x, z: enemy.z, id: enemy.id });
+        if (enemy.hp <= 0 && enemy.alive) {
+          enemy.alive = false;
+          killEnemy(enemy);
+        }
+      };
+      let center = { x: player.x, z: player.z };
+      let text = '';
+      let until = 0;
+      if (ability === 'knight_shield') {
+        player.shieldUntil = now + 4200;
+        until = player.shieldUntil;
+        text = '🛡️ Escudo temporário! Dano recebido reduzido por 4,2 segundos.';
+      } else if (ability === 'knight_dash') {
+        const heading = Number(player.rot) || 0;
+        const landing = resolveServerMovement(room, player,
+          player.x - Math.sin(heading) * 4.2,
+          player.z - Math.cos(heading) * 4.2);
+        player.x = landing.x; player.z = landing.z; player.rot = heading;
+        player.dodgeUntil = now + 250;
+        center = { x: player.x, z: player.z };
+        for (const enemy of enemies()) {
+          if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > 5.4) continue;
+          damageEnemy(enemy, 5);
+          if (enemy.alive) {
+            const dx = enemy.x - center.x, dz = enemy.z - center.z, dist = Math.hypot(dx, dz) || 1;
+            enemy.x = Math.max(-13, Math.min(13, center.x + dx / dist * 1.35));
+            enemy.z = Math.max(-170, Math.min(8, center.z + dz / dist * 1.35));
+            const last = targets[targets.length - 1];
+            if (last && last.id === enemy.id) { last.x = enemy.x; last.z = enemy.z; }
+          }
+        }
+        text = '⚔️ Avanço do cavaleiro! Você avançou, atraiu inimigos próximos e causou dano.';
+      } else if (ability === 'arrow_rain' || ability === 'incendiary_arrows') {
+        center = findCenter(14);
+        const radius = ability === 'arrow_rain' ? 4.6 : 4.1;
+        for (const enemy of enemies()) {
+          if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > radius) continue;
+          damageEnemy(enemy, ability === 'arrow_rain' ? 5 : 3.5, ability === 'incendiary_arrows' ? 5500 : 0);
+        }
+        text = ability === 'arrow_rain'
+          ? '🏹 Chuva de flechas! Dano em área.'
+          : '🔥 Flechas incendiárias! A área queima os inimigos atingidos.';
+      } else if (ability === 'goblin_invis') {
+        player.invisibleUntil = now + 5000;
+        until = player.invisibleUntil;
+        text = '👻 Invisibilidade por 5 segundos! Os monstros vão ignorar você.';
+      } else if (ability === 'goblin_summon') {
+        room.summons = room.summons || [];
+        for (let i = 0; i < 2; i++) {
+          room.summons.push({
+            id: 'goblin-' + player.id + '-' + now + '-' + i,
+            ownerId: player.id, x: Math.max(-12.5, Math.min(12.5, player.x + (i === 0 ? -1.1 : 1.1))),
+            z: player.z + .5, rot: player.rot || 0, hp: 60, maxHp: 60,
+            color: i === 0 ? 0x8be070 : 0x65b95f, expiresAt: now + 12000, nextAttackAt: now + 700
+          });
+        }
+        center = { x: player.x, z: player.z };
+        text = '👺 Dois goblins aliados chegaram! Eles lutam por 12 segundos.';
+      } else if (ability === 'ogre_slam') {
+        center = { x: player.x, z: player.z };
+        for (const enemy of enemies()) {
+          if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > 5.2) continue;
+          damageEnemy(enemy, 8, 0, center, 2.4);
+        }
+        text = '💥 Soco no chão! Dano em área e inimigos repelidos.';
+      } else if (ability === 'ogre_haste') {
+        player.ogreHasteUntil = now + 5000;
+        until = player.ogreHasteUntil;
+        text = '💨 Fúria do ogro! Velocidade aumentada por 5 segundos.';
+      }
+      broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text });
+      broadcast(room, state(room));
     } else if (msg.type === 'spell') {
       if (!room.started || player.hp <= 0) return;
       if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Você está na zona segura. Use esse tempo para melhorar suas habilidades.' })); return; }
@@ -728,7 +864,7 @@ setInterval(() => {
     }
     if (!room.started && room.players.size === 0) { rooms.delete(roomCode); continue; }
     if (!room.started || players.length === 0) continue;
-    if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0)continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;if(now<(t.dodgeUntil||0)){t.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você evitou o golpe.'}));}else{takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}}
+    if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0||now<(p.invisibleUntil||0))continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;if(now<(t.dodgeUntil||0)){t.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você evitou o golpe.'}));}else{takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}}
     if (room.safeZoneUntil && now >= room.safeZoneUntil) {
       room.safeZoneUntil = 0;
       broadcast(room, { type: 'notice', text: 'A zona segura terminou. Prepare-se para os inimigos!' });
@@ -754,6 +890,35 @@ setInterval(() => {
       }
     }
 
+    // Goblins temporários perseguem o inimigo mais próximo durante 12 segundos.
+    room.summons = (room.summons || []).filter(summon => summon.hp > 0 && summon.expiresAt > now);
+    const summonEnemies = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss && room.boss.alive ? [room.boss] : [])]
+      .filter(enemy => enemy && enemy.alive && enemy.spawned !== false);
+    for (const summon of room.summons) {
+      const target = summonEnemies.filter(enemy => enemy.alive)
+        .sort((a, b) => Math.hypot(a.x - summon.x, a.z - summon.z) - Math.hypot(b.x - summon.x, b.z - summon.z))[0];
+      if (!target) continue;
+      const dx = target.x - summon.x, dz = target.z - summon.z, distance = Math.hypot(dx, dz) || 1;
+      if (distance > 1.65 && distance < 24) {
+        summon.x = Math.max(-13, Math.min(13, summon.x + dx / distance * .14));
+        summon.z = Math.max(-170, Math.min(8, summon.z + dz / distance * .14));
+      } else if (distance <= 2.2 && now >= (summon.nextAttackAt || 0)) {
+        summon.nextAttackAt = now + 950;
+        target.hp = Math.max(0, (target.hp || 1) - 2);
+        if (target.hp <= 0 && target.alive) {
+          target.alive = false;
+          const owner = room.players.get(summon.ownerId);
+          if (owner && owner.connected !== false) {
+            if (target === room.boss) {
+              const dropped = grantLoot(owner, 'boss');
+              broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
+              if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
+            } else if (Math.random() < dropChance(owner, .2)) grantLoot(owner, 'monster');
+          }
+        }
+      }
+    }
+
     for (const monster of room.monsters) {
       if (!monster.alive) continue;
       if (!monster.spawned) {
@@ -768,7 +933,7 @@ setInterval(() => {
       let nearest = Infinity;
 
       for (const player of players) {
-        if (player.hp <= 0) continue;
+        if (player.hp <= 0 || now < (player.invisibleUntil || 0)) continue;
         const distance = Math.hypot(
           player.x - monster.x,
           player.z - monster.z
@@ -842,7 +1007,7 @@ setInterval(() => {
 
     if (room.phase === 5 && room.boss && room.boss.alive) {
       const boss = room.boss; let target = null, nearest = Infinity;
-      for (const p of players) { if (p.hp <= 0) continue; const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
+      for (const p of players) { if (p.hp <= 0 || now < (p.invisibleUntil || 0)) continue; const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
       if (target && nearest > 2.35 && nearest < 24) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
         const speed = boss.lifePhase === 1 ? 0.09 : boss.lifePhase === 2 ? 0.12 : 0.16;
