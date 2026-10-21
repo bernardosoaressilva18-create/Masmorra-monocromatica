@@ -1089,6 +1089,7 @@ function chooseClass(className) {
   updateHeroShowcase();
   refreshLocalHeroAppearance();
   sendLoadout();
+  closeLobbyEditor();
 }
 document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => chooseClass(card.dataset.class)));
 function chooseSkin(skinName) {
@@ -1098,6 +1099,7 @@ function chooseSkin(skinName) {
   updateHeroShowcase();
   refreshLocalHeroAppearance();
   sendLoadout();
+  closeLobbyEditor();
 }
 document.querySelectorAll('.skin-pick').forEach(card => card.addEventListener('click', () => chooseSkin(card.dataset.skin)));
 function updateHeroShowcase() {
@@ -1113,6 +1115,7 @@ function updateHeroShowcase() {
   if($('heroPreviewName')) $('heroPreviewName').textContent=classInfo.name;
   if($('heroPreviewDesc')) $('heroPreviewDesc').textContent=classInfo.desc;
   if($('heroPreviewSkin')) $('heroPreviewSkin').textContent=skinInfo.label;
+  if($('lobbyClassCurrent')) $('lobbyClassCurrent').textContent=classInfo.name.toUpperCase();
   document.querySelectorAll('.skin-pick').forEach(el=>el.classList.toggle('selected',el.dataset.skin===selectedSkin));
 }
 function handleSkillClick(event) {
@@ -1315,13 +1318,15 @@ function updateState(m) {
       : 'Marque PRONTO e espere o anfitrião iniciar a partida.';
     const lobbyPlayers = m.players || [];
     $('lobbyPlayers').innerHTML = lobbyPlayers.map(p =>
-      '<div class="lobby-player ' + (p.ready ? 'ready' : '') + '"><span class="lobby-name">' + escapeHTML(p.name) + (p.isHost ? ' · ANFITRIÃO' : '') + (p.id === playerId ? ' (você)' : '') + '</span><b class="lobby-state">' + (p.ready ? 'PRONTO' : 'AGUARDANDO') + '</b></div>'
-    ).join('') || '<p>Esperando aventureiros...</p>';
+      '<div class="lobby-player' + (p.ready ? ' ready' : '') + (p.id === playerId ? ' is-self' : '') + '"><span class="lobby-name">' + escapeHTML(p.name) + (p.isHost ? ' · ANFITRIÃO' : '') + (p.id === playerId ? ' · VOCÊ' : '') + '</span><b class="lobby-state">' + (p.ready ? 'PRONTO' : 'AGUARDANDO') + '</b></div>'
+    ).join('') || '<p class="lobby-empty">Esperando aventureiros...</p>';
 
-    // Formação 3D estilo lobby de jogo: toda a equipe fica visível lado a lado.
+    // O jogador local fica sempre no centro; os aliados formam uma pequena equipe ao redor dele.
     const present = new Set();
-    lobbyPlayers.forEach((p, index) => {
-      const slotX = (index - (lobbyPlayers.length - 1) / 2) * 2.05;
+    const teammateSlots = [{x:-2.55,z:0.1},{x:2.55,z:0.1},{x:0,z:-2.65}];
+    let teammateSlotIndex = 0;
+    lobbyPlayers.forEach(p => {
+      const slot = p.id === playerId ? {x:0,z:0} : (teammateSlots[teammateSlotIndex++] || {x:0,z:-3});
       present.add(p.id);
       if (p.id === playerId) {
         if (myPlayer) {
@@ -1336,7 +1341,7 @@ function updateState(m) {
             myPlayer = replacement;
             scene.add(myPlayer);
           }
-          myPlayer.position.set(slotX, 0, 0);
+          myPlayer.position.set(0, 0, 0);
           myPlayer.rotation.y = Math.PI;
           myPlayer.userData.playerClass = p.playerClass || selectedClass || 'knight';
           myPlayer.userData.skin = p.skin || selectedSkin || 'default';
@@ -1353,8 +1358,8 @@ function updateState(m) {
         }
         obj.userData.playerClass = playerClass;
         obj.userData.skin = skin;
-        obj.userData.targetX = slotX;
-        obj.userData.targetZ = 0;
+        obj.userData.targetX = slot.x;
+        obj.userData.targetZ = slot.z;
         obj.userData.targetRot = Math.PI;
       }
     });
@@ -2252,11 +2257,11 @@ const right = new THREE.Vector3(
   if (!started) {
     const halfFov = camera.fov * Math.PI / 360;
     const tanHalfHorizontal = Math.tan(halfFov) * camera.aspect;
-    const lineupWidth = 6.2;
-    const viewDistance = THREE.MathUtils.clamp(lineupWidth / Math.max(2 * tanHalfHorizontal, .12), 8.5, 19);
-    const lobbyCameraTarget = new THREE.Vector3(0, 4.5, viewDistance + 1.0);
+    const lineupWidth = 6.6;
+    const viewDistance = THREE.MathUtils.clamp(lineupWidth / Math.max(2 * tanHalfHorizontal, .12), 8.5, 13.5);
+    const lobbyCameraTarget = new THREE.Vector3(0, 3.8, viewDistance + 0.8);
     camera.position.lerp(lobbyCameraTarget, cameraSmooth);
-    camera.lookAt(0, 1.1, 0);
+    camera.lookAt(0, 1.05, -0.25);
   } else if (myPlayer) {
     const target = new THREE.Vector3(myPlayer.position.x, 1.2, myPlayer.position.z);
     const dist = 8.5;
