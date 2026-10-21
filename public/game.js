@@ -5,7 +5,7 @@ const $ = id => document.getElementById(id);
 const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('menuStatus');
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
-let yaw = 0, pitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
+let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
 const activeBurnEffects = [];
@@ -1727,8 +1727,8 @@ function rendererPointerSetup() {
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    yaw -= dx * .015; // sensibilidade 2,5
-    pitch = THREE.MathUtils.clamp(pitch + dy * .0075, -.1, .8);
+    targetYaw -= dx * .015; // sensibilidade 2,5, com amortecimento aplicado no loop
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0075, -.1, .8);
   });
 
   const end = e => {
@@ -1786,6 +1786,10 @@ function animate() {
   if (!renderer) return;
 
   const dt = Math.min(clock.getDelta(), 0.05);
+  // Amortece o giro da câmera para o arrasto ficar mais fluido sem reduzir a sensibilidade.
+  const cameraInputSmooth = 1 - Math.exp(-18 * dt);
+  yaw += (targetYaw - yaw) * cameraInputSmooth;
+  pitch += (targetPitch - pitch) * cameraInputSmooth;
   const remoteSmooth = 1 - Math.exp(-14 * dt);
   const monsterSmooth = 1 - Math.exp(-10 * dt);
   const cameraSmooth = 1 - Math.exp(-9 * dt);
