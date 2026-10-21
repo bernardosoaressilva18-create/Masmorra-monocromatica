@@ -1907,3 +1907,36 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
 
 /* O lobby é flex quando aberto, mas a classe .hidden sempre deve ocultá-lo. */
 #lobby.lobby-screen.hidden { display:none!important; }
+
+
+/* v45 — permite rolar o lobby/painéis em telas pequenas sem alterar o toque do combate. */
+@media (orientation:portrait) {
+  #lobby.lobby-screen:not(.hidden) {
+    height:100dvh!important; max-height:none!important; min-height:100dvh!important;
+    overflow-x:hidden!important; overflow-y:auto!important;
+    overscroll-behavior-y:contain!important; touch-action:pan-y!important;
+    justify-content:flex-start!important;
+  }
+  #lobby .lobby-layout {
+    flex:0 0 auto!important; height:auto!important; min-height:54dvh!important;
+    max-height:none!important; overflow:visible!important;
+  }
+  #lobby .lobby-stage {
+    height:54dvh!important; min-height:350px!important; max-height:none!important;
+    overflow:visible!important;
+  }
+  #lobby .lobby-team-box {
+    max-height:calc(54dvh - 48px)!important; overflow-y:auto!important;
+    overscroll-behavior:contain!important; touch-action:pan-y!important;
+  }
+  #lobby .lobby-players {max-height:none!important;overflow-y:visible!important;}
+  #lobby .lobby-bottom-bar {flex-shrink:0!important;}
+  #lobby .lobby-hint {padding-bottom:max(8px,env(safe-area-inset-bottom))!important;}
+}
+#lobby .lobby-editor-content,
+#settingsPanel {
+  overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+}
+#lobby .lobby-editor-content {min-height:0!important;max-height:calc(100dvh - 100px)!important;}
