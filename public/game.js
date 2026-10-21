@@ -242,7 +242,7 @@ function buildDungeon() {
 
   // Uma única textura partilhada mantém o detalhe visual sem criar materiais por objeto.
   const dungeonTexture = surfaceTexture.clone();
-  dungeonTexture.repeat.set(3, 3);
+  dungeonTexture.repeat.set(5, 5);
   const floor = mat(0x292e38, .82, .08);
   floor.map = dungeonTexture;
   floor.bumpMap = dungeonTexture;
@@ -852,6 +852,12 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   // Capa dividida em painéis para dar silhueta de aventureiro
   const cape=add(new THREE.BoxGeometry(.58,.72,.13), dark,0,1.23,.29);
   cape.rotation.x=-.08;
+  // Back-facing crest and metal hems make the third-person silhouette readable.
+  for (const y of [1.53,1.39,1.25,1.11]) add(new THREE.BoxGeometry(.43,.018,.018), gold,0,y,.371);
+  add(new THREE.BoxGeometry(.024,.59,.02), gold,-.245,1.24,.371);
+  add(new THREE.BoxGeometry(.024,.59,.02), gold,.245,1.24,.371);
+  const capeCrest=add(new THREE.OctahedronGeometry(.105,1),classAccentMaterial,0,1.34,.39,.8,1.1,.42);
+  capeCrest.rotation.z=Math.PI/4;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
   headMesh = add(new THREE.SphereGeometry(.255,20,14), skinMaterial,0,1.94,-.015);
@@ -1447,8 +1453,8 @@ function renderLobby3DPreview() {
   const height = renderer.domElement.clientHeight || innerHeight;
   if (width < 2 || height < 2) return;
   const portrait = height >= width;
-  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.68,330) : Math.min(width*0.48,640)));
-  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.54,620) : Math.min(height*0.70,600)));
+  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.72,410) : Math.min(width*0.48,640)));
+  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.48,760) : Math.min(height*0.70,600)));
   const centerTop = Math.floor(height*(portrait ? 0.405 : 0.44));
   const left = Math.floor((width-previewWidth)/2);
   const top = Math.max(0,Math.min(height-previewHeight,centerTop-Math.floor(previewHeight/2)));
