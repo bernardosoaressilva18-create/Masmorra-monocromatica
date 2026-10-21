@@ -2532,6 +2532,7 @@ function updateClassAbilityButtons() {
   const first = $('fireBtn'), second = $('lightningBtn');
   [[first, abilities[0], 'fireCooldown'], [second, abilities[1], 'lightningCooldown']].forEach(([button, ability, timerId]) => {
     if (!button || !ability) return;
+    if (button.dataset.classAbility === ability.ability) return;
     const icon = button.querySelector('span');
     const small = button.querySelector('small');
     if (icon) icon.textContent = ability.icon;
@@ -2578,8 +2579,33 @@ function placeSpellButtons() {
     lightning.style.setProperty('bottom', '166px', 'important');
   }
 }
-addEventListener('resize', placeSpellButtons);
+function updateOrientationToggleLabel() {
+  const button = $('orientationToggleBtn');
+  if (!button) return;
+  const landscape = window.innerWidth > window.innerHeight;
+  button.textContent = landscape ? '↥ FICAR EM PÉ' : '↔ DEITAR';
+  button.setAttribute('aria-label', landscape ? 'Virar a tela para vertical' : 'Virar a tela para horizontal');
+  button.title = landscape ? 'Voltar para vertical' : 'Girar para horizontal';
+}
+async function toggleGameOrientation() {
+  const target = window.innerWidth <= window.innerHeight ? 'landscape' : 'portrait';
+  try {
+    if (window.AndroidGame && typeof window.AndroidGame.setOrientation === 'function') {
+      window.AndroidGame.setOrientation(target);
+      return;
+    }
+    if (screen.orientation && typeof screen.orientation.lock === 'function' && document.fullscreenElement) {
+      await screen.orientation.lock(target);
+      return;
+    }
+  } catch (_) {}
+  showNotice('Ative a rotação automática do celular e vire o aparelho.');
+}
+$('orientationToggleBtn')?.addEventListener('click', toggleGameOrientation);
+addEventListener('resize', () => { placeSpellButtons(); updateOrientationToggleLabel(); });
+addEventListener('orientationchange', updateOrientationToggleLabel);
 placeSpellButtons();
+updateOrientationToggleLabel();
 
 function refreshSettingsUI() {
   $('lookSensitivity').value = String(gameSettings.sensitivity);
