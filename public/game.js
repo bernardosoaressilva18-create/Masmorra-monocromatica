@@ -1794,6 +1794,84 @@ $('sfxVolume').addEventListener('input', e => {
   saveGameSettings(); updateAudioLevels();
 });
 
+/* Painéis do lobby: os botões superiores abrem a respectiva ferramenta; o fundo fecha o painel. */
+function closeLobbyEditor() {
+  const editor = $('lobbyEditor');
+  const backdrop = $('lobbyEditorBackdrop');
+  if (editor) {
+    editor.classList.add('hidden');
+    delete editor.dataset.activeTab;
+  }
+  backdrop?.classList.add('hidden');
+  document.querySelectorAll('#lobby .lobby-nav-btn').forEach(btn => btn.classList.remove('active'));
+}
+function refreshLobbySettingsUI() {
+  if (!$('lobbySensitivity')) return;
+  $('lobbySensitivity').value = String(gameSettings.sensitivity);
+  $('lobbySensitivityValue').textContent = gameSettings.sensitivity.toFixed(1).replace('.', ',') + '×';
+  $('lobbyMusicVolume').value = String(gameSettings.musicVolume);
+  $('lobbyMusicVolumeValue').textContent = Math.round(gameSettings.musicVolume * 100) + '%';
+  $('lobbyMusicEnabled').checked = gameSettings.musicEnabled;
+  $('lobbySfxVolume').value = String(gameSettings.sfxVolume);
+  $('lobbySfxVolumeValue').textContent = Math.round(gameSettings.sfxVolume * 100) + '%';
+}
+function openLobbyEditor(tab) {
+  const allowedTabs = ['class', 'skin', 'config', 'skills'];
+  if (!allowedTabs.includes(tab)) return;
+  const editor = $('lobbyEditor');
+  const backdrop = $('lobbyEditorBackdrop');
+  if (!editor || !backdrop) return;
+  if (!editor.classList.contains('hidden') && editor.dataset.activeTab === tab) {
+    closeLobbyEditor();
+    return;
+  }
+  const titles = {class:'ESCOLHA SUA CLASSE',skin:'ESCOLHA SUA SKIN',config:'CONFIGURAÇÕES',skills:'ÁRVORE DE SKILLS'};
+  $('lobbyEditorTitle').textContent = titles[tab];
+  document.querySelectorAll('#lobby [data-lobby-editor-panel]').forEach(panel => {
+    panel.classList.toggle('hidden', panel.dataset.lobbyEditorPanel !== tab);
+  });
+  document.querySelectorAll('#lobby .lobby-nav-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lobbyEditor === tab);
+  });
+  editor.dataset.activeTab = tab;
+  editor.classList.remove('hidden');
+  backdrop.classList.remove('hidden');
+  if (tab === 'config') refreshLobbySettingsUI();
+  if (tab === 'skills') renderSkillTrees();
+}
+document.querySelectorAll('#lobby [data-lobby-editor]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    ensureAudio(); playSfx('ui');
+    openLobbyEditor(btn.dataset.lobbyEditor);
+  });
+});
+$('lobbyClassBtn')?.addEventListener('click', () => {
+  ensureAudio(); playSfx('ui');
+  openLobbyEditor('class');
+});
+$('lobbyEditorClose')?.addEventListener('click', closeLobbyEditor);
+$('lobbyEditorBackdrop')?.addEventListener('click', closeLobbyEditor);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('lobbyEditor') && !$('lobbyEditor').classList.contains('hidden')) closeLobbyEditor();
+});
+$('lobbySensitivity')?.addEventListener('input', e => {
+  gameSettings.sensitivity = clampSetting(e.target.value, 0.5, 3, 1.2);
+  saveGameSettings(); refreshSettingsUI(); refreshLobbySettingsUI();
+});
+$('lobbyMusicVolume')?.addEventListener('input', e => {
+  gameSettings.musicVolume = clampSetting(e.target.value, 0, 1, 0.32);
+  saveGameSettings(); updateAudioLevels(); refreshSettingsUI(); refreshLobbySettingsUI();
+});
+$('lobbyMusicEnabled')?.addEventListener('change', e => {
+  gameSettings.musicEnabled = e.target.checked;
+  saveGameSettings(); ensureAudio(); updateAudioLevels(); refreshSettingsUI(); refreshLobbySettingsUI();
+});
+$('lobbySfxVolume')?.addEventListener('input', e => {
+  gameSettings.sfxVolume = clampSetting(e.target.value, 0, 1, 0.72);
+  saveGameSettings(); updateAudioLevels(); refreshSettingsUI(); refreshLobbySettingsUI();
+});
+refreshLobbySettingsUI();
+
 function castSpell(kind) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
   if (kind === 'fire') {
