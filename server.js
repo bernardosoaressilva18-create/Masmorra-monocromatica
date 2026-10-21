@@ -165,9 +165,15 @@ function advancePhase(room) {
   room.boss = null;
   if (room.phase === 5) {
     room.monsters = [];
-    const bossHp=room.realm===2?145:95;
+    // Chefe final reforçado: a vida é maior e escala com o grupo presente.
+    // A vida é autoritativa no servidor; a interface recebe hp/maxHp pelo estado normal.
+    const bossPartySize = Math.max(1, [...room.players.values()]
+      .filter(p => p.connected !== false && p.hp > 0).length);
+    const bossBaseHp = room.realm === 2 ? 700 : 450;
+    const bossExtraPlayerHp = room.realm === 2 ? 150 : 100;
+    const bossHp = bossBaseHp + (bossPartySize - 1) * bossExtraPlayerHp;
     room.boss={id:'realm-'+(room.realm||1)+'-final-boss',x:0,z:-150,alive:true,hp:bossHp,maxHp:bossHp,lifePhase:1,attackAt:0};
-    broadcast(room, { type: 'notice', text: 'FASE 5: ' + names[5] + '! O Guardião Supremo despertou.' });
+    broadcast(room, { type: 'notice', text: 'FASE 5: ' + names[5] + '! O Guardião Supremo despertou com carapaça reforçada e ' + bossHp + ' de vida!' });
   } else {
     broadcast(room, { type: 'notice', text: 'MUNDO ' + room.phase + ' / 5: ' + names[room.phase] + '. Nova região descoberta!' });
   }
