@@ -2587,7 +2587,7 @@ const right = new THREE.Vector3(
     camera.lookAt(Math.sin(lobbyTime * 0.16) * 0.12, 1.05, -0.25);
   } else if (myPlayer) {
     const target = new THREE.Vector3(myPlayer.position.x, 1.2, myPlayer.position.z);
-    const introBlend=realmIntroTimer>0?Math.sin(Math.min(1,realmIntroTimer/3.2)*Math.PI)*.5+.5:0;
+    const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
     const dist=8.5+introBlend*2.8;
     const cameraTarget=new THREE.Vector3(
       target.x+Math.sin(yaw)*dist,
