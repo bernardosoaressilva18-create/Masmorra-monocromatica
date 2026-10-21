@@ -13,10 +13,10 @@
         android:supportsRtl="true">
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="portrait"
+            android:screenOrientation="unspecified"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="true"
-            android:resizeableActivity="false">
+            android:resizeableActivity="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
