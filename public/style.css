@@ -1904,3 +1904,6 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
   #lobby .diagnostics-grid {gap:4px;}
   #lobby .diagnostics-grid>div {padding:5px;}
 }
+
+/* O lobby é flex quando aberto, mas a classe .hidden sempre deve ocultá-lo. */
+#lobby.lobby-screen.hidden { display:none!important; }
