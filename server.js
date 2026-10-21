@@ -594,7 +594,13 @@ wss.on('connection', ws => {
           broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
           if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
         } else if (enemy.cursed) {
-          broadcast(room, { type: 'notice', text: 'MINI-CHEFE AMALDIÇOADO DERROTADO!' });
+          const prize = { id: String(Date.now()) + '-curse', name: 'Cristal Ancestral', rarity: 'lendário', value: 16, power: 5, source: 'cursed-chest' };
+          player.lootDrops.push(prize);
+          player.inventory['lendário'] = (player.inventory['lendário'] || 0) + 1;
+          sendInventory(player);
+          player.ws.send(JSON.stringify({ type: 'loot', item: prize }));
+          room.cursedBoss = null;
+          broadcast(room, { type: 'notice', text: 'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!' });
         } else if (Math.random() < dropChance(player, .25)) grantLoot(player, 'monster');
       };
       const damageEnemy = (enemy, amount, burnMs = 0, pushFrom = null, pushDistance = 0) => {
@@ -987,7 +993,7 @@ setInterval(() => {
     }
 
     // Dano de queimadura ao longo do tempo, processado pelo servidor.
-    for (const enemy of [...room.monsters, ...(room.boss ? [room.boss] : [])]) {
+    for (const enemy of [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss ? [room.boss] : [])]) {
       if (!enemy.alive || !enemy.burnUntil || Date.now() < (enemy.burnNextAt || 0)) continue;
       if (Date.now() > enemy.burnUntil) { enemy.burnUntil = 0; continue; }
       enemy.hp = Math.max(0, (enemy.hp || 1) - 1);
