@@ -66,10 +66,15 @@ function takeDamage(room, player, amount) {
   let damage = amount * (1 - (statsFor(player).reduction || 0));
   if (hasSkill(player, 'iron_skin')) damage *= .8;
   if (hasSkill(player, 'party_guard') && [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7)) damage *= .9;
-  player.hp = Math.max(0, player.hp - Math.max(1, Math.round(damage)));
+  const hpBefore = player.hp;
+  const appliedDamage = Math.max(1, Math.round(damage));
+  player.hp = Math.max(0, player.hp - appliedDamage);
   if (player.hp <= 0 && hasSkill(player, 'second_wind') && !player.secondWindUsed) {
     player.secondWindUsed = true; player.hp = Math.max(1, Math.ceil(player.maxHp * .3));
     player.ws.send(JSON.stringify({ type: 'notice', text: '🌟 Segunda chance! Você voltou com 30% da vida.' }));
+  }
+  if (hpBefore > player.hp) {
+    broadcast(room, { type: 'playerDamaged', id: player.id, amount: appliedDamage, hp: player.hp, maxHp: player.maxHp });
   }
 }
 
@@ -757,19 +762,29 @@ setInterval(() => {
           monster.z = Math.max(-170, Math.min(8, monster.z));
         }
       }
-      if (target && nearest <= 2.0 && Date.now() - (monster.attackAt || 0) > 1900) {
-        monster.attackAt = Date.now();
-        broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
-        if (Date.now() < (target.dodgeUntil || 0)) {
-          target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você evitou o golpe.' }));
-        } else {
-          takeDamage(room, target, 4);
-          target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
+      const monsterNow = Date.now();
+      if (target && nearest <= 2.0) {
+        if (!monster.attackWarnAt && monsterNow - (monster.attackAt || 0) > 2200) {
+          monster.attackWarnAt = monsterNow;
+          broadcast(room, { type: 'monsterWindup', id: monster.id, targetId: target.id, duration: 460 });
+          target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
+        } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460) {
+          monster.attackAt = monsterNow;
+          monster.attackWarnAt = 0;
+          broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
+          if (Date.now() < (target.dodgeUntil || 0)) {
+            target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você evitou o golpe.' }));
+          } else {
+            takeDamage(room, target, 4);
+            target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
+          }
+          if (target.hp <= 0) {
+            target.hp = 0;
+            target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
+          }
         }
-        if (target.hp <= 0) {
-          target.hp = 0;
-          target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
-        }
+      } else if (!target || nearest > 2.5) {
+        monster.attackWarnAt = 0;
       }
     }
 
@@ -801,18 +816,30 @@ setInterval(() => {
         boss.x = Math.max(-12, Math.min(12, boss.x + dx / distance * speed));
         boss.z = Math.max(-156, Math.min(-144, boss.z + dz / distance * speed));
       }
-      if (target && nearest <= 2.8 && Date.now() - boss.attackAt > (boss.lifePhase === 3 ? 800 : 1200)) {
-        boss.attackAt = Date.now();
-        if (Date.now() < (target.dodgeUntil || 0)) {
-          target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você escapou do golpe do Guardião.' }));
-        } else {
-          takeDamage(room, target, boss.lifePhase === 3 ? 22 : 14);
-          target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + (boss.lifePhase === 3 ? 22 : 14) + ' de vida.' }));
+      const bossNow = Date.now();
+      if (target && nearest <= 2.8) {
+        const windupDuration = boss.lifePhase === 3 ? 360 : 560;
+        const attackInterval = boss.lifePhase === 3 ? 1150 : 1600;
+        if (!boss.attackWarnAt && bossNow - (boss.attackAt || 0) > attackInterval) {
+          boss.attackWarnAt = bossNow;
+          broadcast(room, { type: 'bossWindup', id: boss.id, targetId: target.id, duration: windupDuration, lifePhase: boss.lifePhase });
+          target.ws.send(JSON.stringify({ type: 'notice', text: '☠ O GUARDIÃO CARREGA UM GOLPE! ESQUIVE!' }));
+        } else if (boss.attackWarnAt && bossNow - boss.attackWarnAt >= windupDuration) {
+          boss.attackAt = bossNow;
+          boss.attackWarnAt = 0;
+          if (Date.now() < (target.dodgeUntil || 0)) {
+            target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você escapou do golpe do Guardião.' }));
+          } else {
+            takeDamage(room, target, boss.lifePhase === 3 ? 22 : 14);
+            target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + (boss.lifePhase === 3 ? 22 : 14) + ' de vida.' }));
+          }
+          if (target.hp <= 0) {
+            target.hp = 0;
+            target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
+          }
         }
-        if (target.hp <= 0) {
-          target.hp = 0;
-          target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
-        }
+      } else {
+        boss.attackWarnAt = 0;
       }
     }
     broadcast(room, state(room));
