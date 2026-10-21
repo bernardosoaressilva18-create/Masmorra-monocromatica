@@ -696,7 +696,8 @@ function buildAstralWorld(){
     const loop=new THREE.Mesh(new THREE.TorusGeometry(1.72,.065,8,48),new THREE.MeshStandardMaterial({color:0x9e83ff,emissive:0x754dff,emissiveIntensity:1.8,roughness:.25,metalness:.2}));loop.position.set(0,2.08,-.1);loop.scale.set(1.45,1.12,1);arch.add(loop);
     const veil=new THREE.Mesh(new THREE.PlaneGeometry(5.15,3.6),new THREE.MeshBasicMaterial({color:0x6639d9,transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false}));veil.position.set(0,2.08,-.08);arch.add(veil);arch.position.z=z;activeEnvironmentGroup.add(arch);
   }
-  const starCount=isMobileDevice?90:180,starPositions=new Float32Array((isMobileDevice?90:180)*3);
+  const starCount = gameSettings.graphicsQuality === 'low' ? (isMobileDevice ? 45 : 70) : gameSettings.graphicsQuality === 'high' ? (isMobileDevice ? 100 : 260) : (isMobileDevice ? 90 : 180);
+  const starPositions = new Float32Array(starCount * 3);
   for(let i=0;i<starCount;i++){starPositions[i*3]=(Math.random()-.5)*105;starPositions[i*3+1]=4+Math.random()*34;starPositions[i*3+2]=-184+Math.random()*198;}
   const starGeometry=new THREE.BufferGeometry();starGeometry.setAttribute('position',new THREE.BufferAttribute(starPositions,3));
   astralStarField=new THREE.Points(starGeometry,new THREE.PointsMaterial({color:0xd9d1ff,size:isMobileDevice?0.11:0.16,transparent:true,opacity:.78,depthWrite:false}));activeEnvironmentGroup.add(astralStarField);
@@ -1050,8 +1051,14 @@ function renderInventory() {
   if (!el) return;
   const rarityOrder = ['comum', 'incomum', 'raro', 'épico', 'lendário'];
   el.innerHTML = rarityOrder.map(r => '<div class="loot-row rarity-' + r.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + '"><span>' + r + '</span><b>' + (inventoryData[r] || 0) + '</b></div>').join('');
-  const recent = lootDrops.slice(-8).reverse();
-  if (selectedItemId && !lootDrops.some(item => String(item.id) === String(selectedItemId))) selectedItemId = null;
+  const lootFilter = $('lootFilter')?.value || 'all';
+  const lootSort = $('lootSort')?.value || 'newest';
+  let recent = lootDrops.slice();
+  if (lootSort === 'power') recent.sort((a,b) => (Number(b.power)||1) - (Number(a.power)||1));
+  else if (lootSort === 'rarity') recent.sort((a,b) => rarityOrder.indexOf(b.rarity) - rarityOrder.indexOf(a.rarity));
+  else recent.reverse();
+  recent = recent.filter(item => (lootFilter === 'all' || item.rarity === lootFilter)).slice(0,8);
+  if (selectedItemId && !recent.some(item => String(item.id) === String(selectedItemId))) selectedItemId = recent.length ? String(recent[0].id) : null;
   if (!selectedItemId && recent.length) selectedItemId = String(recent[0].id);
   $('recentLoot').innerHTML = recent.length ? recent.map(item => '<button type="button" class="loot-item select-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + (String(item.id) === String(selectedItemId) ? ' selected' : '') + '" data-item-id="' + escapeHTML(item.id) + '"><span>' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ' · Poder ' + (item.power || 1) + '/5)</small></span><b>' + (String(item.id) === String(selectedItemId) ? '✓' : '+') + '</b></button>').join('') : '<small>Nenhum item coletado ainda.</small>';
   const chosen = lootDrops.find(item => String(item.id) === String(selectedItemId));
@@ -1719,6 +1726,7 @@ function handleMessage(m) {
   }
 
   if (m.type === 'loot') {
+    vibrateGame([10,25,10]);
     playSfx('loot');
     showNotice('Loot: ' + m.item.name + ' · ' + m.item.rarity);
     renderInventory();
@@ -2295,6 +2303,8 @@ $('leaveBtn').addEventListener('click', () => {
 });
 
 $('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (!$('chestBtn').classList.contains('hidden')) interactChest(); });
+$('lootFilter')?.addEventListener('change', renderInventory);
+$('lootSort')?.addEventListener('change', renderInventory);
 $('recentLoot').addEventListener('click', e => {
   const row = e.target.closest('.select-item');
   if (!row) return;
@@ -2515,7 +2525,7 @@ function castSpell(kind) {
   scene.add(projectile);
   const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const destination = origin.clone().add(forward.multiplyScalar(5.5));
-  const spellLimit = (isMobileDevice || (lastFps > 0 && lastFps < 42)) ? 6 : 14;
+  const spellLimit = (isMobileDevice || gameSettings.graphicsQuality === 'low' || (lastFps > 0 && lastFps < 42)) ? 5 : gameSettings.graphicsQuality === 'high' ? 18 : 12;
   while (activeSpellEffects.length >= spellLimit) {
     const oldSpell = activeSpellEffects.shift();
     scene.remove(oldSpell.projectile);
