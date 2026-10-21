@@ -1,0 +1,39 @@
+name: Validate O Ultimo Legado
+on:
+  push:
+    branches:
+      - feature/loot-system
+  pull_request:
+    branches:
+      - feature/loot-system
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check server JavaScript
+        run: node --check server.js
+      - name: Check client JavaScript
+        run: node --check public/game.js
+      - name: Validate JSON configuration
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('public/manifest.webmanifest','utf8'))"
+      - name: Check skill count and branch limits are present
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const client = fs.readFileSync('public/game.js', 'utf8');
+          const server = fs.readFileSync('server.js', 'utf8');
+          const block = client.slice(client.indexOf('const SKILL_BRANCHES = ['), client.indexOf('function renderSkillTrees()'));
+          const ids = [...block.matchAll(/\{id:'([^']+)'/g)].map(m => m[1]);
+          if (ids.length !== 25 || new Set(ids).size !== 25) throw new Error('Client skill tree must contain 25 unique talents');
+          if (!server.includes('player.skills.length >= 15') || !server.includes('usedBranches.size < 3')) throw new Error('Server must enforce 15 talents and max 3 branches');
+          for (const id of ['knight','mage','archer','goblin','ogre']) if (!server.includes(id + ': { hp:')) throw new Error('Missing class stats: ' + id);
+          console.log('OK: 25 unique talents, 5 classes, limits verified.');
+          NODE
