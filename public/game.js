@@ -2665,8 +2665,21 @@ function castSpell(kind) {
   send({ type: 'spell', spell: kind });
   showNotice(kind === 'fire' ? '🔥 MAGIA DE FOGO!' : '⚡ MAGIA DE RAIO!');
 }
-$('fireBtn').addEventListener('pointerdown', e => { e.preventDefault(); castSpell('fire'); });
-$('lightningBtn').addEventListener('pointerdown', e => { e.preventDefault(); castSpell('lightning'); });
+function activateClassAbility(slot) {
+  if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
+  const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
+  const spec = abilities[slot];
+  if (!spec) return;
+  if (spec.spell) {
+    castSpell(spec.ability);
+    return;
+  }
+  const remaining = slot === 0 ? fireCooldown : lightningCooldown;
+  if (remaining > 0) return;
+  send({ type: 'classAbility', ability: spec.ability });
+}
+$('fireBtn').addEventListener('pointerdown', e => { e.preventDefault(); activateClassAbility(0); });
+$('lightningBtn').addEventListener('pointerdown', e => { e.preventDefault(); activateClassAbility(1); });
 
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
