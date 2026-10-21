@@ -2121,31 +2121,29 @@ function attack() {
 $('startBtn').addEventListener('click', async () => {
   ensureAudio();
   playSfx('ui');
-  // No celular, tenta usar a tela inteira e manter o jogo em pé.
-  // O bloqueio de orientação só é permitido em alguns navegadores após um toque.
+  // Ao tocar em JOGAR, tenta colocar o jogo em tela cheia e deitado.
+  // Alguns navegadores recusam o bloqueio; nesse caso o jogador ainda pode girar o aparelho manualmente.
   if (isMobileDevice) {
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
         await document.documentElement.requestFullscreen();
       }
     } catch (_) {}
-    let portraitLocked = false;
+    let landscapeLocked = false;
     try {
       if (screen.orientation && screen.orientation.lock) {
-        await screen.orientation.lock('portrait-primary');
-        portraitLocked = true;
+        await screen.orientation.lock('landscape');
+        landscapeLocked = true;
       }
     } catch (_) {}
-    if (!portraitLocked) {
+    if (!landscapeLocked) {
       try {
         const legacyLock = screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation;
         if (typeof legacyLock === 'function') {
-          portraitLocked = legacyLock.call(screen, ['portrait-primary', 'portrait']);
+          legacyLock.call(screen, ['landscape-primary', 'landscape']);
         }
       } catch (_) {}
     }
-    // Se o dispositivo ou navegador bloquear a orientação, as regras responsivas
-    // mantêm o lobby utilizável sem impedir a entrada no jogo.
   }
   $('startScreen').classList.add('hidden');
   menu.classList.remove('hidden');
