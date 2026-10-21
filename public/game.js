@@ -920,6 +920,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,24),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.kind=kind;
+  g.userData.attackRing = ring;
   g.userData.animatedLimbs = animatedLimbs;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
   g.userData.lastX = undefined;
@@ -2070,23 +2071,73 @@ const right = new THREE.Vector3(
     const remoteMoving = Math.hypot((obj.userData.targetX ?? obj.position.x) - obj.position.x, (obj.userData.targetZ ?? obj.position.z) - obj.position.z) > .035;
     obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (remoteMoving ? 7.2 : 1.4);
     const rp = obj.userData.walkPhase;
-    for (const leg of obj.userData.legs || []) leg.mesh.rotation.x = Math.sin(rp + (leg.side > 0 ? Math.PI : 0)) * (remoteMoving ? .27 : .015);
-    for (const arm of obj.userData.arms || []) arm.mesh.rotation.x = Math.sin(rp + (arm.side < 0 ? Math.PI : 0)) * (remoteMoving ? .13 : .012);
-    if (obj.userData.cape) obj.userData.cape.rotation.x = -.08 + Math.sin(rp) * (remoteMoving ? .035 : .008);
+    const remoteStride = remoteMoving ? 1 : .08;
+    for (const leg of obj.userData.legs || []) {
+      leg.mesh.rotation.x = Math.sin(rp + (leg.side > 0 ? Math.PI : 0)) * .34 * remoteStride;
+    }
+    for (const arm of obj.userData.arms || []) {
+      const swing = Math.sin(rp + (arm.side < 0 ? Math.PI : 0));
+      arm.mesh.rotation.x = swing * .19 * remoteStride;
+      if (arm.mesh.userData.elbow) {
+        arm.mesh.userData.elbow.rotation.x = Math.max(0, swing) * .25 * remoteStride;
+      }
+    }
+    if (obj.userData.torso) {
+      obj.userData.torso.rotation.z = remoteMoving ? Math.sin(rp) * .022 : Math.sin(rp * .5) * .005;
+    }
+    if (obj.userData.head) {
+      obj.userData.head.rotation.x = remoteMoving ? Math.sin(rp) * .01 : Math.sin(rp * .6) * .005;
+      obj.userData.head.rotation.z = Math.sin(rp * .4) * .01;
+    }
+    obj.position.y = remoteMoving ? Math.abs(Math.sin(rp * 2)) * .012 : Math.sin(rp * .8) * .004;
+    if (obj.userData.cape) {
+      obj.userData.cape.rotation.x = -.08 + Math.sin(rp) * (remoteMoving ? .045 : .008);
+      obj.userData.cape.rotation.z = Math.sin(rp * .5) * (remoteMoving ? .018 : .004);
+    }
   }
 
-  // Monstros: suaviza o deslocamento e anima o corpo enquanto perseguem.
+  // Monstros: uma única atualização de posição evita aceleração e animações que se anulam.
+  const monsterNow = performance.now();
   for (const obj of monsterMeshes.values()) {
     if (!obj.visible || obj.userData.targetX === undefined) continue;
+
     const dx = obj.userData.targetX - obj.position.x;
     const dz = obj.userData.targetZ - obj.position.z;
     const distance = Math.hypot(dx, dz);
-    const moving = distance > .035;
-    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (moving ? 7.2 : 1.5);
+    const moving = distance > .045;
+    obj.position.x = THREE.MathUtils.lerp(obj.position.x, obj.userData.targetX, monsterSmooth);
+    obj.position.z = THREE.MathUtils.lerp(obj.position.z, obj.userData.targetZ, monsterSmooth);
+
+    if (obj.userData.spawnAnim > 0) {
+      obj.userData.spawnAnim = Math.max(0, obj.userData.spawnAnim - dt);
+      const spawnProgress = 1 - obj.userData.spawnAnim / .35;
+      obj.scale.setScalar(Math.max(.05, spawnProgress));
+    } else {
+      obj.scale.setScalar(1);
+    }
+
+    const kind = obj.userData.kind || 'stalker';
+    const gait = kind === 'brute' ? .72
+      : kind === 'wraith' ? 1.34
+      : kind === 'stalker' ? 1.16 : .96;
+    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (moving ? 7.2 : 1.45);
     const phase = obj.userData.walkPhase;
-    obj.position.y = moving ? Math.abs(Math.sin(phase * 2)) * (obj.userData.kind === 'wraith' ? .045 : .012) : 0;
-    obj.rotation.z = moving ? Math.sin(phase) * .012 : THREE.MathUtils.lerp(obj.rotation.z, 0, 1 - Math.exp(-5 * dt));
-    // Gira o monstro para encarar o personagem sem trancos.
+
+    if (obj.userData.attackAnim > 0) {
+      obj.userData.attackAnim = Math.max(0, obj.userData.attackAnim - dt);
+    }
+    const attackProgress = obj.userData.attackAnim > 0
+      ? (1 - obj.userData.attackAnim / .38) : 0;
+    const attackPulse = obj.userData.attackAnim > 0
+      ? Math.sin(THREE.MathUtils.clamp(attackProgress, 0, 1) * Math.PI) : 0;
+
+    const idleBob = kind === 'wraith' ? .045
+      : moving ? .018 : .007;
+    obj.position.y = Math.abs(Math.sin(phase * 2)) * idleBob + attackPulse * .09;
+
+    const rollTarget = moving ? Math.sin(phase) * (kind === 'brute' ? .008 : .015) : 0;
+    obj.rotation.z = THREE.MathUtils.lerp(obj.rotation.z, rollTarget, 1 - Math.exp(-6 * dt));
+
     if (obj.userData.targetRot !== undefined) {
       const angleDiff = Math.atan2(
         Math.sin(obj.userData.targetRot - obj.rotation.y),
@@ -2094,28 +2145,28 @@ const right = new THREE.Vector3(
       );
       obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
     }
-    // Cada família de monstro tem um ritmo próprio, sem acrescentar luzes ou objetos por frame.
-    const gait = obj.userData.kind === 'brute' ? .62
-      : obj.userData.kind === 'wraith' ? 1.28
-      : obj.userData.kind === 'stalker' ? 1.12 : .9;
+
+    const attackTilt = attackPulse * (kind === 'brute' ? .30 : kind === 'wraith' ? .20 : .42);
+    const walkTilt = kind === 'stalker' && moving ? Math.sin(phase) * .015 : 0;
+    const targetTilt = -attackTilt + walkTilt;
+    obj.rotation.x = THREE.MathUtils.lerp(obj.rotation.x, targetTilt, 1 - Math.exp(-12 * dt));
+
     for (const limb of obj.userData.animatedLimbs || []) {
       const limbPhase = phase * gait + (limb.side > 0 ? Math.PI : 0);
       const swing = Math.sin(limbPhase);
-      // Golpe breve durante o avanço; cada família tem sua própria intensidade.
-      const attackKick = obj.userData.attackAnimUntil && performance.now() < obj.userData.attackAnimUntil ? 1 : 0;
-      const attackPower = obj.userData.kind === 'brute' ? .62 : obj.userData.kind === 'wraith' ? .28 : .42;
-      limb.mesh.rotation.x = swing * (moving ? .105 : .012) - attackKick * attackPower * (limb.side < 0 ? 1 : .25);
-      limb.mesh.rotation.z = limb.baseRotationZ + Math.sin(phase * .65 * gait + limb.side) * (moving ? .022 : .008);
+      const walkAmount = moving ? (kind === 'brute' ? .17 : kind === 'wraith' ? .075 : .14) : .012;
+      const attackPower = kind === 'brute' ? .62 : kind === 'wraith' ? .28 : .42;
+      limb.mesh.rotation.x = swing * walkAmount - attackPulse * attackPower * (limb.side < 0 ? 1 : .25);
+      limb.mesh.rotation.z = limb.baseRotationZ
+        + Math.sin(phase * .65 * gait + limb.side) * (moving ? .022 : .006);
     }
-    if (obj.userData.kind === 'stalker') {
-      obj.rotation.x = moving ? Math.sin(phase) * .015 : THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-5 * dt));
-    }
-    // Sinal visual simples de ataque quando a IA já marcou o início do golpe.
-    if (obj.userData.isAttacking && !obj.userData.attackAnimUntil) {
-      obj.userData.attackAnimUntil = performance.now() + 260;
-    }
-    if (obj.userData.attackAnimUntil && performance.now() >= obj.userData.attackAnimUntil) {
-      obj.userData.attackAnimUntil = 0;
+
+    // O anel no chão pulsa junto ao golpe para comunicar melhor o perigo do ataque.
+    const attackRing = obj.userData.attackRing;
+    if (attackRing) {
+      attackRing.material.opacity = .48 + attackPulse * .42;
+      const ringScale = 1 + attackPulse * .18;
+      attackRing.scale.set(ringScale, ringScale, ringScale);
     }
   }
 
@@ -2176,31 +2227,7 @@ const right = new THREE.Vector3(
   }
 
   // Partículas ambientais estáticas: sem oscilação que possa parecer pulsação.
-  // Movimento suave dos monstros
-  for (const obj of monsterMeshes.values()) {
-    if (obj.userData.targetX === undefined) continue;
 
-    obj.position.x = THREE.MathUtils.lerp(
-      obj.position.x, obj.userData.targetX, monsterSmooth
-    );
-
-    obj.position.z = THREE.MathUtils.lerp(
-      obj.position.z, obj.userData.targetZ, monsterSmooth
-    );
-
-    if (obj.userData.spawnAnim > 0) {
-      obj.userData.spawnAnim = Math.max(0, obj.userData.spawnAnim - dt);
-      const t = 1 - obj.userData.spawnAnim / 0.35;
-      obj.scale.setScalar(Math.max(0.05, t));
-    } else obj.scale.setScalar(1);
-    if (obj.userData.attackAnim > 0) {
-      obj.userData.attackAnim = Math.max(0, obj.userData.attackAnim - dt);
-      obj.rotation.x = -Math.sin((obj.userData.attackAnim / 0.38) * Math.PI) * 0.45;
-    } else obj.rotation.x = THREE.MathUtils.lerp(obj.rotation.x, 0, 1 - Math.exp(-12 * dt));
-    obj.position.y = obj.userData.attackAnim > 0 ? Math.sin((obj.userData.attackAnim / 0.38) * Math.PI) * 0.22 : 0;
-
-    // Mantém a orientação do monstro; não gira continuamente no próprio eixo.
-  }
 
   // Barras acompanham a câmera para ficarem legíveis acima de aliados e monstros.
   const barWorldQuaternion = new THREE.Quaternion();
