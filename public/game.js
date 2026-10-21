@@ -1187,16 +1187,29 @@ function makeMonster(kind = 'stalker', phase = 1) {
   return g;
 }
 
+let viewportResizeFrame = 0;
 function onResize() {
-  if (!renderer) return;
-  camera.aspect = innerWidth / innerHeight;
-  // Em pé no celular, campo de visão maior para manter a masmorra legível.
-  camera.fov = isMobileDevice && innerHeight > innerWidth ? 76 : 62;
-  camera.updateProjectionMatrix();
-  renderer.setPixelRatio(adaptivePixelRatio);
-  renderer.setSize(innerWidth, innerHeight);
+  if (viewportResizeFrame) cancelAnimationFrame(viewportResizeFrame);
+  viewportResizeFrame = requestAnimationFrame(() => {
+    viewportResizeFrame = 0;
+    const width = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
+    const height = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
+    if (renderer && camera) {
+      camera.aspect = width / height;
+      // Campo de visão maior no retrato; o horizontal usa enquadramento mais baixo.
+      camera.fov = isMobileDevice && height > width ? 76 : (isMobileDevice ? 66 : 62);
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(adaptivePixelRatio);
+      renderer.setSize(width, height, false);
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+    }
+    placeSpellButtons();
+  });
 }
-addEventListener('resize', onResize);
+addEventListener('resize', onResize, { passive: true });
+addEventListener('orientationchange', () => setTimeout(onResize, 120), { passive: true });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize, { passive: true });
 
 function setStatus(t) {
   menuStatus.textContent = t;
@@ -2124,26 +2137,23 @@ $('startBtn').addEventListener('click', async () => {
   // Ao tocar em JOGAR, tenta colocar o jogo em tela cheia e deitado.
   // Alguns navegadores recusam o bloqueio; nesse caso o jogador ainda pode girar o aparelho manualmente.
   if (isMobileDevice) {
+    // O bloqueio é tentado após a ação do usuário; o Android pode recusá-lo
+    // fora de tela cheia. A interface continua responsiva se o navegador negar.
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
         await document.documentElement.requestFullscreen();
       }
     } catch (_) {}
-    let landscapeLocked = false;
     try {
-      if (screen.orientation && screen.orientation.lock) {
-        await screen.orientation.lock('landscape');
-        landscapeLocked = true;
-      }
-    } catch (_) {}
-    if (!landscapeLocked) {
-      try {
+      if (screen.orientation?.lock) await screen.orientation.lock('landscape');
+      else {
         const legacyLock = screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation;
-        if (typeof legacyLock === 'function') {
-          legacyLock.call(screen, ['landscape-primary', 'landscape']);
-        }
-      } catch (_) {}
+        if (typeof legacyLock === 'function') legacyLock.call(screen, 'landscape');
+      }
+    } catch (_) {
+      // Não força loop nem recarrega: o usuário pode girar o aparelho manualmente.
     }
+    setTimeout(onResize, 80);
   }
   $('startScreen').classList.add('hidden');
   menu.classList.remove('hidden');
@@ -2205,34 +2215,37 @@ $('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 let fireCooldown = 0, lightningCooldown = 0;
 function placeSpellButtons() {
   const fire = $('fireBtn'), lightning = $('lightningBtn');
+  if (!fire || !lightning) return;
+  const landscape = window.innerWidth > window.innerHeight;
+  const size = landscape ? 48 : 58;
   for (const btn of [fire, lightning]) {
-    if (!btn) continue;
     btn.style.setProperty('display', 'flex', 'important');
     btn.style.setProperty('position', 'fixed', 'important');
     btn.style.setProperty('visibility', 'visible', 'important');
     btn.style.setProperty('opacity', '1', 'important');
     btn.style.setProperty('pointer-events', 'auto', 'important');
-    btn.style.setProperty('z-index', '9999', 'important');
-    btn.style.setProperty('width', '58px', 'important');
-    btn.style.setProperty('height', '58px', 'important');
+    btn.style.setProperty('z-index', '5', 'important');
+    btn.style.setProperty('width', size + 'px', 'important');
+    btn.style.setProperty('height', size + 'px', 'important');
     btn.style.setProperty('border-radius', '50%', 'important');
     btn.style.setProperty('color', '#fff', 'important');
-    btn.style.setProperty('background', 'rgba(12,20,32,.98)', 'important');
+    btn.style.setProperty('background', 'rgba(12,20,32,.96)', 'important');
     btn.style.setProperty('flex-direction', 'column', 'important');
     btn.style.setProperty('align-items', 'center', 'important');
     btn.style.setProperty('justify-content', 'center', 'important');
     btn.style.setProperty('touch-action', 'none', 'important');
   }
-  if (matchMedia('(orientation: portrait)').matches) {
+  if (!landscape) {
     fire.style.setProperty('right', '88px', 'important');
     fire.style.setProperty('bottom', '86px', 'important');
     lightning.style.setProperty('right', '18px', 'important');
     lightning.style.setProperty('bottom', '96px', 'important');
   } else {
-    fire.style.setProperty('right', '130px', 'important');
-    fire.style.setProperty('bottom', '16px', 'important');
-    lightning.style.setProperty('right', '70px', 'important');
-    lightning.style.setProperty('bottom', '84px', 'important');
+    // Deitados, as habilidades ficam acima do ataque e longe do botão de baú.
+    fire.style.setProperty('right', '18px', 'important');
+    fire.style.setProperty('bottom', '112px', 'important');
+    lightning.style.setProperty('right', '18px', 'important');
+    lightning.style.setProperty('bottom', '166px', 'important');
   }
 }
 addEventListener('resize', placeSpellButtons);
