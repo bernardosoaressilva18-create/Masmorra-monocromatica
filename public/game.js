@@ -1168,7 +1168,56 @@ function renderLobby3DPreview() {
   const bottom = height-top-previewHeight;
   const time = clock ? clock.elapsedTime : 0;
   lobbyPreviewHero.rotation.y = Math.PI + Math.sin(time*0.32)*0.12;
-  lobbyPreviewHero.position.y = Math.sin(time*1.25)*0.025;
+  const heroClass = lobbyPreviewHero.userData.heroClass || selectedClass || 'knight';
+  const idle = time * (heroClass === 'mage' ? 1.35 : heroClass === 'archer' ? 1.7 : 1.05);
+  const breath = Math.sin(idle) * 0.018;
+  lobbyPreviewHero.position.y = Math.sin(time*1.25)*0.025 + breath;
+  if (lobbyPreviewHero.userData.torso) {
+    lobbyPreviewHero.userData.torso.rotation.z = heroClass === 'archer'
+      ? Math.sin(idle * 0.55) * 0.012
+      : Math.sin(idle * 0.65) * (heroClass === 'mage' ? 0.018 : 0.008);
+  }
+  if (lobbyPreviewHero.userData.head) {
+    lobbyPreviewHero.userData.head.rotation.x = heroClass === 'mage'
+      ? Math.sin(idle * 0.7) * 0.035
+      : Math.sin(idle * 0.45) * 0.012;
+    lobbyPreviewHero.userData.head.rotation.y = heroClass === 'archer'
+      ? Math.sin(idle * 0.4) * 0.055
+      : Math.sin(idle * 0.3) * 0.018;
+  }
+  for (const leg of lobbyPreviewHero.userData.legs || []) {
+    leg.mesh.rotation.x = Math.sin(idle * 0.7 + (leg.side > 0 ? Math.PI : 0)) * (heroClass === 'archer' ? 0.035 : 0.012);
+  }
+  for (const arm of lobbyPreviewHero.userData.arms || []) {
+    if (heroClass === 'knight') {
+      arm.mesh.rotation.x = Math.sin(idle * 0.6 + (arm.side > 0 ? Math.PI : 0)) * 0.025;
+      arm.mesh.rotation.z = arm.side > 0 ? -0.12 : 0.12;
+    } else if (heroClass === 'mage') {
+      arm.mesh.rotation.x = Math.sin(idle * 0.9 + (arm.side > 0 ? Math.PI : 0)) * 0.055;
+      arm.mesh.rotation.z = arm.side > 0 ? -0.1 : 0.1;
+    } else {
+      arm.mesh.rotation.x = Math.sin(idle * 0.75 + (arm.side > 0 ? Math.PI : 0)) * 0.04;
+      arm.mesh.rotation.z = arm.side > 0 ? -0.18 : 0.08;
+    }
+  }
+  if (lobbyPreviewHero.userData.sword) {
+    const weapon = lobbyPreviewHero.userData.sword;
+    if (heroClass === 'mage') {
+      weapon.rotation.z = -0.12 + Math.sin(idle * 0.85) * 0.045;
+      weapon.rotation.y = Math.sin(idle * 0.5) * 0.06;
+    } else if (heroClass === 'archer') {
+      weapon.rotation.z = -0.18 + Math.sin(idle * 0.7) * 0.025;
+      weapon.rotation.y = Math.sin(idle * 0.45) * 0.035;
+    } else {
+      weapon.rotation.z = -0.25 + Math.sin(idle * 0.6) * 0.018;
+    }
+  }
+  if (lobbyPreviewHero.userData.cape) {
+    lobbyPreviewHero.userData.cape.rotation.x = heroClass === 'mage'
+      ? -0.08 + Math.sin(idle * 0.8) * 0.055
+      : -0.08 + Math.sin(idle * 0.55) * 0.025;
+    lobbyPreviewHero.userData.cape.rotation.z = Math.sin(idle * 0.4) * 0.018;
+  }
   lobbyPreviewCamera.aspect = previewWidth/previewHeight;
   lobbyPreviewCamera.position.z = portrait ? 6.0 : 6.2;
   lobbyPreviewCamera.updateProjectionMatrix();
