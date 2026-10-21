@@ -5,11 +5,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#090c12">
-<meta name="description" content="Masmorra Monocromática: RPG 3D cooperativo com monstros, loot e chefes.">
+<meta name="description" content="O Último Legado: RPG 3D cooperativo com classes, habilidades, monstros e chefes.">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icon.svg">
-<title>Masmorra Monocromática — RPG Cooperativo</title>
+<title>O Último Legado — RPG Cooperativo</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,7 +18,7 @@
 <div id="startScreen" class="screen start-screen">
   <div class="start-emblem" aria-hidden="true">✦</div>
   <p class="eyebrow">UMA AVENTURA COOPERATIVA</p>
-  <h1 class="start-title">MASMORRA<br><span>MONOCROMÁTICA</span></h1>
+  <h1 class="start-title">O ÚLTIMO<br><span>LEGADO</span></h1>
   <p class="start-copy">Cinco mundos enormes. Habilidades evolutivas. Um Guardião no fim.</p>
   <button id="startBtn" class="primary start-button">⚔ TOQUE PARA COMEÇAR</button>
   <small class="start-tip">Toque no botão para abrir o menu do aventureiro</small>
@@ -29,7 +29,7 @@
   <div class="brand">
     <div class="sigil">✦</div>
     <p class="eyebrow">AVENTURE-SE ALÉM DA LUZ</p>
-    <h1>MASMORRA<br><span>MONOCROMÁTICA</span></h1>
+    <h1>O ÚLTIMO<br><span>LEGADO</span></h1>
     <p class="subtitle">Uma masmorra. Quatro aventureiros. Nenhuma saída fácil.</p>
   </div>
 
@@ -49,7 +49,7 @@
 
 <div id="lobby" class="screen hidden lobby-screen">
   <header class="lobby-header">
-    <div class="lobby-brand-mark"><span class="lobby-mark-icon">✦</span><span>MASMORRA</span></div>
+    <div class="lobby-brand-mark"><span class="lobby-mark-icon">✦</span><span>O ÚLTIMO LEGADO</span></div>
     <div class="lobby-header-meta">
       <div class="lobby-room-pill">SALA <strong id="lobbyRoomCode">------</strong></div>
       <button id="leaveLobbyBtn" class="lobby-leave-mini" type="button">SAIR</button>
@@ -94,6 +94,8 @@
           <button type="button" class="class-card selected" data-class="knight"><span class="class-icon">🛡️</span><b>CAVALEIRO</b><small>Resistente · Corte pesado</small></button>
           <button type="button" class="class-card" data-class="mage"><span class="class-icon">🔮</span><b>MAGO</b><small>Magia · Explosão arcana</small></button>
           <button type="button" class="class-card" data-class="archer"><span class="class-icon">🏹</span><b>ARQUEIRO</b><small>Ágil · Disparo preciso</small></button>
+          <button type="button" class="class-card" data-class="goblin"><span class="class-icon">👺</span><b>GOBLIN</b><small>Veloz · Duas adagas</small></button>
+          <button type="button" class="class-card" data-class="ogre"><span class="class-icon">👹</span><b>OGRO</b><small>Tanque · Clava pesada</small></button>
         </div>
         <p id="classDescription" class="class-description">Cavaleiro: defesa elevada e combate corpo a corpo.</p>
       </section>
@@ -135,8 +137,8 @@
       </section>
 
       <section class="lobby-editor-section hidden" data-lobby-editor-panel="skills">
-        <div class="skill-head"><label>ÁRVORE DE SKILLS · 15 TALENTOS</label><span>DISPONÍVEIS: <b id="skillPoints">5</b></span></div>
-        <p class="skill-intro">Comece com 5 pontos. Ganhe +1 ao liberar cada novo mundo. Cada talento custa 1 ponto e exige o talento anterior do mesmo ramo.</p>
+        <div class="skill-head"><label>ÁRVORE DE SKILLS · 25 TALENTOS</label><span>DISPONÍVEIS: <b id="skillPoints">5</b> · ATIVAS: <b id="skillCountLobby">0/15</b></span></div>
+        <p class="skill-intro">Escolha até 15 talentos e desenvolva no máximo 3 dos 5 ramos. Comece com 5 pontos e ganhe mais ao avançar pelos mundos. Cada ramo tem 5 talentos encadeados.</p>
         <div id="skillTreeLobby" class="skill-tree"></div>
       </section>
     </div>
@@ -160,7 +162,7 @@
 
 <div id="hud" class="hidden">
   <div class="topbar">
-    <div class="badge"><span class="dot"></span><div><small>MASMORRA</small><strong id="roomLabel">CONECTANDO</strong></div></div>
+    <div class="badge"><span class="dot"></span><div><small>O ÚLTIMO LEGADO</small><strong id="roomLabel">CONECTANDO</strong></div></div>
     <div class="stats"><span>♥ <b id="hpText">100</b></span><span>✦ <b id="killText">0</b></span></div>
     <button id="settingsBtn" class="settings-toggle" type="button" aria-label="Abrir configurações" title="Configurações">⚙</button>
     <button id="leaveBtn" class="leave">SAIR</button>
@@ -208,7 +210,7 @@
   <button id="skillToggleBtn" class="skill-toggle" type="button">✦ SKILLS <b id="skillPointsHud">5</b></button>
   <div id="skillPanel" class="skill-panel hidden">
     <div class="skill-panel-head"><strong>ÁRVORE DE SKILLS</strong><button id="skillCloseBtn" type="button" aria-label="Fechar árvore">×</button></div>
-    <p class="skill-intro">Gaste pontos durante a aventura. Você recebe pontos ao avançar de mundo.</p>
+    <p class="skill-intro">25 talentos · até 15 ativos · escolha no máximo 3 ramos. Você recebe pontos ao avançar de mundo. Ativas: <b id="skillCountHud">0/15</b>.</p>
     <div id="skillTreeHud" class="skill-tree"></div>
   </div>
   <div class="inventory-panel"><strong>INVENTÁRIO</strong><div id="inventoryList" class="inventory-list"></div><div class="loot-help">Escolha itens, evolua suas skills na zona segura e atravesse os portais.</div><div class="inventory-tools"><select id="lootFilter" aria-label="Filtrar loot"><option value="all">Todas as raridades</option><option value="comum">Comum</option><option value="incomum">Incomum</option><option value="raro">Raro</option><option value="épico">Épico</option><option value="lendário">Lendário</option></select><select id="lootSort" aria-label="Ordenar loot"><option value="newest">Recentes</option><option value="rarity">Raridade</option><option value="power">Poder</option></select></div><div id="recentLoot" class="recent-loot"><small>Nenhum item coletado ainda.</small></div><div class="selected-item"><span id="selectedItemLabel">Nenhum item selecionado</span><button id="useSelectedItemBtn" type="button" disabled>USAR ITEM</button></div></div>
@@ -231,7 +233,7 @@
 
 <div id="loading" class="loading hidden">
   <div class="spinner"></div>
-  <strong>ENTRANDO NA MASMORRA</strong>
+  <strong>ENTRANDO NO ÚLTIMO LEGADO</strong>
   <small id="loadingText">Procurando aventureiros...</small>
 </div>
 
