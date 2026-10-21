@@ -8,6 +8,8 @@ on:
       - 'android-app/**'
       - 'public/index.html'
       - 'public/style.css'
+      - 'public/game.js'
+      - 'server.js'
       - 'public/manifest.webmanifest'
       - 'public/sw.js'
       - '.github/workflows/build-apk.yml'
