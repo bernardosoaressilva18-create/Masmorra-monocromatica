@@ -104,7 +104,19 @@
   <div class="topbar">
     <div class="badge"><span class="dot"></span><div><small>MASMORRA</small><strong id="roomLabel">CONECTANDO</strong></div></div>
     <div class="stats"><span>♥ <b id="hpText">100</b></span><span>✦ <b id="killText">0</b></span></div>
+    <button id="settingsBtn" class="settings-toggle" type="button" aria-label="Abrir configurações" title="Configurações">⚙</button>
     <button id="leaveBtn" class="leave">SAIR</button>
+  </div>
+  <div id="settingsPanel" class="settings-panel hidden" aria-label="Configurações do jogo">
+    <div class="settings-head"><strong>⚙ CONFIGURAÇÕES</strong><button id="settingsCloseBtn" type="button" aria-label="Fechar configurações">✕</button></div>
+    <label class="setting-range" for="lookSensitivity">Sensibilidade da câmera <output id="lookSensitivityValue">1,2×</output></label>
+    <input id="lookSensitivity" type="range" min="0.5" max="3" step="0.1" value="1.2">
+    <label class="setting-range" for="musicVolume">Volume da música <output id="musicVolumeValue">32%</output></label>
+    <input id="musicVolume" type="range" min="0" max="1" step="0.05" value="0.32">
+    <label class="setting-toggle"><input id="musicEnabled" type="checkbox" checked> Música ambiente</label>
+    <label class="setting-range" for="sfxVolume">Volume dos efeitos <output id="sfxVolumeValue">72%</output></label>
+    <input id="sfxVolume" type="range" min="0" max="1" step="0.05" value="0.72">
+    <p class="settings-note">As configurações ficam salvas neste dispositivo.</p>
   </div>
   <div id="notice" class="notice"></div>
   <div class="objective">
@@ -127,7 +139,7 @@
     <div id="skillTreeHud" class="skill-tree"></div>
   </div>
   <div class="inventory-panel"><strong>INVENTÁRIO</strong><div id="inventoryList" class="inventory-list"></div><div class="loot-help">Escolha itens, evolua suas skills na zona segura e atravesse os portais.</div><div id="recentLoot" class="recent-loot"><small>Nenhum item coletado ainda.</small></div><div class="selected-item"><span id="selectedItemLabel">Nenhum item selecionado</span><button id="useSelectedItemBtn" type="button" disabled>USAR ITEM</button></div></div>
-  <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
+  <div id="joystick" class="joystick"><div id="stick" class="stick"></div><span class="joystick-label">MOVIMENTO</span></div>
   <div class="hint">CELULAR: JOYSTICK + ARRASTE · PC: WASD + MOUSE · ESPAÇO ATACA · E BAÚ · R ITEM</div>
   <button id="chestBtn" class="chest-btn"><span>▣</span><small>BAÚ</small></button>
   <button id="attackBtn" class="attack"><span>⚔</span><small>ATACAR</small></button>
