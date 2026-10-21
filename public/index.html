@@ -49,55 +49,90 @@
 
 <div id="lobby" class="screen hidden lobby-screen">
   <header class="lobby-header">
-    <div class="lobby-brand-mark">✦ <span>MASMORRA MONOCROMÁTICA</span></div>
-    <div class="lobby-room-pill">SALA <strong id="lobbyRoomCode">------</strong></div>
+    <div class="lobby-brand-mark"><span class="lobby-mark-icon">✦</span><span>MASMORRA</span></div>
+    <div class="lobby-header-meta">
+      <div class="lobby-room-pill">SALA <strong id="lobbyRoomCode">------</strong></div>
+      <button id="leaveLobbyBtn" class="lobby-leave-mini" type="button">SAIR</button>
+    </div>
   </header>
+
+  <nav class="lobby-nav" aria-label="Menus do lobby">
+    <button class="lobby-nav-btn" type="button" data-lobby-editor="skin"><span>◈</span> SKIN</button>
+    <button class="lobby-nav-btn" type="button" data-lobby-editor="config"><span>⚙</span> CONFIG</button>
+    <button class="lobby-nav-btn" type="button" data-lobby-editor="skills"><span>✦</span> ÁRV. SKILLS</button>
+  </nav>
+
   <main class="lobby-layout">
-    <section class="lobby-stage">
-      <div class="lobby-stage-top"><span class="lobby-online-dot"></span> SUA EQUIPE · COOPERATIVO</div>
+    <section class="lobby-stage" aria-label="Arena e jogadores">
+      <div class="lobby-stage-top"><span class="lobby-online-dot"></span> SALA COOPERATIVA <span class="lobby-stage-divider">/</span> ATÉ 4 AVENTUREIROS</div>
       <div class="hero-showcase">
         <div id="heroPreviewAvatar" class="hero-preview-avatar skin-default"><span id="heroPreviewGlyph">🛡️</span></div>
         <div class="hero-showcase-info">
-          <small>AVENTUREIRO SELECIONADO</small>
+          <small>SEU PERSONAGEM</small>
           <strong id="heroPreviewName">Cavaleiro</strong>
-          <p id="heroPreviewDesc">Defesa alta · espada e escudo</p>
-          <div class="hero-showcase-tags"><span id="heroPreviewSkin">SKIN CLÁSSICA</span><span>3D · COOPERATIVO</span></div>
+          <p id="heroPreviewDesc">Vida elevada · defesa natural · espada</p>
+          <div class="hero-showcase-tags"><span id="heroPreviewSkin">SKIN CLÁSSICA</span><span>JOGADOR PRINCIPAL</span></div>
         </div>
       </div>
       <div class="lobby-team-box">
-        <div class="lobby-section-title"><span>EQUIPE</span><small>ATÉ 4 JOGADORES</small></div>
-        <div id="lobbyPlayers" class="lobby-players"><p>Esperando aventureiros...</p></div>
+        <div class="lobby-section-title"><span>SEU TIME</span><small>STATUS DOS JOGADORES</small></div>
+        <div id="lobbyPlayers" class="lobby-players"><p class="lobby-empty">Esperando aventureiros...</p></div>
       </div>
     </section>
-    <section class="lobby-controls panel lobby-panel">
-      <div class="lobby-section-title"><span>PERSONALIZAR</span><small>ESCOLHA SEU HERÓI</small></div>
-      <div class="class-select">
-        <label>CLASSE</label>
+  </main>
+
+  <div id="lobbyEditorBackdrop" class="lobby-editor-backdrop hidden"></div>
+  <section id="lobbyEditor" class="lobby-editor hidden" aria-label="Opções do aventureiro">
+    <header class="lobby-editor-head">
+      <div><small>PERSONALIZAÇÃO</small><strong id="lobbyEditorTitle">ESCOLHA SUA SKIN</strong></div>
+      <button id="lobbyEditorClose" type="button" aria-label="Fechar painel">✕</button>
+    </header>
+    <div class="lobby-editor-content">
+      <section class="lobby-editor-section hidden" data-lobby-editor-panel="class">
+        <label>ESCOLHA SUA CLASSE</label>
         <div class="class-cards">
           <button type="button" class="class-card selected" data-class="knight"><span class="class-icon">🛡️</span><b>CAVALEIRO</b><small>Resistente · Corte pesado</small></button>
           <button type="button" class="class-card" data-class="mage"><span class="class-icon">🔮</span><b>MAGO</b><small>Magia · Explosão arcana</small></button>
           <button type="button" class="class-card" data-class="archer"><span class="class-icon">🏹</span><b>ARQUEIRO</b><small>Ágil · Disparo preciso</small></button>
         </div>
-        <label>SKIN</label>
+        <p id="classDescription" class="class-description">Cavaleiro: defesa elevada e combate corpo a corpo.</p>
+      </section>
+
+      <section class="lobby-editor-section hidden" data-lobby-editor-panel="skin">
+        <label>ESCOLHA UMA SKIN</label>
         <div class="skin-picks">
           <button type="button" class="skin-pick selected" data-skin="default"><span class="skin-swatch classic"></span><b>Clássica</b><small>Guardião</small></button>
           <button type="button" class="skin-pick" data-skin="shadow"><span class="skin-swatch shadow"></span><b>Sombra</b><small>Noturna</small></button>
           <button type="button" class="skin-pick" data-skin="ember"><span class="skin-swatch ember"></span><b>Brasa</b><small>Antiga</small></button>
         </div>
-        <div class="skill-head"><label>ÁRVORE DE SKILLS · 15 TALENTOS</label><span>Disponíveis: <b id="skillPoints">5</b></span></div>
+        <p class="lobby-editor-tip">Sua skin aparece no personagem central e é sincronizada com os jogadores da sala.</p>
+      </section>
+
+      <section class="lobby-editor-section hidden" data-lobby-editor-panel="config">
+        <label class="setting-range" for="lobbySensitivity">Sensibilidade da câmera <output id="lobbySensitivityValue">1,2×</output></label>
+        <input id="lobbySensitivity" type="range" min="0.5" max="3" step="0.1" value="1.2">
+        <label class="setting-range" for="lobbyMusicVolume">Volume da música <output id="lobbyMusicVolumeValue">32%</output></label>
+        <input id="lobbyMusicVolume" type="range" min="0" max="1" step="0.05" value="0.32">
+        <label class="setting-toggle"><input id="lobbyMusicEnabled" type="checkbox" checked> Música ambiente</label>
+        <label class="setting-range" for="lobbySfxVolume">Volume dos efeitos <output id="lobbySfxVolumeValue">72%</output></label>
+        <input id="lobbySfxVolume" type="range" min="0" max="1" step="0.05" value="0.72">
+        <p class="lobby-editor-tip">As configurações são compartilhadas com as opções durante a partida e ficam salvas neste dispositivo.</p>
+      </section>
+
+      <section class="lobby-editor-section hidden" data-lobby-editor-panel="skills">
+        <div class="skill-head"><label>ÁRVORE DE SKILLS · 15 TALENTOS</label><span>DISPONÍVEIS: <b id="skillPoints">5</b></span></div>
         <p class="skill-intro">Comece com 5 pontos. Ganhe +1 ao liberar cada novo mundo. Cada talento custa 1 ponto e exige o talento anterior do mesmo ramo.</p>
         <div id="skillTreeLobby" class="skill-tree"></div>
-        <p id="classDescription" class="class-description">Cavaleiro: defesa elevada e combate corpo a corpo.</p>
-      </div>
-      <div class="lobby-actions">
-        <button id="readyBtn" class="primary">ESTOU PRONTO</button>
-        <button id="startMatchBtn" class="primary start-match hidden" disabled>INICIAR PARTIDA</button>
-        <p id="lobbyHint" class="status">Marque PRONTO. O anfitrião inicia quando todos estiverem prontos.</p>
-        <button id="leaveLobbyBtn" class="lobby-leave">SAIR DA SALA</button>
-      </div>
-    </section>
-  </main>
-  <div class="lobby-footer">PRONTO PARA A MASMORRA? REÚNA SUA EQUIPE.</div>
+      </section>
+    </div>
+  </section>
+
+  <footer class="lobby-bottom-bar">
+    <button id="lobbyClassBtn" class="lobby-class-button" type="button"><small>CLASSE</small><strong id="lobbyClassCurrent">CAVALEIRO</strong><span>⌃</span></button>
+    <button id="readyBtn" class="primary lobby-ready-button" type="button">ESTOU PRONTO</button>
+    <button id="startMatchBtn" class="primary start-match lobby-start-button hidden" type="button" disabled>INICIAR PARTIDA</button>
+  </footer>
+  <p id="lobbyHint" class="lobby-hint">Marque PRONTO e espere o anfitrião iniciar a partida.</p>
 </div>
 
 <div id="deathScreen" class="screen death-screen hidden">
