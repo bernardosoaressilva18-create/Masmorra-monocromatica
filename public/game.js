@@ -1323,7 +1323,7 @@ function updateState(m) {
 
     // O jogador local fica sempre no centro; os aliados formam uma pequena equipe ao redor dele.
     const present = new Set();
-    const teammateSlots = [{x:-2.55,z:0.1},{x:2.55,z:0.1},{x:0,z:-2.65}];
+    const teammateSlots = [{x:-2.6,z:0.1},{x:2.6,z:0.1},{x:-3.65,z:-1.9}];
     let teammateSlotIndex = 0;
     lobbyPlayers.forEach(p => {
       const slot = p.id === playerId ? {x:0,z:0} : (teammateSlots[teammateSlotIndex++] || {x:0,z:-3});
