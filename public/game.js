@@ -77,15 +77,16 @@ function ensureAudio(){
       for(const [frequency,volume] of [[55,.018],[82.41,.011],[110,.005]]){
         const drone=audioContext.createOscillator(),gain=audioContext.createGain();drone.type='sine';drone.frequency.value=frequency;gain.gain.value=volume;drone.connect(gain);gain.connect(musicBus);drone.start();
       }
-      const dungeonLead=[293.66,349.23,392,440,392,349.23,293.66,261.63,293.66,349.23,392,349.23];
-      const astralLead=[392,440,523.25,587.33,523.25,659.25,587.33,493.88,440,523.25,659.25,587.33];
-      const dungeonBass=[73.42,110,82.41,123.47],astralBass=[98,146.83,110,164.81];
+      const dungeonLead=[220,261.63,329.63,392,349.23,293.66,261.63,196,220,293.66,349.23,440,392,329.63,261.63,220];
+      const astralLead=[440,523.25,659.25,783.99,698.46,587.33,659.25,880,783.99,659.25,523.25,493.88,587.33,698.46,523.25,440];
+      const dungeonBass=[55,82.41,65.41,98],astralBass=[110,164.81,130.81,196];
       const tick=()=>{if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;const step=musicStep++,lead=currentRealmVisual===2?astralLead:dungeonLead,bass=currentRealmVisual===2?astralBass:dungeonBass;
-        scheduleMusicNote(lead[step%lead.length],.48,.095,'triangle');
+        scheduleMusicNote(lead[step%lead.length],.38,.105,step%4===0?'sine':'triangle');
         if(step%4===0)scheduleMusicNote(bass[Math.floor(step/4)%bass.length],1.65,.07,'sine');
-        if(step%2===1)scheduleMusicNote(lead[(step+4)%lead.length]*2,.23,.022,'sine');
+        if(step%2===1)scheduleMusicNote(lead[(step+5)%lead.length]*2,.19,.026,'sine');
+        if(step%8===4)scheduleMusicNote(bass[(Math.floor(step/4)+1)%bass.length]*2,.12,.018,'square');
       };
-      tick();musicTimer=window.setInterval(tick,560);
+      tick();musicTimer=window.setInterval(tick,430);
     }
     if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
   }catch(_){}
@@ -1235,7 +1236,7 @@ function refreshLobby3DPreview() {
   if (!lobbyPreviewScene) return;
   if (lobbyPreviewHero) { lobbyPreviewScene.remove(lobbyPreviewHero); disposeObject3D(lobbyPreviewHero); lobbyPreviewHero = null; }
   lobbyPreviewHero = makeHero(null, selectedClass || 'knight', selectedSkin || 'default');
-  lobbyPreviewHero.scale.setScalar(1.12);
+  lobbyPreviewHero.scale.setScalar(1.28);
   lobbyPreviewHero.position.set(0,0,0);
   lobbyPreviewHero.rotation.y = Math.PI;
   if (lobbyPreviewHero.userData.healthBar) lobbyPreviewHero.userData.healthBar.visible = false;
@@ -1249,9 +1250,9 @@ function renderLobby3DPreview() {
   const height = renderer.domElement.clientHeight || innerHeight;
   if (width < 2 || height < 2) return;
   const portrait = height >= width;
-  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.47,220) : Math.min(width*0.36,500)));
-  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.39,340) : Math.min(height*0.53,410)));
-  const centerTop = Math.floor(height*(portrait ? 0.465 : 0.475));
+  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.62,300) : Math.min(width*0.43,590)));
+  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.49,430) : Math.min(height*0.66,520)));
+  const centerTop = Math.floor(height*(portrait ? 0.445 : 0.465));
   const left = Math.floor((width-previewWidth)/2);
   const top = Math.max(0,Math.min(height-previewHeight,centerTop-Math.floor(previewHeight/2)));
   const bottom = height-top-previewHeight;
@@ -1334,7 +1335,7 @@ function renderLobby3DPreview() {
     });
   }
   lobbyPreviewCamera.aspect = previewWidth/previewHeight;
-  lobbyPreviewCamera.position.z = portrait ? 6.0 : 6.2;
+  lobbyPreviewCamera.position.z = portrait ? 5.25 : 5.6;
   lobbyPreviewCamera.updateProjectionMatrix();
   lobbyPreviewCamera.lookAt(0,1.1,0);
   renderer.autoClear = false;
