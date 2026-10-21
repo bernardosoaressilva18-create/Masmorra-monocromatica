@@ -17,6 +17,11 @@ const gateMeshes = [];
 const activeBurnEffects = [];
 let ambientParticles = null, particleMaterial = null;
 const activeSpellEffects = [];
+const activeImpactEffects = [];
+const healthBarParentQuaternion = new THREE.Quaternion();
+const cameraFocusScratch = new THREE.Vector3();
+const cameraPositionScratch = new THREE.Vector3();
+const lobbyCameraPositionScratch = new THREE.Vector3();
 let bossMesh = null, bossData = null;
 let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
@@ -40,6 +45,15 @@ let audioContext = null, musicBus = null, sfxBus = null, musicTimer = null, musi
 function saveGameSettings() {
   try { localStorage.setItem('mmGameSettings', JSON.stringify(gameSettings)); } catch {}
 }
+document.addEventListener('visibilitychange', () => {
+  if (!audioContext) return;
+  if (document.hidden) {
+    if (audioContext.state === 'running') audioContext.suspend().catch(() => {});
+  } else if (audioContext.state === 'suspended' && started) {
+    audioContext.resume().catch(() => {});
+  }
+});
+
 function updateAudioLevels() {
   if (!audioContext || !musicBus || !sfxBus) return;
   const now = audioContext.currentTime;
@@ -161,12 +175,13 @@ function init3D() {
   $('game').appendChild(renderer.domElement);
   perfBadge = document.createElement('div');
   perfBadge.setAttribute('aria-hidden', 'true');
+  perfBadge.title = 'FPS, ping, escala de renderização e estimativa do heap JavaScript. A RAM total do aparelho e a memória da GPU não ficam disponíveis em todos os navegadores.';
   Object.assign(perfBadge.style, {
     position: 'fixed', top: '68px', left: '50%', transform: 'translateX(-50%)',
     zIndex: '12', padding: '4px 8px', border: '1px solid rgba(115,211,255,.25)',
     borderRadius: '999px', background: 'rgba(7,12,22,.72)', color: '#aeeaff',
     font: '600 11px/1.2 monospace', letterSpacing: '.3px', pointerEvents: 'none',
-    whiteSpace: 'nowrap', display: 'none'
+    whiteSpace: 'nowrap', maxWidth: 'calc(100vw - 16px)', overflow: 'hidden', textOverflow: 'ellipsis', display: 'none'
   });
   document.body.appendChild(perfBadge);
 
@@ -1457,7 +1472,8 @@ function handleMessage(m) {
     const isFire = m.spell === 'fire';
     const color = isFire ? 0xff6b24 : 0x69aaff;
     const origin = new THREE.Vector3(m.x, 1.35, m.z);
-    const targets = (Array.isArray(m.targets) ? m.targets : []).slice(0, 3);
+    const reducedVisualLoad = isMobileDevice || (lastFps > 0 && lastFps < 42);
+    const targets = (Array.isArray(m.targets) ? m.targets : []).slice(0, reducedVisualLoad ? 2 : 3);
     if (!targets.length) targets.push({ x: m.x - Math.sin(yaw) * 4, z: m.z - Math.cos(yaw) * 4 });
     let from = origin;
     for (const target of targets) {
@@ -1471,19 +1487,9 @@ function handleMessage(m) {
       const impactMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
       const impact = new THREE.Mesh(impactGeo, impactMat);
       impact.position.copy(end); impact.position.y += isFire ? .35 : .15; scene.add(impact);
-      const startedAt = performance.now(), duration = isFire ? 420 : 230;
-      const animateImpact = () => {
-        const t = (performance.now() - startedAt) / duration;
-        if (t >= 1) {
-          scene.remove(beam, impact); geo.dispose(); beamMat.dispose(); impactGeo.dispose(); impactMat.dispose();
-          return;
-        }
-        beamMat.opacity = 1 - t;
-        impact.scale.setScalar(isFire ? 1 + t * .65 : 1 + Math.sin(t * Math.PI) * .8);
-        impactMat.opacity = 1 - t;
-        requestAnimationFrame(animateImpact);
-      };
-      requestAnimationFrame(animateImpact);
+      const impactLimit = (isMobileDevice || (lastFps > 0 && lastFps < 42)) ? 6 : 12;
+      while (activeImpactEffects.length >= impactLimit) disposeImpactEffect(activeImpactEffects.shift());
+      activeImpactEffects.push({ beam, impact, geo, beamMat, impactGeo, impactMat, startedAt: performance.now(), duration: isFire ? 420 : 230, isFire });
       if (isFire) {
         const burnGroup = new THREE.Group();
         const flameMat = new THREE.MeshBasicMaterial({ color: 0xff4b16, transparent: true, opacity: .9 });
@@ -1494,6 +1500,13 @@ function handleMessage(m) {
         }
         burnGroup.position.set(target.x, .05, target.z);
         scene.add(burnGroup);
+        const burnLimit = (isMobileDevice || (lastFps > 0 && lastFps < 42)) ? 2 : 6;
+        while (activeBurnEffects.length >= burnLimit) {
+          const oldBurn = activeBurnEffects.shift();
+          scene.remove(oldBurn.group);
+          oldBurn.group.children.forEach(flame => flame.geometry.dispose());
+          oldBurn.material.dispose();
+        }
         activeBurnEffects.push({ group: burnGroup, material: flameMat, expires: performance.now() + 3000, seed: Math.random() * 6 });
       }
       from = end;
@@ -2123,6 +2136,12 @@ function castSpell(kind) {
   scene.add(projectile);
   const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const destination = origin.clone().add(forward.multiplyScalar(5.5));
+  const spellLimit = (isMobileDevice || (lastFps > 0 && lastFps < 42)) ? 6 : 14;
+  while (activeSpellEffects.length >= spellLimit) {
+    const oldSpell = activeSpellEffects.shift();
+    scene.remove(oldSpell.projectile);
+    oldSpell.geo.dispose(); oldSpell.material.dispose();
+  }
   activeSpellEffects.push({ projectile, geo, material, origin, destination, startedAt: performance.now(), duration: 300 });
   send({ type: 'spell', spell: kind });
   showNotice(kind === 'fire' ? '🔥 MAGIA DE FOGO!' : '⚡ MAGIA DE RAIO!');
@@ -2226,6 +2245,12 @@ function rendererPointerSetup() {
 rendererPointerSetup();
 
 
+function disposeImpactEffect(effect) {
+  if (!effect) return;
+  scene.remove(effect.beam, effect.impact);
+  effect.geo.dispose(); effect.beamMat.dispose(); effect.impactGeo.dispose(); effect.impactMat.dispose();
+}
+
 function updatePerformanceMonitor() {
   perfFrames++;
   const now = performance.now();
@@ -2261,14 +2286,39 @@ function updatePerformanceMonitor() {
     renderer.setSize(innerWidth, innerHeight);
   }
   if (perfBadge) {
-    perfBadge.textContent = Math.round(lastFps) + ' FPS · ' + (measuredPing === null ? 'Ping —' : 'Ping ' + measuredPing + ' ms');
+    const memoryBytes = performance.memory && Number.isFinite(performance.memory.usedJSHeapSize)
+      ? performance.memory.usedJSHeapSize : null;
+    const memoryText = memoryBytes === null ? 'JS heap n/d' : 'JS ' + Math.round(memoryBytes / (1024 * 1024)) + ' MB';
+    const baseRatio = Math.max(.1, Math.min(devicePixelRatio, renderPixelRatioCap));
+    const qualityText = 'Q ' + Math.round(adaptivePixelRatio / baseRatio * 100) + '%';
+    const pingText = measuredPing === null ? 'Ping —' : 'Ping ' + measuredPing + ' ms';
+    perfBadge.textContent = Math.round(lastFps) + ' FPS · ' + pingText + ' · ' + memoryText + ' · ' + qualityText;
+    const highHeap = memoryBytes !== null && memoryBytes > 300 * 1024 * 1024;
+    perfBadge.style.color = highHeap || lastFps < 30 ? '#ff7189' : (lastFps < 43 || (measuredPing !== null && measuredPing > 160)) ? '#ffd178' : '#aeeaff';
+    perfBadge.title = memoryBytes === null
+      ? 'FPS, ping e escala de renderização. Este navegador não expõe o heap JS; RAM total e memória da GPU não podem ser medidas aqui.'
+      : 'Heap JS estimado: ' + memoryText + '. Isto não é a RAM total do aparelho nem inclui necessariamente memória da GPU.';
     perfBadge.style.display = started ? 'block' : 'none';
+  }
+}
+
+function orientHealthBar(obj) {
+  if (!obj?.userData?.healthBar) return;
+  const bar = obj.userData.healthBar;
+  obj.updateWorldMatrix(true, false);
+  obj.getWorldQuaternion(healthBarParentQuaternion);
+  bar.quaternion.copy(healthBarParentQuaternion.invert().multiply(camera.quaternion));
+  bar.visible = obj.visible !== false;
+  bar.renderOrder = 1000;
+  for (const part of bar.children) {
+    part.renderOrder = 1000;
+    if (part.material) { part.material.depthTest = false; part.material.depthWrite = false; }
   }
 }
 
 function animate() {
   requestAnimationFrame(animate);
-  if (!renderer) return;
+  if (!renderer || document.hidden) return;
 
   const dt = Math.min(clock.getDelta(), 0.05), worldTime = clock.elapsedTime;
   realmIntroTimer=Math.max(0,realmIntroTimer-dt);
@@ -2515,7 +2565,22 @@ const right = new THREE.Vector3(
     gate.userData.portalRim.rotation.z += dt * (gate.userData.open ? .65 : .12);
     gate.userData.portalRim.material.emissiveIntensity = gate.userData.open ? 2.8 : 1.0;
   }
-  // Projéteis mágicos animados no loop principal, sem RAF extra por magia.
+  // Efeitos de impacto compartilham o loop principal para evitar RAF por efeito.
+  const impactNow = performance.now();
+  for (let i = activeImpactEffects.length - 1; i >= 0; i--) {
+    const effect = activeImpactEffects[i];
+    const t = (impactNow - effect.startedAt) / effect.duration;
+    if (t >= 1) {
+      disposeImpactEffect(effect);
+      activeImpactEffects.splice(i, 1);
+      continue;
+    }
+    effect.beamMat.opacity = 1 - t;
+    effect.impact.scale.setScalar(effect.isFire ? 1 + t * .65 : 1 + Math.sin(t * Math.PI) * .8);
+    effect.impactMat.opacity = 1 - t;
+  }
+
+  // Projéteis locais também têm um limite para controlar picos de memória.
   const spellNow = performance.now();
   for (let i = activeSpellEffects.length - 1; i >= 0; i--) {
     const effect = activeSpellEffects[i];
@@ -2553,23 +2618,9 @@ const right = new THREE.Vector3(
 
 
   // Barras acompanham a câmera para ficarem legíveis acima de aliados e monstros.
-  const barWorldQuaternion = new THREE.Quaternion();
-  const barParentWorldQuaternion = new THREE.Quaternion();
-  for (const obj of [myPlayer, ...remotePlayers.values(), ...monsterMeshes.values()]) {
-    if (obj?.userData?.healthBar) {
-      const bar = obj.userData.healthBar;
-      obj.updateWorldMatrix(true, false);
-      obj.getWorldQuaternion(barParentWorldQuaternion);
-      // A barra precisa compensar a rotação do personagem para continuar de frente para a câmera.
-      bar.quaternion.copy(barParentWorldQuaternion.invert().multiply(camera.quaternion));
-      bar.visible = obj.visible !== false;
-      bar.renderOrder = 1000;
-      for (const part of bar.children) {
-        part.renderOrder = 1000;
-        if (part.material) { part.material.depthTest = false; part.material.depthWrite = false; }
-      }
-    }
-  }
+  if (myPlayer) orientHealthBar(myPlayer);
+  for (const obj of remotePlayers.values()) orientHealthBar(obj);
+  for (const obj of monsterMeshes.values()) orientHealthBar(obj);
 
   // Enquadramento panorâmico do lobby, adaptado à largura da tela.
   if (!started) {
@@ -2578,7 +2629,7 @@ const right = new THREE.Vector3(
     const lineupWidth = 6.6;
     const viewDistance = THREE.MathUtils.clamp(lineupWidth / Math.max(2 * tanHalfHorizontal, .12), 8.5, 13.5);
     const lobbyTime = clock.elapsedTime;
-    const lobbyCameraTarget = new THREE.Vector3(
+    const lobbyCameraTarget = lobbyCameraPositionScratch.set(
       Math.sin(lobbyTime * 0.16) * 0.22,
       3.8 + Math.sin(lobbyTime * 0.42) * 0.07,
       viewDistance + 0.8 + Math.sin(lobbyTime * 0.22) * 0.16
@@ -2586,10 +2637,10 @@ const right = new THREE.Vector3(
     camera.position.lerp(lobbyCameraTarget, 1 - Math.exp(-3.8 * dt));
     camera.lookAt(Math.sin(lobbyTime * 0.16) * 0.12, 1.05, -0.25);
   } else if (myPlayer) {
-    const target = new THREE.Vector3(myPlayer.position.x, 1.2, myPlayer.position.z);
+    const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
     const dist=8.5+introBlend*2.8;
-    const cameraTarget=new THREE.Vector3(
+    const cameraTarget=cameraPositionScratch.set(
       target.x+Math.sin(yaw)*dist,
       target.y+3.0+pitch*2+introBlend*.65,
       target.z + Math.cos(yaw) * dist
