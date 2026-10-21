@@ -1940,3 +1940,16 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
   touch-action:pan-y!important;
 }
 #lobby .lobby-editor-content {min-height:0!important;max-height:calc(100dvh - 100px)!important;}
+
+
+/* O Último Legado: layout ampliado para 5 classes e 25 talentos. */
+#lobby .class-cards{grid-template-columns:repeat(auto-fit,minmax(102px,1fr))}
+#lobby .class-card{min-height:94px}
+#lobby .class-card[data-class="goblin"].selected{border-color:#98e16c;background:linear-gradient(145deg,#263d20,#0d1b14);box-shadow:0 0 20px #7fc74a20}
+#lobby .class-card[data-class="ogre"].selected{border-color:#f1a66c;background:linear-gradient(145deg,#432b20,#1b1210);box-shadow:0 0 20px #e58b4c20}
+.skill-head label{line-height:1.45}
+.skill-head span{white-space:normal;text-align:right}
+.skill-branch{height:100%}
+.skill-branch-title{min-height:28px;line-height:1.4}
+@media(min-width:1050px){.skill-tree{grid-template-columns:repeat(5,minmax(0,1fr))}.skill-node{min-height:126px}}
+@media(max-width:560px){.skill-tree{grid-template-columns:1fr}.skill-branch-list{grid-template-columns:repeat(2,minmax(0,1fr))}.skill-head{align-items:flex-start;gap:8px}.skill-head span{max-width:45%}}
