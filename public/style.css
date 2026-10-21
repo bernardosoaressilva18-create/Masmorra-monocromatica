@@ -1669,3 +1669,34 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
   #hud .attack { width:58px; height:58px; }
   #hud .chest-btn { right:76px; width:44px; height:44px; }
 }
+
+
+/* Presets de desempenho e esquiva responsiva. */
+.settings-select {
+  display:block; width:100%; min-height:36px; margin:5px 0 10px; padding:7px 9px;
+  border:1px solid #466171; border-radius:8px; color:#eaf8ff; background:#0a1521;
+  font-size:11px; touch-action:manipulation;
+}
+.dodge-btn {
+  pointer-events:auto; position:absolute; z-index:15; right:112px;
+  bottom:max(15px,env(safe-area-inset-bottom)); width:58px; height:58px;
+  border:1px solid #8be8e9a8; border-radius:50%; color:#eaffff;
+  background:radial-gradient(circle at 35% 25%,#2e7a83,#13313e 72%);
+  box-shadow:0 0 18px #48e1df23; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:2px; touch-action:none;
+}
+.dodge-btn span { font-size:23px; line-height:1; }
+.dodge-btn small { font-size:7px; font-weight:900; letter-spacing:.3px; white-space:nowrap; }
+.dodge-btn.cooling { opacity:.55; filter:saturate(.6); }
+.dodge-btn:active { transform:scale(.92); }
+@media (pointer: coarse) and (orientation: portrait) {
+  #hud .dodge-btn { right:16px; bottom:177px; width:55px; height:55px; }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  #hud .dodge-btn { right:148px; bottom:max(10px,env(safe-area-inset-bottom)); width:49px; height:49px; }
+  #hud .dodge-btn span { font-size:20px; }
+  #hud .dodge-btn small { font-size:6px; }
+}
+@media (pointer: coarse) and (orientation: landscape) and (max-height:380px) {
+  #hud .dodge-btn { right:137px; bottom:max(8px,env(safe-area-inset-bottom)); width:43px; height:43px; }
+}
