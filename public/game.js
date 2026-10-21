@@ -2699,8 +2699,26 @@ function updatePerformanceMonitor() {
     perfBadge.title = memoryBytes === null
       ? 'FPS, ping e escala de renderização. Este navegador não expõe o heap JS; RAM total e memória da GPU não podem ser medidas aqui.'
       : 'Heap JS estimado: ' + memoryText + '. Isto não é a RAM total do aparelho nem inclui necessariamente memória da GPU.';
-    perfBadge.style.display = started ? 'block' : 'none';
+    // O monitor deixa de flutuar sobre a ação; métricas ficam nas configurações.
+    perfBadge.style.display = 'none';
   }
+  const diagnosticMemoryBytes = performance.memory && Number.isFinite(performance.memory.usedJSHeapSize)
+    ? performance.memory.usedJSHeapSize : null;
+  const diagnosticValues = {
+    fps: lastFps > 0 ? String(Math.round(lastFps)) : 'medindo…',
+    ping: measuredPing === null ? '—' : measuredPing + ' ms',
+    memory: diagnosticMemoryBytes === null ? 'n/d' : Math.round(diagnosticMemoryBytes / (1024 * 1024)) + ' MB',
+    render: Math.round(adaptivePixelRatio / Math.max(0.1, devicePixelRatio) * 100) + '%'
+  };
+  for (const [metric, value] of Object.entries(diagnosticValues)) {
+    document.querySelectorAll('[data-metric="' + metric + '"]').forEach(node => { node.textContent = value; });
+  }
+  document.querySelectorAll('[data-metric="fps"]').forEach(node => {
+    node.style.color = lastFps < 30 && lastFps > 0 ? '#ff7189' : lastFps < 43 ? '#ffd178' : '#aeeaff';
+  });
+  document.querySelectorAll('[data-metric="ping"]').forEach(node => {
+    node.style.color = measuredPing !== null && measuredPing > 160 ? '#ffd178' : '#aeeaff';
+  });
 }
 
 function orientHealthBar(obj) {
