@@ -36,6 +36,9 @@ let storedGameSettings = {};
 try { storedGameSettings = JSON.parse(localStorage.getItem('mmGameSettings') || '{}') || {}; } catch {}
 const gameSettings = {
   sensitivity: clampSetting(storedGameSettings.sensitivity, 0.5, 3, 1.2),
+  verticalSensitivity: clampSetting(storedGameSettings.verticalSensitivity, 0.5, 3, 0.9),
+  graphicsQuality: ['low','balanced','high'].includes(storedGameSettings.graphicsQuality) ? storedGameSettings.graphicsQuality : 'balanced',
+  haptics: storedGameSettings.haptics !== false,
   musicVolume: clampSetting(storedGameSettings.musicVolume, 0, 1, 0.32),
   sfxVolume: clampSetting(storedGameSettings.sfxVolume, 0, 1, 0.72),
   musicEnabled: storedGameSettings.musicEnabled !== false
@@ -44,6 +47,24 @@ let audioContext = null, musicBus = null, sfxBus = null, musicTimer = null, musi
 
 function saveGameSettings() {
   try { localStorage.setItem('mmGameSettings', JSON.stringify(gameSettings)); } catch {}
+}
+function vibrateGame(pattern = 12) {
+  if (!gameSettings.haptics || !isMobileDevice || !navigator.vibrate) return;
+  try { navigator.vibrate(pattern); } catch {}
+}
+function applyGraphicsQuality() {
+  const quality = gameSettings.graphicsQuality;
+  renderPixelRatioCap = quality === 'low' ? (isMobileDevice ? 0.85 : 1.0)
+    : quality === 'high' ? (isMobileDevice ? 1.55 : 2.0)
+    : (isMobileDevice ? 1.25 : 1.5);
+  adaptivePixelRatio = Math.max(isMobileDevice ? 0.75 : 0.8, Math.min(devicePixelRatio, renderPixelRatioCap));
+  if (quality === 'low') adaptivePixelRatio = Math.min(adaptivePixelRatio, isMobileDevice ? 0.85 : 1.0);
+  if (renderer) {
+    renderer.setPixelRatio(adaptivePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = !isMobileDevice && quality === 'high';
+    renderer.shadowMap.needsUpdate = true;
+  }
 }
 document.addEventListener('visibilitychange', () => {
   if (!audioContext) return;
@@ -97,7 +118,7 @@ function playSfx(kind = 'ui') {
   ensureAudio();
   if (!audioContext || !sfxBus) return;
   const profiles = {
-    ui: [510, 680, 'sine', 0.09], attack: [235, 92, 'sawtooth', 0.16],
+    ui: [510, 680, 'sine', 0.09], attack: [235, 92, 'sawtooth', 0.16], dodge: [320, 145, 'triangle', 0.12],
     fire: [390, 125, 'sawtooth', 0.24], lightning: [780, 190, 'square', 0.20],
     chest: [420, 760, 'triangle', 0.20], loot: [610, 920, 'sine', 0.24],
     damage: [165, 70, 'sawtooth', 0.22], portal: [240, 880, 'sine', 0.62]
@@ -150,7 +171,9 @@ function resolveDungeonMovement(fromX, fromZ, nextX, nextZ) {
   if (isDungeonPositionBlocked(x, z)) z = fromZ;
   return { x, z };
 }
-const renderPixelRatioCap = isMobileDevice ? 1.25 : 1.5;
+let renderPixelRatioCap = gameSettings.graphicsQuality === 'low' ? (isMobileDevice ? 0.85 : 1.0)
+  : gameSettings.graphicsQuality === 'high' ? (isMobileDevice ? 1.55 : 2.0)
+  : (isMobileDevice ? 1.25 : 1.5);
 let adaptivePixelRatio = Math.min(devicePixelRatio, renderPixelRatioCap);
 let perfBadge = null, perfFrames = 0, perfWindowStart = performance.now();
 let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
@@ -167,7 +190,7 @@ function init3D() {
   renderer.setPixelRatio(adaptivePixelRatio);
   renderer.setSize(innerWidth, innerHeight);
   // Sombras suaves no PC; no celular ficam desligadas para preservar FPS.
-  renderer.shadowMap.enabled = !isMobileDevice;
+  renderer.shadowMap.enabled = !isMobileDevice && gameSettings.graphicsQuality === 'high';
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   if (typeof surfaceTexture !== 'undefined') {
@@ -1781,6 +1804,20 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'dodge') {
+    if (m.id === playerId && myPlayer && Number.isFinite(m.x) && Number.isFinite(m.z)) {
+      myPlayer.position.set(m.x, 0, m.z);
+      myPlayer.userData.dodgeFlashUntil = performance.now() + 220;
+    } else {
+      const dodgingPlayer = remotePlayers.get(m.id);
+      if (dodgingPlayer && Number.isFinite(m.x) && Number.isFinite(m.z)) {
+        dodgingPlayer.userData.targetX = m.x;
+        dodgingPlayer.userData.targetZ = m.z;
+        dodgingPlayer.userData.dodgeFlashUntil = performance.now() + 220;
+      }
+    }
+    return;
+  }
   if (m.type === 'state') updateState(m);
 }
 
@@ -2110,10 +2147,28 @@ function moveInput() {
   return { x, y };
 }
 
+let dodgeTimer = 0;
+function dodge() {
+  if (!started || dodgeTimer > 0 || !myPlayer || (myPlayer.userData.serverHp ?? 100) <= 0) return;
+  dodgeTimer = 2.6;
+  const distance = 2.2;
+  const landing = resolveDungeonMovement(myPlayer.position.x, myPlayer.position.z,
+    myPlayer.position.x - Math.sin(yaw) * distance,
+    myPlayer.position.z - Math.cos(yaw) * distance
+  );
+  myPlayer.position.x = landing.x;
+  myPlayer.position.z = landing.z;
+  send({ type: 'dodge', rot: yaw });
+  vibrateGame(24);
+  playSfx('dodge');
+  showNotice('↗ ESQUIVA');
+}
+
 function attack() {
   if (!started || attackCooldown > 0 || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
 
   attackCooldown = selectedClass === 'archer' ? .29 : selectedClass === 'mage' ? .4 : .48;
+  vibrateGame(10);
   playSfx('attack');
   send({ type: 'attack' });
 
@@ -2254,6 +2309,10 @@ placeSpellButtons();
 function refreshSettingsUI() {
   $('lookSensitivity').value = String(gameSettings.sensitivity);
   $('lookSensitivityValue').textContent = gameSettings.sensitivity.toFixed(1).replace('.', ',') + '×';
+  $('lookVerticalSensitivity').value = String(gameSettings.verticalSensitivity);
+  $('lookVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
+  $('graphicsQuality').value = gameSettings.graphicsQuality;
+  $('hapticsEnabled').checked = gameSettings.haptics;
   $('musicVolume').value = String(gameSettings.musicVolume);
   $('musicVolumeValue').textContent = Math.round(gameSettings.musicVolume * 100) + '%';
   $('musicEnabled').checked = gameSettings.musicEnabled;
@@ -2273,6 +2332,21 @@ $('lookSensitivity').addEventListener('input', e => {
   gameSettings.sensitivity = clampSetting(e.target.value, 0.5, 3, 1.2);
   $('lookSensitivityValue').textContent = gameSettings.sensitivity.toFixed(1).replace('.', ',') + '×';
   saveGameSettings();
+});
+$('lookVerticalSensitivity').addEventListener('input', e => {
+  gameSettings.verticalSensitivity = clampSetting(e.target.value, 0.5, 3, 0.9);
+  $('lookVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
+  saveGameSettings();
+});
+$('graphicsQuality').addEventListener('change', e => {
+  gameSettings.graphicsQuality = ['low','balanced','high'].includes(e.target.value) ? e.target.value : 'balanced';
+  saveGameSettings(); applyGraphicsQuality();
+  showNotice('Qualidade gráfica: ' + ({low:'Baixa',balanced:'Equilibrada',high:'Alta'}[gameSettings.graphicsQuality]));
+});
+$('hapticsEnabled').addEventListener('change', e => {
+  gameSettings.haptics = e.target.checked;
+  saveGameSettings();
+  if (gameSettings.haptics) vibrateGame(10);
 });
 $('musicVolume').addEventListener('input', e => {
   gameSettings.musicVolume = clampSetting(e.target.value, 0, 1, 0.32);
@@ -2304,6 +2378,10 @@ function refreshLobbySettingsUI() {
   if (!$('lobbySensitivity')) return;
   $('lobbySensitivity').value = String(gameSettings.sensitivity);
   $('lobbySensitivityValue').textContent = gameSettings.sensitivity.toFixed(1).replace('.', ',') + '×';
+  $('lobbyVerticalSensitivity').value = String(gameSettings.verticalSensitivity);
+  $('lobbyVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
+  $('lobbyGraphicsQuality').value = gameSettings.graphicsQuality;
+  $('lobbyHapticsEnabled').checked = gameSettings.haptics;
   $('lobbyMusicVolume').value = String(gameSettings.musicVolume);
   $('lobbyMusicVolumeValue').textContent = Math.round(gameSettings.musicVolume * 100) + '%';
   $('lobbyMusicEnabled').checked = gameSettings.musicEnabled;
@@ -2353,6 +2431,18 @@ $('lobbySensitivity')?.addEventListener('input', e => {
   gameSettings.sensitivity = clampSetting(e.target.value, 0.5, 3, 1.2);
   saveGameSettings(); refreshSettingsUI(); refreshLobbySettingsUI();
 });
+$('lobbyVerticalSensitivity')?.addEventListener('input', e => {
+  gameSettings.verticalSensitivity = clampSetting(e.target.value, 0.5, 3, 0.9);
+  saveGameSettings(); refreshSettingsUI(); refreshLobbySettingsUI();
+});
+$('lobbyGraphicsQuality')?.addEventListener('change', e => {
+  gameSettings.graphicsQuality = ['low','balanced','high'].includes(e.target.value) ? e.target.value : 'balanced';
+  saveGameSettings(); applyGraphicsQuality(); refreshSettingsUI(); refreshLobbySettingsUI();
+});
+$('lobbyHapticsEnabled')?.addEventListener('change', e => {
+  gameSettings.haptics = e.target.checked;
+  saveGameSettings(); refreshSettingsUI();
+});
 $('lobbyMusicVolume')?.addEventListener('input', e => {
   gameSettings.musicVolume = clampSetting(e.target.value, 0, 1, 0.32);
   saveGameSettings(); updateAudioLevels(); refreshSettingsUI(); refreshLobbySettingsUI();
@@ -2377,6 +2467,7 @@ function castSpell(kind) {
     lightningCooldown = 3.5;
   }
   // O efeito de lançamento aparece na hora; o servidor confirma os alvos e o dano.
+  vibrateGame(kind === 'fire' ? 18 : 24);
   playSfx(kind);
   const color = kind === 'fire' ? 0xff6b24 : 0x69aaff;
   const geo = kind === 'fire' ? new THREE.SphereGeometry(.25, 7, 5) : new THREE.OctahedronGeometry(.24, 0);
@@ -2405,13 +2496,19 @@ $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
   attack();
 });
+$('dodgeBtn').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  dodge();
+});
 
 addEventListener('keydown', e => {
-  if (['Space','KeyE','KeyR'].includes(e.code)) e.preventDefault();
+  if (e.target && e.target.closest && e.target.closest('input,textarea,select') && e.code !== 'Escape') return;
+  if (['Space','KeyE','KeyR','KeyQ','ShiftLeft','ShiftRight'].includes(e.code)) e.preventDefault();
   keys[e.code] = true;
   if (e.code === 'Space') attack();
   if (e.code === 'KeyE') interactChest();
   if (e.code === 'KeyR') useSelectedItem();
+  if (e.code === 'KeyQ' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') dodge();
 });
 addEventListener('keyup', e => keys[e.code] = false);
 
@@ -2424,14 +2521,20 @@ function setJoy(e) {
   const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   let dx = e.clientX - cx, dy = e.clientY - cy;
   const max = Math.min(r.width, r.height) * .34, len = Math.hypot(dx, dy);
-
   if (len > max) {
     dx = dx / len * max;
     dy = dy / len * max;
   }
-
-  joy.x = dx / max;
-  joy.y = dy / max;
+  const strengthRaw = Math.min(1, Math.hypot(dx, dy) / max);
+  // Zona morta + progressão suave impedem deriva e passos involuntários no centro.
+  if (strengthRaw < 0.12 || len < 0.001) {
+    joy.x = joy.y = 0;
+  } else {
+    const strength = (strengthRaw - 0.12) / 0.88;
+    const actualLength = Math.hypot(dx, dy) || 1;
+    joy.x = dx / actualLength * strength;
+    joy.y = dy / actualLength * strength;
+  }
   stick.style.transform = `translate(${dx}px, ${dy}px)`;
 }
 
@@ -2484,7 +2587,7 @@ function rendererPointerSetup() {
     lastX = e.clientX;
     lastY = e.clientY;
     targetYaw -= dx * .008 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0045 * gameSettings.sensitivity, -.18, .95);
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0045 * gameSettings.verticalSensitivity, -.18, .95);
   });
 
   const end = e => {
@@ -2594,6 +2697,14 @@ function animate() {
   attackCooldown = Math.max(0, attackCooldown - dt);
   fireCooldown = Math.max(0, fireCooldown - dt);
   lightningCooldown = Math.max(0, lightningCooldown - dt);
+  dodgeTimer = Math.max(0, dodgeTimer - dt);
+  const dodgeLabel = $('dodgeCooldown');
+  if (dodgeLabel) {
+    const dodgeText = dodgeTimer > 0 ? dodgeTimer.toFixed(1) + 's' : 'OK';
+    if (dodgeLabel.textContent !== dodgeText) dodgeLabel.textContent = dodgeText;
+  }
+  const dodgeBtn = $('dodgeBtn');
+  if (dodgeBtn) dodgeBtn.classList.toggle('cooling', dodgeTimer > 0);
   const fireLabel = $('fireCooldown'), lightningLabel = $('lightningCooldown');
   // Evita escritas repetidas no DOM a cada frame; os rótulos só mudam quando o texto muda.
   if (fireLabel) {
