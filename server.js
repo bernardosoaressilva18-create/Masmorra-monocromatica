@@ -668,7 +668,7 @@ wss.on('connection', ws => {
           room.summons.push({
             id: 'goblin-' + player.id + '-' + now + '-' + i,
             ownerId: player.id, x: Math.max(-12.5, Math.min(12.5, player.x + (i === 0 ? -1.1 : 1.1))),
-            z: player.z + .5, rot: player.rot || 0, hp: 60, maxHp: 60,
+            z: player.z + .5, rot: player.rot || 0, hp: 72, maxHp: 72,
             color: i === 0 ? 0x8be070 : 0x65b95f, expiresAt: now + 12000, nextAttackAt: now + 700
           });
         }
