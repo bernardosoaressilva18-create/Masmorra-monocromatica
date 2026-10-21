@@ -46,26 +46,52 @@ let nextId = 1;
 const CLASS_STATS = {
   knight: { hp: 130, damage: 2, range: 3.6, attackMs: 520, spellPower: 1, reduction: .18 },
   mage: { hp: 92, damage: 1, range: 3.1, attackMs: 460, spellPower: 1.55, reduction: 0 },
-  archer: { hp: 108, damage: 1, range: 4.8, attackMs: 310, spellPower: 1, reduction: .03 }
+  archer: { hp: 108, damage: 1, range: 4.8, attackMs: 310, spellPower: 1, reduction: .03 },
+  goblin: { hp: 95, damage: 1, range: 3.2, attackMs: 285, spellPower: .85, reduction: 0 },
+  ogre: { hp: 180, damage: 4, range: 3.5, attackMs: 760, spellPower: .7, reduction: .20 }
 };
-const VALID_SKILLS = new Set(['mighty_blows','swift_hands','executioner','boss_hunter','longshot','vitality','iron_skin','regeneration','second_wind','party_guard','arcane_mastery','ember_core','storm_bond','treasure_luck','swift_step']);
-const SKILL_REQUIREMENTS = { swift_hands:'mighty_blows', executioner:'swift_hands', boss_hunter:'executioner', longshot:'boss_hunter', iron_skin:'vitality', regeneration:'iron_skin', second_wind:'regeneration', party_guard:'second_wind', ember_core:'arcane_mastery', storm_bond:'ember_core', treasure_luck:'storm_bond', swift_step:'treasure_luck' };
+const SKILL_BRANCHES = {
+  attack: ['mighty_blows','swift_hands','executioner','boss_hunter','longshot'],
+  defense: ['vitality','iron_skin','regeneration','second_wind','party_guard'],
+  arcane: ['arcane_mastery','ember_core','storm_bond','treasure_luck','swift_step'],
+  mobility: ['dodge_mastery','quick_recovery','hunter_instinct','battle_focus','phantom_step'],
+  support: ['healing_aura','loot_sense','mana_surge','team_resolve','final_blessing']
+};
+const SKILL_BRANCH_BY_ID = Object.fromEntries(Object.entries(SKILL_BRANCHES).flatMap(([branch, ids]) => ids.map(id => [id, branch])));
+const VALID_SKILLS = new Set(Object.values(SKILL_BRANCHES).flat());
+const SKILL_REQUIREMENTS = {
+  swift_hands:'mighty_blows', executioner:'swift_hands', boss_hunter:'executioner', longshot:'boss_hunter',
+  iron_skin:'vitality', regeneration:'iron_skin', second_wind:'regeneration', party_guard:'second_wind',
+  ember_core:'arcane_mastery', storm_bond:'ember_core', treasure_luck:'storm_bond', swift_step:'treasure_luck',
+  quick_recovery:'dodge_mastery', hunter_instinct:'quick_recovery', battle_focus:'hunter_instinct', phantom_step:'battle_focus',
+  loot_sense:'healing_aura', mana_surge:'loot_sense', team_resolve:'mana_surge', final_blessing:'team_resolve'
+};
 function hasSkill(player, id) { return !!player.skills && player.skills.includes(id); }
+function canUnlockSkill(player, id) {
+  if (!VALID_SKILLS.has(id) || !Array.isArray(player.skills) || player.skills.includes(id) || player.skills.length >= 15) return false;
+  const req = SKILL_REQUIREMENTS[id];
+  if (req && !player.skills.includes(req)) return false;
+  const usedBranches = new Set(player.skills.map(skill => SKILL_BRANCH_BY_ID[skill]).filter(Boolean));
+  const branch = SKILL_BRANCH_BY_ID[id];
+  return !!branch && (usedBranches.has(branch) || usedBranches.size < 3);
+}
 function statsFor(player) { return CLASS_STATS[player.playerClass] || CLASS_STATS.knight; }
-function maxHealthFor(player) { return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0); }
+function maxHealthFor(player) { return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0) + (hasSkill(player, 'final_blessing') ? 15 : 0); }
 function refreshPlayerStats(player, restoreHealth = false) {
   const oldMax = player.maxHp || 100; player.maxHp = maxHealthFor(player);
-  player.baseDamage = statsFor(player).damage + (hasSkill(player, 'mighty_blows') ? 1 : 0) + (player.equipmentDamage || 0);
+  player.baseDamage = statsFor(player).damage + (hasSkill(player, 'mighty_blows') ? 1 : 0) + (hasSkill(player, 'hunter_instinct') ? 1 : 0) + (player.equipmentDamage || 0);
   if (restoreHealth) player.hp = player.maxHp;
   else player.hp = Math.min(player.maxHp, Math.max(0, (player.hp || 0) + Math.max(0, player.maxHp - oldMax)));
 }
-function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player, 'treasure_luck') ? .2 : 0)); }
+function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player, 'treasure_luck') ? .2 : 0) + (hasSkill(player, 'loot_sense') ? .1 : 0)); }
 function takeDamage(room, player, amount) {
   // A esquiva é validada pelo servidor e concede uma janela curta contra dano.
   if (Date.now() < (player.dodgeUntil || 0)) return 0;
   let damage = amount * (1 - (statsFor(player).reduction || 0));
   if (hasSkill(player, 'iron_skin')) damage *= .8;
-  if (hasSkill(player, 'party_guard') && [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7)) damage *= .9;
+  const nearbyAlly = [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7);
+  if (hasSkill(player, 'party_guard') && nearbyAlly) damage *= .9;
+  if (hasSkill(player, 'team_resolve') && nearbyAlly) damage *= .85;
   const hpBefore = player.hp;
   const appliedDamage = Math.max(1, Math.round(damage));
   player.hp = Math.max(0, player.hp - appliedDamage);
@@ -354,14 +380,13 @@ wss.on('connection', ws => {
         player.connected = true;
         player.disconnectedAt = 0;
         player.name = String(msg.name || 'Aventureiro').slice(0, 18);
-        player.playerClass = ['knight','mage','archer'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
+        player.playerClass = ['knight','mage','archer','goblin','ogre'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
         player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
         player.skills = [];
         player.equipmentDamage = 0;
         const requestedSkills = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
         for (const id of requestedSkills) {
-          const req = SKILL_REQUIREMENTS[id];
-          if (!player.skills.includes(id) && (!req || player.skills.includes(req))) player.skills.push(id);
+          if (canUnlockSkill(player, id)) player.skills.push(id);
         }
         const requestedPoints = Number(msg.talentPoints);
         player.talentPoints = Number.isFinite(requestedPoints) ? Math.max(0, Math.min(20, Math.floor(requestedPoints))) : Math.max(0, 5 - player.skills.length);
@@ -405,15 +430,14 @@ wss.on('connection', ws => {
       broadcast(room, { type: 'notice', text: 'A partida começou! Boa sorte, aventureiros.' });
       broadcast(room, state(room));
     } else if (msg.type === 'loadout') {
-      const wantedClass = ['knight','mage','archer'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
+      const wantedClass = ['knight','mage','archer','goblin','ogre'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
       const wantedSkin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : player.skin;
       if (room.started && (wantedClass !== player.playerClass || wantedSkin !== player.skin)) return;
       const proposed = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
       for (const id of proposed) {
         if (player.skills.includes(id)) continue;
-        const req = SKILL_REQUIREMENTS[id];
-        if (req && !player.skills.includes(req)) continue;
         if (player.talentPoints <= 0) break;
+        if (!canUnlockSkill(player, id)) continue;
         player.skills.push(id); player.talentPoints--;
       }
       player.playerClass = wantedClass; player.skin = wantedSkin;
@@ -454,7 +478,7 @@ wss.on('connection', ws => {
       if (dodgeNow < (player.nextDodgeAt || 0)) return;
       const requestedHeading = Number(msg.rot);
       const heading = Number.isFinite(requestedHeading) ? requestedHeading : (Number(player.rot) || 0);
-      const dashDistance = 2.2;
+      const dashDistance = 2.2 + (hasSkill(player, 'dodge_mastery') ? .55 : 0) + (hasSkill(player, 'phantom_step') ? .75 : 0);
       const landing = resolveServerMovement(room, player,
         player.x - Math.sin(heading) * dashDistance,
         player.z - Math.cos(heading) * dashDistance
@@ -462,8 +486,8 @@ wss.on('connection', ws => {
       player.x = landing.x;
       player.z = landing.z;
       player.rot = heading;
-      player.dodgeUntil = dodgeNow + 420;
-      player.nextDodgeAt = dodgeNow + 2600;
+      player.dodgeUntil = dodgeNow + 420 + (hasSkill(player, 'dodge_mastery') ? 140 : 0) + (hasSkill(player, 'phantom_step') ? 120 : 0);
+      player.nextDodgeAt = dodgeNow + Math.max(1500, 2600 - (hasSkill(player, 'quick_recovery') ? 650 : 0));
       if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({
         type: 'notice', text: '↗ Esquiva! Proteção ativada por um instante.'
       }));
@@ -542,7 +566,7 @@ wss.on('connection', ws => {
       const hitTargets = [];
       const applyDamage = (enemy, amount) => {
         if (!enemy || !enemy.alive) return;
-        const classPower = statsFor(player).spellPower * (hasSkill(player, 'arcane_mastery') ? 1.5 : 1);
+        const classPower = statsFor(player).spellPower * (hasSkill(player, 'arcane_mastery') ? 1.5 : 1) * (hasSkill(player, 'mana_surge') ? 1.25 : 1);
         const emberBonus = spell === 'fire' && hasSkill(player, 'ember_core') ? 1 : 0;
         const bossBonus = enemy === room.boss && hasSkill(player, 'boss_hunter') ? 1.5 : 1;
         const executeBonus = enemy.hp / (enemy.maxHp || 1) <= .35 && hasSkill(player, 'executioner') ? 1.5 : 1;
@@ -588,7 +612,7 @@ wss.on('connection', ws => {
       if (!room.started || player.hp <= 0) return;
       if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Zona segura: abra a árvore de skills antes do próximo combate.' })); return; }
       const now = Date.now();
-      const attackInterval = Math.max(210, statsFor(player).attackMs - (hasSkill(player, 'swift_hands') ? 90 : 0));
+      const attackInterval = Math.max(180, statsFor(player).attackMs - (hasSkill(player, 'swift_hands') ? 90 : 0) - (hasSkill(player, 'battle_focus') ? 55 : 0));
       if (now < (player.nextAttackAt || 0)) return;
       player.nextAttackAt = now + attackInterval;
       if (room.phase < 5) {
@@ -719,7 +743,18 @@ setInterval(() => {
       }
       continue;
     }
-    for (const p of players) { if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextRegenAt || 0)) { p.hp = Math.min(p.maxHp, p.hp + 2); p.nextRegenAt = now + 3000; } }
+    for (const p of players) {
+      if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextRegenAt || 0)) {
+        p.hp = Math.min(p.maxHp, p.hp + 2); p.nextRegenAt = now + 3000;
+      }
+      if (hasSkill(p, 'healing_aura') && p.hp > 0 && now >= (p.nextAuraAt || 0)) {
+        p.nextAuraAt = now + 2200;
+        for (const ally of players) {
+          if (ally.hp <= 0 || ally.hp >= ally.maxHp || Math.hypot(ally.x-p.x, ally.z-p.z) > 6) continue;
+          ally.hp = Math.min(ally.maxHp, ally.hp + 2);
+        }
+      }
+    }
 
     for (const monster of room.monsters) {
       if (!monster.alive) continue;
