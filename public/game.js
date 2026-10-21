@@ -1720,13 +1720,23 @@ $('startBtn').addEventListener('click', async () => {
         await document.documentElement.requestFullscreen();
       }
     } catch (_) {}
+    let portraitLocked = false;
     try {
       if (screen.orientation && screen.orientation.lock) {
-        await screen.orientation.lock('portrait');
+        await screen.orientation.lock('portrait-primary');
+        portraitLocked = true;
       }
-    } catch (_) {
-      // Se o navegador não permitir bloquear a orientação, o jogo continua normalmente.
+    } catch (_) {}
+    if (!portraitLocked) {
+      try {
+        const legacyLock = screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation;
+        if (typeof legacyLock === 'function') {
+          portraitLocked = legacyLock.call(screen, ['portrait-primary', 'portrait']);
+        }
+      } catch (_) {}
     }
+    // Se o dispositivo ou navegador bloquear a orientação, as regras responsivas
+    // mantêm o lobby utilizável sem impedir a entrada no jogo.
   }
   $('startScreen').classList.add('hidden');
   menu.classList.remove('hidden');
