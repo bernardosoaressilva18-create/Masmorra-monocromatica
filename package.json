@@ -1,6 +1,6 @@
 
 {
-  "name": "masmorra-monocromatica",
+  "name": "O Último Legado",
   "version": "1.0.0",
   "description": "Jogo 3D multiplayer de masmorra",
   "main": "server.js",
