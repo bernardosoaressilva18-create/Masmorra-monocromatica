@@ -382,14 +382,12 @@ wss.on('connection', ws => {
         player.name = String(msg.name || 'Aventureiro').slice(0, 18);
         player.playerClass = ['knight','mage','archer','goblin','ogre'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
         player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
+        // Habilidades e pontos iniciais são autoritativos no servidor; não confiar no loadout enviado pelo navegador.
         player.skills = [];
         player.equipmentDamage = 0;
-        const requestedSkills = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
-        for (const id of requestedSkills) {
-          if (canUnlockSkill(player, id)) player.skills.push(id);
-        }
-        const requestedPoints = Number(msg.talentPoints);
-        player.talentPoints = Number.isFinite(requestedPoints) ? Math.max(0, Math.min(20, Math.floor(requestedPoints))) : Math.max(0, 5 - player.skills.length);
+        player.talentPoints = room.realm === 2
+          ? Math.min(20, 11 + Math.max(0, room.phase - 1))
+          : Math.min(20, 5 + Math.max(0, room.phase - 1));
         player.secondWindUsed = false;
         player.x = 0; player.z = room.started ? -((room.phase - 1) * 32 + 1) : 3; player.ready = false;
         player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
