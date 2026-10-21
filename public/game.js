@@ -1433,6 +1433,8 @@ function renderSkillTrees() {
   if ($('skillPointsHud')) $('skillPointsHud').textContent = String(skillPoints);
   if ($('skillCountLobby')) $('skillCountLobby').textContent = activeCount + '/15';
   if ($('skillCountHud')) $('skillCountHud').textContent = activeCount + '/15';
+  if ($('skillBranchCountLobby')) $('skillBranchCountLobby').textContent = activeBranches.size + '/3';
+  if ($('skillBranchCountHud')) $('skillBranchCountHud').textContent = activeBranches.size + '/3';
 }
 function syncLoadoutUI() {
   const signature = selectedClass + '|' + selectedSkin + '|' + skillPoints + '|' + Array.from(unlockedSkills).sort().join(',');
