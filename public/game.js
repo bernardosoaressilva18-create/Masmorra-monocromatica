@@ -2013,6 +2013,29 @@ function handleMessage(m) {
   if (m.type === 'state') updateState(m);
 }
 
+function setHeroInvisible(hero, invisible) {
+  if (!hero || hero.userData.invisibilityActive === !!invisible) return;
+  hero.traverse(node => {
+    if (!node.isMesh) return;
+    if (invisible) {
+      const original = node.material;
+      const ghost = Array.isArray(original)
+        ? original.map(material => { const copy = material.clone(); copy.transparent = true; copy.opacity = Math.min(copy.opacity === undefined ? 1 : copy.opacity, .22); return copy; })
+        : (() => { const copy = original.clone(); copy.transparent = true; copy.opacity = Math.min(copy.opacity === undefined ? 1 : copy.opacity, .22); return copy; })();
+      node.userData.invisibilityOriginalMaterial = original;
+      node.userData.invisibilityGhostMaterial = ghost;
+      node.material = ghost;
+    } else if (node.userData.invisibilityOriginalMaterial) {
+      const ghost = node.userData.invisibilityGhostMaterial;
+      node.material = node.userData.invisibilityOriginalMaterial;
+      if (Array.isArray(ghost)) ghost.forEach(material => material.dispose());
+      else ghost?.dispose();
+      delete node.userData.invisibilityOriginalMaterial;
+      delete node.userData.invisibilityGhostMaterial;
+    }
+  });
+  hero.userData.invisibilityActive = !!invisible;
+}
 function updateState(m) {
   if (!m.started) {
     started = false;
@@ -2099,6 +2122,7 @@ function updateState(m) {
       const changed = selectedClass !== (p.playerClass || 'knight') || selectedSkin !== (p.skin || 'default') || skillPoints !== (p.talentPoints ?? 5) || incomingSkills.slice().sort().join(',') !== Array.from(unlockedSkills).sort().join(',');
       selectedClass = p.playerClass || selectedClass;
       selectedSkin = p.skin || selectedSkin;
+      updateClassAbilityButtons();
       skillPoints = Number.isFinite(p.talentPoints) ? p.talentPoints : skillPoints;
       unlockedSkills.clear(); incomingSkills.forEach(id => unlockedSkills.add(id));
       document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
@@ -2110,6 +2134,7 @@ function updateState(m) {
         myPlayer.userData.serverZ = p.z;
         myPlayer.userData.serverHp = p.hp ?? 100;
         setHealthBar(myPlayer, myPlayer.userData.serverHp, p.maxHp ?? p.maxHP ?? 100);
+        setHeroInvisible(myPlayer, !!p.invisible);
         $('hpText').textContent = String(Math.round(myPlayer.userData.serverHp));
         $('deathScreen').classList.toggle('hidden', myPlayer.userData.serverHp > 0);
         // Ao entrar/reconectar, alinhar uma vez com a posição de spawn do servidor.
@@ -2140,6 +2165,7 @@ function updateState(m) {
     obj.userData.targetZ = p.z;
     obj.userData.serverHp = p.hp ?? 100;
     setHealthBar(obj, obj.userData.serverHp, p.maxHp ?? p.maxHP ?? 100);
+    setHeroInvisible(obj, !!p.invisible);
     if (obj.userData.playerClass !== (p.playerClass || 'knight') || obj.userData.skin !== (p.skin || 'default')) {
       const replacement = makeHero(p.color, p.playerClass || 'knight', p.skin || 'default');
       replacement.userData.targetX = p.x; replacement.userData.targetZ = p.z; replacement.userData.targetRot = p.rot;
@@ -2158,6 +2184,23 @@ function updateState(m) {
     }
   }
 
+  // Goblins aliados são renderizados como personagens próprios; não contam como jogadores da sala.
+  for (const summon of (m.summons || [])) {
+    const id = summon.id;
+    incoming.add(id);
+    let obj = remotePlayers.get(id);
+    if (!obj) {
+      obj = makeHero(summon.color || 0x80c86b, 'goblin', 'default');
+      obj.userData.playerClass = 'goblin'; obj.userData.skin = 'default';
+      scene.add(obj); remotePlayers.set(id, obj);
+    }
+    obj.userData.targetX = summon.x;
+    obj.userData.targetZ = summon.z;
+    obj.userData.targetRot = summon.rot || 0;
+    obj.userData.name = summon.name || 'Goblin aliado';
+    obj.userData.serverHp = summon.hp ?? 60;
+    setHealthBar(obj, summon.hp ?? 60, summon.maxHp ?? 60);
+  }
   for (const [id, obj] of remotePlayers) {
     if (!incoming.has(id)) {
       scene.remove(obj);
@@ -2939,6 +2982,18 @@ function animate() {
   if (!renderer || document.hidden) return;
 
   const dt = Math.min(clock.getDelta(), 0.05), worldTime = clock.elapsedTime;
+  const classFxNow = performance.now();
+  for (let i = activeClassEffects.length - 1; i >= 0; i--) {
+    const effect = activeClassEffects[i];
+    const progress = (classFxNow - effect.startedAt) / effect.duration;
+    if (progress >= 1) {
+      scene.remove(effect.mesh); effect.mesh.geometry.dispose(); effect.mesh.material.dispose();
+      activeClassEffects.splice(i, 1);
+    } else {
+      effect.mesh.scale.setScalar(.72 + progress * .55);
+      effect.mesh.material.opacity = .85 * (1 - progress);
+    }
+  }
   realmIntroTimer=Math.max(0,realmIntroTimer-dt);
   if (realmPortal && realmPortalRing) {
     const open = !!realmPortal.userData.open;
@@ -2996,8 +3051,9 @@ const right = new THREE.Vector3(
         .add(right.multiplyScalar(v.x))
         .normalize();
 
-      const classMoveMultiplier = selectedClass === 'goblin' ? 1.18 : selectedClass === 'ogre' ? .82 : selectedClass === 'archer' ? 1.12 : 1;
-      const moveSpeed = 5.8 * classMoveMultiplier * (unlockedSkills.has('swift_step') ? 1.18 : 1);
+      const classMoveMultiplier = selectedClass === 'goblin' ? 1.24 : selectedClass === 'ogre' ? .75 : selectedClass === 'archer' ? 1.12 : 1;
+      const hasteMultiplier = selectedClass === 'ogre' && performance.now() < ogreHasteUntil ? 1.65 : 1;
+      const moveSpeed = 5.8 * classMoveMultiplier * hasteMultiplier * (unlockedSkills.has('swift_step') ? 1.18 : 1);
       const nextPosition = resolveDungeonMovement(
         myPlayer.position.x,
         myPlayer.position.z,
