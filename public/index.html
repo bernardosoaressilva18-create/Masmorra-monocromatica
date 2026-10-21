@@ -121,6 +121,16 @@
         <label class="setting-toggle"><input id="lobbyMusicEnabled" type="checkbox" checked> Música ambiente</label>
         <label class="setting-range" for="lobbySfxVolume">Volume dos efeitos <output id="lobbySfxVolumeValue">72%</output></label>
         <input id="lobbySfxVolume" type="range" min="0" max="1" step="0.05" value="0.72">
+        <section class="diagnostics-card lobby-diagnostics" aria-label="Diagnóstico de desempenho">
+          <div class="diagnostics-head"><strong>DIAGNÓSTICO DO JOGO</strong><span>AO VIVO</span></div>
+          <div class="diagnostics-grid">
+            <div><small>FPS</small><strong data-metric="fps">medindo…</strong></div>
+            <div><small>PING</small><strong data-metric="ping">—</strong></div>
+            <div><small>HEAP JS</small><strong data-metric="memory">n/d</strong></div>
+            <div><small>ESCALA DE RENDER</small><strong data-metric="render">—</strong></div>
+          </div>
+          <p class="diagnostics-note">A memória total do aparelho não fica disponível nesta leitura.</p>
+        </section>
         <p class="lobby-editor-tip">As configurações são compartilhadas com as opções durante a partida e ficam salvas neste dispositivo.</p>
       </section>
 
@@ -169,6 +179,16 @@
     <label class="setting-toggle"><input id="musicEnabled" type="checkbox" checked> Música ambiente</label>
     <label class="setting-range" for="sfxVolume">Volume dos efeitos <output id="sfxVolumeValue">72%</output></label>
     <input id="sfxVolume" type="range" min="0" max="1" step="0.05" value="0.72">
+    <section class="diagnostics-card" aria-label="Diagnóstico de desempenho">
+      <div class="diagnostics-head"><strong>DIAGNÓSTICO DO JOGO</strong><span>AO VIVO</span></div>
+      <div class="diagnostics-grid">
+        <div><small>FPS</small><strong data-metric="fps">medindo…</strong></div>
+        <div><small>PING</small><strong data-metric="ping">—</strong></div>
+        <div><small>HEAP JS</small><strong data-metric="memory">n/d</strong></div>
+        <div><small>ESCALA DE RENDER</small><strong data-metric="render">—</strong></div>
+      </div>
+      <p class="diagnostics-note">Heap JS não é a RAM total do celular. Memória da GPU e uso real da RAM não são expostos por muitos navegadores.</p>
+    </section>
     <p class="settings-note">As configurações ficam salvas neste dispositivo.</p>
   </div>
   <div id="notice" class="notice"></div>
