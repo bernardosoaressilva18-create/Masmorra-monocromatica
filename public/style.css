@@ -1337,3 +1337,43 @@ body.realm-astral .boss-health i{background:linear-gradient(90deg,#8b55ff,#65e6f
 @keyframes chest-ready-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d933;}
 @media(prefers-reduced-motion:reduce){#chestBtn:not(.hidden){animation:none}#hud .objective .progress i{transition:none}}
+
+
+/* LOBBY v34 — layout cinematográfico: herói central em destaque, equipe e controles legíveis. */
+#lobby.lobby-screen{
+  background:
+    radial-gradient(ellipse at 50% 43%,rgba(35,113,153,.25),transparent 35%),
+    radial-gradient(ellipse at 50% 95%,rgba(17,57,83,.45),transparent 45%),
+    linear-gradient(145deg,#050b14 0%,#0a1726 48%,#050a12 100%);
+}
+#lobby .lobby-layout{display:block;max-width:1500px;padding:0 clamp(12px,2.5vw,34px) 12px;}
+#lobby .lobby-stage{min-height:0;height:100%;padding:14px 0 0;}
+#lobby .lobby-stage-top{position:absolute;top:13px;left:0;z-index:4;padding:8px 11px;border:1px solid #70dfff2b;border-radius:999px;background:#061321b8;backdrop-filter:blur(8px);}
+#lobby .lobby-team-box{position:absolute;left:0;bottom:90px;width:min(330px,31vw);margin:0;padding:12px;border-color:#70dfff40;background:linear-gradient(145deg,#071625ed,#08101ce8);box-shadow:0 14px 38px #0008,0 0 28px #3acfff0b;}
+#lobby .hero-showcase-info{position:absolute;left:50%;bottom:88px;transform:translateX(-50%);width:min(360px,54vw);margin:0;text-align:center;border:1px solid #79ddff52;border-top:2px solid #8beaff;border-left:1px solid #79ddff52;border-radius:12px;background:linear-gradient(180deg,#071522f2,#07111be8);box-shadow:0 10px 35px #0009,0 0 32px #42cfff16;}
+#lobby .hero-showcase-tags{justify-content:center;}
+#lobby .lobby-bottom-bar{width:min(570px,calc(100% - 24px));}
+#lobby .lobby-nav{z-index:8;}
+#lobby .lobby-header{z-index:9;}
+#lobby .lobby-editor{z-index:20;}
+#lobby .lobby-editor-backdrop{z-index:19;}
+@media(max-width:760px){
+ #lobby .lobby-stage-top{top:7px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:7px;letter-spacing:1px;}
+ #lobby .lobby-team-box{left:8px;bottom:76px;width:calc(100% - 16px);padding:7px 9px;}
+ #lobby .lobby-section-title{margin-bottom:5px;}
+ #lobby .lobby-section-title>span{font-size:8px;}
+ #lobby .lobby-section-title>small{font-size:7px;}
+ #lobby .lobby-players{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;max-height:72px;}
+ #lobby .lobby-player{min-height:31px;padding:5px 7px;font-size:8px;}
+ #lobby .hero-showcase-info{bottom:154px;width:min(290px,72vw);padding:8px 10px;}
+ #lobby .hero-showcase-info>strong{font-size:21px;}
+ #lobby .hero-showcase-info p{font-size:9px;margin:4px 0 6px;}
+ #lobby .hero-showcase-tags span{font-size:6px;padding:4px 5px;}
+ #lobby .lobby-bottom-bar{bottom:max(18px,calc(env(safe-area-inset-bottom) + 13px));}
+}
+@media(orientation:landscape) and (max-height:520px){
+ #lobby .lobby-team-box{width:245px;bottom:67px;padding:7px;}
+ #lobby .lobby-players{max-height:55px;}
+ #lobby .hero-showcase-info{bottom:70px;width:300px;padding:7px 10px;}
+ #lobby .hero-showcase-info>strong{font-size:20px;}
+}
