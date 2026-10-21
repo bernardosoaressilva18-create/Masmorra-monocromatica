@@ -1315,3 +1315,12 @@ html, body { min-height: 100%; }
 @media(prefers-reduced-motion:reduce){
  #lobby .lobby-nav-btn,#lobby .class-card,#lobby .skin-pick{transition:none!important}
 }
+
+
+/* Vale Astral: paleta própria e controles preservados. */
+body.realm-astral #phaseLabel{color:#d8c4ff;text-shadow:0 0 12px rgba(162,113,255,.72);}
+body.realm-astral .phase-transition-rune{color:#c6a4ff;text-shadow:0 0 20px rgba(149,94,255,.95);}
+body.realm-astral .phase-transition{background:radial-gradient(ellipse at center,rgba(79,42,151,.38),rgba(5,4,19,.94) 66%),rgba(4,4,15,.88);}
+@keyframes astral-rune-pulse{0%,100%{filter:drop-shadow(0 0 5px rgba(161,119,255,.45));}50%{filter:drop-shadow(0 0 17px rgba(161,119,255,.95));}}
+body.realm-astral .phase-transition-rune{animation:astral-rune-pulse 2.3s ease-in-out infinite;}
+@media(prefers-reduced-motion:reduce){body.realm-astral .phase-transition-rune{animation:none;}}
