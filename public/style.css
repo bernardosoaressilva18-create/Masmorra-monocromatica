@@ -1602,3 +1602,38 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
 @media (orientation:portrait) and (max-width:760px) and (min-height:1101px){
   #lobby .hero-showcase-info{bottom:clamp(155px,calc(48.6vh - 330px),665px);}
 }
+
+
+/* Landscape-first mobile layout: use the wider viewport for lobby and gameplay. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 560px) {
+  .screen { padding: 8px 14px !important; overflow-y: auto !important; justify-content: center !important; }
+  .brand { max-width: 48vw !important; margin-right: auto !important; text-align: left !important; }
+  .brand h1 { font-size: clamp(22px, 4.8vh, 36px) !important; }
+  .sigil { font-size: 24px !important; margin-bottom: 2px !important; }
+  .subtitle { margin: 7px 0 10px !important; font-size: 10px !important; }
+  .footnote { margin-top: 8px !important; }
+  .panel { position: absolute !important; right: 12px !important; top: 50% !important; transform: translateY(-50%) !important; width: min(44vw, 390px) !important; max-height: calc(100dvh - 16px) !important; overflow-y: auto !important; padding: 12px !important; }
+  .panel input { height: 38px !important; }
+  .primary { height: 40px !important; margin-top: 8px !important; }
+  .split { margin: 9px 0 !important; }
+  .status { margin-top: 8px !important; }
+  #lobby { padding: 8px 12px !important; overflow: hidden !important; }
+  #lobby .hero-showcase { position: absolute !important; left: 12px !important; top: 10px !important; bottom: 58px !important; width: min(48vw, 440px) !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: flex-end !important; }
+  #lobby .hero-showcase-info { left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; max-width: 100% !important; }
+  #lobby .lobby-editor { position: absolute !important; right: 10px !important; top: 10px !important; bottom: 10px !important; width: min(48vw, 520px) !important; max-height: calc(100dvh - 20px) !important; overflow-y: auto !important; }
+  #lobby .class-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 6px !important; }
+  #lobby .class-card { min-height: 70px !important; padding: 5px 3px !important; }
+  #lobby .lobby-editor-content { padding: 8px !important; }
+  #hud .topbar { top: 5px !important; left: 8px !important; right: 8px !important; gap: 5px !important; }
+  #hud .badge { min-width: 0 !important; padding: 5px 7px !important; }
+  #hud .objective { top: 54px !important; left: 8px !important; width: 145px !important; padding: 7px 9px !important; }
+  #hud .players { top: 54px !important; right: 8px !important; }
+  #hud .joystick { width: 112px !important; height: 112px !important; left: 12px !important; bottom: 12px !important; }
+  #hud .stick { left: 31px !important; top: 31px !important; width: 48px !important; height: 48px !important; }
+  #hud .attack { right: 12px !important; bottom: 12px !important; width: 72px !important; height: 72px !important; }
+  #hud .attack span { font-size: 27px !important; }
+  #hud .chest-btn { right: 95px !important; bottom: 13px !important; width: 54px !important; height: 54px !important; }
+  #hud .inventory-panel { top: 54px !important; right: 8px !important; width: 120px !important; max-height: 35vh !important; overflow-y: auto !important; }
+  #hud .selected-item { left: 132px !important; bottom: 12px !important; }
+  #hud .hint { display: none !important; }
+}
