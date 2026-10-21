@@ -2198,8 +2198,8 @@ function updateState(m) {
     obj.userData.targetZ = summon.z;
     obj.userData.targetRot = summon.rot || 0;
     obj.userData.name = summon.name || 'Goblin aliado';
-    obj.userData.serverHp = summon.hp ?? 60;
-    setHealthBar(obj, summon.hp ?? 60, summon.maxHp ?? 60);
+    obj.userData.serverHp = summon.hp ?? 72;
+    setHealthBar(obj, summon.hp ?? 60, summon.maxHp ?? 72);
   }
   for (const [id, obj] of remotePlayers) {
     if (!incoming.has(id)) {
