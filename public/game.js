@@ -5,7 +5,7 @@ const $ = id => document.getElementById(id);
 const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('menuStatus');
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
-let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null;
+let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null, lobbyPreviewRing = null, lobbyPreviewParticles = null, lobbyPreviewRunes = null;
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
@@ -1138,8 +1138,26 @@ function initLobby3DPreview() {
   const baseMaterial = new THREE.MeshStandardMaterial({color:0x132638,metalness:0.55,roughness:0.35,emissive:0x10384a,emissiveIntensity:0.55});
   lobbyPreviewPlatform = new THREE.Mesh(new THREE.CylinderGeometry(0.78,0.88,0.13,36),baseMaterial);
   lobbyPreviewPlatform.position.y = -0.105; lobbyPreviewScene.add(lobbyPreviewPlatform);
-  const platformRing = new THREE.Mesh(new THREE.TorusGeometry(0.82,0.025,7,48),new THREE.MeshBasicMaterial({color:0x80eaff}));
-  platformRing.position.y = -0.025; lobbyPreviewScene.add(platformRing);
+  lobbyPreviewRing = new THREE.Mesh(new THREE.TorusGeometry(0.82,0.025,7,48),new THREE.MeshBasicMaterial({color:0x80eaff,transparent:true,opacity:.9}));
+  lobbyPreviewRing.position.y = -0.025; lobbyPreviewScene.add(lobbyPreviewRing);
+  // Efeito de classe leve: partículas reaproveitadas e runas orbitais, sem criar objetos por frame.
+  lobbyPreviewParticles = new THREE.Group();
+  for (let i=0;i<18;i++) {
+    const particle = new THREE.Mesh(new THREE.SphereGeometry(i%4===0?.035:.019,6,5),new THREE.MeshBasicMaterial({color:0x75eaff,transparent:true,opacity:.72}));
+    particle.userData.phase = i * 0.91;
+    particle.userData.radius = .68 + (i%5)*.095;
+    particle.userData.height = .22 + (i%6)*.31;
+    lobbyPreviewParticles.add(particle);
+  }
+  lobbyPreviewScene.add(lobbyPreviewParticles);
+  lobbyPreviewRunes = new THREE.Group();
+  for (let i=0;i<3;i++) {
+    const rune = new THREE.Mesh(new THREE.TorusGeometry(.94+i*.13,.009,4,40),new THREE.MeshBasicMaterial({color:0x6de8ff,transparent:true,opacity:.3-i*.055}));
+    rune.rotation.x = Math.PI/2 + i*.18;
+    rune.position.y = .015 + i*.012;
+    lobbyPreviewRunes.add(rune);
+  }
+  lobbyPreviewScene.add(lobbyPreviewRunes);
   refreshLobby3DPreview();
 }
 function refreshLobby3DPreview() {
@@ -1217,6 +1235,32 @@ function renderLobby3DPreview() {
       ? -0.08 + Math.sin(idle * 0.8) * 0.055
       : -0.08 + Math.sin(idle * 0.55) * 0.025;
     lobbyPreviewHero.userData.cape.rotation.z = Math.sin(idle * 0.4) * 0.018;
+  }
+  const effectPalette = heroClass === 'mage'
+    ? {color:0xb49aff,glow:0x8064ff}
+    : heroClass === 'archer'
+      ? {color:0x8cffb0,glow:0x42d985}
+      : {color:0x8beaff,glow:0x3ebee8};
+  if (lobbyPreviewRing) {
+    lobbyPreviewRing.material.color.setHex(effectPalette.color);
+    lobbyPreviewRing.material.opacity = .72 + Math.sin(time*2.2)*.18;
+    lobbyPreviewRing.scale.setScalar(1 + Math.sin(time*1.5)*.025);
+  }
+  if (lobbyPreviewRunes) {
+    lobbyPreviewRunes.rotation.y = time * (heroClass === 'mage' ? .24 : heroClass === 'archer' ? -.13 : .09);
+    lobbyPreviewRunes.children.forEach((rune,index)=>{
+      rune.material.color.setHex(effectPalette.glow);
+      rune.material.opacity = .2 + (Math.sin(time*1.7+index*1.8)+1)*.1;
+    });
+  }
+  if (lobbyPreviewParticles) {
+    lobbyPreviewParticles.children.forEach((particle,index)=>{
+      const phase = particle.userData.phase + time*(heroClass === 'mage' ? .7 : heroClass === 'archer' ? -.45 : .32);
+      const radius = particle.userData.radius + Math.sin(time*1.1+index)*.045;
+      particle.position.set(Math.cos(phase)*radius,particle.userData.height+Math.sin(phase*1.4)*.12,Math.sin(phase)*radius*.42);
+      particle.material.color.setHex(effectPalette.color);
+      particle.material.opacity = .25 + (Math.sin(phase*1.7)+1)*.25;
+    });
   }
   lobbyPreviewCamera.aspect = previewWidth/previewHeight;
   lobbyPreviewCamera.position.z = portrait ? 6.0 : 6.2;
