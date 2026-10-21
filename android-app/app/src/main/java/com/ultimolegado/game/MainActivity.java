@@ -1,11 +1,13 @@
 package com.ultimolegado.game;
 
 import android.app.Activity;
+import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -53,12 +55,26 @@ public class MainActivity extends Activity {
             }
         });
         gameView.setWebChromeClient(new WebChromeClient());
+        gameView.addJavascriptInterface(new OrientationBridge(), "AndroidGame");
         setContentView(gameView);
         if (savedInstanceState == null) {
             gameView.loadUrl(GAME_URL);
         } else {
             gameView.restoreState(savedInstanceState);
             if (gameView.getUrl() == null) gameView.loadUrl(GAME_URL);
+        }
+    }
+
+    private final class OrientationBridge {
+        @JavascriptInterface
+        public void setOrientation(String mode) {
+            runOnUiThread(() -> {
+                if ("landscape".equals(mode)) {
+                    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                } else if ("portrait".equals(mode)) {
+                    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                }
+            });
         }
     }
 
