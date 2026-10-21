@@ -1200,6 +1200,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
   g.userData.coreMesh=core;
   g.userData.eyePulseOffset=Math.random()*Math.PI*2;
   g.userData.attackRing = ring;
+  g.userData.ringColor = ringColor;
   g.userData.animatedLimbs = animatedLimbs;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
   g.userData.lastX = undefined;
@@ -1804,6 +1805,41 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'playerDamaged') {
+    if (m.id === playerId) {
+      const flash = $('hitFlash');
+      flash.classList.remove('damage-flash');
+      void flash.offsetWidth;
+      flash.classList.add('damage-flash');
+      vibrateGame(18);
+    }
+    return;
+  }
+  if (m.type === 'monsterWindup') {
+    const monster = monsterMeshes.get(m.id);
+    if (monster && monster.userData.attackRing) {
+      const ring = monster.userData.attackRing;
+      ring.material.color.set(0xff354f);
+      ring.material.opacity = .95;
+      setTimeout(() => {
+        if (ring.material && monster.userData.ringColor !== undefined) {
+          ring.material.color.set(monster.userData.ringColor);
+          ring.material.opacity = .55;
+        }
+      }, Math.max(250, Number(m.duration) || 460));
+    }
+    if (m.targetId === playerId) showNotice('⚠ Golpe inimigo chegando — ESQUIVE!');
+    return;
+  }
+  if (m.type === 'bossWindup') {
+    $('bossPanel').classList.add('warning');
+    setTimeout(() => $('bossPanel')?.classList.remove('warning'), Math.max(300, Number(m.duration) || 560));
+    if (m.targetId === playerId) {
+      showNotice('☠ O GUARDIÃO VAI ATACAR — ESQUIVE!');
+      vibrateGame([18,35,18]);
+    }
+    return;
+  }
   if (m.type === 'dodge') {
     if (m.id === playerId && myPlayer && Number.isFinite(m.x) && Number.isFinite(m.z)) {
       myPlayer.position.set(m.x, 0, m.z);
