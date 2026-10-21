@@ -212,6 +212,38 @@ function ensureRoomHost(room) {
   }
 }
 
+const STATIC_DUNGEON_COLLIDERS = (() => {
+  const list = [];
+  for (let z = -30; z <= 8; z += 9) {
+    for (const x of [-10, 10]) list.push({ x, z, r: 0.88 });
+  }
+  for (const z of [-31.8, -63.8, -95.8, -127.8]) {
+    for (const x of [-3.4, 3.4]) list.push({ x, z, r: 0.48 });
+  }
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3;
+    list.push({ x: Math.cos(a) * 2, z: -16 + Math.sin(a) * 2, r: 0.38 });
+  }
+  return list;
+})();
+function isServerPositionBlocked(room, x, z) {
+  const playerRadius = 0.43;
+  for (const obstacle of STATIC_DUNGEON_COLLIDERS) {
+    if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
+  }
+  for (const chest of room.chests || []) {
+    if (Math.hypot(x - chest.x, z - chest.z) < playerRadius + 0.62) return true;
+  }
+  return false;
+}
+function resolveServerMovement(room, player, nextX, nextZ) {
+  let x = Math.max(-13, Math.min(13, nextX));
+  let z = Math.max(-174, Math.min(8, nextZ));
+  if (isServerPositionBlocked(room, x, player.z)) x = player.x;
+  if (isServerPositionBlocked(room, x, z)) z = player.z;
+  return { x, z };
+}
+
 function state(room) {
   // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
   ensureRoomHost(room);
@@ -365,8 +397,10 @@ wss.on('connection', ws => {
       broadcast(room, state(room));
     } else if (msg.type === 'move') {
       if (!room.started || player.hp <= 0) return;
-      player.x = Math.max(-13, Math.min(13, Number(msg.x) || 0));
+      const requestedX = Math.max(-13, Math.min(13, Number(msg.x) || 0));
       const requestedZ = Math.max(-174, Math.min(8, Number(msg.z) || 0));
+      const collisionResolved = resolveServerMovement(room, player, requestedX, requestedZ);
+      player.x = collisionResolved.x;
       const gateZ = room.phase < 5 ? -(30 + (room.phase - 1) * 32) : -999;
       const enemiesAlive = room.phase === 5 ? !!(room.boss && room.boss.alive) : room.monsters.some(m => m.alive);
       if (room.phase < 5 && requestedZ < gateZ && enemiesAlive) {
@@ -376,7 +410,7 @@ wss.on('connection', ws => {
           player.ws.send(JSON.stringify({ type: 'notice', text: 'O portão está selado! Derrote todos os monstros desta fase.' }));
         }
       } else {
-        player.z = requestedZ;
+        player.z = collisionResolved.z;
         if (room.phase < 5 && requestedZ < gateZ) advancePhase(room);
       }
       player.rot = Number(msg.rot) || 0;
@@ -525,7 +559,7 @@ wss.on('connection', ws => {
             broadcast(room, { type: 'notice', text: player.name + ' derrotou um monstro!' });
             }
           } else {
-            player.ws.send(JSON.stringify({ type: 'notice', text: 'Monstro ferido! Vida restante: ' + target.hp }));
+            player.ws.send(JSON.stringify({ type: 'notice', text: 'Monstro ferido! Vida restante: ' + Math.max(0, Math.ceil(target.hp)) }));
           }
         }
       } else if (room.boss && room.boss.alive && Math.hypot(room.boss.x - player.x, room.boss.z - player.z) < 5.2) {
