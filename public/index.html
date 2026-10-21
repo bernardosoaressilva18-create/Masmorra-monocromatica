@@ -47,49 +47,57 @@
   <div class="footnote">MODO COOPERATIVO · ATÉ 4 JOGADORES</div>
 </div>
 
-<div id="lobby" class="screen hidden">
-  <div class="brand">
-    <div class="sigil">✦</div>
-    <p class="eyebrow">SALA COOPERATIVA</p>
-    <h1>LOBBY<br><span>DE AVENTUREIROS</span></h1>
-    <p class="subtitle">Código da sala: <strong id="lobbyRoomCode">------</strong></p>
-  </div>
-  <div class="panel lobby-panel">
-    <div class="class-select">
+<div id="lobby" class="screen hidden lobby-screen">
+  <header class="lobby-header">
+    <div class="lobby-brand-mark">✦ <span>MASMORRA MONOCROMÁTICA</span></div>
+    <div class="lobby-room-pill">SALA <strong id="lobbyRoomCode">------</strong></div>
+  </header>
+  <main class="lobby-layout">
+    <section class="lobby-stage">
+      <div class="lobby-stage-top"><span class="lobby-online-dot"></span> SUA EQUIPE · COOPERATIVO</div>
       <div class="hero-showcase">
         <div id="heroPreviewAvatar" class="hero-preview-avatar skin-default"><span id="heroPreviewGlyph">🛡️</span></div>
         <div class="hero-showcase-info">
-          <small>SEU AVENTUREIRO</small>
+          <small>AVENTUREIRO SELECIONADO</small>
           <strong id="heroPreviewName">Cavaleiro</strong>
           <p id="heroPreviewDesc">Defesa alta · espada e escudo</p>
           <div class="hero-showcase-tags"><span id="heroPreviewSkin">SKIN CLÁSSICA</span><span>3D · COOPERATIVO</span></div>
         </div>
       </div>
-      <label>ESCOLHA SUA CLASSE</label>
-      <div class="class-cards">
-        <button type="button" class="class-card selected" data-class="knight"><span class="class-icon">🛡️</span><b>CAVALEIRO</b><small>Resistente · Corte pesado</small></button>
-        <button type="button" class="class-card" data-class="mage"><span class="class-icon">🔮</span><b>MAGO</b><small>Magia · Explosão arcana</small></button>
-        <button type="button" class="class-card" data-class="archer"><span class="class-icon">🏹</span><b>ARQUEIRO</b><small>Ágil · Disparo preciso</small></button>
+      <div class="lobby-team-box">
+        <div class="lobby-section-title"><span>EQUIPE</span><small>ATÉ 4 JOGADORES</small></div>
+        <div id="lobbyPlayers" class="lobby-players"><p>Esperando aventureiros...</p></div>
       </div>
-      <label>ESCOLHA UMA SKIN</label>
-      <div class="skin-picks">
-        <button type="button" class="skin-pick selected" data-skin="default"><span class="skin-swatch classic"></span><b>Clássica</b><small>Guardião</small></button>
-        <button type="button" class="skin-pick" data-skin="shadow"><span class="skin-swatch shadow"></span><b>Sombra</b><small>Noturna</small></button>
-        <button type="button" class="skin-pick" data-skin="ember"><span class="skin-swatch ember"></span><b>Brasa</b><small>Antiga</small></button>
+    </section>
+    <section class="lobby-controls panel lobby-panel">
+      <div class="lobby-section-title"><span>PERSONALIZAR</span><small>ESCOLHA SEU HERÓI</small></div>
+      <div class="class-select">
+        <label>CLASSE</label>
+        <div class="class-cards">
+          <button type="button" class="class-card selected" data-class="knight"><span class="class-icon">🛡️</span><b>CAVALEIRO</b><small>Resistente · Corte pesado</small></button>
+          <button type="button" class="class-card" data-class="mage"><span class="class-icon">🔮</span><b>MAGO</b><small>Magia · Explosão arcana</small></button>
+          <button type="button" class="class-card" data-class="archer"><span class="class-icon">🏹</span><b>ARQUEIRO</b><small>Ágil · Disparo preciso</small></button>
+        </div>
+        <label>SKIN</label>
+        <div class="skin-picks">
+          <button type="button" class="skin-pick selected" data-skin="default"><span class="skin-swatch classic"></span><b>Clássica</b><small>Guardião</small></button>
+          <button type="button" class="skin-pick" data-skin="shadow"><span class="skin-swatch shadow"></span><b>Sombra</b><small>Noturna</small></button>
+          <button type="button" class="skin-pick" data-skin="ember"><span class="skin-swatch ember"></span><b>Brasa</b><small>Antiga</small></button>
+        </div>
+        <div class="skill-head"><label>ÁRVORE DE SKILLS · 15 TALENTOS</label><span>Disponíveis: <b id="skillPoints">5</b></span></div>
+        <p class="skill-intro">Comece com 5 pontos. Ganhe +1 ao liberar cada novo mundo. Cada talento custa 1 ponto e exige o talento anterior do mesmo ramo.</p>
+        <div id="skillTreeLobby" class="skill-tree"></div>
+        <p id="classDescription" class="class-description">Cavaleiro: defesa elevada e combate corpo a corpo.</p>
       </div>
-      <div class="skill-head"><label>ÁRVORE DE SKILLS · 15 TALENTOS</label><span>Disponíveis: <b id="skillPoints">5</b></span></div>
-      <p class="skill-intro">Comece com 5 pontos. Ganhe +1 ao liberar cada novo mundo. Cada talento custa 1 ponto e exige o talento anterior do mesmo ramo.</p>
-      <div id="skillTreeLobby" class="skill-tree"></div>
-      <p id="classDescription" class="class-description">Cavaleiro: defesa elevada e combate corpo a corpo.</p>
-    </div>
-    <label>JOGADORES NA SALA</label>
-    <div id="lobbyPlayers" class="lobby-players"><p>Esperando aventureiros...</p></div>
-    <button id="readyBtn" class="primary">ESTOU PRONTO</button>
-    <button id="startMatchBtn" class="primary start-match hidden" disabled>INICIAR PARTIDA</button>
-    <p id="lobbyHint" class="status">Marque PRONTO. O anfitrião inicia quando todos estiverem prontos.</p>
-    <button id="leaveLobbyBtn" class="lobby-leave">SAIR DA SALA</button>
-  </div>
-  <div class="footnote">ATÉ 4 JOGADORES · COOPERAÇÃO OBRIGATÓRIA</div>
+      <div class="lobby-actions">
+        <button id="readyBtn" class="primary">ESTOU PRONTO</button>
+        <button id="startMatchBtn" class="primary start-match hidden" disabled>INICIAR PARTIDA</button>
+        <p id="lobbyHint" class="status">Marque PRONTO. O anfitrião inicia quando todos estiverem prontos.</p>
+        <button id="leaveLobbyBtn" class="lobby-leave">SAIR DA SALA</button>
+      </div>
+    </section>
+  </main>
+  <div class="lobby-footer">PRONTO PARA A MASMORRA? REÚNA SUA EQUIPE.</div>
 </div>
 
 <div id="deathScreen" class="screen death-screen hidden">
