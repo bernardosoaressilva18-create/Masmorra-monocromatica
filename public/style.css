@@ -1133,3 +1133,24 @@ html, body { min-height: 100%; }
   #lobby .lobby-editor{max-height:68dvh}
   #lobby .skill-tree{max-height:35dvh}
 }
+
+/* Apresentação cinematográfica do lobby */
+#lobby .lobby-stage:after{
+  content:"";position:absolute;z-index:0;left:50%;top:9%;width:min(65vw,440px);height:min(65vw,440px);
+  transform:translateX(-50%);border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(66,164,214,.17) 0%,rgba(32,104,157,.09) 35%,rgba(10,28,47,0) 70%);
+  filter:blur(5px);pointer-events:none;animation:lobby-stage-breath 5s ease-in-out infinite alternate;
+}
+#lobby .hero-showcase-info{animation:lobby-info-float 5s ease-in-out infinite}
+#lobby .lobby-online-dot{animation:lobby-online-pulse 2s ease-in-out infinite}
+#lobby .lobby-player{animation:lobby-player-enter .55s both}
+#lobby .lobby-player:nth-child(2){animation-delay:.07s}
+#lobby .lobby-player:nth-child(3){animation-delay:.14s}
+#lobby .lobby-player:nth-child(4){animation-delay:.21s}
+@keyframes lobby-stage-breath{from{opacity:.55;scale:.94}to{opacity:1;scale:1.04}}
+@keyframes lobby-info-float{0%,100%{translate:0 0}50%{translate:0 -3px}}
+@keyframes lobby-online-pulse{0%,100%{box-shadow:0 0 4px #69ffc1}50%{box-shadow:0 0 13px #69ffc1}}
+@keyframes lobby-player-enter{from{opacity:0;translate:0 7px}to{opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:reduce){
+ #lobby .hero-showcase-info,#lobby .lobby-online-dot,#lobby .lobby-player,#lobby .lobby-stage:after{animation:none!important}
+}
