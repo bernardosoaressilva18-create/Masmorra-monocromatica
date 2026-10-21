@@ -1898,8 +1898,8 @@ function rendererPointerSetup() {
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    targetYaw -= dx * .022 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .011 * gameSettings.sensitivity, -.1, .8);
+    targetYaw -= dx * .034 * gameSettings.sensitivity;
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .016 * gameSettings.sensitivity, -.18, .95);
   });
 
   const end = e => {
@@ -2203,10 +2203,21 @@ const right = new THREE.Vector3(
   }
 
   // Barras acompanham a câmera para ficarem legíveis acima de aliados e monstros.
+  const barWorldQuaternion = new THREE.Quaternion();
+  const barParentWorldQuaternion = new THREE.Quaternion();
   for (const obj of [myPlayer, ...remotePlayers.values(), ...monsterMeshes.values()]) {
     if (obj?.userData?.healthBar) {
-      obj.userData.healthBar.quaternion.copy(camera.quaternion);
-      obj.userData.healthBar.visible = obj.visible !== false;
+      const bar = obj.userData.healthBar;
+      obj.updateWorldMatrix(true, false);
+      obj.getWorldQuaternion(barParentWorldQuaternion);
+      // A barra precisa compensar a rotação do personagem para continuar de frente para a câmera.
+      bar.quaternion.copy(barParentWorldQuaternion.invert().multiply(camera.quaternion));
+      bar.visible = obj.visible !== false;
+      bar.renderOrder = 1000;
+      for (const part of bar.children) {
+        part.renderOrder = 1000;
+        if (part.material) { part.material.depthTest = false; part.material.depthWrite = false; }
+      }
     }
   }
 
