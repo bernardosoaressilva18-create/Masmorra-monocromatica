@@ -1816,6 +1816,7 @@ function handleClassAbilityMessage(m) {
       else if (CLASS_ABILITY_CONFIG[selectedClass]?.[1]?.ability === m.ability) lightningCooldown = spec.cooldown;
     }
     if (m.ability === 'ogre_haste') ogreHasteUntil = performance.now() + 5000;
+    if (m.ability === 'knight_shield' && myPlayer) setHeroShielded(myPlayer, true);
     if (m.ability === 'knight_dash' && myPlayer && Number.isFinite(m.x) && Number.isFinite(m.z)) {
       myPlayer.position.set(m.x, 0, m.z);
     }
@@ -2036,6 +2037,23 @@ function setHeroInvisible(hero, invisible) {
   });
   hero.userData.invisibilityActive = !!invisible;
 }
+function setHeroShielded(hero, shielded) {
+  if (!hero) return;
+  const existing = hero.userData.shieldVisual;
+  if (shielded && !existing) {
+    const geometry = new THREE.SphereGeometry(1.02, 14, 10);
+    const material = new THREE.MeshBasicMaterial({ color: 0x77d9ff, wireframe: true, transparent: true, opacity: .48, depthWrite: false });
+    const shield = new THREE.Mesh(geometry, material);
+    shield.position.y = 1.02;
+    hero.add(shield);
+    hero.userData.shieldVisual = shield;
+  } else if (!shielded && existing) {
+    hero.remove(existing);
+    existing.geometry.dispose();
+    existing.material.dispose();
+    delete hero.userData.shieldVisual;
+  }
+}
 function updateState(m) {
   if (!m.started) {
     started = false;
@@ -2135,6 +2153,7 @@ function updateState(m) {
         myPlayer.userData.serverHp = p.hp ?? 100;
         setHealthBar(myPlayer, myPlayer.userData.serverHp, p.maxHp ?? p.maxHP ?? 100);
         setHeroInvisible(myPlayer, !!p.invisible);
+        setHeroShielded(myPlayer, !!p.shielded);
         $('hpText').textContent = String(Math.round(myPlayer.userData.serverHp));
         $('deathScreen').classList.toggle('hidden', myPlayer.userData.serverHp > 0);
         // Ao entrar/reconectar, alinhar uma vez com a posição de spawn do servidor.
@@ -2166,6 +2185,7 @@ function updateState(m) {
     obj.userData.serverHp = p.hp ?? 100;
     setHealthBar(obj, obj.userData.serverHp, p.maxHp ?? p.maxHP ?? 100);
     setHeroInvisible(obj, !!p.invisible);
+    setHeroShielded(obj, !!p.shielded);
     if (obj.userData.playerClass !== (p.playerClass || 'knight') || obj.userData.skin !== (p.skin || 'default')) {
       const replacement = makeHero(p.color, p.playerClass || 'knight', p.skin || 'default');
       replacement.userData.targetX = p.x; replacement.userData.targetZ = p.z; replacement.userData.targetRot = p.rot;
