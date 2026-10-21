@@ -138,7 +138,7 @@
 
       <section class="lobby-editor-section hidden" data-lobby-editor-panel="skills">
         <div class="skill-head"><label>ÁRVORE DE SKILLS · 25 TALENTOS</label><span>DISPONÍVEIS: <b id="skillPoints">5</b> · ATIVAS: <b id="skillCountLobby">0/15</b></span></div>
-        <p class="skill-intro">Escolha até 15 talentos e desenvolva no máximo 3 dos 5 ramos. Comece com 5 pontos e ganhe mais ao avançar pelos mundos. Cada ramo tem 5 talentos encadeados.</p>
+        <p class="skill-intro">Escolha até 15 talentos e desenvolva no máximo 3 dos 5 ramos. Ramos usados: <b id="skillBranchCountLobby">0/3</b>. Comece com 5 pontos e ganhe mais ao avançar pelos mundos. Cada ramo tem 5 talentos encadeados.</p>
         <div id="skillTreeLobby" class="skill-tree"></div>
       </section>
     </div>
@@ -210,7 +210,7 @@
   <button id="skillToggleBtn" class="skill-toggle" type="button">✦ SKILLS <b id="skillPointsHud">5</b></button>
   <div id="skillPanel" class="skill-panel hidden">
     <div class="skill-panel-head"><strong>ÁRVORE DE SKILLS</strong><button id="skillCloseBtn" type="button" aria-label="Fechar árvore">×</button></div>
-    <p class="skill-intro">25 talentos · até 15 ativos · escolha no máximo 3 ramos. Você recebe pontos ao avançar de mundo. Ativas: <b id="skillCountHud">0/15</b>.</p>
+    <p class="skill-intro">25 talentos · até 15 ativos · até 3 ramos. Ativas: <b id="skillCountHud">0/15</b> · Ramos usados: <b id="skillBranchCountHud">0/3</b>. Você recebe pontos ao avançar de mundo.</p>
     <div id="skillTreeHud" class="skill-tree"></div>
   </div>
   <div class="inventory-panel"><strong>INVENTÁRIO</strong><div id="inventoryList" class="inventory-list"></div><div class="loot-help">Escolha itens, evolua suas skills na zona segura e atravesse os portais.</div><div class="inventory-tools"><select id="lootFilter" aria-label="Filtrar loot"><option value="all">Todas as raridades</option><option value="comum">Comum</option><option value="incomum">Incomum</option><option value="raro">Raro</option><option value="épico">Épico</option><option value="lendário">Lendário</option></select><select id="lootSort" aria-label="Ordenar loot"><option value="newest">Recentes</option><option value="rarity">Raridade</option><option value="power">Poder</option></select></div><div id="recentLoot" class="recent-loot"><small>Nenhum item coletado ainda.</small></div><div class="selected-item"><span id="selectedItemLabel">Nenhum item selecionado</span><button id="useSelectedItemBtn" type="button" disabled>USAR ITEM</button></div></div>
