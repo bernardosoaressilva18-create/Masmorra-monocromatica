@@ -1159,9 +1159,56 @@ function updateState(m) {
     $('lobbyHint').textContent = self && self.isHost
       ? (m.players.some(p => !p.ready) ? 'Você é o anfitrião. Espere todos marcarem PRONTO.' : 'Todos prontos! Toque em INICIAR PARTIDA.')
       : 'Marque PRONTO e espere o anfitrião iniciar a partida.';
-    $('lobbyPlayers').innerHTML = (m.players || []).map(p =>
+    const lobbyPlayers = m.players || [];
+    $('lobbyPlayers').innerHTML = lobbyPlayers.map(p =>
       '<div class="lobby-player ' + (p.ready ? 'ready' : '') + '"><span class="lobby-name">' + escapeHTML(p.name) + (p.isHost ? ' · ANFITRIÃO' : '') + (p.id === playerId ? ' (você)' : '') + '</span><b class="lobby-state">' + (p.ready ? 'PRONTO' : 'AGUARDANDO') + '</b></div>'
     ).join('') || '<p>Esperando aventureiros...</p>';
+
+    // Formação 3D estilo lobby de jogo: toda a equipe fica visível lado a lado.
+    const present = new Set();
+    lobbyPlayers.forEach((p, index) => {
+      const slotX = (index - (lobbyPlayers.length - 1) / 2) * 2.05;
+      present.add(p.id);
+      if (p.id === playerId) {
+        if (myPlayer) {
+          const playerClass = p.playerClass || selectedClass || 'knight';
+          const skin = p.skin || selectedSkin || 'default';
+          if (myPlayer.userData.playerClass !== playerClass || myPlayer.userData.skin !== skin) {
+            const position = myPlayer.position.clone();
+            const replacement = makeHero(p.color, playerClass, skin);
+            replacement.position.copy(position);
+            scene.remove(myPlayer);
+            disposeObject3D(myPlayer);
+            myPlayer = replacement;
+            scene.add(myPlayer);
+          }
+          myPlayer.position.set(slotX, 0, 0);
+          myPlayer.rotation.y = Math.PI;
+          myPlayer.userData.playerClass = p.playerClass || selectedClass || 'knight';
+          myPlayer.userData.skin = p.skin || selectedSkin || 'default';
+        }
+      } else {
+        let obj = remotePlayers.get(p.id);
+        const playerClass = p.playerClass || 'knight';
+        const skin = p.skin || 'default';
+        if (!obj || obj.userData.playerClass !== playerClass || obj.userData.skin !== skin) {
+          if (obj) { scene.remove(obj); disposeObject3D(obj); }
+          obj = makeHero(p.color, playerClass, skin);
+          scene.add(obj);
+          remotePlayers.set(p.id, obj);
+        }
+        obj.userData.playerClass = playerClass;
+        obj.userData.skin = skin;
+        obj.userData.targetX = slotX;
+        obj.userData.targetZ = 0;
+        obj.userData.targetRot = Math.PI;
+      }
+    });
+    for (const [id, obj] of remotePlayers) {
+      if (!present.has(id)) { scene.remove(obj); disposeObject3D(obj); remotePlayers.delete(id); }
+    }
+    for (const obj of monsterMeshes.values()) obj.visible = false;
+    for (const obj of chestMeshes.values()) obj.visible = false;
     return;
   }
   if (!started) {
@@ -1951,29 +1998,25 @@ const right = new THREE.Vector3(
     // Mantém a orientação do monstro; não gira continuamente no próprio eixo.
   }
 
-  // Câmera em terceira pessoa com acompanhamento suave
-  if (myPlayer) {
-    const target = new THREE.Vector3(
-      myPlayer.position.x,
-      1.2,
-      myPlayer.position.z
-    );
-
+  // Enquadramento panorâmico do lobby, adaptado à largura da tela.
+  if (!started) {
+    const halfFov = camera.fov * Math.PI / 360;
+    const tanHalfHorizontal = Math.tan(halfFov) * camera.aspect;
+    const lineupWidth = 6.2;
+    const viewDistance = THREE.MathUtils.clamp(lineupWidth / Math.max(2 * tanHalfHorizontal, .12), 8.5, 19);
+    const lobbyCameraTarget = new THREE.Vector3(0, 4.5, viewDistance + 1.0);
+    camera.position.lerp(lobbyCameraTarget, cameraSmooth);
+    camera.lookAt(0, 1.1, 0);
+  } else if (myPlayer) {
+    const target = new THREE.Vector3(myPlayer.position.x, 1.2, myPlayer.position.z);
     const dist = 8.5;
-
     const cameraTarget = new THREE.Vector3(
       target.x + Math.sin(yaw) * dist,
       target.y + 3.0 + pitch * 2,
       target.z + Math.cos(yaw) * dist
     );
-
     camera.position.lerp(cameraTarget, cameraSmooth);
-
-    camera.lookAt(
-      target.x,
-      target.y + 0.15,
-      target.z
-    );
+    camera.lookAt(target.x, target.y + 0.15, target.z);
   }
 
   updatePerformanceMonitor();
