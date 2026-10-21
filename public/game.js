@@ -9,6 +9,7 @@ let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null
 let activeEnvironmentGroup=null;
 const environmentGroups=Object.create(null);
 let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=null,astralStarField=null;
+let realmIntroTimer=0;
 const astralFloaters=[];
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
@@ -530,6 +531,7 @@ for (let z = -30; z <= 8; z += 6) {
   for(const x of [-3.05,3.05]){const post=new THREE.Mesh(new THREE.BoxGeometry(.5,4.2,.65),realmStone);post.position.set(x,2.1,0);realmPortal.add(post);const rune=new THREE.Mesh(new THREE.BoxGeometry(.09,3.3,.08),realmFrame);rune.position.set(x*.91,2.15,-.36);realmPortal.add(rune);}
   const lintel=new THREE.Mesh(new THREE.BoxGeometry(6.55,.48,.7),realmStone);lintel.position.set(0,4.28,0);realmPortal.add(lintel);
   realmPortalCore=new THREE.Mesh(new THREE.PlaneGeometry(5.1,3.65),new THREE.MeshBasicMaterial({color:0x9b69ff,transparent:true,opacity:.07,side:THREE.DoubleSide,depthWrite:false}));realmPortalCore.position.set(0,2.08,-.22);realmPortal.add(realmPortalCore);
+  const portalGlow=new THREE.PointLight(0x9a64ff,0,13,2);portalGlow.position.set(0,2.15,-.1);realmPortal.add(portalGlow);realmPortal.userData.glow=portalGlow;
   realmPortalRing=new THREE.Mesh(new THREE.TorusGeometry(1.72,.095,10,64),realmFrame);realmPortalRing.position.set(0,2.08,-.3);realmPortalRing.scale.set(1.48,1.17,1);realmPortal.add(realmPortalRing);
   realmPortal.position.set(0,0,-168);realmPortal.userData.open=false;activeEnvironmentGroup.add(realmPortal);
   environmentGroups.dungeon=activeEnvironmentGroup;activeEnvironmentGroup=null;buildAstralWorld();
@@ -571,7 +573,8 @@ function buildAstralWorld(){
 function showRealmTransition(realm){
   const overlay=$('phaseTransition');if(!overlay)return;
   $('phaseTransitionTitle').textContent=realm===2?'VALE ASTRAL':'MUNDO MONOCROMÁTICO';
-  $('phaseTransitionSub').textContent=realm===2?'Você atravessou o portão e chegou a um mapa totalmente novo':'Você retornou ao domínio da masmorra';
+  $('phaseTransitionSub').textContent=realm===2?'UM NOVO MUNDO · CINCO REGIÕES · UM NOVO GUARDIÃO':'A masmorra continua à sua espera';
+  overlay.dataset.realm=String(realm);
   overlay.classList.remove('hidden','phase-out');overlay.classList.add('phase-in');
   setTimeout(()=>{overlay.classList.remove('phase-in');overlay.classList.add('phase-out');},2300);
   setTimeout(()=>{overlay.classList.add('hidden');overlay.classList.remove('phase-out');},3000);
@@ -813,10 +816,11 @@ function makeBoss() {
   rune.rotation.x = -Math.PI / 2; rune.position.y = .04; g.add(rune);
   g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; g.userData.torso = torso; g.userData.arms = bossArms; g.userData.animPhase = Math.random()*Math.PI*2; return g;
 }
-function makeChest() {
-  const group = new THREE.Group();
-  const wood = mat(0x68452c, .8);
-  const metal = mat(0xb9944e, .35, .55);
+function makeChest(realm=currentRealmVisual) {
+  const group=new THREE.Group();
+  const wood=mat(realm===2?0x292344:0x68452c,.8);
+  const metal=mat(realm===2?0x8d7cff:0xb9944e,.35,.55);
+  if(realm===2){metal.emissive.setHex(0x4c32bd);metal.emissiveIntensity=.72;}
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.15, .65, .8), wood);
   body.position.y = .38; group.add(body);
   const lid = new THREE.Mesh(new THREE.BoxGeometry(1.2, .2, .85), metal);
@@ -1581,7 +1585,7 @@ function updateState(m) {
     return;
   }
   const realm=Number(m.realm)===2?2:1,realmChanged=realm!==currentRealmVisual;
-  if(realmChanged){currentRealmVisual=realm;for(const [name,group] of Object.entries(environmentGroups))group.visible=(realm===1&&name==='dungeon')||(realm===2&&name==='astral');document.body.classList.toggle('realm-astral',realm===2);appliedInitialServerPosition=false;yaw=targetYaw=0;pitch=targetPitch=.25;if(realmPortal)realmPortal.visible=realm===1;showRealmTransition(realm);playSfx('portal');showNotice(realm===2?'Novo mundo descoberto: Vale Astral!':'Você voltou ao mundo da masmorra.');}
+  if(realmChanged){currentRealmVisual=realm;realmIntroTimer=3.2;for(const [name,group] of Object.entries(environmentGroups))group.visible=(realm===1&&name==='dungeon')||(realm===2&&name==='astral');document.body.classList.toggle('realm-astral',realm===2);appliedInitialServerPosition=false;yaw=targetYaw=0;pitch=targetPitch=.25;if(realmPortal)realmPortal.visible=realm===1;showRealmTransition(realm);playSfx('portal');showNotice(realm===2?'Novo mundo descoberto: Vale Astral!':'Você voltou ao mundo da masmorra.');}
   if (!started) {
     started = true;
     $('lobby').classList.add('hidden');
@@ -1705,24 +1709,32 @@ function updateState(m) {
   gateMeshes.forEach((gate,index)=>{const n=index+1;gate.userData.open=phase>n||(phase===n&&aliveMonsters===0);});
   if(realmPortal){realmPortal.visible=realm===1;realmPortal.userData.open=realm===1&&phase===5&&!!m.boss&&!m.boss.alive;}
   const phaseObjective=document.querySelector('.objective strong');
-  if(phaseObjective)phaseObjective.textContent=realm===1&&phase===5&&m.boss&&!m.boss.alive?'O portão do Vale Astral foi aberto: siga até o fim do Abismo!':realm===2&&phase===5&&m.boss&&!m.boss.alive?'O Guardião Astral caiu. O Vale Astral foi conquistado!':phase===5?'Derrote o Guardião Supremo':'Derrote os monstros e atravesse o portal da região';
+  if(phaseObjective){
+    if(phase===5&&m.boss&&!m.boss.alive&&realm===1){const nearGate=myPlayer&&Math.hypot(myPlayer.position.x, myPlayer.position.z+168)<16;phaseObjective.textContent=nearGate?'PORTÃO ABERTO! Atravesse para o Vale Astral':'Siga pelo Abismo até o portão do Vale Astral';}
+    else if(phase===5&&m.boss&&!m.boss.alive&&realm===2)phaseObjective.textContent='Guardião Astral derrotado! Vale conquistado';
+    else if(phase===5)phaseObjective.textContent=realm===2?'Derrote o Guardião Astral':'Derrote o Guardião Supremo';
+    else phaseObjective.textContent=realm===2?'Derrote os inimigos astrais e avance':'Derrote os monstros e atravesse o portão da região';
+  }
   if(phaseLabel)phaseLabel.textContent=realm===2?'VALE ASTRAL · FASE '+phase+' / 5':'MUNDO MONOCROMÁTICO · FASE '+phase+' / 5';
   const bossPanel = $('bossPanel');
   if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 5 || !m.boss || !m.boss.alive);
   bossData = m.boss || null;
   if (bossData && bossData.alive) {
+    const bossTitle=document.querySelector('.boss-title');
+    if(bossTitle)bossTitle.textContent=realm===2?'GUARDIÃO ASTRAL':'GUARDIÃO DO ABISMO';
     if (!bossMesh) { bossMesh = makeBoss(); scene.add(bossMesh); }
     bossMesh.visible = true; bossMesh.userData.targetX = bossData.x; bossMesh.userData.targetZ = bossData.z;
     const lifePhase = bossData.lifePhase || 1; bossMesh.userData.lifePhase = lifePhase;
     bossMesh.userData.bodyMaterial.color.set(lifePhase === 1 ? 0x29202f : lifePhase === 2 ? 0x59202f : 0x8b182a);
     bossMesh.userData.eyeMaterial.color.set(lifePhase === 3 ? 0xffc12e : 0xff345d);
-    $('bossHealthFill').style.width = (bossData.hp / bossData.maxHp * 100) + '%';
+    $('bossHealthFill').style.width=Math.max(0,Math.min(100,bossData.hp/bossData.maxHp*100))+'%';
+    $('bossHealthFill').style.filter=bossData.hp/bossData.maxHp<.25?'brightness(1.35) drop-shadow(0 0 5px #ff416b)':'';
     $('bossHealthText').textContent = bossData.hp + ' / ' + bossData.maxHp;
-    $('bossPhaseText').textContent = 'FASE DE VIDA ' + lifePhase + ' / 3';
+    $('bossPhaseText').textContent = realm===2?'FASE ASTRAL '+lifePhase+' / 3':'FASE DE VIDA ' + lifePhase + ' / 3';
   } else if (bossMesh) {
     bossMesh.visible = false;
     if (bossData && !bossData.alive) {
-      bossPanel?.classList.remove('hidden'); $('bossPhaseText').textContent = 'GUARDIÃO DERROTADO';
+      bossPanel?.classList.remove('hidden'); const bossTitle=document.querySelector('.boss-title');if(bossTitle)bossTitle.textContent=realm===2?'GUARDIÃO ASTRAL DERROTADO':'GUARDIÃO DO ABISMO DERROTADO'; $('bossPhaseText').textContent = 'GUARDIÃO DERROTADO';
       $('bossHealthFill').style.width = '0%'; $('bossHealthText').textContent = '0 / ' + (bossData.maxHp || 95);
     }
   }
@@ -1736,7 +1748,7 @@ function updateState(m) {
   for (const chest of latestChests) {
     let obj = chestMeshes.get(chest.id);
     if (!obj) {
-      obj = makeChest();
+      obj = makeChest(realm);
       obj.position.set(chest.x, 0, chest.z);
       scene.add(obj);
       chestMeshes.set(chest.id, obj);
@@ -1781,10 +1793,10 @@ function updateState(m) {
     }
   }
 
-  $('monsterText').textContent = phase === 5
-    ? (bossData && bossData.alive ? 'Guardião Supremo' : 'Masmorra concluída')
-    : alive + ' monstros restantes';
-  const phaseTotal = phase === 1 ? 5 : phase === 2 ? 8 : phase === 3 ? 9 : phase === 4 ? 10 : 95;
+  $('monsterText').textContent = phase===5
+    ? (bossData&&bossData.alive?(realm===2?'Guardião Astral':'Guardião Supremo'):(realm===2?'Vale Astral concluído':'Masmorra concluída'))
+    : alive+' inimigos restantes';
+  const phaseTotal=phase===5&&bossData?Math.max(1,Number(bossData.maxHp)||95):(phase===1?5:phase===2?8:phase===3?9:phase===4?10:95);
   const phaseProgress = phase === 5 && bossData
     ? (phaseTotal - bossData.hp) / phaseTotal * 100
     : (phaseTotal - alive) / phaseTotal * 100;
@@ -2259,11 +2271,13 @@ function animate() {
   if (!renderer) return;
 
   const dt = Math.min(clock.getDelta(), 0.05), worldTime = clock.elapsedTime;
+  realmIntroTimer=Math.max(0,realmIntroTimer-dt);
   if (realmPortal && realmPortalRing) {
     const open = !!realmPortal.userData.open;
     realmPortalRing.rotation.z += dt * (open ? 0.48 : 0.12);
     realmPortalRing.material.emissiveIntensity = open ? 1.8 + Math.sin(worldTime * 3.2) * 0.7 : 0.35;
-    if (realmPortalCore) realmPortalCore.material.opacity = open ? 0.31 + Math.sin(worldTime * 2.4) * 0.12 : 0.035 + Math.sin(worldTime * 1.25) * 0.018;
+    if (realmPortalCore) realmPortalCore.material.opacity=open?.31+Math.sin(worldTime*2.4)*.12:.035+Math.sin(worldTime*1.25)*.018;
+    if(realmPortal.userData.glow)realmPortal.userData.glow.intensity=open?8+Math.sin(worldTime*3)*2:.35;
   }
   if(astralStarField&&environmentGroups.astral?.visible)astralStarField.rotation.y+=dt*.0016;
   for(const f of astralFloaters){f.mesh.position.y=f.baseY+Math.sin(worldTime*f.speed+f.phase)*.24;f.mesh.rotation.y+=dt*f.speed*.32;f.mesh.rotation.x+=dt*f.speed*.12;}
@@ -2573,10 +2587,11 @@ const right = new THREE.Vector3(
     camera.lookAt(Math.sin(lobbyTime * 0.16) * 0.12, 1.05, -0.25);
   } else if (myPlayer) {
     const target = new THREE.Vector3(myPlayer.position.x, 1.2, myPlayer.position.z);
-    const dist = 8.5;
-    const cameraTarget = new THREE.Vector3(
-      target.x + Math.sin(yaw) * dist,
-      target.y + 3.0 + pitch * 2,
+    const introBlend=realmIntroTimer>0?Math.sin(Math.min(1,realmIntroTimer/3.2)*Math.PI)*.5+.5:0;
+    const dist=8.5+introBlend*2.8;
+    const cameraTarget=new THREE.Vector3(
+      target.x+Math.sin(yaw)*dist,
+      target.y+3.0+pitch*2+introBlend*.65,
       target.z + Math.cos(yaw) * dist
     );
     camera.position.lerp(cameraTarget, cameraSmooth);
