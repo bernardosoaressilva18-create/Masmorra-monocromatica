@@ -401,8 +401,14 @@ wss.on('connection', ws => {
       player.x = collisionResolved.x;
       const gateZ=room.phase<5?-(30+(room.phase-1)*32):-163.2;
       const enemiesAlive=room.phase===5?!!(room.boss&&room.boss.alive):room.monsters.some(m=>m.alive);
-      if(room.realm===1&&room.phase===5&&requestedZ<gateZ&&room.boss&&room.boss.alive){player.z=gateZ+.9;if(Date.now()-player.lastGateNotice>1800){player.lastGateNotice=Date.now();player.ws.send(JSON.stringify({type:'notice',text:'O portão do Vale Astral está selado! Derrote o Guardião Supremo.'}));}}
-      else if(room.realm===1&&room.phase===5&&requestedZ<gateZ&&room.boss&&!room.boss.alive){enterAstralRealm(room);}
+      if(room.phase===5&&requestedZ<gateZ&&room.boss&&room.boss.alive){
+        player.z=gateZ+.9;
+        if(Date.now()-player.lastGateNotice>1800){
+          player.lastGateNotice=Date.now();
+          const gateText=room.realm===1?'O portão do Vale Astral está selado! Derrote o Guardião Supremo.':'O portão final está selado! Derrote o Guardião Astral.';
+          player.ws.send(JSON.stringify({type:'notice',text:gateText}));
+        }
+      }else if(room.realm===1&&room.phase===5&&requestedZ<gateZ&&room.boss&&!room.boss.alive){enterAstralRealm(room);}
       else if(room.phase<5&&requestedZ<gateZ&&enemiesAlive){
         player.z = gateZ + 0.7;
         if (Date.now() - player.lastGateNotice > 1800) {
