@@ -18,6 +18,7 @@ const activeBurnEffects = [];
 let ambientParticles = null, particleMaterial = null;
 const activeSpellEffects = [];
 const activeImpactEffects = [];
+const activeClassEffects = [];
 const healthBarParentQuaternion = new THREE.Quaternion();
 const cameraFocusScratch = new THREE.Vector3();
 const cameraPositionScratch = new THREE.Vector3();
@@ -1774,6 +1775,57 @@ setInterval(() => {
   }
 }, 5000);
 
+function addClassAbilityRing(x, z, radius, color) {
+  if (!scene || !Number.isFinite(x) || !Number.isFinite(z)) return;
+  const geometry = new THREE.RingGeometry(Math.max(.25, radius - .22), radius, 28);
+  const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .85, side: THREE.DoubleSide, depthWrite: false });
+  const ring = new THREE.Mesh(geometry, material);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(x, .09, z);
+  scene.add(ring);
+  const limit = isMobileDevice ? 7 : 14;
+  while (activeClassEffects.length >= limit) {
+    const old = activeClassEffects.shift();
+    scene.remove(old.mesh); old.mesh.geometry.dispose(); old.mesh.material.dispose();
+  }
+  activeClassEffects.push({ mesh: ring, startedAt: performance.now(), duration: 760 });
+}
+function handleClassAbilityMessage(m) {
+  const colors = {
+    knight_shield: 0x79caff, knight_dash: 0xe9c477, arrow_rain: 0x9ccfff,
+    incendiary_arrows: 0xff632b, goblin_invis: 0x9c8cff, goblin_summon: 0x7ce36c,
+    ogre_slam: 0xff9d4a, ogre_haste: 0xffd86e
+  };
+  const radii = {
+    knight_shield: 1.4, knight_dash: 3.8, arrow_rain: 4.6,
+    incendiary_arrows: 4.1, goblin_invis: 1.5, goblin_summon: 2.1,
+    ogre_slam: 5.2, ogre_haste: 1.7
+  };
+  const center = m.center || { x: m.x, z: m.z };
+  addClassAbilityRing(center.x, center.z, radii[m.ability] || 2.5, colors[m.ability] || 0x76e7f2);
+  (m.targets || []).slice(0, isMobileDevice ? 3 : 7).forEach(target => {
+    if (m.ability === 'arrow_rain' || m.ability === 'incendiary_arrows' || m.ability === 'ogre_slam' || m.ability === 'knight_dash') {
+      addClassAbilityRing(target.x, target.z, .85, colors[m.ability] || 0x76e7f2);
+    }
+  });
+  if (m.id === playerId) {
+    const spec = Object.values(CLASS_ABILITY_CONFIG).flat().find(item => item.ability === m.ability);
+    if (spec) {
+      if (m.ability === 'fire' || m.ability === 'lightning') return;
+      if (CLASS_ABILITY_CONFIG[selectedClass]?.[0]?.ability === m.ability) fireCooldown = spec.cooldown;
+      else if (CLASS_ABILITY_CONFIG[selectedClass]?.[1]?.ability === m.ability) lightningCooldown = spec.cooldown;
+    }
+    if (m.ability === 'ogre_haste') ogreHasteUntil = performance.now() + 5000;
+    if (m.ability === 'knight_dash' && myPlayer && Number.isFinite(m.x) && Number.isFinite(m.z)) {
+      myPlayer.position.set(m.x, 0, m.z);
+    }
+  }
+  showNotice(m.text || 'Habilidade ativada!');
+  if (m.ability === 'incendiary_arrows' || m.ability === 'ogre_slam') playSfx('attack');
+  else if (m.ability === 'knight_dash') playSfx('dodge');
+  else playSfx('fire');
+  if (m.ability === 'goblin_invis' && m.id === playerId && myPlayer) setHeroInvisible(myPlayer, true);
+}
 function handleMessage(m) {
   if (m.type === 'pong') {
     if (Number.isFinite(m.sentAt)) measuredPing = Math.max(0, Math.round(performance.now() - m.sentAt));
@@ -1844,6 +1896,10 @@ function handleMessage(m) {
   if (m.type === 'monsterAttack') {
     const obj = monsterMeshes.get(m.id);
     if (obj) obj.userData.attackAnim = 0.38;
+    return;
+  }
+  if (m.type === 'classAbility') {
+    handleClassAbilityMessage(m);
     return;
   }
   if (m.type === 'spell') {
