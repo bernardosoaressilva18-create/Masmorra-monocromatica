@@ -580,12 +580,12 @@ const surfaceTexture = makeSurfaceTexture();
 
 function attachHealthBar(entity) {
   const bar = new THREE.Group();
-  bar.position.set(0, 2.55, 0);
-  const rim = new THREE.Mesh(new THREE.PlaneGeometry(1.40, 0.23), new THREE.MeshBasicMaterial({ color: 0x7d0b25, depthTest: false }));
-  rim.position.z = -0.018;
-  const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 0.17), new THREE.MeshBasicMaterial({ color: 0x26040b, transparent: true, opacity: 0.99, depthTest: false }));
-  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.22, 0.095), new THREE.MeshBasicMaterial({ color: 0xff1e43, depthTest: false }));
-  fill.position.z = 0.012;
+  bar.position.set(0, 3.0, 0);
+  const rim = new THREE.Mesh(new THREE.PlaneGeometry(1.86, 0.38), new THREE.MeshBasicMaterial({ color: 0x080b10, depthTest: false, depthWrite: false }));
+  rim.position.z = -0.025;
+  const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.72, 0.26), new THREE.MeshBasicMaterial({ color: 0x390712, depthTest: false, depthWrite: false }));
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.58, 0.18), new THREE.MeshBasicMaterial({ color: 0x39f078, depthTest: false, depthWrite: false }));
+  fill.position.z = 0.018;
   bar.add(rim, bg, fill);
   bar.renderOrder = 20;
   entity.add(bar);
@@ -599,8 +599,8 @@ function setHealthBar(entity, hp, maxHp) {
   const ratio = THREE.MathUtils.clamp(current / max, 0, 1);
   const fill = entity.userData.healthFill;
   fill.scale.x = Math.max(0.001, ratio);
-  fill.position.x = -0.61 * (1 - ratio);
-  fill.material.color.set(ratio > 0.35 ? 0xff1538 : ratio > 0.12 ? 0xff4b69 : 0xb9072c);
+  fill.position.x = -0.79 * (1 - ratio);
+  fill.material.color.set(ratio > 0.6 ? 0x39f078 : ratio > 0.3 ? 0xffc533 : 0xff334f);
 }
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
@@ -1898,8 +1898,8 @@ function rendererPointerSetup() {
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    targetYaw -= dx * .034 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .016 * gameSettings.sensitivity, -.18, .95);
+    targetYaw -= dx * .008 * gameSettings.sensitivity;
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0045 * gameSettings.sensitivity, -.18, .95);
   });
 
   const end = e => {
