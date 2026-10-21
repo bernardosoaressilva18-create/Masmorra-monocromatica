@@ -947,6 +947,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.heroClass = heroClass;
   g.userData.heroSkin = skin;
   g.userData.cape=cape;
+  g.userData.capeTails=[capeTailL,capeTailR];
   g.userData.torso = torsoMesh;
   g.userData.head = headMesh;
   g.userData.legs = legs;
@@ -987,9 +988,25 @@ function makeBoss() {
     const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.22, .9, isMobileDevice ? 4 : 6, isMobileDevice ? 7 : 10), armor); arm.position.set(side * 1.12, 1.6, 0); arm.rotation.z = side * -.22; g.add(arm); bossArms.push({ mesh: arm, side });
     const claw = new THREE.Mesh(new THREE.ConeGeometry(.18, .55, 5), bone); claw.position.set(side * 1.2, .82, -.05); claw.rotation.z = Math.PI; g.add(claw);
   }
+  // Armadura adicional e núcleo central: melhora a leitura do chefe a distância.
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.27,1),eye);
+  core.position.set(0,1.78,-1.00); core.scale.set(.9,1.15,.62); g.add(core);
+  const coreHalo = new THREE.Mesh(new THREE.TorusGeometry(.37,.04,7,32),
+    new THREE.MeshStandardMaterial({color:0xb99aff,emissive:0x793bff,emissiveIntensity:1.25,metalness:.22,roughness:.28}));
+  coreHalo.position.set(0,1.78,-.96); g.add(coreHalo);
+  for (const side of [-1,1]) {
+    const pauldron = new THREE.Mesh(new THREE.DodecahedronGeometry(.38,1),armor);
+    pauldron.position.set(side*.91,2.18,-.08); pauldron.scale.set(1.12,.82,.86); g.add(pauldron);
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(.15,.43,6),bone);
+    spike.position.set(side*1.02,2.55,-.02); spike.rotation.z=side*-.35; g.add(spike);
+  }
+  for (let i=0;i<3;i++) {
+    const spine = new THREE.Mesh(new THREE.ConeGeometry(.14,.52,6),bone);
+    spine.position.set((i-1)*.35,2.05,.60); spine.rotation.x=Math.PI/2; spine.rotation.z=(i-1)*-.12; g.add(spine);
+  }
   const rune = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.65, 32), new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .7, side: THREE.DoubleSide }));
   rune.rotation.x = -Math.PI / 2; rune.position.y = .04; g.add(rune);
-  g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; g.userData.torso = torso; g.userData.arms = bossArms; g.userData.animPhase = Math.random()*Math.PI*2; return g;
+  g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; g.userData.coreMesh=core; g.userData.coreHalo=coreHalo; g.userData.torso = torso; g.userData.arms = bossArms; g.userData.animPhase = Math.random()*Math.PI*2; return g;
 }
 function makeChest(realm=currentRealmVisual) {
   const group=new THREE.Group();
@@ -1148,11 +1165,17 @@ function makeMonster(kind = 'stalker', phase = 1) {
       addMesh(new THREE.CapsuleGeometry(.13,.36,3,5),dark,side*.22,.35,.03);
     }
   }
+  // Núcleo emissivo reforça a silhueta e dá a cada família uma leitura visual própria.
+  const core = addMesh(new THREE.OctahedronGeometry(.14,1),eyeMat,0,1.12,-.40,.9,1.15,.65);
+  core.rotation.set(.12,.2,.08);
   // Sombra/anel de identidade fixo no chão, sem pulsação.
   const ringColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x63e9ff : kind === 'thorn' ? 0x8dff74 : kind === 'inferno' ? 0xff692e : kind === 'abyss' ? 0xc08bff : 0xff4269;
   const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,24),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.kind=kind;
+  g.userData.eyeMaterial=eyeMat;
+  g.userData.coreMesh=core;
+  g.userData.eyePulseOffset=Math.random()*Math.PI*2;
   g.userData.attackRing = ring;
   g.userData.animatedLimbs = animatedLimbs;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
@@ -1510,6 +1533,11 @@ function renderLobby3DPreview() {
       ? -0.08 + Math.sin(idle * 0.8) * 0.055
       : -0.08 + Math.sin(idle * 0.55) * 0.025;
     lobbyPreviewHero.userData.cape.rotation.z = Math.sin(idle * 0.4) * 0.018;
+  }
+  if (lobbyPreviewHero.userData.capeTails) {
+    const tails=lobbyPreviewHero.userData.capeTails;
+    if (tails[0]) tails[0].rotation.z=.10+Math.sin(idle*.7)*.035;
+    if (tails[1]) tails[1].rotation.z=-.10+Math.sin(idle*.7+Math.PI)*.035;
   }
   const effectPalette = heroClass === 'mage'
     ? {color:0xb49aff,glow:0x8064ff}
@@ -2767,6 +2795,21 @@ const right = new THREE.Vector3(
     for (const arm of bossMesh.userData.arms || []) arm.mesh.rotation.x = Math.sin(bossPhase + (arm.side > 0 ? Math.PI : 0)) * (bossMoving ? .2 : .045);
     if (bossMesh.userData.eyeMaterial) bossMesh.userData.eyeMaterial.emissiveIntensity = 2.3 + (Math.sin(bossPhase * 2.1) + 1) * .55;
     // O Guardião respira, balança os braços e pulsa os olhos durante a perseguição.
+  }
+  // Emissive pulse and slow core rotation make enemies feel alive without extra lights.
+  for (const obj of monsterMeshes.values()) {
+    if (!obj.visible || obj === bossMesh) continue;
+    const offset=obj.userData.eyePulseOffset||0;
+    if (obj.userData.eyeMaterial) obj.userData.eyeMaterial.emissiveIntensity=1.1+(Math.sin(worldTime*2.6+offset)+1)*.42;
+    if (obj.userData.coreMesh) {
+      obj.userData.coreMesh.rotation.y+=dt*.42;
+      obj.userData.coreMesh.rotation.x=Math.sin(worldTime*1.2+offset)*.12;
+    }
+  }
+  if (bossMesh && bossMesh.userData.coreMesh) {
+    bossMesh.userData.coreMesh.rotation.y+=dt*.55;
+    bossMesh.userData.coreMesh.rotation.x=Math.sin(worldTime*1.5)*.12;
+    if (bossMesh.userData.coreHalo) bossMesh.userData.coreHalo.rotation.z+=dt*.35;
   }
   // Anima os portões: as grades somem ao liberar a passagem.
   for (const gate of gateMeshes) {
