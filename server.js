@@ -220,8 +220,8 @@ function enterAstralRealm(room){
  broadcast(room,state(room));
 }
 
-function newRoom(code, hostId) {
-  const room = { players: new Map(), hostId, started: false, realm: 1, phase: 1, monsters: createWave(1,1), summons: [], boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0, cursedBoss: null, cursedBossAttackAt: 0,
+function newRoom(code, hostId, isPublic = false) {
+  const room = { isPublic, players: new Map(), hostId, started: false, realm: 1, phase: 1, monsters: createWave(1,1), summons: [], boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0, cursedBoss: null, cursedBossAttackAt: 0,
     chests: [
       { id: 'c0', x: -8, z: -12, openedBy: [] },
       { id: 'c1', x: 8, z: -44, openedBy: [] },
@@ -229,7 +229,7 @@ function newRoom(code, hostId) {
       { id: 'c3', x: 8, z: -108, openedBy: [] },
       { id: 'c4', x: 8, z: -140, openedBy: [] }
     ] };
-  rooms.set(code, room); return room;
+  room.code = code; rooms.set(code, room); return room;
 }
 
 function broadcast(room, message) {
@@ -345,6 +345,26 @@ wss.on('connection', ws => {
       return;
     }
 
+    if (msg.type === 'listPublicRooms') {
+      const list = [...rooms.values()]
+        .filter(r => r.isPublic && !r.started && r.players.size < 4)
+        .map(r => ({ code: r.code, players: [...r.players.values()].filter(p => p.connected !== false).length, maxPlayers: 4 }));
+      ws.send(JSON.stringify({ type: 'publicRooms', rooms: list }));
+      return;
+    }
+
+    if (msg.type === 'joinPublic') {
+      let room = [...rooms.values()].find(r => r.isPublic && !r.started && r.players.size < 4);
+      if (!room) {
+        let code;
+        do { code = Math.random().toString(36).slice(2, 8).toUpperCase(); } while (rooms.has(code));
+        room = newRoom(code, player.id, true);
+        room.code = code;
+      }
+      msg.code = room.code;
+      msg.public = true;
+    }
+
     if (msg.type === 'join') {
       const code = String(msg.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
         || Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -365,7 +385,7 @@ wss.on('connection', ws => {
       }
 
       let room = rooms.get(code);
-      if (!room) room = newRoom(code, player.id);
+      if (!room) room = newRoom(code, player.id, !!msg.public);\n      if (msg.public) { room.isPublic = true; room.code = code; }
 
       // Um token aleatório permite recuperar o mesmo personagem após uma queda breve.
       const requestedToken = typeof msg.resumeToken === 'string' ? msg.resumeToken : '';
