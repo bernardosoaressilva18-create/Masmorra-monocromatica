@@ -2104,6 +2104,11 @@ function updateState(m) {
       ? (m.players.some(p => !p.ready) ? 'Você é o anfitrião. Espere todos marcarem PRONTO.' : 'Todos prontos! Toque em INICIAR PARTIDA.')
       : 'Marque PRONTO e espere o anfitrião iniciar a partida.';
     const lobbyPlayers = m.players || [];
+    const onlineCount = lobbyPlayers.length;
+    const onlineLabel = $('lobbyOnlineCount');
+    if (onlineLabel) onlineLabel.textContent = onlineCount + '/4 CONECTADOS · ' + lobbyPlayers.filter(p => p.ready).length + ' PRONTOS';
+    $('readyBtn').disabled = !!m.started;
+
     $('lobbyPlayers').innerHTML = lobbyPlayers.map(p =>
       '<div class="lobby-player' + (p.ready ? ' ready' : '') + (p.id === playerId ? ' is-self' : '') + '"><span class="lobby-name">' + escapeHTML(p.name) + (p.isHost ? ' · ANFITRIÃO' : '') + (p.id === playerId ? ' · VOCÊ' : '') + '</span><b class="lobby-state">' + (p.ready ? 'PRONTO' : 'AGUARDANDO') + '</b></div>'
     ).join('') || '<p class="lobby-empty">Esperando aventureiros...</p>';
