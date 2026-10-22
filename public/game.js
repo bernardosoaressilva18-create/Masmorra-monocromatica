@@ -116,29 +116,42 @@ function ensureAudio(){
           osc.connect(env);env.connect(musicBus);osc.start(now);osc.stop(now+duration+.08);
         }
       };
-      // Trilha procedural original com pads harmônicos, baixo e frases melódicas de RPG.
+      const schedulePluck=(frequency,duration=.62,peak=.035)=>{
+        if(!audioContext||!musicBus||!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
+        const now=audioContext.currentTime,osc=audioContext.createOscillator(),harmonic=audioContext.createOscillator();
+        const filter=audioContext.createBiquadFilter(),env=audioContext.createGain();
+        osc.type='triangle';osc.frequency.setValueAtTime(Math.max(30,frequency),now);
+        harmonic.type='sine';harmonic.frequency.setValueAtTime(Math.max(30,frequency*2.01),now);
+        filter.type='lowpass';filter.frequency.setValueAtTime(Math.min(2400,frequency*7),now);filter.Q.value=.65;
+        env.gain.setValueAtTime(.0001,now);env.gain.linearRampToValueAtTime(peak,now+.018);
+        env.gain.exponentialRampToValueAtTime(Math.max(.0002,peak*.28),now+.16);
+        env.gain.exponentialRampToValueAtTime(.0001,now+duration);
+        osc.connect(filter);harmonic.connect(filter);filter.connect(env);env.connect(musicBus);
+        osc.start(now);harmonic.start(now);osc.stop(now+duration+.03);harmonic.stop(now+duration+.03);
+      };
+      // Arranjo original de fantasia: acordes longos, baixo suave, arpejos e melodia contínua.
       const tick=()=>{
         if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
         const step=musicStep++,astral=currentRealmVisual===2;
         const lead=astral?astralLead:dungeonLead,bass=astral?astralBass:dungeonBass,chords=astral?astralChords:dungeonChords;
-        const bar=Math.floor(step/8)%chords.length;
-        if(step%8===0){
-          schedulePad(chords[bar],4.9,astral?.021:.024);
-          scheduleMusicNote(bass[bar],3.8,.09,'sine');
-          scheduleMusicNote(bass[bar]*2,1.6,.018,'triangle');
+        const beat=step%8,bar=Math.floor(step/8)%chords.length,chord=chords[bar];
+        if(beat===0){
+          schedulePad(chord,4.8,astral?.017:.019);
+          scheduleMusicNote(bass[bar],2.8,astral?.055:.062,'sine');
+          schedulePluck(chord[0]*.5,1.3,.023);
         }
-        // Trilha de fantasia mais cinematográfica: frases longas, menos ataques agudos e notas de resposta suaves.
-        if(step%8===0){
-          const phrase=(Math.floor(step/8)+Math.floor(step/32)*3)%lead.length;
-          scheduleMusicNote(lead[phrase],3.2,astral?.026:.023,'sine');
-          scheduleMusicNote(lead[phrase]*2,2.5,.006,'triangle');
-        } else if(step%8===4){
-          const answer=lead[(Math.floor(step/8)+5)%lead.length];
-          scheduleMusicNote(answer,2.2,.012,'sine');
-          scheduleMusicNote(bass[bar]*1.5,1.1,.009,'triangle');
+        const arpPattern=[0,1,2,1,0,2,1,2];
+        const arpTone=chord[arpPattern[beat]]*(beat===4||beat===7?2:1);
+        schedulePluck(arpTone,beat===7?.82:.48,astral?.025:.029);
+        if(beat===1||beat===5){
+          const melodyIndex=(step*2+Math.floor(step/8)*3)%lead.length;
+          scheduleMusicNote(lead[melodyIndex],.95,astral?.024:.027,'sine');
+        }else if(beat===3||beat===7){
+          const answer=lead[(step+5)%lead.length];
+          schedulePluck(answer,.66,.018);
         }
       };
-      tick();musicTimer=window.setInterval(tick,1520);
+      tick();musicTimer=window.setInterval(tick,430);
     }
     if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
   }catch(_){}
