@@ -127,18 +127,18 @@ function ensureAudio(){
           scheduleMusicNote(bass[bar],3.8,.09,'sine');
           scheduleMusicNote(bass[bar]*2,1.6,.018,'triangle');
         }
-        // Melodia espaçada, com respostas suaves em vez de uma sequência constante de bipes.
-        if(step%4===0){
-          const phrase=(Math.floor(step/4)+Math.floor(step/32)*3)%lead.length;
-          scheduleMusicNote(lead[phrase],1.35,astral?.052:.058,'triangle');
-          if(step%8===0)scheduleMusicNote(lead[phrase]*1.5,.95,.012,'sine');
-        } else if(step%4===2 && step%8!==6){
-          const answer=lead[(Math.floor(step/4)+5)%lead.length];
-          scheduleMusicNote(answer,.72,.022,'sine');
+        // Trilha de fantasia mais cinematográfica: frases longas, menos ataques agudos e notas de resposta suaves.
+        if(step%8===0){
+          const phrase=(Math.floor(step/8)+Math.floor(step/32)*3)%lead.length;
+          scheduleMusicNote(lead[phrase],3.2,astral?.026:.023,'sine');
+          scheduleMusicNote(lead[phrase]*2,2.5,.006,'triangle');
+        } else if(step%8===4){
+          const answer=lead[(Math.floor(step/8)+5)%lead.length];
+          scheduleMusicNote(answer,2.2,.012,'sine');
+          scheduleMusicNote(bass[bar]*1.5,1.1,.009,'triangle');
         }
-        if(step%8===4)scheduleMusicNote(bass[bar]*1.5,.28,.025,'triangle');
       };
-      tick();musicTimer=window.setInterval(tick,760);
+      tick();musicTimer=window.setInterval(tick,1520);
     }
     if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
   }catch(_){}
