@@ -57,8 +57,8 @@ function getRenderPixelRatioCap(width = window.innerWidth, height = window.inner
   const landscapeMobile = isMobileDevice && width > height;
   const quality = gameSettings.graphicsQuality;
   if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 1.0 : 0.85) : 1.0;
-  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 1.7 : 1.55) : 2.0;
-  return isMobileDevice ? (landscapeMobile ? 1.4 : 1.25) : 1.5;
+  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 2.0 : 1.65) : 2.0;
+  return isMobileDevice ? (landscapeMobile ? 1.65 : 1.25) : 1.5;
 }
 function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.innerHeight) {
   return isMobileDevice && width > height ? 0.85 : (isMobileDevice ? 0.75 : 0.8);
@@ -103,8 +103,8 @@ function updateAudioLevels() {
 function ensureAudio() {
   try {
     if (!backgroundMusic) {
-      // HydroGene, “JRPG - End Dungeon”, loopable CC0 track hosted on OpenGameArt.
-      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/end_dungeon_0.mp3');
+      // JSKNYC, “RPG Main Theme” (CC-BY 3.0), hosted on OpenGameArt. Attribution: JSKNYC.
+      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/maintheme.mp3');
       backgroundMusic.loop = true;
       backgroundMusic.preload = 'auto';
       backgroundMusic.volume = gameSettings.musicEnabled ? gameSettings.musicVolume * 0.78 : 0;
