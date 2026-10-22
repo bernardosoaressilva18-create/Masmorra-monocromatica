@@ -1766,8 +1766,10 @@ const classDescriptions = {
   necromancer: 'Necromante: 90 de vida, cajado sombrio e esqueletos aliados.',
   monk: 'Monge: 110 de vida, combo de três golpes, atordoamento e mobilidade.'
 };
-let selectedClass = 'knight';
-let selectedSkin = 'default';
+let savedCharacterChoice = {};
+try { savedCharacterChoice = JSON.parse(localStorage.getItem('mmCharacterChoice') || '{}') || {}; } catch {}
+let selectedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk'].includes(savedCharacterChoice.playerClass) ? savedCharacterChoice.playerClass : 'knight';
+let selectedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(savedCharacterChoice.skin) ? savedCharacterChoice.skin : 'default';
 let skillPoints = 5;
 const unlockedSkills = new Set();
 let lastSkillSignature = '';
@@ -1865,6 +1867,7 @@ function refreshLocalHeroAppearance() {
 function chooseClass(className) {
   if (!classDescriptions[className]) return;
   selectedClass = className;
+  try { localStorage.setItem('mmCharacterChoice', JSON.stringify({ playerClass: selectedClass, skin: selectedSkin })); } catch {}
   document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
   if ($('classDescription')) $('classDescription').textContent = classDescriptions[selectedClass];
   updateHeroShowcase();
@@ -1876,6 +1879,7 @@ document.querySelectorAll('.class-card').forEach(card => card.addEventListener('
 function chooseSkin(skinName) {
   if (!['default','shadow','ember','rune','celestial','bloodmoon'].includes(skinName)) return;
   selectedSkin = skinName;
+  try { localStorage.setItem('mmCharacterChoice', JSON.stringify({ playerClass: selectedClass, skin: selectedSkin })); } catch {}
   document.querySelectorAll('.skin-pick').forEach(el => el.classList.toggle('selected', el.dataset.skin === selectedSkin));
   updateHeroShowcase();
   refreshLocalHeroAppearance();
@@ -1902,6 +1906,7 @@ function updateHeroShowcase() {
   if($('heroPreviewDesc')) $('heroPreviewDesc').textContent=classInfo.desc;
   if($('heroPreviewSkin')) $('heroPreviewSkin').textContent=skinInfo.label;
   if($('lobbyClassCurrent')) $('lobbyClassCurrent').textContent=classInfo.name.toUpperCase();
+  document.querySelectorAll('.class-card').forEach(el=>el.classList.toggle('selected',el.dataset.class===selectedClass));
   document.querySelectorAll('.skin-pick').forEach(el=>el.classList.toggle('selected',el.dataset.skin===selectedSkin));
   refreshLobby3DPreview();
 }
