@@ -881,7 +881,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const legPivot = new THREE.Group();
     legPivot.position.set(side*.2,.68,0);
     g.add(legPivot);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.145,.34,9,20), dark);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.145,.34,14,32), dark);
     leg.position.set(0,-.21,0);
     if (!isMobileDevice) { leg.castShadow = true; leg.receiveShadow = true; }
     legPivot.add(leg);
@@ -890,7 +890,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     boot.position.set(0,-.49,-.055);
     if (!isMobileDevice) { boot.castShadow = true; boot.receiveShadow = true; }
     legPivot.add(boot);
-    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.19,18,14), gold);
+    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.19,32,24), gold);
     kneePad.position.set(0,0,0);
     kneePad.scale.set(.94,.62,.9);
     if (!isMobileDevice) { kneePad.castShadow = true; kneePad.receiveShadow = true; }
@@ -899,7 +899,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const armPivot = new THREE.Group();
     armPivot.position.set(side*.48,1.51,0);
     g.add(armPivot);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,9,20), armor);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,14,32), armor);
     arm.position.set(0,-.22,0);
     arm.rotation.z=side*-.12;
     if (!isMobileDevice) { arm.castShadow = true; arm.receiveShadow = true; }
@@ -908,21 +908,21 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const elbow = new THREE.Group();
     elbow.position.set(0,-.39,0);
     armPivot.add(elbow);
-    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.105,.24,8,16), dark);
+    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.105,.24,12,28), dark);
     forearm.position.set(0,-.13,-.005);
     if (!isMobileDevice) { forearm.castShadow = true; forearm.receiveShadow = true; }
     elbow.add(forearm);
-    const wrist = new THREE.Mesh(new THREE.SphereGeometry(.09,12,10), gold);
+    const wrist = new THREE.Mesh(new THREE.SphereGeometry(.09,24,18), gold);
     wrist.position.set(0,-.27,-.01);
     elbow.add(wrist);
     armPivot.userData.elbow = elbow;
     arms.push({ mesh: armPivot, side });
-    add(new THREE.SphereGeometry(.19,20,16), steel, side*.48,1.49,0,1.08,.65,1.0);
-    add(new THREE.CapsuleGeometry(.12,.19,3,6), dark, side*.49,.91,-.015);
-    add(new THREE.SphereGeometry(.105,10,8), gold, side*.49,.83,-.02);
+    add(new THREE.SphereGeometry(.19,32,24), steel, side*.48,1.49,0,1.08,.65,1.0);
+    add(new THREE.CapsuleGeometry(.12,.19,8,16), dark, side*.49,.91,-.015);
+    add(new THREE.SphereGeometry(.105,20,16), gold, side*.49,.83,-.02);
   }
   // Peitoral em camadas, gola e cinto
-  torsoMesh = add(new THREE.CapsuleGeometry(.36,.5,7,16), armor, 0,1.22,0,1.0,1.0,.82);
+  torsoMesh = add(new THREE.CapsuleGeometry(.36,.5,14,32), armor, 0,1.22,0,1.0,1.0,.82);
   add(new THREE.BoxGeometry(.48,.42,.12), steel, 0,1.25,-.31);
   add(new THREE.BoxGeometry(.19,.23,.05), glow, 0,1.27,-.39);
   add(new THREE.BoxGeometry(.64,.12,.43), dark, 0,.91,0);
@@ -938,11 +938,11 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   capeCrest.rotation.z=Math.PI/4;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  headMesh = add(new THREE.SphereGeometry(.255,36,28), skinMaterial,0,1.94,-.015,
+  headMesh = add(new THREE.SphereGeometry(.255,64,48), skinMaterial,0,1.94,-.015,
     heroClass === 'ogre' ? 1.28 : heroClass === 'goblin' ? .93 : 1,
     heroClass === 'ogre' ? 1.12 : heroClass === 'goblin' ? 1.04 : 1,
     heroClass === 'ogre' ? 1.12 : 1);
-  add(new THREE.SphereGeometry(.27,20,12,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
+  add(new THREE.SphereGeometry(.27,40,24,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
   if (heroClass === 'goblin') {
     const eyeMat = new THREE.MeshStandardMaterial({color:0xd9d56a,emissive:0x817c24,emissiveIntensity:.35});
     for (const side of [-1,1]) {
@@ -1025,7 +1025,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     for (const side of [-1,1]) {
       const wrap = new THREE.Mesh(new THREE.TorusGeometry(.105,.035,5,12), new THREE.MeshStandardMaterial({color:0xe8d1a5,roughness:.78}));
       wrap.position.set(side*.49,1.04,-.16); wrap.rotation.y=Math.PI/2; g.add(wrap);
-      const fist = new THREE.Mesh(new THREE.SphereGeometry(.105,10,8), new THREE.MeshStandardMaterial({color:0xd7a05b,roughness:.8}));
+      const fist = new THREE.Mesh(new THREE.SphereGeometry(.105,20,16), new THREE.MeshStandardMaterial({color:0xd7a05b,roughness:.8}));
       fist.position.set(side*.5,.92,-.18); fist.scale.set(1.0,.9,1.1); g.add(fist);
     }
   }
