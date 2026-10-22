@@ -979,12 +979,15 @@ setInterval(() => {
 
       let target = null;
       let nearest = Infinity;
+      let targetPriority = Infinity;
 
-      // Monstros podem escolher jogadores OU goblins aliados como alvo.
+      // Goblins invocados provocam os monstros: recebem uma vantagem de aggro
+      // para que os inimigos realmente os persigam em vez de focar sempre o jogador.
       for (const player of players) {
         if (player.hp <= 0 || now < (player.invisibleUntil || 0)) continue;
         const distance = Math.hypot(player.x - monster.x, player.z - monster.z);
-        if (distance < nearest) {
+        if (distance < targetPriority) {
+          targetPriority = distance;
           nearest = distance;
           target = player;
         }
@@ -992,9 +995,11 @@ setInterval(() => {
       for (const summon of (room.summons || [])) {
         if (summon.hp <= 0 || summon.expiresAt <= now) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
-        if (distance < nearest) {
+        const aggroPriority = Math.max(0, distance - 4.5);
+        if (aggroPriority < targetPriority) {
+          targetPriority = aggroPriority;
           nearest = distance;
-          target = { ...summon, isSummon: true, sourceSummon: summon };
+          target = { ...summon, id: 'summon:' + summon.id, isSummon: true, sourceSummon: summon };
         }
       }
 
@@ -1015,13 +1020,15 @@ setInterval(() => {
       }
       const monsterNow = Date.now();
       if (target && nearest <= 2.0) {
-        if (!monster.attackWarnAt && monsterNow - (monster.attackAt || 0) > 2200) {
+        if (!monster.attackWarnAt || monster.attackTargetId !== target.id) {
           monster.attackWarnAt = monsterNow;
+          monster.attackTargetId = target.id;
           broadcast(room, { type: 'monsterWindup', id: monster.id, targetId: target.id, duration: 460 });
           if (!target.isSummon && target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
         } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460) {
           monster.attackAt = monsterNow;
           monster.attackWarnAt = 0;
+          monster.attackTargetId = null;
           broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
           if (target.isSummon) {
             const summon = target.sourceSummon;
@@ -1040,6 +1047,7 @@ setInterval(() => {
         }
       } else if (!target || nearest > 2.5) {
         monster.attackWarnAt = 0;
+        monster.attackTargetId = null;
       }
     }
 
