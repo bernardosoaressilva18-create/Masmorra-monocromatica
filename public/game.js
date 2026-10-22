@@ -2565,13 +2565,7 @@ $('roomCode').addEventListener('input', e => {
   e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
 });
 
-$('leaveBtn').addEventListener('click', () => {
-  send({ type: 'leave' });
-  if (ws) ws.close();
-  started = false;
-  hud.classList.add('hidden');
-  menu.classList.remove('hidden');
-});
+$('leaveBtn').addEventListener('click', leaveRoomToMenu);
 
 $('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (!$('chestBtn').classList.contains('hidden')) interactChest(); });
 $('lootFilter')?.addEventListener('change', renderInventory);
