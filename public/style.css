@@ -2024,3 +2024,46 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
     margin-bottom:max(4px,env(safe-area-inset-bottom))!important;
   }
 }
+
+
+/* v51 — feedback visual de combate: botão de ataque com impacto, brilho e retorno tátil visual. */
+#hud .attack {
+  isolation:isolate;
+  overflow:visible;
+  transition:transform .12s ease, filter .12s ease, box-shadow .12s ease;
+  will-change:transform;
+}
+#hud .attack::before {
+  content:"";
+  position:absolute;
+  inset:-7px;
+  border:1px solid rgba(255,210,125,.45);
+  border-radius:50%;
+  pointer-events:none;
+  opacity:.5;
+  transform:scale(.94);
+  transition:transform .18s ease, opacity .18s ease;
+}
+#hud .attack:active {
+  transform:scale(.88);
+  filter:brightness(1.45) saturate(1.2);
+  box-shadow:0 0 0 5px #080d1577,0 0 34px #ffb84d88,inset 0 0 22px #ffdf8b66;
+}
+#hud .attack:active::before {
+  transform:scale(1.14);
+  opacity:1;
+}
+#hud .attack span {
+  transition:transform .12s ease;
+}
+#hud .attack:active span {
+  transform:rotate(-18deg) scale(1.12);
+}
+@keyframes attack-ready-glow {
+  0%,100% { box-shadow:0 0 0 7px #080d1577,0 0 20px #e9a35425; }
+  50% { box-shadow:0 0 0 7px #080d1577,0 0 27px #e9a3544a; }
+}
+#hud .attack:not(:active) { animation:attack-ready-glow 2.8s ease-in-out infinite; }
+@media (prefers-reduced-motion:reduce) {
+  #hud .attack,#hud .attack span,#hud .attack::before { animation:none!important; transition:none!important; }
+}
