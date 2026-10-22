@@ -982,6 +982,60 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     brow.rotation.z = side * -.12;
   }
   add(new THREE.SphereGeometry(.035,16,12), skinMaterial,0,1.91,-.255,.72,.9,.58);
+  // Update visual do herói: rosto, cabelo e silhueta mais legíveis.
+  const neck = add(new THREE.CylinderGeometry(.105,.13,.20,10), skinMaterial, 0,1.72,-.005);
+  const hairMat = new THREE.MeshStandardMaterial({ color: heroClass === 'skeleton' ? 0x37313d : darkColor, roughness:.9, map:surfaceTexture, bumpMap:surfaceTexture, bumpScale:.01 });
+  const hairCap = add(new THREE.SphereGeometry(.258,20,14,0,Math.PI*2,0,Math.PI*.56), hairMat, 0,2.075,.012,1.04,.76,1.02);
+  hairCap.visible = !['mage','archer','healer','necromancer'].includes(heroClass) && heroClass !== 'skeleton';
+  for (const side of [-1,1]) {
+    const sideLock = add(new THREE.CapsuleGeometry(.055,.15,5,8), hairMat, side*.215,2.00,-.005,.85,1,.8);
+    sideLock.rotation.z = side * -.10;
+    sideLock.visible = hairCap.visible;
+  }
+  const fringe = add(new THREE.BoxGeometry(.25,.065,.10), hairMat, 0,2.075,-.225);
+  fringe.rotation.z = -.06;
+  fringe.visible = hairCap.visible;
+  // Nariz, boca e orelhas dão volume ao rosto visto de perto.
+  add(new THREE.SphereGeometry(.035,10,8), skinMaterial, 0,1.925,-.275,.72,1,.72);
+  add(new THREE.BoxGeometry(.085,.018,.012), dark, 0,1.865,-.264);
+  for (const side of [-1,1]) {
+    if (!['goblin','ogre'].includes(heroClass)) {
+      const ear = add(new THREE.SphereGeometry(.055,10,8), skinMaterial, side*.25,1.94,-.005,.72,1.18,.55);
+      ear.rotation.z = side*.12;
+    }
+    add(new THREE.SphereGeometry(.018,8,6), palette.accent ? classAccentMaterial : gold, side*.15,1.88,-.235,.8,.7,.55);
+  }
+  // Camadas de ombreira, braçadeiras e luvas com materiais contrastantes.
+  for (const side of [-1,1]) {
+    const shoulderLayer = add(new THREE.SphereGeometry(.205,12,8), armor, side*.49,1.53,-.015,1.08,.65,.9);
+    shoulderLayer.rotation.z = side*-.16;
+    const shoulderRivet = add(new THREE.OctahedronGeometry(.055,0), gold, side*.49,1.55,-.205);
+    shoulderRivet.rotation.z = Math.PI/4;
+    add(new THREE.TorusGeometry(.105,.018,5,12), dark, side*.48,1.02,-.015).rotation.x=Math.PI/2;
+    add(new THREE.SphereGeometry(.105,10,8), dark, side*.49,.84,-.045,1,.78,.8);
+    const thighGuard = add(new THREE.BoxGeometry(.22,.24,.10), armor, side*.20,.61,-.12);
+    thighGuard.rotation.z = side*-.08;
+    add(new THREE.BoxGeometry(.17,.035,.025), gold, side*.20,.64,-.18);
+    add(new THREE.BoxGeometry(.24,.055,.31), dark, side*.2,.19,-.015);
+    add(new THREE.BoxGeometry(.19,.018,.025), gold, side*.2,.21,-.18);
+  }
+  // Cinto com fivela tridimensional e bolsa de equipamento lateral.
+  add(new THREE.BoxGeometry(.24,.17,.055), dark, -.29,.91,-.20);
+  add(new THREE.BoxGeometry(.12,.12,.045), gold, 0,.92,-.29);
+  add(new THREE.BoxGeometry(.065,.065,.05), classAccentMaterial, 0,.92,-.32);
+  add(new THREE.BoxGeometry(.12,.18,.10), clothMaterial, .34,.88,.02);
+  add(new THREE.BoxGeometry(.14,.035,.11), gold, .34,.98,.02);
+  // Emblema e fecho traseiro para a silhueta não parecer um boneco liso.
+  add(new THREE.OctahedronGeometry(.10,1), classAccentMaterial, 0,1.57,.39,.8,1.15,.45);
+  add(new THREE.TorusGeometry(.14,.018,5,16), gold, 0,1.57,.40).rotation.x=Math.PI/2;
+  add(new THREE.BoxGeometry(.34,.025,.035), gold, 0,1.05,.38);
+  // Costuras de tecido e pequenas placas de canela e botas.
+  for (const side of [-1,1]) {
+    add(new THREE.BoxGeometry(.10,.22,.04), steel, side*.20,.39,-.16);
+    add(new THREE.BoxGeometry(.12,.025,.045), gold, side*.20,.31,-.19);
+    add(new THREE.SphereGeometry(.035,8,6), classAccentMaterial, side*.31,.89,-.27);
+  }
+  // Fim do passe de silhueta: detalhes cosméticos não mudam colisão nem atributos.
   // Ombreiras e pequenos rebites metálicos
   for (const side of [-1,1]) {
     const pad=add(new THREE.SphereGeometry(.22,12,8), steel,side*.48,1.51,0,1.15,.7,1.0);
@@ -3622,7 +3676,11 @@ const right = new THREE.Vector3(
     }
     // 8) O personagem dá um pequeno impulso visual no impacto.
     myPlayer.position.y = (moving ? Math.abs(Math.sin(phase * 2)) * .008 : 0) + attackHit * .045;
-    // 9) A capa responde aos passos, ao ataque e à esquiva.
+    // 9) A capa e as pontas acompanham inércia de corrida e golpe.
+    for (const tail of myPlayer.userData.capeTails || []) {
+      tail.rotation.x = Math.sin(phase * .85) * .08 * stride + attackHit * .11 - dodgeLean * .12;
+      tail.rotation.z = (tail.position.x < 0 ? .10 : -.10) + Math.sin(phase * .55) * .035 * stride;
+    }
     if (myPlayer.userData.cape) {
       myPlayer.userData.cape.rotation.x = -.08 + Math.sin(phase) * .035 * stride + attackHit * .08 - dodgeLean * .18;
       myPlayer.userData.cape.rotation.z = Math.sin(phase * .5) * .012 * stride - attackHit * .06;
