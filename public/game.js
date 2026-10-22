@@ -869,20 +869,32 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const armorColor = palette.armor;
   const darkColor = palette.dark;
   // Acabamento PBR aprimorado compartilhado por todas as classes e skins.
-  const armor = new THREE.MeshPhysicalMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .034, metalness: .46, roughness: .39, clearcoat: .34, clearcoatRoughness: .32 });
-  const dark = new THREE.MeshStandardMaterial({ color: darkColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .012, metalness: .31, roughness: .58 });
+  const armor = new THREE.MeshPhysicalMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .022, metalness: .42, roughness: .34, clearcoat: .28, clearcoatRoughness: .36 });
+  const dark = new THREE.MeshStandardMaterial({ color: darkColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .008, metalness: .22, roughness: .52 });
   const skinTone = heroClass === 'goblin' ? 0x83bb56 : heroClass === 'ogre' ? 0x8c7952 : heroClass === 'skeleton' ? 0xe0dccb : 0xe2b99a;
-  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .77, bumpMap: surfaceTexture, bumpScale: .007 });
-  const steel = new THREE.MeshPhysicalMaterial({ color: 0xc2d7e4, metalness: .88, roughness: .2, clearcoat: .28, clearcoatRoughness: .22 });
-  const gold = new THREE.MeshPhysicalMaterial({ color: palette.trim, metalness: .76, roughness: .27, clearcoat: .3, clearcoatRoughness: .25 });
-  const glow = new THREE.MeshPhysicalMaterial({ color: palette.glow, emissive: palette.glow, emissiveIntensity: 1.22, metalness: .25, roughness: .23, clearcoat: .42 });
-  const classAccentMaterial = new THREE.MeshPhysicalMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: .5, metalness: .49, roughness: .27, clearcoat: .5, clearcoatRoughness: .25 });
-  const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .018, roughness: .83, metalness: .06 });
+  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .69, bumpMap: surfaceTexture, bumpScale: .004 });
+  const steel = new THREE.MeshPhysicalMaterial({ color: 0xc2d7e4, metalness: .78, roughness: .28, clearcoat: .25, clearcoatRoughness: .3 });
+  const gold = new THREE.MeshPhysicalMaterial({ color: palette.trim, metalness: .68, roughness: .32, clearcoat: .25, clearcoatRoughness: .34 });
+  const glow = new THREE.MeshPhysicalMaterial({ color: palette.glow, emissive: palette.glow, emissiveIntensity: 1.0, metalness: .22, roughness: .23, clearcoat: .42 });
+  const classAccentMaterial = new THREE.MeshPhysicalMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: .36, metalness: .42, roughness: .27, clearcoat: .5, clearcoatRoughness: .25 });
+  const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .012, roughness: .78, metalness: .04 });
   const add = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
     const mesh = new THREE.Mesh(geo, material);
     mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
     if (!isMobileDevice) { mesh.castShadow = true; mesh.receiveShadow = true; }
     g.add(mesh); return mesh;
+  };
+  // Rig de cabeça independente: cabelo, rosto e elmo acompanham o movimento sem se separar.
+  const headRig = new THREE.Group();
+  headRig.position.y = 1.94;
+  g.add(headRig);
+  const addHead = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.position.set(x, y - 1.94, z);
+    mesh.scale.set(sx, sy, sz);
+    if (!isMobileDevice) { mesh.castShadow = true; mesh.receiveShadow = true; }
+    headRig.add(mesh);
+    return mesh;
   };
   // Botas, pernas e braços guardados para animação procedural de caminhada.
   const legs = [], arms = [];
@@ -892,25 +904,31 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const legPivot = new THREE.Group();
     legPivot.position.set(side*.2,.68,0);
     g.add(legPivot);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.145,.34,14,32), dark);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.135,.34,12,20), dark);
     leg.position.set(0,-.21,0);
     if (!isMobileDevice) { leg.castShadow = true; leg.receiveShadow = true; }
     legPivot.add(leg);
     legs.push({ mesh: legPivot, side });
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(.27,.16,.4), steel);
-    boot.position.set(0,-.49,-.055);
+    const boot = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.12,5,10), steel);
+    boot.position.set(0,-.49,-.09);
+    boot.rotation.x = Math.PI / 2;
+    boot.scale.set(1,1,1.18);
     if (!isMobileDevice) { boot.castShadow = true; boot.receiveShadow = true; }
     legPivot.add(boot);
-    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.19,32,24), gold);
-    kneePad.position.set(0,0,0);
-    kneePad.scale.set(.94,.62,.9);
+    const toeCap = new THREE.Mesh(new THREE.SphereGeometry(.105,12,8), dark);
+    toeCap.position.set(0,-.49,-.235);
+    toeCap.scale.set(1.2,.48,.7);
+    legPivot.add(toeCap);
+    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.155,16,12), gold);
+    kneePad.position.set(0,0,-.015);
+    kneePad.scale.set(.9,.52,.8);
     if (!isMobileDevice) { kneePad.castShadow = true; kneePad.receiveShadow = true; }
     legPivot.add(kneePad);
     // Ombro: o braço acompanha uma articulação dedicada.
     const armPivot = new THREE.Group();
     armPivot.position.set(side*.48,1.51,0);
     g.add(armPivot);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,14,32), armor);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.12,.42,12,20), armor);
     arm.position.set(0,-.22,0);
     arm.rotation.z=side*-.12;
     if (!isMobileDevice) { arm.castShadow = true; arm.receiveShadow = true; }
@@ -919,27 +937,27 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const elbow = new THREE.Group();
     elbow.position.set(0,-.39,0);
     armPivot.add(elbow);
-    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.105,.24,12,28), dark);
+    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.095,.24,10,18), dark);
     forearm.position.set(0,-.13,-.005);
     if (!isMobileDevice) { forearm.castShadow = true; forearm.receiveShadow = true; }
     elbow.add(forearm);
-    const wrist = new THREE.Mesh(new THREE.SphereGeometry(.09,24,18), gold);
+    const wrist = new THREE.Mesh(new THREE.SphereGeometry(.075,14,10), gold);
     wrist.position.set(0,-.27,-.01);
     elbow.add(wrist);
     armPivot.userData.elbow = elbow;
     arms.push({ mesh: armPivot, side });
-    add(new THREE.SphereGeometry(.19,32,24), steel, side*.48,1.49,0,1.08,.65,1.0);
+    add(new THREE.SphereGeometry(.14,16,12), steel, side*.48,1.49,0,1.08,.65,1.0);
     add(new THREE.CapsuleGeometry(.12,.19,8,16), dark, side*.49,.91,-.015);
     add(new THREE.SphereGeometry(.105,20,16), gold, side*.49,.83,-.02);
   }
   // Peitoral em camadas, gola e cinto
-  torsoMesh = add(new THREE.CapsuleGeometry(.36,.5,14,32), armor, 0,1.22,0,1.0,1.0,.82);
-  add(new THREE.BoxGeometry(.48,.42,.12), steel, 0,1.25,-.31);
-  add(new THREE.BoxGeometry(.19,.23,.05), glow, 0,1.27,-.39);
+  torsoMesh = add(new THREE.CapsuleGeometry(.36,.5,14,24), armor, 0,1.22,0,.98,1.03,.88);
+  add(new THREE.SphereGeometry(.27,20,14), steel, 0,1.25,-.31,1.25,1.18,.34);
+  add(new THREE.OctahedronGeometry(.12,1), glow, 0,1.27,-.395,.9,1.2,.55);
   add(new THREE.BoxGeometry(.64,.12,.43), dark, 0,.91,0);
   add(new THREE.BoxGeometry(.15,.15,.08), gold, 0,.91,-.23);
   // Capa dividida em painéis para dar silhueta de aventureiro
-  const cape=add(new THREE.BoxGeometry(.58,.72,.13), dark,0,1.23,.29);
+  const cape=add(new THREE.CapsuleGeometry(.30,.32,6,12), dark,0,1.23,.29,1,.78,.22);
   cape.rotation.x=-.08;
   // Back-facing crest and metal hems make the third-person silhouette readable.
   for (const y of [1.53,1.39,1.25,1.11]) add(new THREE.BoxGeometry(.43,.018,.018), gold,0,y,.371);
@@ -949,82 +967,83 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   capeCrest.rotation.z=Math.PI/4;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  headMesh = add(new THREE.SphereGeometry(.255,64,48), skinMaterial,0,1.94,-.015,
+  headMesh = addHead(new THREE.SphereGeometry(.27,32,24), skinMaterial,0,1.94,-.015,
     heroClass === 'ogre' ? 1.28 : heroClass === 'goblin' ? .93 : 1,
     heroClass === 'ogre' ? 1.12 : heroClass === 'goblin' ? 1.04 : 1,
     heroClass === 'ogre' ? 1.12 : 1);
-  add(new THREE.SphereGeometry(.27,40,24,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
+  const baseHair = addHead(new THREE.SphereGeometry(.275,24,16,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
+  baseHair.visible = !['mage','archer','healer','necromancer','skeleton'].includes(heroClass);
   if (heroClass === 'goblin') {
     const eyeMat = new THREE.MeshStandardMaterial({color:0xd9d56a,emissive:0x817c24,emissiveIntensity:.35});
     for (const side of [-1,1]) {
-      const ear = add(new THREE.ConeGeometry(.095,.34,4), skinMaterial, side*.32,2.00,.005,1,1,.62);
+      const ear = addHead(new THREE.ConeGeometry(.095,.34,4), skinMaterial, side*.32,2.00,.005,1,1,.62);
       ear.rotation.z = side * -.88;
-      add(new THREE.SphereGeometry(.052,8,6), eyeMat, side*.09,1.96,-.239);
+      addHead(new THREE.SphereGeometry(.052,8,6), eyeMat, side*.09,1.96,-.239);
     }
   } else if (heroClass === 'ogre') {
     for (const side of [-1,1]) {
-      const tusk = add(new THREE.ConeGeometry(.075,.23,6), new THREE.MeshStandardMaterial({color:0xf1e0b3,roughness:.6}), side*.15,1.79,-.205);
+      const tusk = addHead(new THREE.ConeGeometry(.075,.23,6), new THREE.MeshStandardMaterial({color:0xf1e0b3,roughness:.6}), side*.15,1.79,-.205);
       tusk.rotation.z = Math.PI + side*.18;
-      add(new THREE.SphereGeometry(.075,8,6), dark, side*.27,1.91,-.11,1.2,.8,.7);
+      addHead(new THREE.SphereGeometry(.075,8,6), dark, side*.27,1.91,-.11,1.2,.8,.7);
     }
-    add(new THREE.ConeGeometry(.09,.20,5), dark, -.12,2.25,.02,1,1,.8).rotation.z = -.3;
-    add(new THREE.ConeGeometry(.09,.20,5), dark, .12,2.25,.02,1,1,.8).rotation.z = .3;
+    addHead(new THREE.ConeGeometry(.09,.20,5), dark, -.12,2.25,.02,1,1,.8).rotation.z = -.3;
+    addHead(new THREE.ConeGeometry(.09,.20,5), dark, .12,2.25,.02,1,1,.8).rotation.z = .3;
   }
   // Face pass: readable eye sockets, pupils and brows from the normal game camera.
-  add(new THREE.BoxGeometry(.32,.09,.2), dark,0,2.04,-.17);
+  addHead(new THREE.BoxGeometry(.29,.065,.16), dark,0,2.04,-.17);
   const eyeSocketMat = new THREE.MeshStandardMaterial({ color: 0x101522, roughness: .58 });
   const pupilMat = new THREE.MeshStandardMaterial({ color: 0x172238, metalness: .12, roughness: .28 });
   for (const side of [-1,1]) {
-    add(new THREE.SphereGeometry(.043,16,12), eyeSocketMat,side*.09,1.96,-.244,1.15,1,.55);
-    add(new THREE.SphereGeometry(.027,16,12), glow,side*.09,1.96,-.263,1.05,1,.45);
-    add(new THREE.SphereGeometry(.012,12,8), pupilMat,side*.09,1.96,-.271,1,1,.4);
-    const brow = add(new THREE.CapsuleGeometry(.018,.065,4,10), dark,side*.09,2.015,-.245,1,.75,.65);
+    add(new THREE.SphereGeometry(.038,12,8), eyeSocketMat,side*.09,1.96,-.244,1.15,1,.55);
+    add(new THREE.SphereGeometry(.021,12,8), glow,side*.09,1.96,-.263,1.05,1,.45);
+    add(new THREE.SphereGeometry(.014,10,8), pupilMat,side*.09,1.96,-.271,1,1,.4);
+    const brow = addHead(new THREE.CapsuleGeometry(.015,.055,4,8), dark,side*.09,2.015,-.245,1,.75,.65);
     brow.rotation.z = side * -.12;
   }
-  add(new THREE.SphereGeometry(.035,16,12), skinMaterial,0,1.91,-.255,.72,.9,.58);
+  addHead(new THREE.SphereGeometry(.028,12,8), skinMaterial,0,1.91,-.255,.72,.9,.58);
   // Update visual do herói: rosto, cabelo e silhueta mais legíveis.
   const neck = add(new THREE.CylinderGeometry(.105,.13,.20,10), skinMaterial, 0,1.72,-.005);
-  const hairMat = new THREE.MeshStandardMaterial({ color: heroClass === 'skeleton' ? 0x37313d : darkColor, roughness:.9, map:surfaceTexture, bumpMap:surfaceTexture, bumpScale:.01 });
-  const hairCap = add(new THREE.SphereGeometry(.258,20,14,0,Math.PI*2,0,Math.PI*.56), hairMat, 0,2.075,.012,1.04,.76,1.02);
+  const hairMat = new THREE.MeshStandardMaterial({ color: heroClass === 'skeleton' ? 0x37313d : darkColor, roughness:.86, map:surfaceTexture, bumpMap:surfaceTexture, bumpScale:.006 });
+  const hairCap = addHead(new THREE.SphereGeometry(.258,16,10,0,Math.PI*2,0,Math.PI*.56), hairMat, 0,2.075,.012,1.04,.76,1.02);
   hairCap.visible = !['mage','archer','healer','necromancer'].includes(heroClass) && heroClass !== 'skeleton';
   for (const side of [-1,1]) {
-    const sideLock = add(new THREE.CapsuleGeometry(.055,.15,5,8), hairMat, side*.215,2.00,-.005,.85,1,.8);
+    const sideLock = addHead(new THREE.CapsuleGeometry(.05,.13,4,7), hairMat, side*.215,2.00,-.005,.85,1,.8);
     sideLock.rotation.z = side * -.10;
     sideLock.visible = hairCap.visible;
   }
-  const fringe = add(new THREE.BoxGeometry(.25,.065,.10), hairMat, 0,2.075,-.225);
+  const fringe = addHead(new THREE.SphereGeometry(.14,12,8), hairMat, 0,2.075,-.205,1.3,.42,.30);
   fringe.rotation.z = -.06;
   fringe.visible = hairCap.visible;
   // Nariz, boca e orelhas dão volume ao rosto visto de perto.
-  add(new THREE.SphereGeometry(.035,10,8), skinMaterial, 0,1.925,-.275,.72,1,.72);
-  add(new THREE.BoxGeometry(.085,.018,.012), dark, 0,1.865,-.264);
+  addHead(new THREE.SphereGeometry(.028,10,8), skinMaterial, 0,1.925,-.275,.72,1,.72);
+  addHead(new THREE.BoxGeometry(.07,.014,.012), dark, 0,1.865,-.264);
   for (const side of [-1,1]) {
     if (!['goblin','ogre'].includes(heroClass)) {
-      const ear = add(new THREE.SphereGeometry(.055,10,8), skinMaterial, side*.25,1.94,-.005,.72,1.18,.55);
+      const ear = addHead(new THREE.SphereGeometry(.045,10,8), skinMaterial, side*.25,1.94,-.005,.72,1.18,.55);
       ear.rotation.z = side*.12;
     }
     add(new THREE.SphereGeometry(.018,8,6), palette.accent ? classAccentMaterial : gold, side*.15,1.88,-.235,.8,.7,.55);
   }
   // Camadas de ombreira, braçadeiras e luvas com materiais contrastantes.
   for (const side of [-1,1]) {
-    const shoulderLayer = add(new THREE.SphereGeometry(.205,12,8), armor, side*.49,1.53,-.015,1.08,.65,.9);
+    const shoulderLayer = add(new THREE.SphereGeometry(.16,12,8), armor, side*.49,1.53,-.015,1.08,.65,.9);
     shoulderLayer.rotation.z = side*-.16;
-    const shoulderRivet = add(new THREE.OctahedronGeometry(.055,0), gold, side*.49,1.55,-.205);
+    const shoulderRivet = add(new THREE.OctahedronGeometry(.043,0), gold, side*.49,1.55,-.205);
     shoulderRivet.rotation.z = Math.PI/4;
     add(new THREE.TorusGeometry(.105,.018,5,12), dark, side*.48,1.02,-.015).rotation.x=Math.PI/2;
     add(new THREE.SphereGeometry(.105,10,8), dark, side*.49,.84,-.045,1,.78,.8);
-    const thighGuard = add(new THREE.BoxGeometry(.22,.24,.10), armor, side*.20,.61,-.12);
+    const thighGuard = add(new THREE.BoxGeometry(.18,.20,.07), armor, side*.20,.61,-.12);
     thighGuard.rotation.z = side*-.08;
-    add(new THREE.BoxGeometry(.17,.035,.025), gold, side*.20,.64,-.18);
-    add(new THREE.BoxGeometry(.24,.055,.31), dark, side*.2,.19,-.015);
-    add(new THREE.BoxGeometry(.19,.018,.025), gold, side*.2,.21,-.18);
+    add(new THREE.BoxGeometry(.14,.025,.02), gold, side*.20,.64,-.18);
+    add(new THREE.BoxGeometry(.22,.04,.25), dark, side*.2,.19,-.015);
+    add(new THREE.BoxGeometry(.16,.014,.02), gold, side*.2,.21,-.16);
   }
   // Cinto com fivela tridimensional e bolsa de equipamento lateral.
   add(new THREE.BoxGeometry(.24,.17,.055), dark, -.29,.91,-.20);
   add(new THREE.BoxGeometry(.12,.12,.045), gold, 0,.92,-.29);
   add(new THREE.BoxGeometry(.065,.065,.05), classAccentMaterial, 0,.92,-.32);
-  add(new THREE.BoxGeometry(.12,.18,.10), clothMaterial, .34,.88,.02);
-  add(new THREE.BoxGeometry(.14,.035,.11), gold, .34,.98,.02);
+  add(new THREE.BoxGeometry(.10,.15,.085), clothMaterial, .34,.88,.02);
+  add(new THREE.BoxGeometry(.12,.025,.09), gold, .34,.97,.02);
   // Emblema e fecho traseiro para a silhueta não parecer um boneco liso.
   add(new THREE.OctahedronGeometry(.10,1), classAccentMaterial, 0,1.57,.39,.8,1.15,.45);
   add(new THREE.TorusGeometry(.14,.018,5,16), gold, 0,1.57,.40).rotation.x=Math.PI/2;
@@ -1044,7 +1063,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }
   // Espada com lâmina facetada, guarda dourada e pomo
   const sword = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(.085,.72,.055), steel); blade.position.y=.48; sword.add(blade);
+  const blade = new THREE.Mesh(new THREE.CylinderGeometry(.018,.065,.72,4), steel); blade.position.y=.48; sword.add(blade);
   const edge = new THREE.Mesh(new THREE.BoxGeometry(.018,.68,.06), glow); edge.position.set(.043,.48,-.002); sword.add(edge);
   const guard = new THREE.Mesh(new THREE.BoxGeometry(.31,.065,.12), gold); guard.position.y=.12; sword.add(guard);
   const grip = new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.2,16), dark); grip.position.y=.015; sword.add(grip);
@@ -1206,9 +1225,9 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   // Placas sobrepostas, costuras metálicas e rebites melhoram a leitura sem alterar colisões ou poderes.
   for (let row = 0; row < 3; row++) {
     const y = 1.08 + row * .13;
-    const plate = add(new THREE.SphereGeometry(.205,24,16), armor, 0, y, -.365, 1.32, .30, .13);
+    const plate = add(new THREE.SphereGeometry(.17,16,12), armor, 0, y, -.365, 1.32, .30, .13);
     plate.rotation.x = -.035;
-    add(new THREE.BoxGeometry(.29,.012,.014), gold, 0, y + .045, -.405);
+    add(new THREE.BoxGeometry(.25,.009,.012), gold, 0, y + .045, -.405);
     add(new THREE.SphereGeometry(.018,10,8), classAccentMaterial, 0, y, -.414);
   }
   // Pequenos rebites nos encaixes dos ombros e antebraços, com reflexo físico.
@@ -1239,7 +1258,9 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     add(new THREE.SphereGeometry(.055,14,10), classAccentMaterial, side*.48,1.49,-.21);
   }
   g.userData.sword=classWeapon;
-  const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color:classColor,transparent:true,opacity:.72,side:THREE.DoubleSide}));
+  g.userData.weaponRest = { x: classWeapon.rotation.x, z: classWeapon.rotation.z, y: classWeapon.position.y };
+  g.userData.headRig = headRig;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color:classColor,transparent:true,opacity:.58,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.heroClass = heroClass;
   g.userData.heroSkin = skin;
@@ -1247,6 +1268,9 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.capeTails=[capeTailL,capeTailR];
   g.userData.torso = torsoMesh;
   g.userData.head = headMesh;
+  g.userData.headRig = headRig;
+  g.userData.baseRing = ring;
+  g.userData.waistSigil = waistSigil;
   g.userData.legs = legs;
   g.userData.arms = arms;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
@@ -3656,8 +3680,9 @@ const right = new THREE.Vector3(
     }
     // 4) Cabeça acompanha o movimento e aponta para a ação.
     if (myPlayer.userData.head) {
-      myPlayer.userData.head.rotation.x = (moving ? Math.sin(phase) * .012 : Math.sin(phase * .6) * .008) - attackHit * .10;
-      myPlayer.userData.head.rotation.z = Math.sin(phase * .4) * .012 + dodgeLean * .12;
+      const head = myPlayer.userData.headRig || myPlayer.userData.head;
+      head.rotation.x = (moving ? Math.sin(phase) * .035 : Math.sin(phase * .6) * .018) - attackHit * .13;
+      head.rotation.z = Math.sin(phase * .4) * .022 + dodgeLean * .18;
     }
     // 5) Passos alternados mais legíveis; 6) pose de esquiva temporária.
     for (const leg of myPlayer.userData.legs || []) {
@@ -3688,9 +3713,13 @@ const right = new THREE.Vector3(
     // 10) A arma acompanha a animação sem setTimeout concorrente.
     const weapon = myPlayer.userData.sword;
     if (weapon) {
-      weapon.rotation.x = -attackHit * 1.05;
-      weapon.rotation.z = -attackHit * .42;
+      const rest = myPlayer.userData.weaponRest || {x:0,z:0,y:0};
+      weapon.rotation.x = rest.x - attackHit * 1.05 + Math.sin(phase) * .025 * stride;
+      weapon.rotation.z = rest.z - attackHit * .42 + Math.sin(phase * .5) * .012;
+      weapon.position.y = rest.y + Math.sin(phase) * .018 * stride;
     }
+    if (myPlayer.userData.baseRing) myPlayer.userData.baseRing.rotation.z += dt * (moving ? .38 : .16);
+    if (myPlayer.userData.waistSigil) myPlayer.userData.waistSigil.rotation.y += dt * (moving ? 1.2 : .45);
   }
 
   // Movimento suave dos outros jogadores
@@ -3742,9 +3771,18 @@ const right = new THREE.Vector3(
       obj.userData.torso.rotation.z = remoteMoving ? Math.sin(rp) * .022 : Math.sin(rp * .5) * .005;
     }
     if (obj.userData.head) {
-      obj.userData.head.rotation.x = remoteMoving ? Math.sin(rp) * .01 : Math.sin(rp * .6) * .005;
-      obj.userData.head.rotation.z = Math.sin(rp * .4) * .01;
+      const head = obj.userData.headRig || obj.userData.head;
+      head.rotation.x = remoteMoving ? Math.sin(rp) * .028 : Math.sin(rp * .6) * .016;
+      head.rotation.z = Math.sin(rp * .4) * .018;
     }
+    if (obj.userData.capeTails) {
+      for (const tail of obj.userData.capeTails) {
+        tail.rotation.x = Math.sin(rp * .8 + tail.position.x) * (remoteMoving ? .07 : .012);
+        tail.rotation.z = (tail.position.x < 0 ? .10 : -.10) + Math.sin(rp * .5) * (remoteMoving ? .025 : .006);
+      }
+    }
+    if (obj.userData.baseRing) obj.userData.baseRing.rotation.z += dt * .3;
+    if (obj.userData.waistSigil) obj.userData.waistSigil.rotation.y += dt * .5;
     obj.position.y = remoteMoving ? Math.abs(Math.sin(rp * 2)) * .012 : Math.sin(rp * .8) * .004;
     if (obj.userData.cape) {
       obj.userData.cape.rotation.x = -.08 + Math.sin(rp) * (remoteMoving ? .045 : .008);
