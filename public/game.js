@@ -868,16 +868,23 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const palette = skinPalette[skin] || skinPalette.default;
   const armorColor = palette.armor;
   const darkColor = palette.dark;
-  // Acabamento PBR aprimorado compartilhado por todas as classes e skins.
-  const armor = new THREE.MeshPhysicalMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .022, metalness: .42, roughness: .34, clearcoat: .28, clearcoatRoughness: .36 });
-  const dark = new THREE.MeshStandardMaterial({ color: darkColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .008, metalness: .22, roughness: .52 });
+  // Materiais PBR têm resposta diferente por classe, não apenas uma cor diferente.
+  const surfaceStyle = {
+    knight: { metalness:.54, roughness:.30, cloth:.72, clearcoat:.32 }, mage: { metalness:.31, roughness:.38, cloth:.86, clearcoat:.22 },
+    archer: { metalness:.34, roughness:.43, cloth:.78, clearcoat:.20 }, goblin: { metalness:.24, roughness:.49, cloth:.82, clearcoat:.16 },
+    ogre: { metalness:.28, roughness:.55, cloth:.88, clearcoat:.12 }, healer: { metalness:.40, roughness:.32, cloth:.80, clearcoat:.28 },
+    necromancer: { metalness:.42, roughness:.46, cloth:.90, clearcoat:.20 }, monk: { metalness:.22, roughness:.48, cloth:.76, clearcoat:.14 },
+    skeleton: { metalness:.30, roughness:.58, cloth:.92, clearcoat:.10 }
+  }[heroClass] || { metalness:.42, roughness:.38, cloth:.82, clearcoat:.24 };
+  const armor = new THREE.MeshPhysicalMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .018, metalness: surfaceStyle.metalness, roughness: surfaceStyle.roughness, clearcoat: surfaceStyle.clearcoat, clearcoatRoughness: .34 });
+  const dark = new THREE.MeshStandardMaterial({ color: darkColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .007, metalness: Math.max(.08, surfaceStyle.metalness*.46), roughness: surfaceStyle.roughness + .16 });
   const skinTone = heroClass === 'goblin' ? 0x83bb56 : heroClass === 'ogre' ? 0x8c7952 : heroClass === 'skeleton' ? 0xe0dccb : 0xe2b99a;
-  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .69, bumpMap: surfaceTexture, bumpScale: .004 });
-  const steel = new THREE.MeshPhysicalMaterial({ color: 0xc2d7e4, metalness: .78, roughness: .28, clearcoat: .25, clearcoatRoughness: .3 });
+  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .68, bumpMap: surfaceTexture, bumpScale: .003 });
+  const steel = new THREE.MeshPhysicalMaterial({ color: 0xc2d7e4, metalness: Math.min(.88, surfaceStyle.metalness+.28), roughness: Math.max(.22, surfaceStyle.roughness-.06), clearcoat: .25, clearcoatRoughness: .3 });
   const gold = new THREE.MeshPhysicalMaterial({ color: palette.trim, metalness: .68, roughness: .32, clearcoat: .25, clearcoatRoughness: .34 });
   const glow = new THREE.MeshPhysicalMaterial({ color: palette.glow, emissive: palette.glow, emissiveIntensity: 1.0, metalness: .22, roughness: .23, clearcoat: .42 });
-  const classAccentMaterial = new THREE.MeshPhysicalMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: .36, metalness: .42, roughness: .27, clearcoat: .5, clearcoatRoughness: .25 });
-  const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .012, roughness: .78, metalness: .04 });
+  const classAccentMaterial = new THREE.MeshPhysicalMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: ['mage','healer','necromancer'].includes(heroClass) ? .62 : .30, metalness: .38, roughness: .30, clearcoat: .42, clearcoatRoughness: .29 });
+  const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .010, roughness: surfaceStyle.cloth, metalness: .035 });
   const add = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
     const mesh = new THREE.Mesh(geo, material);
     mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
@@ -1257,6 +1264,58 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     add(new THREE.SphereGeometry(.032,12,10), classAccentMaterial, side*.092,1.96,-.245);
     add(new THREE.SphereGeometry(.055,14,10), classAccentMaterial, side*.48,1.49,-.21);
   }
+  // Itens visuais assinatura para o personagem ser reconhecível pela silhueta.
+  let classCharm = null, classShield = null;
+  const decorativeParts = [];
+  if (heroClass === 'knight') {
+    classShield = new THREE.Group();
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(.19,.24,.075,6), armor);
+    face.rotation.x = Math.PI/2; face.rotation.z = Math.PI/6; classShield.add(face);
+    const boss = new THREE.Mesh(new THREE.OctahedronGeometry(.105,1), gold); boss.position.z = -.047; classShield.add(boss);
+    const rune = new THREE.Mesh(new THREE.OctahedronGeometry(.055,1), glow); rune.position.set(0,.015,-.105); classShield.add(rune);
+    classShield.position.set(-.59,1.10,-.23); classShield.rotation.z = -.12; g.add(classShield);
+  } else if (heroClass === 'mage' || heroClass === 'healer' || heroClass === 'necromancer') {
+    classCharm = new THREE.Group();
+    const charmGlow = heroClass === 'healer' ? glow : classAccentMaterial;
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(.13,.018,5,16), charmGlow);
+    loop.rotation.x = Math.PI/2; classCharm.add(loop);
+    const stone = new THREE.Mesh(heroClass === 'necromancer' ? new THREE.IcosahedronGeometry(.075,0) : new THREE.OctahedronGeometry(.08,1), glow);
+    stone.position.y = .02; classCharm.add(stone);
+    classCharm.position.set(-.47,1.53,-.10); g.add(classCharm);
+  } else if (heroClass === 'archer') {
+    const shoulderCowl = add(new THREE.SphereGeometry(.17,12,10), clothMaterial, -.49,1.46,.01,.9,.65,.75);
+    shoulderCowl.rotation.z = .22;
+    add(new THREE.BoxGeometry(.17,.035,.025), gold, -.49,1.48,-.12).rotation.z = .22;
+  } else if (heroClass === 'goblin') {
+    for (const side of [-1,1]) {
+      const cuff = add(new THREE.TorusGeometry(.047,.012,4,10), gold, side*.325,1.99,-.015);
+      cuff.rotation.y = Math.PI/2; decorativeParts.push(cuff);
+      const patch = add(new THREE.SphereGeometry(.105,10,8), clothMaterial, side*.43,1.43,-.015,.85,.55,.75);
+      patch.rotation.z = side*-.25;
+    }
+  } else if (heroClass === 'ogre') {
+    for (const side of [-1,1]) {
+      const spike = add(new THREE.ConeGeometry(.075,.24,5), gold, side*.50,1.65,.01);
+      spike.rotation.z = side*-.32;
+      add(new THREE.SphereGeometry(.12,10,8), armor, side*.48,1.51,-.03,1,.78,.9);
+    }
+    add(new THREE.BoxGeometry(.36,.055,.045), gold, 0,1.43,-.29);
+  } else if (heroClass === 'monk') {
+    for (const side of [-1,1]) {
+      const wrap = add(new THREE.TorusGeometry(.105,.022,5,12), clothMaterial, side*.49,1.13,-.035);
+      wrap.rotation.x = Math.PI/2; wrap.rotation.z = side*.15; decorativeParts.push(wrap);
+      add(new THREE.BoxGeometry(.12,.025,.025), gold, side*.49,1.09,-.14).rotation.z = side*.10;
+    }
+  } else if (heroClass === 'skeleton') {
+    for (let row=0; row<3; row++) {
+      const rib = add(new THREE.SphereGeometry(.16,10,7), steel, 0,1.12+row*.11,-.365,1.22,.22,.12);
+      decorativeParts.push(rib);
+    }
+  }
+  g.userData.classCharm = classCharm;
+  g.userData.classShield = classShield;
+  g.userData.decorativeParts = decorativeParts;
+  g.userData.idleSeed = Math.random() * Math.PI * 2;
   g.userData.sword=classWeapon;
   g.userData.weaponRest = { x: classWeapon.rotation.x, z: classWeapon.rotation.z, y: classWeapon.position.y };
   g.userData.headRig = headRig;
@@ -1273,6 +1332,25 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.waistSigil = waistSigil;
   g.userData.legs = legs;
   g.userData.arms = arms;
+  const silhouette = {
+    knight: { torsoX:1.06, torsoY:1, torsoZ:1.05, head:.98, shoulders:1.08, hips:1.02, legs:1.02, arms:1.04, cape:1.02, weapon:1.04 },
+    mage: { torsoX:.94, torsoY:1.02, torsoZ:.94, head:1.02, shoulders:.94, hips:.94, legs:1.01, arms:.94, cape:1.05, weapon:1.02 },
+    archer: { torsoX:.93, torsoY:1, torsoZ:.95, head:.99, shoulders:.94, hips:.95, legs:1.04, arms:.98, cape:.88, weapon:.98 },
+    goblin: { torsoX:.98, torsoY:.95, torsoZ:.96, head:1.02, shoulders:.91, hips:.95, legs:.92, arms:.94, cape:.90, weapon:.96 },
+    ogre: { torsoX:1.16, torsoY:1.03, torsoZ:1.12, head:1.08, shoulders:1.18, hips:1.12, legs:1.12, arms:1.16, cape:.85, weapon:1.12 },
+    healer: { torsoX:.94, torsoY:1.02, torsoZ:.96, head:1.02, shoulders:.94, hips:.96, legs:1, arms:.96, cape:1.10, weapon:1.02 },
+    necromancer: { torsoX:.92, torsoY:1.03, torsoZ:.94, head:1.01, shoulders:.93, hips:.94, legs:1.02, arms:.95, cape:1.12, weapon:1.04 },
+    monk: { torsoX:1, torsoY:.98, torsoZ:.97, head:.98, shoulders:.98, hips:1, legs:1.02, arms:1.02, cape:.75, weapon:1 },
+    skeleton: { torsoX:.88, torsoY:1.02, torsoZ:.88, head:.98, shoulders:.86, hips:.90, legs:1.04, arms:.90, cape:.80, weapon:.95 }
+  }[heroClass] || { torsoX:1, torsoY:1, torsoZ:1, head:1, shoulders:1, hips:1, legs:1, arms:1, cape:1, weapon:1 };
+  if (torsoMesh) torsoMesh.scale.set(torsoMesh.scale.x*silhouette.torsoX, torsoMesh.scale.y*silhouette.torsoY, torsoMesh.scale.z*silhouette.torsoZ);
+  headRig.scale.setScalar(silhouette.head);
+  for (const arm of arms) { arm.mesh.position.x *= silhouette.shoulders; arm.mesh.scale.x = silhouette.arms; }
+  for (const leg of legs) { leg.mesh.position.x *= silhouette.hips; leg.mesh.scale.x = silhouette.legs; }
+  cape.scale.x *= silhouette.cape;
+  for (const tail of [capeTailL,capeTailR]) tail.scale.x *= silhouette.cape;
+  if (classWeapon && classWeapon.scale) classWeapon.scale.multiplyScalar(silhouette.weapon);
+  g.userData.silhouetteProfile = silhouette;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
   g.userData.baseY = 0;
   attachHealthBar(g);
@@ -3661,6 +3739,8 @@ const right = new THREE.Vector3(
     const moving = started && Math.hypot(v.x, v.y) > 0.04 && (myPlayer.userData.serverHp ?? 100) > 0;
     myPlayer.userData.walkPhase = (myPlayer.userData.walkPhase || 0) + dt * (moving ? 8.2 : 1.4);
     const phase = myPlayer.userData.walkPhase;
+    const idleSeed = myPlayer.userData.idleSeed || 0;
+    const idleWave = Math.sin(phase * .64 + idleSeed);
     const stride = moving ? 1 : .12;
     // Ação do personagem: animação local leve, sem depender de resposta do servidor.
     myPlayer.userData.attackAnim = Math.max(0, (myPlayer.userData.attackAnim || 0) - dt);
@@ -3673,7 +3753,8 @@ const right = new THREE.Vector3(
     const breath = Math.sin(phase * .8);
     // 1) Respiração subtil do peitoral.
     if (myPlayer.userData.torso) {
-      myPlayer.userData.torso.scale.y = 1 + breath * .018;
+      const torsoBaseY = myPlayer.userData.silhouetteProfile ? myPlayer.userData.silhouetteProfile.torsoY : 1;
+      myPlayer.userData.torso.scale.y = torsoBaseY * (1 + breath * .012 + (moving ? Math.abs(Math.sin(phase*2))*.006 : 0));
       // 2) Inclinação ao atacar e 3) inclinação rápida durante esquiva.
       myPlayer.userData.torso.rotation.z = (moving ? Math.sin(phase) * .01 : Math.sin(phase * .5) * .006) + attackHit * .12 - dodgeLean * .35;
       myPlayer.userData.torso.rotation.x = -attackHit * .10 + dodgeLean * .25;
@@ -3681,8 +3762,9 @@ const right = new THREE.Vector3(
     // 4) Cabeça acompanha o movimento e aponta para a ação.
     if (myPlayer.userData.head) {
       const head = myPlayer.userData.headRig || myPlayer.userData.head;
-      head.rotation.x = (moving ? Math.sin(phase) * .035 : Math.sin(phase * .6) * .018) - attackHit * .13;
-      head.rotation.z = Math.sin(phase * .4) * .022 + dodgeLean * .18;
+      head.rotation.x = (moving ? Math.sin(phase) * .042 : idleWave * .024) - attackHit * .15;
+      head.rotation.y = Math.sin(phase * .32 + idleSeed) * (moving ? .035 : .055);
+      head.rotation.z = Math.sin(phase * .4 + idleSeed) * .026 + dodgeLean * .18;
     }
     // 5) Passos alternados mais legíveis; 6) pose de esquiva temporária.
     for (const leg of myPlayer.userData.legs || []) {
@@ -3693,8 +3775,9 @@ const right = new THREE.Vector3(
     for (const arm of myPlayer.userData.arms || []) {
       const swing = Math.sin(phase + (arm.side < 0 ? Math.PI : 0));
       const lead = arm.side > 0 ? 1 : .38;
-      arm.mesh.rotation.x = swing * .14 * stride - attackWind * .48 * lead + attackHit * .82 * lead + dodgeLean * .12;
-      arm.mesh.rotation.z = (arm.side > 0 ? -.12 : .12) + attackHit * (arm.side > 0 ? -.20 : .06);
+      arm.mesh.rotation.x = swing * .18 * stride - attackWind * .48 * lead + attackHit * .82 * lead + dodgeLean * .12;
+      arm.mesh.rotation.y = Math.sin(phase * .5 + arm.side) * .035 * stride;
+      arm.mesh.rotation.z = (arm.side > 0 ? -.12 : .12) + Math.sin(phase + arm.side) * .018 * stride + attackHit * (arm.side > 0 ? -.20 : .06);
       if (arm.mesh.userData.elbow) {
         arm.mesh.userData.elbow.rotation.x = Math.max(0, swing) * .32 * stride - attackWind * .18 * lead + attackHit * .30 * lead;
       }
@@ -3720,6 +3803,16 @@ const right = new THREE.Vector3(
     }
     if (myPlayer.userData.baseRing) myPlayer.userData.baseRing.rotation.z += dt * (moving ? .38 : .16);
     if (myPlayer.userData.waistSigil) myPlayer.userData.waistSigil.rotation.y += dt * (moving ? 1.2 : .45);
+    if (myPlayer.userData.classCharm) {
+      myPlayer.userData.classCharm.rotation.y += dt * (moving ? .85 : .42);
+      myPlayer.userData.classCharm.rotation.z = Math.sin(phase*.7 + idleSeed) * .08;
+      myPlayer.userData.classCharm.position.y = 1.53 + Math.sin(phase*1.15 + idleSeed) * .025;
+    }
+    if (myPlayer.userData.classShield) {
+      myPlayer.userData.classShield.rotation.z = -.12 + attackHit*.10 + Math.sin(phase)*.018*stride;
+      myPlayer.userData.classShield.rotation.x = dodgeLean*.12;
+    }
+    for (const part of myPlayer.userData.decorativeParts || []) part.rotation.y += dt*.12;
   }
 
   // Movimento suave dos outros jogadores
@@ -3756,6 +3849,8 @@ const right = new THREE.Vector3(
     const remoteMoving = Math.hypot((obj.userData.targetX ?? obj.position.x) - obj.position.x, (obj.userData.targetZ ?? obj.position.z) - obj.position.z) > .035;
     obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (remoteMoving ? 7.2 : 1.4);
     const rp = obj.userData.walkPhase;
+    const remoteIdleSeed = obj.userData.idleSeed || 0;
+    const remoteIdleWave = Math.sin(rp*.62 + remoteIdleSeed);
     const remoteStride = remoteMoving ? 1 : .08;
     for (const leg of obj.userData.legs || []) {
       leg.mesh.rotation.x = Math.sin(rp + (leg.side > 0 ? Math.PI : 0)) * .34 * remoteStride;
@@ -3768,12 +3863,14 @@ const right = new THREE.Vector3(
       }
     }
     if (obj.userData.torso) {
-      obj.userData.torso.rotation.z = remoteMoving ? Math.sin(rp) * .022 : Math.sin(rp * .5) * .005;
+      obj.userData.torso.rotation.z = remoteMoving ? Math.sin(rp) * .026 : remoteIdleWave * .009;
+      obj.userData.torso.rotation.x = remoteMoving ? Math.sin(rp*2)*.01 : 0;
     }
     if (obj.userData.head) {
       const head = obj.userData.headRig || obj.userData.head;
-      head.rotation.x = remoteMoving ? Math.sin(rp) * .028 : Math.sin(rp * .6) * .016;
-      head.rotation.z = Math.sin(rp * .4) * .018;
+      head.rotation.x = remoteMoving ? Math.sin(rp) * .034 : remoteIdleWave * .022;
+      head.rotation.y = Math.sin(rp*.32 + remoteIdleSeed)*.045;
+      head.rotation.z = Math.sin(rp*.4 + remoteIdleSeed)*.022;
     }
     if (obj.userData.capeTails) {
       for (const tail of obj.userData.capeTails) {
@@ -3783,6 +3880,13 @@ const right = new THREE.Vector3(
     }
     if (obj.userData.baseRing) obj.userData.baseRing.rotation.z += dt * .3;
     if (obj.userData.waistSigil) obj.userData.waistSigil.rotation.y += dt * .5;
+    if (obj.userData.classCharm) {
+      obj.userData.classCharm.rotation.y += dt*.3;
+      obj.userData.classCharm.rotation.z = Math.sin(rp*.7 + remoteIdleSeed)*.07;
+      obj.userData.classCharm.position.y = 1.53 + Math.sin(rp*1.15 + remoteIdleSeed)*.022;
+    }
+    if (obj.userData.classShield) obj.userData.classShield.rotation.z = -.12 + Math.sin(rp)*(remoteMoving?.025:.01);
+    for (const part of obj.userData.decorativeParts || []) part.rotation.y += dt*.08;
     obj.position.y = remoteMoving ? Math.abs(Math.sin(rp * 2)) * .012 : Math.sin(rp * .8) * .004;
     if (obj.userData.cape) {
       obj.userData.cape.rotation.x = -.08 + Math.sin(rp) * (remoteMoving ? .045 : .008);
