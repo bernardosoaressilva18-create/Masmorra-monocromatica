@@ -95,6 +95,26 @@ function spawnNecromancerSkeleton(room, player, hp = 15, x = player.x, z = playe
   room.summons.push(summon);
   return summon;
 }
+function handleSummonDefeat(room, summon, target) {
+  if (!target || !target.alive) return;
+  target.alive = false;
+  const owner = room.players.get(summon.ownerId);
+  if (!owner || owner.connected === false) return;
+  if (target === room.boss) {
+    const dropped = grantLoot(owner, 'boss');
+    broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
+    if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
+  } else if (target.cursed) {
+    const prize = { id: String(Date.now()) + '-curse-summon', name: 'Cristal Ancestral', rarity: 'lendário', value: 16, power: 5, source: 'cursed-chest' };
+    owner.lootDrops.push(prize);
+    owner.inventory['lendário'] = (owner.inventory['lendário'] || 0) + 1;
+    sendInventory(owner);
+    if (owner.ws && owner.ws.readyState === WebSocket.OPEN) owner.ws.send(JSON.stringify({ type: 'loot', item: prize }));
+    room.cursedBoss = null;
+    broadcast(room, { type: 'notice', text: 'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!' });
+  } else if (Math.random() < dropChance(owner, .2)) grantLoot(owner, 'monster');
+}
+
 function statsFor(player) { return CLASS_STATS[player.playerClass] || CLASS_STATS.knight; }
 function maxHealthFor(player) { return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0) + (hasSkill(player, 'final_blessing') ? 15 : 0); }
 function refreshPlayerStats(player, restoreHealth = false) {
@@ -434,7 +454,7 @@ wss.on('connection', ws => {
         player.disconnectedAt = 0;
         player.name = String(msg.name || 'Aventureiro').slice(0, 18);
         player.playerClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
-        player.skin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : 'default';
+        player.skin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(msg.skin) ? msg.skin : 'default';
         // Habilidades e pontos iniciais são autoritativos no servidor; não confiar no loadout enviado pelo navegador.
         player.skills = [];
         player.equipmentDamage = 0;
@@ -470,42 +490,43 @@ wss.on('connection', ws => {
       let requestedX = Math.max(-12, Math.min(12, Number(msg.x) || 0));
       let requestedZ = Math.max(-168, Math.min(5, Number(msg.z) || 0));
 
-      // Garante um deslocamento realmente visível. Se o ponto tocado estiver
-      // perto demais ou bloqueado, procura o ponto livre mais distante nas proximidades.
-      const minDiveDistance = 52;
-      const dx = requestedX - oldX;
-      const dz = requestedZ - oldZ;
-      const distance = Math.hypot(dx, dz);
-      const angle = distance > 0.001 ? Math.atan2(dz, dx) : (player.rot || 0);
-      if (distance < minDiveDistance) {
-        requestedX = Math.max(-12, Math.min(12, oldX + Math.cos(angle) * minDiveDistance));
-        requestedZ = Math.max(-168, Math.min(5, oldZ + Math.sin(angle) * minDiveDistance));
-      }
-      let landing = resolveServerMovement(room, player, requestedX, requestedZ);
+      // O destino é validado diretamente, pois resolveServerMovement foi feito
+      // para passos curtos e pode recuar o ponto de aterrissagem para perto da origem.
+      const minDiveDistance = 68;
       const landingDistance = point => Math.hypot(point.x - oldX, point.z - oldZ);
-      if (landingDistance(landing) < minDiveDistance) {
-        let bestCandidate = landing;
-        let bestDistance = landingDistance(landing);
-        // Varre o mapa em raios e ângulos. Guarda sempre o ponto válido mais
-        // distante, em vez de depender de um clique perto da borda ou obstáculo.
-        for (let step = 0; step < 48; step++) {
-          const a = (Math.PI * 2 * step) / 48;
-          for (let radius = 52; radius <= 96; radius += 4) {
+      const clickDistance = Math.hypot(requestedX - oldX, requestedZ - oldZ);
+      const angle = clickDistance > 0.001 ? Math.atan2(requestedZ - oldZ, requestedX - oldX) : (player.rot || 0);
+      let landing = null;
+      if (clickDistance >= minDiveDistance && !isServerPositionBlocked(room, requestedX, requestedZ)) {
+        landing = { x: requestedX, z: requestedZ };
+      } else {
+        // Procura primeiro uma área segura próxima à direção escolhida; nunca
+        // aceita silenciosamente um ponto a menos de 68 unidades da origem.
+        let bestScore = Infinity;
+        for (let step = 0; step < 72; step++) {
+          const a = angle + (Math.PI * 2 * step) / 72;
+          for (let radius = minDiveDistance; radius <= 160; radius += 4) {
             const x = Math.max(-12, Math.min(12, oldX + Math.cos(a) * radius));
             const z = Math.max(-168, Math.min(5, oldZ + Math.sin(a) * radius));
-            const candidate = resolveServerMovement(room, player, x, z);
+            const candidate = { x, z };
             const distance = landingDistance(candidate);
-            if (distance > bestDistance) {
-              bestDistance = distance;
-              bestCandidate = candidate;
+            if (distance < minDiveDistance - 0.5 || isServerPositionBlocked(room, x, z)) continue;
+            const score = Math.hypot(x - requestedX, z - requestedZ) + Math.abs(distance - Math.max(minDiveDistance, clickDistance)) * 0.12;
+            if (score < bestScore) {
+              bestScore = score;
+              landing = candidate;
             }
           }
         }
-        landing = bestCandidate;
       }
-      // Se a geometria do mapa não permitir 36 unidades, usa o ponto livre
-      // mais distante encontrado, em vez de falhar ou deixar o jogador preso.
-            player.x = landing.x; player.z = landing.z;
+      if (!landing || landingDistance(landing) < minDiveDistance - 0.5) {
+        player.necromancerDivePending = false;
+        player.necromancerDiveUntil = 0;
+        player.invisibleUntil = 0;
+        if (player.ws && player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: 'Não encontrei espaço livre longe o bastante. Tente tocar em outra área.' }));
+        return;
+      }
+      player.x = landing.x; player.z = landing.z;
       player.necromancerDivePending = false;
       player.necromancerDiveUntil = 0;
       player.invisibleUntil = 0;
@@ -534,7 +555,7 @@ wss.on('connection', ws => {
       broadcast(room, state(room));
     } else if (msg.type === 'loadout') {
       const wantedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
-      const wantedSkin = ['default','shadow','ember'].includes(msg.skin) ? msg.skin : player.skin;
+      const wantedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(msg.skin) ? msg.skin : player.skin;
       if (room.started && (wantedClass !== player.playerClass || wantedSkin !== player.skin)) return;
       const proposed = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
       for (const id of proposed) {
@@ -796,10 +817,21 @@ wss.on('connection', ws => {
         text = healedTargets ? '✨ Cura! Você e seus aliados recuperam até 50 de vida.' : '✨ Cura lançada, mas todos já estão com a vida cheia.';
       } else if (ability === 'healer_guardian_spirits') {
         player.guardianSpiritsUntil = now + 20000;
-        player.nextGuardianAllyHealAt = now + 4000;
-        player.nextGuardianEnemyHealAt = now + 5000;
         until = player.guardianSpiritsUntil;
-        text = '🪽 Espíritos guardiões por 20 segundos: curam aliados próximos e também fortalecem inimigos próximos.';
+        room.summons = room.summons || [];
+        for (let i = 0; i < 3; i++) {
+          const angle = (Math.PI * 2 * i) / 3;
+          room.summons.push({
+            id: 'guardian-' + player.id + '-' + now + '-' + i,
+            ownerId: player.id, summonType: 'guardian_spirit', name: 'Espírito Guardião',
+            playerClass: 'guardian_spirit', skin: player.skin || 'celestial', color: 0x8cffe8,
+            x: player.x + Math.cos(angle) * 1.1, z: player.z + Math.sin(angle) * 1.1,
+            rot: player.rot || 0, hp: 1, maxHp: 1, damage: 0, attackMs: 5000,
+            spiritIndex: i, expiresAt: now + 20000,
+            nextHealAt: now + 6000 + i * 500, nextDamageAt: now + 5000 + i * 400
+          });
+        }
+        text = '🪽 Três espíritos guardiões voam por 20 segundos: curam aliados em 5 a cada 6 s ou causam 6 de dano a inimigos a cada 5 s.';
       } else if (ability === 'necromancer_summon') {
         let created = 0;
         for (let i = 0; i < 5; i++) {
@@ -1083,23 +1115,7 @@ setInterval(() => {
         p.necromancerDivePending = false; p.necromancerDiveUntil = 0; p.invisibleUntil = 0;
         if (p.ws && p.ws.readyState === WebSocket.OPEN) p.ws.send(JSON.stringify({ type: 'notice', text: 'O mergulho terminou; você voltou ao ponto inicial.' }));
       }
-      if (p.guardianSpiritsUntil > now && p.hp > 0) {
-        if (now >= (p.nextGuardianAllyHealAt || 0)) {
-          p.nextGuardianAllyHealAt = now + 4000;
-          for (const ally of players) {
-            if (ally.hp <= 0 || Math.hypot(ally.x - p.x, ally.z - p.z) > 7) continue;
-            ally.hp = Math.min(ally.maxHp, ally.hp + 5);
-          }
-        }
-        if (now >= (p.nextGuardianEnemyHealAt || 0)) {
-          p.nextGuardianEnemyHealAt = now + 5000;
-          for (const enemy of [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss && room.boss.alive ? [room.boss] : [])]) {
-            if (!enemy || !enemy.alive || Math.hypot(enemy.x - p.x, enemy.z - p.z) > 7) continue;
-            enemy.hp = Math.min(enemy.maxHp || enemy.hp, enemy.hp + 9);
-          }
-        }
-      }
-      if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextRegenAt || 0)) {
+if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextRegenAt || 0)) {
         p.hp = Math.min(p.maxHp, p.hp + 2); p.nextRegenAt = now + 3000;
       }
       if (hasSkill(p, 'healing_aura') && p.hp > 0 && now >= (p.nextAuraAt || 0)) {
@@ -1116,6 +1132,48 @@ setInterval(() => {
     const summonEnemies = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss && room.boss.alive ? [room.boss] : [])]
       .filter(enemy => enemy && enemy.alive && enemy.spawned !== false);
     for (const summon of room.summons) {
+      if (summon.summonType === 'guardian_spirit') {
+        // Espíritos não entram em combate corpo a corpo como esqueletos/goblins.
+        // Buscam primeiro aliados feridos; se nenhum aliado ferido estiver mais perto,
+        // perseguem o inimigo mais próximo e alternam seus pulsos de cura/dano.
+        const woundedAllies = players.filter(ally => ally.hp > 0 && ally.hp < ally.maxHp)
+          .map(ally => ({ entity: ally, distance: Math.hypot(ally.x - summon.x, ally.z - summon.z), isAlly: true }))
+          .sort((a, b) => a.distance - b.distance);
+        const nearestEnemyEntry = summonEnemies.filter(enemy => enemy.alive)
+          .map(enemy => ({ entity: enemy, distance: Math.hypot(enemy.x - summon.x, enemy.z - summon.z), isAlly: false }))
+          .sort((a, b) => a.distance - b.distance)[0];
+        const nearestAllyEntry = woundedAllies[0];
+        const targetEntry = nearestAllyEntry && (!nearestEnemyEntry || nearestAllyEntry.distance <= nearestEnemyEntry.distance)
+          ? nearestAllyEntry : nearestEnemyEntry;
+        if (!targetEntry) {
+          const owner = room.players.get(summon.ownerId);
+          if (owner && owner.hp > 0) {
+            const orbit = (summon.spiritIndex || 0) * (Math.PI * 2 / 3) + now * 0.0008;
+            summon.x += (owner.x + Math.cos(orbit) * 1.65 - summon.x) * 0.08;
+            summon.z += (owner.z + Math.sin(orbit) * 1.65 - summon.z) * 0.08;
+          }
+          continue;
+        }
+        const target = targetEntry.entity;
+        const dx = target.x - summon.x, dz = target.z - summon.z;
+        const distance = targetEntry.distance || 0.001;
+        if (distance > 1.35) {
+          const speed = 0.19;
+          summon.x = Math.max(-12.5, Math.min(12.5, summon.x + dx / distance * speed));
+          summon.z = Math.max(-169.5, Math.min(6.5, summon.z + dz / distance * speed));
+        } else if (targetEntry.isAlly) {
+          if (now >= (summon.nextHealAt || 0)) {
+            summon.nextHealAt = now + 6000;
+            target.hp = Math.min(target.maxHp, target.hp + 5);
+          }
+        } else if (now >= (summon.nextDamageAt || 0)) {
+          summon.nextDamageAt = now + 5000;
+          target.hp = Math.max(0, (target.hp || 1) - 6);
+          if (target.hp <= 0 && target.alive) handleSummonDefeat(room, summon, target);
+        }
+        summon.rot = Math.atan2(dx, dz);
+        continue;
+      }
       const target = summonEnemies.filter(enemy => enemy.alive)
         .sort((a, b) => Math.hypot(a.x - summon.x, a.z - summon.z) - Math.hypot(b.x - summon.x, b.z - summon.z))[0];
       if (!target) continue;
@@ -1126,25 +1184,7 @@ setInterval(() => {
       } else if (distance <= 2.2 && now >= (summon.nextAttackAt || 0)) {
         summon.nextAttackAt = now + (summon.attackMs || 950);
         target.hp = Math.max(0, (target.hp || 1) - (summon.damage || 2));
-        if (target.hp <= 0 && target.alive) {
-          target.alive = false;
-          const owner = room.players.get(summon.ownerId);
-          if (owner && owner.connected !== false) {
-            if (target === room.boss) {
-              const dropped = grantLoot(owner, 'boss');
-              broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
-              if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
-            } else if (target.cursed) {
-              const prize = { id: String(Date.now()) + '-curse-summon', name: 'Cristal Ancestral', rarity: 'lendário', value: 16, power: 5, source: 'cursed-chest' };
-              owner.lootDrops.push(prize);
-              owner.inventory['lendário'] = (owner.inventory['lendário'] || 0) + 1;
-              sendInventory(owner);
-              owner.ws.send(JSON.stringify({ type: 'loot', item: prize }));
-              room.cursedBoss = null;
-              broadcast(room, { type: 'notice', text: 'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!' });
-            } else if (Math.random() < dropChance(owner, .2)) grantLoot(owner, 'monster');
-          }
-        }
+        if (target.hp <= 0 && target.alive) handleSummonDefeat(room, summon, target);
       }
     }
 
@@ -1174,6 +1214,7 @@ setInterval(() => {
         }
       }
       for (const summon of (room.summons || [])) {
+        if (summon.summonType === 'guardian_spirit') continue;
         if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
         // Summons are valid combat targets in their own right. Within 22 units,
