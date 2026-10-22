@@ -2474,3 +2474,12 @@ html, body { width:100%; min-width:0; }
     overflow:hidden!important;
   }
 }
+
+
+/* Update 2 v10: novas paletas de skins para o editor do herói */
+.skin-swatch.rune{background:linear-gradient(100deg,#6ef9ee 0 33%,#102435 33% 66%,#276b89 66%)}
+.skin-swatch.celestial{background:linear-gradient(100deg,#fff0b8 0 33%,#d4bd79 33% 66%,#33425a 66%)}
+.skin-swatch.bloodmoon{background:linear-gradient(100deg,#ff527e 0 33%,#260e20 33% 66%,#8f2948 66%)}
+#lobby .skin-pick[data-skin="rune"].selected{border-color:#70e9ee;box-shadow:inset 0 0 0 1px #70e9ee55,0 0 16px #70e9ee22}
+#lobby .skin-pick[data-skin="celestial"].selected{border-color:#ffedb7;box-shadow:inset 0 0 0 1px #ffedb755,0 0 16px #ffedb722}
+#lobby .skin-pick[data-skin="bloodmoon"].selected{border-color:#f07a9c;box-shadow:inset 0 0 0 1px #f07a9c55,0 0 16px #f07a9c22}
