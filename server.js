@@ -347,14 +347,21 @@ wss.on('connection', ws => {
 
     if (msg.type === 'listPublicRooms') {
       const list = [...rooms.values()]
-        .filter(r => r.isPublic && !r.started && r.players.size < 4)
+        .filter(r => {
+          if (!r.isPublic || r.started || r.players.size >= 4) return false;
+          const active = [...r.players.values()].filter(p => p.connected !== false).length;
+          return active > 0 && active < 4;
+        })
         .map(r => ({ code: r.code, players: [...r.players.values()].filter(p => p.connected !== false).length, maxPlayers: 4 }));
       ws.send(JSON.stringify({ type: 'publicRooms', rooms: list }));
       return;
     }
 
     if (msg.type === 'joinPublic') {
-      let room = [...rooms.values()].find(r => r.isPublic && !r.started && r.players.size < 4);
+      let room = [...rooms.values()].find(r =>
+        r.isPublic && !r.started && r.players.size < 4 &&
+        [...r.players.values()].filter(p => p.connected !== false).length < 4
+      );
       if (!room) {
         let code;
         do { code = Math.random().toString(36).slice(2, 8).toUpperCase(); } while (rooms.has(code));
