@@ -1217,11 +1217,13 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         if (summon.summonType === 'guardian_spirit') continue;
         if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
-        // Summons are valid combat targets in their own right. Within 22 units,
-        // prefer a summon over a player unless the player is substantially closer.
-        const playerDistance = target && !target.isSummon ? nearest : Infinity;
-        const shouldTargetSummon = distance < 22 &&
-          (!target || target.isSummon || distance <= Math.max(2, playerDistance - 3));
+        // Goblins/esqueletos recebem aggro pela distância real. Antes havia
+        // uma margem fixa de 3 unidades, fazendo monstros ignorarem invocações próximas.
+        // Espíritos guardiões são suporte voador e não devem virar alvos de monstros.
+        const currentTargetDistance = target
+          ? Math.hypot(target.x - monster.x, target.z - monster.z)
+          : Infinity;
+        const shouldTargetSummon = distance < 22 && distance + 0.12 < currentTargetDistance;
         if (shouldTargetSummon) {
           targetPriority = distance;
           nearest = distance;
