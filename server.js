@@ -472,7 +472,7 @@ wss.on('connection', ws => {
 
       // O Mergulho precisa deslocar o necromante de verdade, não permitir
       // que ele reapareça praticamente no mesmo lugar após um toque próximo.
-      const minDiveDistance = 18;
+      const minDiveDistance = 24;
       const dx = requestedX - oldX;
       const dz = requestedZ - oldZ;
       const distance = Math.hypot(dx, dz);
@@ -481,7 +481,21 @@ wss.on('connection', ws => {
         requestedX = Math.max(-12, Math.min(12, oldX + Math.cos(angle) * minDiveDistance));
         requestedZ = Math.max(-168, Math.min(5, oldZ + Math.sin(angle) * minDiveDistance));
       }
-      const landing = resolveServerMovement(room, player, requestedX, requestedZ);
+      let landing = resolveServerMovement(room, player, requestedX, requestedZ);
+      // If the requested direction points into a wall/boundary, choose the
+      // clearest legal landing point so a tap nearby never becomes a tiny dive.
+      if (Math.hypot(landing.x - oldX, landing.z - oldZ) < 18) {
+        const candidates = [];
+        for (let step = 0; step < 16; step++) {
+          const angle = (Math.PI * 2 * step) / 16;
+          const x = Math.max(-12, Math.min(12, oldX + Math.cos(angle) * minDiveDistance));
+          const z = Math.max(-168, Math.min(5, oldZ + Math.sin(angle) * minDiveDistance));
+          const candidate = resolveServerMovement(room, player, x, z);
+          candidates.push(candidate);
+        }
+        candidates.sort((a, b) => Math.hypot(b.x - oldX, b.z - oldZ) - Math.hypot(a.x - oldX, a.z - oldZ));
+        if (candidates.length && Math.hypot(candidates[0].x - oldX, candidates[0].z - oldZ) > Math.hypot(landing.x - oldX, landing.z - oldZ)) landing = candidates[0];
+      }
       player.x = landing.x; player.z = landing.z;
       player.necromancerDivePending = false;
       player.necromancerDiveUntil = 0;
@@ -1154,8 +1168,8 @@ setInterval(() => {
         if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
         // Negative scores for summons inside the 7-unit taunt radius break ties with a player at point-blank range.
-        const aggroPriority = distance - 7;
-        if (aggroPriority < targetPriority) {
+        const aggroPriority = distance - 12;
+        if (distance < 22 && aggroPriority < targetPriority) {
           targetPriority = aggroPriority;
           nearest = distance;
           target = { ...summon, id: 'summon:' + summon.id, isSummon: true, sourceSummon: summon };
