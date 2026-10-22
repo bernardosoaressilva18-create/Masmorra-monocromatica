@@ -467,8 +467,20 @@ wss.on('connection', ws => {
       if (player.playerClass !== 'necromancer' || !player.necromancerDivePending || Date.now() > (player.necromancerDiveUntil || 0) || player.hp <= 0) return;
       const oldX = Number(player.necromancerDiveOriginX);
       const oldZ = Number(player.necromancerDiveOriginZ);
-      const requestedX = Math.max(-12, Math.min(12, Number(msg.x) || 0));
-      const requestedZ = Math.max(-168, Math.min(5, Number(msg.z) || 0));
+      let requestedX = Math.max(-12, Math.min(12, Number(msg.x) || 0));
+      let requestedZ = Math.max(-168, Math.min(5, Number(msg.z) || 0));
+
+      // O Mergulho precisa deslocar o necromante de verdade, não permitir
+      // que ele reapareça praticamente no mesmo lugar após um toque próximo.
+      const minDiveDistance = 10;
+      const dx = requestedX - oldX;
+      const dz = requestedZ - oldZ;
+      const distance = Math.hypot(dx, dz);
+      if (distance < minDiveDistance) {
+        const angle = distance > 0.001 ? Math.atan2(dz, dx) : (player.rot || 0);
+        requestedX = Math.max(-12, Math.min(12, oldX + Math.cos(angle) * minDiveDistance));
+        requestedZ = Math.max(-168, Math.min(5, oldZ + Math.sin(angle) * minDiveDistance));
+      }
       const landing = resolveServerMovement(room, player, requestedX, requestedZ);
       player.x = landing.x; player.z = landing.z;
       player.necromancerDivePending = false;
