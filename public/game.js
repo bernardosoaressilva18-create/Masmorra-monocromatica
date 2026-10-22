@@ -2687,6 +2687,7 @@ let dodgeTimer = 0;
 function dodge() {
   if (!started || dodgeTimer > 0 || !myPlayer || (myPlayer.userData.serverHp ?? 100) <= 0) return;
   dodgeTimer = Math.max(1.5, 2.6 - (unlockedSkills.has('quick_recovery') ? .65 : 0));
+  myPlayer.userData.dodgeAnim = .22;
   const distance = 2.2 + (unlockedSkills.has('dodge_mastery') ? .55 : 0) + (unlockedSkills.has('phantom_step') ? .75 : 0);
   const landing = resolveDungeonMovement(myPlayer.position.x, myPlayer.position.z,
     myPlayer.position.x - Math.sin(yaw) * distance,
@@ -2708,13 +2709,10 @@ function attack() {
   playSfx('attack');
   send({ type: 'attack' });
 
-  const sword = myPlayer?.userData.sword;
-  if (sword) {
-    sword.rotation.x = -1.45;
-    sword.rotation.z = -0.35;
-    setTimeout(() => { if (sword) { sword.rotation.x = 0; sword.rotation.z = 0; } }, 260);
+  if (myPlayer) {
+    myPlayer.userData.attackAnim = .30;
+    myPlayer.rotation.y = yaw;
   }
-  if (myPlayer) { myPlayer.userData.attackAnim = 0.28; myPlayer.rotation.y = yaw; }
 
   const f = $('hitFlash');
   f.style.borderWidth = '5px';
@@ -3586,23 +3584,54 @@ const right = new THREE.Vector3(
     myPlayer.userData.walkPhase = (myPlayer.userData.walkPhase || 0) + dt * (moving ? 8.2 : 1.4);
     const phase = myPlayer.userData.walkPhase;
     const stride = moving ? 1 : .12;
+    // Ação do personagem: animação local leve, sem depender de resposta do servidor.
+    myPlayer.userData.attackAnim = Math.max(0, (myPlayer.userData.attackAnim || 0) - dt);
+    myPlayer.userData.dodgeAnim = Math.max(0, (myPlayer.userData.dodgeAnim || 0) - dt);
+    const attackT = myPlayer.userData.attackAnim > 0 ? 1 - myPlayer.userData.attackAnim / .30 : 0;
+    const attackWind = myPlayer.userData.attackAnim > 0 ? Math.sin(Math.min(1, attackT / .35) * Math.PI * .5) : 0;
+    const attackHit = myPlayer.userData.attackAnim > 0 ? Math.sin(Math.max(0, Math.min(1, (attackT - .24) / .48)) * Math.PI) : 0;
+    const dodgeT = myPlayer.userData.dodgeAnim > 0 ? myPlayer.userData.dodgeAnim / .22 : 0;
+    const dodgeLean = Math.sin(Math.min(1, dodgeT) * Math.PI) * .28;
     const breath = Math.sin(phase * .8);
-    if (myPlayer.userData.torso) { myPlayer.userData.torso.scale.y = 1 + breath * .018; myPlayer.userData.torso.rotation.z = moving ? Math.sin(phase) * .01 : Math.sin(phase * .5) * .006; }
-    if (myPlayer.userData.head) { myPlayer.userData.head.rotation.x = moving ? Math.sin(phase) * .012 : Math.sin(phase * .6) * .008; myPlayer.userData.head.rotation.z = Math.sin(phase * .4) * .012; }
-    for (const leg of myPlayer.userData.legs || []) {
-      leg.mesh.rotation.x = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .29 * stride;
+    // 1) Respiração subtil do peitoral.
+    if (myPlayer.userData.torso) {
+      myPlayer.userData.torso.scale.y = 1 + breath * .018;
+      // 2) Inclinação ao atacar e 3) inclinação rápida durante esquiva.
+      myPlayer.userData.torso.rotation.z = (moving ? Math.sin(phase) * .01 : Math.sin(phase * .5) * .006) + attackHit * .12 - dodgeLean * .35;
+      myPlayer.userData.torso.rotation.x = -attackHit * .10 + dodgeLean * .25;
     }
+    // 4) Cabeça acompanha o movimento e aponta para a ação.
+    if (myPlayer.userData.head) {
+      myPlayer.userData.head.rotation.x = (moving ? Math.sin(phase) * .012 : Math.sin(phase * .6) * .008) - attackHit * .10;
+      myPlayer.userData.head.rotation.z = Math.sin(phase * .4) * .012 + dodgeLean * .12;
+    }
+    // 5) Passos alternados mais legíveis; 6) pose de esquiva temporária.
+    for (const leg of myPlayer.userData.legs || []) {
+      const legSwing = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .29 * stride;
+      leg.mesh.rotation.x = legSwing + (myPlayer.userData.dodgeAnim > 0 ? (leg.side > 0 ? -.32 : .22) * dodgeLean : 0);
+    }
+    // 7) Braços fazem um movimento de preparação e golpe em vez de só balançar.
     for (const arm of myPlayer.userData.arms || []) {
       const swing = Math.sin(phase + (arm.side < 0 ? Math.PI : 0));
-      arm.mesh.rotation.x = swing * .14 * stride;
+      const lead = arm.side > 0 ? 1 : .38;
+      arm.mesh.rotation.x = swing * .14 * stride - attackWind * .48 * lead + attackHit * .82 * lead + dodgeLean * .12;
+      arm.mesh.rotation.z = (arm.side > 0 ? -.12 : .12) + attackHit * (arm.side > 0 ? -.20 : .06);
       if (arm.mesh.userData.elbow) {
-        arm.mesh.userData.elbow.rotation.x = Math.max(0, swing) * .32 * stride;
+        arm.mesh.userData.elbow.rotation.x = Math.max(0, swing) * .32 * stride - attackWind * .18 * lead + attackHit * .30 * lead;
       }
     }
-    myPlayer.position.y = moving ? Math.abs(Math.sin(phase * 2)) * .008 : 0;
+    // 8) O personagem dá um pequeno impulso visual no impacto.
+    myPlayer.position.y = (moving ? Math.abs(Math.sin(phase * 2)) * .008 : 0) + attackHit * .045;
+    // 9) A capa responde aos passos, ao ataque e à esquiva.
     if (myPlayer.userData.cape) {
-      myPlayer.userData.cape.rotation.x = -.08 + Math.sin(phase) * .035 * stride;
-      myPlayer.userData.cape.rotation.z = Math.sin(phase * .5) * .012 * stride;
+      myPlayer.userData.cape.rotation.x = -.08 + Math.sin(phase) * .035 * stride + attackHit * .08 - dodgeLean * .18;
+      myPlayer.userData.cape.rotation.z = Math.sin(phase * .5) * .012 * stride - attackHit * .06;
+    }
+    // 10) A arma acompanha a animação sem setTimeout concorrente.
+    const weapon = myPlayer.userData.sword;
+    if (weapon) {
+      weapon.rotation.x = -attackHit * 1.05;
+      weapon.rotation.z = -attackHit * .42;
     }
   }
 
