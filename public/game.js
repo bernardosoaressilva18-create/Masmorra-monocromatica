@@ -756,7 +756,7 @@ function buildEclipseWorld(){
   const arch=new THREE.Mesh(new THREE.TorusGeometry(1.72,.095,10,64),frame);arch.scale.set(1.48,1.17,1);arch.position.set(0,2.08,-.3);eclipsePortal.add(arch);
   const core=new THREE.Mesh(new THREE.CircleGeometry(1.52,40),new THREE.MeshBasicMaterial({color:0x7b2945,transparent:true,opacity:.22,side:THREE.DoubleSide}));core.position.set(0,2.08,-.24);eclipsePortal.add(core);
   const glow=new THREE.PointLight(0xe34d5c,.45,14,2);glow.position.set(0,2.1,0);eclipsePortal.add(glow);
-  eclipsePortal.position.set(0,0,-168);eclipsePortal.userData.open=false;eclipse.add(eclipsePortal);
+  eclipsePortal.position.set(0,0,-168);eclipsePortal.userData.open=false;source.add(eclipsePortal);
   scene.add(eclipse);eclipse.visible=false;environmentGroups.eclipse=eclipse;
 }
 function showRealmTransition(realm){
