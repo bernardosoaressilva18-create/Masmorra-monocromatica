@@ -57,11 +57,15 @@ function getRenderPixelRatioCap(width = window.innerWidth, height = window.inner
   const landscapeMobile = isMobileDevice && width > height;
   const quality = gameSettings.graphicsQuality;
   if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 1.0 : 0.85) : 1.0;
-  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 2.0 : 1.65) : 2.0;
-  return isMobileDevice ? (landscapeMobile ? 1.65 : 1.25) : 1.5;
+  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 2.15 : 1.75) : 2.0;
+  return isMobileDevice ? (landscapeMobile ? 1.85 : 1.25) : 1.5;
 }
 function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.innerHeight) {
-  return isMobileDevice && width > height ? 0.85 : (isMobileDevice ? 0.75 : 0.8);
+  if (!isMobileDevice) return 0.8;
+  const landscape = width > height;
+  if (gameSettings.graphicsQuality === 'low') return landscape ? 0.85 : 0.75;
+  if (gameSettings.graphicsQuality === 'high') return landscape ? 1.2 : 0.95;
+  return landscape ? 1.0 : 0.8;
 }
 function applyGraphicsQuality() {
   const quality = gameSettings.graphicsQuality;
@@ -103,8 +107,8 @@ function updateAudioLevels() {
 function ensureAudio() {
   try {
     if (!backgroundMusic) {
-      // JSKNYC, “RPG Main Theme” (CC-BY 3.0), hosted on OpenGameArt. Attribution: JSKNYC.
-      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/maintheme.mp3');
+      // HydroGene, “JRPG - End Dungeon” (CC0), hosted on OpenGameArt.
+      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/end_dungeon_0.mp3');
       backgroundMusic.loop = true;
       backgroundMusic.preload = 'auto';
       backgroundMusic.volume = gameSettings.musicEnabled ? gameSettings.musicVolume * 0.78 : 0;
@@ -778,26 +782,64 @@ function setHealthBar(entity, hp, maxHp) {
   fill.position.x = -0.79 * (1 - ratio);
   fill.material.color.set(ratio > 0.6 ? 0x39f078 : ratio > 0.3 ? 0xffc533 : 0xff334f);
 }
+function makeGuardianSpirit(color = 0x8cffe8) {
+  const g = new THREE.Group();
+  const coreMat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.2, metalness: .2, roughness: .18, transparent: true, opacity: .96 });
+  const wingMat = new THREE.MeshStandardMaterial({ color: 0xcffff8, emissive: 0x59d9cf, emissiveIntensity: 1.3, transparent: true, opacity: .78, side: THREE.DoubleSide, roughness: .22 });
+  const darkEye = new THREE.MeshBasicMaterial({ color: 0x133d4a });
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.22, 1), coreMat);
+  g.add(core);
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(.29, .026, 8, 28), new THREE.MeshStandardMaterial({ color: 0xe0fff7, emissive: color, emissiveIntensity: 1.7, roughness: .2 }));
+  halo.rotation.x = Math.PI / 2.6;
+  halo.position.y = .13;
+  g.add(halo);
+  const wings = [];
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.OctahedronGeometry(.15, 1), wingMat);
+    wing.position.set(side * .24, .015, .035);
+    wing.scale.set(.7, 1.12, .38);
+    wing.rotation.z = side * -.24;
+    g.add(wing); wings.push({ mesh: wing, side });
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.025, 10, 8), darkEye);
+    eye.position.set(side * .075, -.025, -.19);
+    g.add(eye);
+  }
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0x7debdc, emissive: 0x3bd9c8, emissiveIntensity: 1.25, transparent: true, opacity: .7 });
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(.095, .30, 7), tailMat);
+  tail.position.set(0, -.25, .03);
+  tail.rotation.x = Math.PI;
+  g.add(tail);
+  g.userData.guardianCore = core;
+  g.userData.guardianHalo = halo;
+  g.userData.guardianWings = wings;
+  g.userData.isGuardianSpirit = true;
+  g.userData.spiritPhase = Math.random() * Math.PI * 2;
+  return g;
+}
+
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
   const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : heroClass === 'healer' ? 0x66d8ac : heroClass === 'necromancer' ? 0x9764cc : heroClass === 'skeleton' ? 0xd9d1b9 : heroClass === 'monk' ? 0xd7a05b : 0x72e6ff;
-  const armorColor = skin === 'shadow' ? 0x343a50 : skin === 'ember' ? 0x9b4a2b : (color ?? classColor);
-  const darkColor = skin === 'shadow' ? 0x11131d : skin === 'ember' ? 0x3b1915 : 0x151d2a;
+  const skinPalette = {
+    default: { armor: color ?? classColor, dark: 0x151d2a, trim: 0xc9a45d, glow: 0x8beaff, accent: classColor, cloth: classColor },
+    shadow: { armor: 0x343a50, dark: 0x11131d, trim: 0x9187cf, glow: 0xb7a4ff, accent: 0x9a8cff, cloth: 0x25263f },
+    ember: { armor: 0x9b4a2b, dark: 0x3b1915, trim: 0xf0a45b, glow: 0xff7546, accent: 0xff694e, cloth: 0x5b241c },
+    rune: { armor: 0x276b89, dark: 0x102435, trim: 0x70e9ee, glow: 0x6ef9ee, accent: 0x5ddde2, cloth: 0x183e58 },
+    celestial: { armor: 0xd4bd79, dark: 0x33425a, trim: 0xffedb7, glow: 0xfff0b8, accent: 0xffe5a1, cloth: 0x647b91 },
+    bloodmoon: { armor: 0x8f2948, dark: 0x260e20, trim: 0xf07a9c, glow: 0xff527e, accent: 0xf85c80, cloth: 0x4a142c }
+  };
+  const palette = skinPalette[skin] || skinPalette.default;
+  const armorColor = palette.armor;
+  const darkColor = palette.dark;
   const armor = new THREE.MeshStandardMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
   const dark = new THREE.MeshStandardMaterial({ color: darkColor, metalness: .35, roughness: .55 });
   const skinTone = heroClass === 'goblin' ? 0x83bb56 : heroClass === 'ogre' ? 0x8c7952 : heroClass === 'skeleton' ? 0xe0dccb : 0xe2b99a;
   const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .82 });
   const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xc9a45d, metalness: .72, roughness: .3 });
-  const glow = new THREE.MeshStandardMaterial({ color: 0x8beaff, emissive: 0x168fc0, emissiveIntensity: 1.4, metalness: .25, roughness: .25 });
-  const classAccentMaterial = new THREE.MeshStandardMaterial({
-    color: classColor, emissive: classColor, emissiveIntensity: 0.58,
-    metalness: 0.48, roughness: 0.28
-  });
-  const clothMaterial = new THREE.MeshStandardMaterial({
-    color: skin === 'shadow' ? 0x25263f : skin === 'ember' ? 0x5b241c : classColor,
-    roughness: 0.78, metalness: 0.08
-  });
+  const gold = new THREE.MeshStandardMaterial({ color: palette.trim, metalness: .72, roughness: .3 });
+  const glow = new THREE.MeshStandardMaterial({ color: palette.glow, emissive: palette.glow, emissiveIntensity: 1.4, metalness: .25, roughness: .25 });
+  const classAccentMaterial = new THREE.MeshStandardMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: 0.68, metalness: 0.48, roughness: 0.28 });
+  const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, roughness: 0.78, metalness: 0.08 });
   const add = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
     const mesh = new THREE.Mesh(geo, material);
     mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
@@ -812,7 +854,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const legPivot = new THREE.Group();
     legPivot.position.set(side*.2,.68,0);
     g.add(legPivot);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.145,.34,4,8), dark);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.145,.34,6,14), dark);
     leg.position.set(0,-.21,0);
     if (!isMobileDevice) { leg.castShadow = true; leg.receiveShadow = true; }
     legPivot.add(leg);
@@ -821,7 +863,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     boot.position.set(0,-.49,-.055);
     if (!isMobileDevice) { boot.castShadow = true; boot.receiveShadow = true; }
     legPivot.add(boot);
-    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.19,12,10), gold);
+    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.19,18,14), gold);
     kneePad.position.set(0,0,0);
     kneePad.scale.set(.94,.62,.9);
     if (!isMobileDevice) { kneePad.castShadow = true; kneePad.receiveShadow = true; }
@@ -830,7 +872,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const armPivot = new THREE.Group();
     armPivot.position.set(side*.48,1.51,0);
     g.add(armPivot);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,4,8), armor);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,6,14), armor);
     arm.position.set(0,-.22,0);
     arm.rotation.z=side*-.12;
     if (!isMobileDevice) { arm.castShadow = true; arm.receiveShadow = true; }
@@ -839,11 +881,11 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const elbow = new THREE.Group();
     elbow.position.set(0,-.39,0);
     armPivot.add(elbow);
-    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.105,.24,3,6), dark);
+    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.105,.24,5,10), dark);
     forearm.position.set(0,-.13,-.005);
     if (!isMobileDevice) { forearm.castShadow = true; forearm.receiveShadow = true; }
     elbow.add(forearm);
-    const wrist = new THREE.Mesh(new THREE.SphereGeometry(.09,8,6), gold);
+    const wrist = new THREE.Mesh(new THREE.SphereGeometry(.09,12,10), gold);
     wrist.position.set(0,-.27,-.01);
     elbow.add(wrist);
     armPivot.userData.elbow = elbow;
@@ -853,7 +895,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     add(new THREE.SphereGeometry(.105,10,8), gold, side*.49,.83,-.02);
   }
   // Peitoral em camadas, gola e cinto
-  torsoMesh = add(new THREE.CapsuleGeometry(.36,.5,5,10), armor, 0,1.22,0,1.0,1.0,.82);
+  torsoMesh = add(new THREE.CapsuleGeometry(.36,.5,7,16), armor, 0,1.22,0,1.0,1.0,.82);
   add(new THREE.BoxGeometry(.48,.42,.12), steel, 0,1.25,-.31);
   add(new THREE.BoxGeometry(.19,.23,.05), glow, 0,1.27,-.39);
   add(new THREE.BoxGeometry(.64,.12,.43), dark, 0,.91,0);
@@ -869,7 +911,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   capeCrest.rotation.z=Math.PI/4;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  headMesh = add(new THREE.SphereGeometry(.255,20,14), skinMaterial,0,1.94,-.015,
+  headMesh = add(new THREE.SphereGeometry(.255,28,20), skinMaterial,0,1.94,-.015,
     heroClass === 'ogre' ? 1.28 : heroClass === 'goblin' ? .93 : 1,
     heroClass === 'ogre' ? 1.12 : heroClass === 'goblin' ? 1.04 : 1,
     heroClass === 'ogre' ? 1.12 : 1);
@@ -1515,7 +1557,7 @@ function chooseClass(className) {
 }
 document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => chooseClass(card.dataset.class)));
 function chooseSkin(skinName) {
-  if (!['default','shadow','ember'].includes(skinName)) return;
+  if (!['default','shadow','ember','rune','celestial','bloodmoon'].includes(skinName)) return;
   selectedSkin = skinName;
   document.querySelectorAll('.skin-pick').forEach(el => el.classList.toggle('selected', el.dataset.skin === selectedSkin));
   updateHeroShowcase();
@@ -1535,7 +1577,7 @@ function updateHeroShowcase() {
     necromancer:{name:'Necromante',glyph:'💀',desc:'Cajado sombrio · horda de esqueletos'},
     monk:{name:'Monge',glyph:'🥋',desc:'Combo de três golpes · impacto e mobilidade'}
   }[selectedClass] || {name:'Cavaleiro',glyph:'🛡️',desc:'Defesa elevada'};
-  const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
+  const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'},rune:{label:'SKIN RUNAS',cls:'skin-rune'},celestial:{label:'SKIN CELESTIAL',cls:'skin-celestial'},bloodmoon:{label:'SKIN LUA SANGRENTA',cls:'skin-bloodmoon'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
   const avatar=$('heroPreviewAvatar');
   if(avatar){avatar.className='hero-preview-avatar '+skinInfo.cls+' class-'+selectedClass;}
   if($('heroPreviewGlyph')) $('heroPreviewGlyph').textContent=classInfo.glyph;
@@ -2314,23 +2356,29 @@ function updateState(m) {
     }
   }
 
-  // Goblins aliados são renderizados como personagens próprios; não contam como jogadores da sala.
+  // Invocações e espíritos são entidades sincronizadas pelo servidor, separadas dos jogadores.
   for (const summon of (m.summons || [])) {
     const id = summon.id;
     incoming.add(id);
     let obj = remotePlayers.get(id);
-    if (!obj) {
-      const isSkeleton = summon.summonType === 'skeleton' || summon.playerClass === 'skeleton' || String(summon.name || '').toLowerCase().includes('esqueleto');
-      obj = makeHero(summon.color || (isSkeleton ? 0xe0dccb : 0x80c86b), isSkeleton ? 'skeleton' : 'goblin', isSkeleton ? 'shadow' : 'default');
-      obj.userData.playerClass = isSkeleton ? 'skeleton' : 'goblin'; obj.userData.skin = isSkeleton ? 'shadow' : 'default';
+    const isGuardianSpirit = summon.summonType === 'guardian_spirit';
+    const isSkeleton = summon.summonType === 'skeleton' || summon.playerClass === 'skeleton' || String(summon.name || '').toLowerCase().includes('esqueleto');
+    if (!obj || (!!obj.userData.isGuardianSpirit !== isGuardianSpirit)) {
+      if (obj) { scene.remove(obj); disposeObject3D(obj); }
+      obj = isGuardianSpirit
+        ? makeGuardianSpirit(summon.color || 0x8cffe8)
+        : makeHero(summon.color || (isSkeleton ? 0xe0dccb : 0x80c86b), isSkeleton ? 'skeleton' : 'goblin', isSkeleton ? 'shadow' : 'default');
+      obj.userData.isGuardianSpirit = isGuardianSpirit;
+      obj.userData.playerClass = isGuardianSpirit ? 'guardian_spirit' : (isSkeleton ? 'skeleton' : 'goblin');
+      obj.userData.skin = summon.skin || (isSkeleton ? 'shadow' : 'default');
       scene.add(obj); remotePlayers.set(id, obj);
     }
     obj.userData.targetX = summon.x;
     obj.userData.targetZ = summon.z;
     obj.userData.targetRot = summon.rot || 0;
-    obj.userData.name = summon.name || (summon.summonType === 'skeleton' ? 'Esqueleto aliado' : 'Goblin aliado');
+    obj.userData.name = summon.name || (isGuardianSpirit ? 'Espírito Guardião' : summon.summonType === 'skeleton' ? 'Esqueleto aliado' : 'Goblin aliado');
     obj.userData.serverHp = summon.hp ?? 72;
-    setHealthBar(obj, summon.hp ?? 60, summon.maxHp ?? 72);
+    if (!isGuardianSpirit) setHealthBar(obj, summon.hp ?? 60, summon.maxHp ?? 72);
   }
   for (const [id, obj] of remotePlayers) {
     if (!incoming.has(id)) {
@@ -2676,7 +2724,7 @@ const CLASS_ABILITY_CONFIG = {
   ],
   healer: [
     { ability: 'healer_cure', icon: '💚', label: 'CURA', description: 'Cura você e aliados vivos em até 50 de vida.', cooldown: 23 },
-    { ability: 'healer_guardian_spirits', icon: '🪽', label: 'ESPÍRITOS', description: 'Por 20 s, cura aliados próximos e também cura inimigos próximos.', cooldown: 40 }
+    { ability: 'healer_guardian_spirits', icon: '🪽', label: 'ESPÍRITOS', description: 'Invoca 3 espíritos voadores por 20 s. Cada um cura aliados em 5 a cada 6 s ou causa 6 de dano a inimigos a cada 5 s.', cooldown: 40 }
   ],
   necromancer: [
     { ability: 'necromancer_summon', icon: '💀', label: 'HORDA', description: 'Invoca até cinco esqueletos aliados por 18 segundos.', cooldown: 30 },
@@ -3338,6 +3386,18 @@ const right = new THREE.Vector3(
     );
 
     obj.rotation.y += angleDiff * remoteSmooth;
+    if (obj.userData.isGuardianSpirit) {
+      const phase = worldTime * 2.8 + (obj.userData.spiritPhase || 0);
+      obj.position.y = 1.35 + Math.sin(phase) * .18;
+      obj.rotation.z = Math.sin(phase * .65) * .12;
+      if (obj.userData.guardianCore) { obj.userData.guardianCore.rotation.y += dt * 1.25; obj.userData.guardianCore.rotation.x = Math.sin(phase * .8) * .12; }
+      if (obj.userData.guardianHalo) obj.userData.guardianHalo.rotation.z += dt * .8;
+      for (const wing of obj.userData.guardianWings || []) {
+        wing.mesh.rotation.z = wing.side * (-.24 + Math.sin(phase * 2.3) * .34);
+        wing.mesh.rotation.y = Math.sin(phase * 1.4 + wing.side) * .18;
+      }
+      continue;
+    }
     const remoteMoving = Math.hypot((obj.userData.targetX ?? obj.position.x) - obj.position.x, (obj.userData.targetZ ?? obj.position.z) - obj.position.z) > .035;
     obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (remoteMoving ? 7.2 : 1.4);
     const rp = obj.userData.walkPhase;
