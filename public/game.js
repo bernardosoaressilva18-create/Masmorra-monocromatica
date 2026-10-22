@@ -886,8 +886,21 @@ function makeGuardianSpirit(color = 0x8cffe8) {
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
   const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : heroClass === 'healer' ? 0x66d8ac : heroClass === 'necromancer' ? 0x9764cc : heroClass === 'skeleton' ? 0xd9d1b9 : heroClass === 'monk' ? 0xd7a05b : 0x72e6ff;
+  // Paletas próprias: cada classe mantém uma identidade mesmo antes de escolher uma skin.
+  const classBasePalette = {
+    knight: { armor:0x8395a9, dark:0x172536, trim:0xe0bd70, glow:0x80ddff, accent:0xc85161, cloth:0x263d58 },
+    mage: { armor:0x526dbb, dark:0x211d43, trim:0xe0bd70, glow:0x74dfff, accent:0x9587ff, cloth:0x314b8b },
+    archer: { armor:0x796344, dark:0x2d241b, trim:0xb58a4c, glow:0x9dd99b, accent:0x7fa55a, cloth:0x435936 },
+    goblin: { armor:0x5e7c37, dark:0x20291b, trim:0xb58b4b, glow:0xc6f16c, accent:0x8ec84b, cloth:0x354626 },
+    ogre: { armor:0x55412e, dark:0x281e16, trim:0x987647, glow:0xf2b647, accent:0x819a3e, cloth:0x493323 },
+    healer: { armor:0xd8dedb, dark:0x253b5c, trim:0xf1cd69, glow:0x8bf5d7, accent:0x6bcdb2, cloth:0x527fbd },
+    necromancer: { armor:0x403744, dark:0x18151f, trim:0x9b744b, glow:0xb97aff, accent:0x8e55a7, cloth:0x34202f },
+    monk: { armor:0xbcb19a, dark:0x51402f, trim:0xc49a5c, glow:0xf4d7a2, accent:0x984b34, cloth:0xd0c3a8 },
+    skeleton: { armor:0xbeb5a4, dark:0x29242b, trim:0xa98d60, glow:0xb6a4d8, accent:0xa89cba, cloth:0x514453 }
+  };
+  const classPalette = classBasePalette[heroClass] || classBasePalette.knight;
   const skinPalette = {
-    default: { armor: color ?? classColor, dark: 0x151d2a, trim: 0xc9a45d, glow: 0x8beaff, accent: classColor, cloth: classColor },
+    default: { ...classPalette, armor: color ?? classPalette.armor },
     shadow: { armor: 0x343a50, dark: 0x11131d, trim: 0x9187cf, glow: 0xb7a4ff, accent: 0x9a8cff, cloth: 0x25263f },
     ember: { armor: 0x9b4a2b, dark: 0x3b1915, trim: 0xf0a45b, glow: 0xff7546, accent: 0xff694e, cloth: 0x5b241c },
     rune: { armor: 0x276b89, dark: 0x102435, trim: 0x70e9ee, glow: 0x6ef9ee, accent: 0x5ddde2, cloth: 0x183e58 },
@@ -907,10 +920,11 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }[heroClass] || { metalness:.42, roughness:.38, cloth:.82, clearcoat:.24 };
   const armor = new THREE.MeshPhysicalMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .018, metalness: surfaceStyle.metalness, roughness: surfaceStyle.roughness, clearcoat: surfaceStyle.clearcoat, clearcoatRoughness: .34 });
   const dark = new THREE.MeshStandardMaterial({ color: darkColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .007, metalness: Math.max(.08, surfaceStyle.metalness*.46), roughness: surfaceStyle.roughness + .16 });
-  const skinTone = heroClass === 'goblin' ? 0x83bb56 : heroClass === 'ogre' ? 0x8c7952 : heroClass === 'skeleton' ? 0xe0dccb : 0xe2b99a;
-  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .68, bumpMap: surfaceTexture, bumpScale: .003 });
-  const steel = new THREE.MeshPhysicalMaterial({ color: 0xc2d7e4, metalness: Math.min(.88, surfaceStyle.metalness+.28), roughness: Math.max(.22, surfaceStyle.roughness-.06), clearcoat: .25, clearcoatRoughness: .3 });
-  const gold = new THREE.MeshPhysicalMaterial({ color: palette.trim, metalness: .68, roughness: .32, clearcoat: .25, clearcoatRoughness: .34 });
+  const skinTone = heroClass === 'goblin' ? 0x8dbb45 : heroClass === 'ogre' ? 0x899c42 : heroClass === 'skeleton' ? 0xe0dccb : heroClass === 'monk' ? 0xc9966c : heroClass === 'archer' ? 0xc99c72 : heroClass === 'necromancer' ? 0xaaa0a8 : heroClass === 'healer' ? 0xd9ae8d : 0xe2b99a;
+  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .74, bumpMap: surfaceTexture, bumpScale: .003 });
+  const steelTone = ({knight:0xb7c8d8,mage:0x8e9fcf,archer:0x9c8b6c,goblin:0x788b58,ogre:0x756044,healer:0xe4e9e4,necromancer:0x827887,monk:0xaaa38f,skeleton:0xd7d0c0})[heroClass] || 0xc2d7e4;
+  const steel = new THREE.MeshPhysicalMaterial({ color: steelTone, metalness: ['ogre','goblin','archer','monk'].includes(heroClass) ? .28 : Math.min(.88, surfaceStyle.metalness+.28), roughness: ['ogre','goblin','archer','monk'].includes(heroClass) ? .62 : Math.max(.22, surfaceStyle.roughness-.06), clearcoat: .25, clearcoatRoughness: .3 });
+  const gold = new THREE.MeshPhysicalMaterial({ color: palette.trim, metalness: ['ogre','goblin','archer','monk'].includes(heroClass) ? .34 : .68, roughness: ['ogre','goblin','archer','monk'].includes(heroClass) ? .58 : .32, clearcoat: .25, clearcoatRoughness: .34 });
   const glow = new THREE.MeshPhysicalMaterial({ color: palette.glow, emissive: palette.glow, emissiveIntensity: 1.0, metalness: .22, roughness: .23, clearcoat: .42 });
   const classAccentMaterial = new THREE.MeshPhysicalMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: ['mage','healer','necromancer'].includes(heroClass) ? .62 : .30, metalness: .38, roughness: .30, clearcoat: .42, clearcoatRoughness: .29 });
   const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .010, roughness: surfaceStyle.cloth, metalness: .035 });
@@ -1026,7 +1040,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     addHead(new THREE.ConeGeometry(.09,.20,5), dark, .12,2.25,.02,1,1,.8).rotation.z = .3;
   }
   // Face pass: readable eye sockets, pupils and brows from the normal game camera.
-  addHead(new THREE.BoxGeometry(.29,.065,.16), dark,0,2.04,-.17);
+  const faceBand = addHead(new THREE.BoxGeometry(.29,.065,.16), dark,0,2.04,-.17);
+  faceBand.visible = heroClass === 'knight' || heroClass === 'skeleton';
   const eyeSocketMat = new THREE.MeshStandardMaterial({ color: 0x101522, roughness: .58 });
   const pupilMat = new THREE.MeshStandardMaterial({ color: 0x172238, metalness: .12, roughness: .28 });
   for (const side of [-1,1]) {
@@ -1237,6 +1252,95 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     addHead(new THREE.BoxGeometry(.47,.09,.33),clothMaterial,0,2.02,-.02);
     addHead(new THREE.BoxGeometry(.20,.055,.035),gold,0,2.03,-.20);
     addHead(new THREE.ConeGeometry(.08,.16,5),gold,-.30,2.02,-.02).rotation.z=.7;
+  }
+  // Modelos de assinatura por classe: camadas visíveis, cores de tecido e pele exposta.
+  // As peças reutilizam geometrias simples para manter boa taxa de quadros em celulares.
+  if (heroClass === 'knight') {
+    // Elmo fechado, manto azul e brasão vermelho: silhueta de cavaleiro de fantasia.
+    addHead(new THREE.BoxGeometry(.25,.045,.08), classAccentMaterial,0,1.99,-.255);
+    add(new THREE.ConeGeometry(.31,.58,6), clothMaterial,0,.76,.35,1,.95,.48).rotation.x=-.05;
+    add(new THREE.OctahedronGeometry(.10,1), new THREE.MeshStandardMaterial({color:0xb84252,emissive:0x4a101b,emissiveIntensity:.3}),0,1.34,-.425,1,1.2,.55);
+  } else if (heroClass === 'mage') {
+    // Túnica azul em camadas, gola alta e runa clara no peito.
+    add(new THREE.ConeGeometry(.40,.65,8), clothMaterial,0,.77,.015,1,.96,.82);
+    add(new THREE.ConeGeometry(.25,.12,8), gold,0,1.51,-.015,1,.5,.72);
+    add(new THREE.BoxGeometry(.07,.47,.025), glow,0,1.08,-.395);
+    const beard = add(new THREE.ConeGeometry(.10,.22,7), dark,0,1.78,-.23,1,.95,.5);
+    beard.rotation.x=Math.PI;
+  } else if (heroClass === 'archer') {
+    // Colete de couro, correias e capa verde; aljava e arco permanecem bem legíveis.
+    add(new THREE.BoxGeometry(.42,.48,.09), dark,0,1.25,-.325).rotation.z=-.04;
+    add(new THREE.BoxGeometry(.08,.57,.04), gold,-.14,1.26,-.386).rotation.z=-.22;
+    add(new THREE.BoxGeometry(.08,.57,.04), clothMaterial,.13,1.26,-.386).rotation.z=.22;
+    add(new THREE.ConeGeometry(.33,.65,7), clothMaterial,0,.88,.30,1,.95,.65).rotation.x=-.10;
+    add(new THREE.TorusGeometry(.16,.022,5,16),gold,0,1.54,-.04).rotation.x=Math.PI/2;
+  } else if (heroClass === 'goblin') {
+    // Capuz com pontas de orelha, túnica curta e placas de couro escuras.
+    addHead(new THREE.SphereGeometry(.30,18,12,0,Math.PI*2,0,Math.PI*.66),clothMaterial,0,2.12,.045,1.22,.88,1.05);
+    const hoodTip = addHead(new THREE.ConeGeometry(.13,.30,5),dark,.02,2.26,.03,1,.9,.9);
+    hoodTip.rotation.z=-.12;
+    add(new THREE.ConeGeometry(.30,.40,6),clothMaterial,0,.87,.23,1,.88,.55);
+    const eyeRed = new THREE.MeshStandardMaterial({color:0xf6c85f,emissive:0x8a4c10,emissiveIntensity:.6,roughness:.3});
+    for(const side of [-1,1]) addHead(new THREE.SphereGeometry(.027,10,8),eyeRed,side*.09,1.96,-.276);
+  } else if (heroClass === 'ogre') {
+    // Pele verde exposta, peito e barriga volumosos, correia de couro e um ombro blindado.
+    for (const armData of arms) {
+      const pivot=armData.mesh;
+      if (pivot.children[0]) pivot.children[0].material=skinMaterial;
+      const elbow=pivot.userData.elbow;
+      if (elbow && elbow.children[0]) elbow.children[0].material=skinMaterial;
+      if (elbow && elbow.children[1]) elbow.children[1].material=skinMaterial;
+    }
+    add(new THREE.SphereGeometry(.37,24,18),skinMaterial,0,1.07,-.325,1.38,1.20,.48);
+    for(const side of [-1,1]) {
+      const muscle=add(new THREE.SphereGeometry(.23,20,14),skinMaterial,side*.19,1.43,-.30,1.18,.78,.56);
+      muscle.rotation.z=side*-.15;
+      add(new THREE.SphereGeometry(.105,16,12),skinMaterial,side*.54,.82,-.06,1.28,1.05,1.1);
+    }
+    add(new THREE.BoxGeometry(.74,.10,.08),dark,0,.91,-.34);
+    add(new THREE.BoxGeometry(.22,.15,.08),gold,0,.91,-.40);
+    const hugePad=add(new THREE.SphereGeometry(.24,16,12),dark,.47,1.57,-.02,1.2,.72,1.18);
+    hugePad.rotation.z=-.24;
+    for(let i=0;i<3;i++) {
+      const spike=add(new THREE.ConeGeometry(.055,.20,5),steel,.43+i*.10,1.76,-.02);
+      spike.rotation.z=-.34;
+    }
+  } else if (heroClass === 'healer') {
+    // Veste branca, manto azul e filetes dourados como um clérigo de suporte.
+    add(new THREE.ConeGeometry(.40,.75,8),new THREE.MeshStandardMaterial({color:0xe1e4dc,roughness:.9}),0,.75,.03,1,.96,.83);
+    add(new THREE.BoxGeometry(.055,.62,.025),gold,0,1.08,-.405);
+    for(const side of [-1,1]) {
+      add(new THREE.BoxGeometry(.07,.42,.025),clothMaterial,side*.22,1.01,-.386).rotation.z=side*.11;
+      add(new THREE.SphereGeometry(.12,14,10),clothMaterial,side*.43,1.50,.02,1.2,.65,.9);
+    }
+    add(new THREE.OctahedronGeometry(.09,1),new THREE.MeshStandardMaterial({color:0x68e3bf,emissive:0x208c72,emissiveIntensity:.9}),0,1.32,-.435);
+  } else if (heroClass === 'necromancer') {
+    // Manto negro-ameixa, ossos e uma relíquia pálida no peito.
+    add(new THREE.ConeGeometry(.42,.78,7),clothMaterial,0,.75,.03,1,.95,.84);
+    for(const side of [-1,1]) {
+      add(new THREE.BoxGeometry(.075,.48,.035),dark,side*.29,1.12,-.36).rotation.z=side*.17;
+      add(new THREE.SphereGeometry(.045,10,8),steel,side*.31,1.22,-.405,.8,1.2,.45);
+    }
+    const skullMat=new THREE.MeshStandardMaterial({color:0xd9cfb8,roughness:.76});
+    add(new THREE.SphereGeometry(.09,12,10),skullMat,0,1.12,-.427,1,.82,.45);
+    add(new THREE.ConeGeometry(.035,.09,5),skullMat,-.045,1.05,-.44).rotation.z=Math.PI;
+    add(new THREE.ConeGeometry(.035,.09,5),skullMat,.045,1.05,-.44).rotation.z=Math.PI;
+  } else if (heroClass === 'monk') {
+    // Faixas de tecido claras, faixa castanha na cintura e braços mais naturais.
+    for (const armData of arms) {
+      const pivot=armData.mesh;
+      if (pivot.children[0]) pivot.children[0].material=skinMaterial;
+      const elbow=pivot.userData.elbow;
+      if (elbow && elbow.children[0]) elbow.children[0].material=skinMaterial;
+      if (elbow && elbow.children[1]) elbow.children[1].material=skinMaterial;
+    }
+    add(new THREE.BoxGeometry(.62,.39,.06),clothMaterial,0,1.25,-.335).rotation.z=-.04;
+    add(new THREE.BoxGeometry(.66,.095,.075),dark,0,.91,-.34);
+    add(new THREE.BoxGeometry(.40,.10,.035),classAccentMaterial,0,.83,-.39).rotation.z=-.15;
+    for(const side of [-1,1]) {
+      add(new THREE.BoxGeometry(.13,.30,.04),clothMaterial,side*.49,1.17,-.12).rotation.z=side*.12;
+      add(new THREE.TorusGeometry(.105,.024,5,12),clothMaterial,side*.49,1.04,-.10).rotation.x=Math.PI/2;
+    }
   }
   // Ornamentação adicional por skin: silhueta e emissivos diferentes, sem alterar hitbox.
   if (skin === 'rune') {
@@ -2535,11 +2639,13 @@ function updateState(m) {
     $('lobbyRoomCode').textContent = roomCode;
     const self = (m.players || []).find(p => p.id === playerId);
     $('readyBtn').textContent = self && self.ready ? 'CANCELAR PRONTO' : 'ESTOU PRONTO';
-    $('startMatchBtn').classList.toggle('hidden', !self || !self.isHost);
-    $('startMatchBtn').disabled = !(m.players || []).length || m.players.some(p => !p.ready);
+    const startButton = $('startMatchBtn');
+    startButton.classList.remove('hidden');
+    startButton.disabled = !self || !self.isHost || !(m.players || []).length || m.players.some(p => !p.ready);
+    startButton.textContent = self && self.isHost ? 'INICIAR PARTIDA' : 'AGUARDANDO ANFITRIÃO';
     $('lobbyHint').textContent = self && self.isHost
       ? (m.players.some(p => !p.ready) ? 'Você é o anfitrião. Espere todos marcarem PRONTO.' : 'Todos prontos! Toque em INICIAR PARTIDA.')
-      : 'Marque PRONTO e espere o anfitrião iniciar a partida.';
+      : (self && self.ready ? 'Você está pronto. O anfitrião iniciará quando todos estiverem prontos.' : 'Marque PRONTO e aguarde o anfitrião iniciar a partida.');
     const lobbyPlayers = m.players || [];
     const onlineCount = lobbyPlayers.length;
     const onlineLabel = $('lobbyOnlineCount');
