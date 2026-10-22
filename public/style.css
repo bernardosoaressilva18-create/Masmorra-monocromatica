@@ -2067,3 +2067,11 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
 @media (prefers-reduced-motion:reduce) {
   #hud .attack,#hud .attack span,#hud .attack::before { animation:none!important; transition:none!important; }
 }
+
+.public-rooms-btn{width:100%;min-height:44px;margin-top:9px;border:1px solid #4d8494;border-radius:8px;background:linear-gradient(110deg,#102d39,#17222e);color:#bdf6ff;font-weight:850;letter-spacing:.6px}
+.public-rooms-panel{width:min(100%,390px);margin-top:10px;padding:12px;border:1px solid #315361;border-radius:10px;background:#081019f2;max-height:32vh;overflow:auto}
+.public-rooms-head,.public-room-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.public-rooms-head{font-size:10px;letter-spacing:1px;color:#bdf6ff;margin-bottom:8px}
+.public-rooms-head button,.public-room-row button{border:1px solid #477180;border-radius:6px;background:#142833;color:#d9f8ff;padding:8px 10px;font-size:10px;font-weight:800}
+.public-room-row{padding:8px 0;border-top:1px solid #ffffff18;font-size:11px;color:#dce7ef}
+.public-rooms-panel p{font-size:11px;color:#9aabb8;line-height:1.4}
