@@ -186,11 +186,22 @@ function isDungeonPositionBlocked(x, z) {
   return false;
 }
 function resolveDungeonMovement(fromX, fromZ, nextX, nextZ) {
-  let x = THREE.MathUtils.clamp(nextX, -13, 13);
-  let z = THREE.MathUtils.clamp(nextZ, -174, 8);
-  if (isDungeonPositionBlocked(x, fromZ)) x = fromX;
-  if (isDungeonPositionBlocked(x, z)) z = fromZ;
-  return { x, z };
+  const x = THREE.MathUtils.clamp(nextX, -13, 13);
+  const z = THREE.MathUtils.clamp(nextZ, -174, 8);
+  // Resolve each axis independently so a corner collision doesn't trap the player.
+  const canMoveX = !isDungeonPositionBlocked(x, fromZ);
+  const canMoveZ = !isDungeonPositionBlocked(fromX, z);
+  if (canMoveX && canMoveZ) {
+    if (!isDungeonPositionBlocked(x, z)) return { x, z };
+    // Prefer the axis with more progress when the diagonal is blocked.
+    const progressX = Math.abs(x - fromX);
+    const progressZ = Math.abs(z - fromZ);
+    if (progressX >= progressZ) return { x, z: fromZ };
+    return { x: fromX, z };
+  }
+  if (canMoveX) return { x, z: fromZ };
+  if (canMoveZ) return { x: fromX, z };
+  return { x: fromX, z: fromZ };
 }
 let renderPixelRatioCap = getRenderPixelRatioCap();
 let adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(), Math.min(devicePixelRatio || 1, renderPixelRatioCap));
