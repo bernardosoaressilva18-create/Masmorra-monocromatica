@@ -1153,7 +1153,8 @@ setInterval(() => {
       for (const summon of (room.summons || [])) {
         if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
-        const aggroPriority = Math.max(0, distance - 7);
+        // Negative scores for summons inside the 7-unit taunt radius break ties with a player at point-blank range.
+        const aggroPriority = distance - 7;
         if (aggroPriority < targetPriority) {
           targetPriority = aggroPriority;
           nearest = distance;
