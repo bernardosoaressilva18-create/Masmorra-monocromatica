@@ -2138,3 +2138,46 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
     flex-wrap:wrap!important;
   }
 }
+
+/* Update 2 v3: compact, non-stretched talent tree */
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  align-items:start!important;
+  gap:7px!important;
+  max-height:min(52dvh,480px)!important;
+  overflow:auto!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch{
+  height:auto!important;
+  min-height:0!important;
+  align-self:start!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node{
+  min-height:0!important;
+  height:auto!important;
+  overflow:visible!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node small{
+  -webkit-line-clamp:2!important;
+}
+@media(max-width:760px){
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:7px!important;
+    max-height:min(48dvh,420px)!important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:5px!important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node{
+    padding:6px!important;
+  }
+}
+@media(max-width:390px){
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{
+    grid-template-columns:minmax(0,1fr)!important;
+    max-height:44dvh!important;
+  }
+}
