@@ -472,7 +472,7 @@ wss.on('connection', ws => {
 
       // O Mergulho precisa deslocar o necromante de verdade, não permitir
       // que ele reapareça praticamente no mesmo lugar após um toque próximo.
-      const minDiveDistance = 10;
+      const minDiveDistance = 18;
       const dx = requestedX - oldX;
       const dz = requestedZ - oldZ;
       const distance = Math.hypot(dx, dz);
