@@ -107,8 +107,8 @@ function updateAudioLevels() {
 function ensureAudio() {
   try {
     if (!backgroundMusic) {
-      // RandomMind, “Medieval: Exploration” (CC0). Trilha medieval de exploração; créditos opcionais.
-      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/Exploration_0.mp3');
+      // RandomMind, “Medieval: Exploration” (CC0). Trilha medieval de exploração.
+      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/Exploration.mp3');
       backgroundMusic.loop = true;
       backgroundMusic.preload = 'auto';
       backgroundMusic.volume = gameSettings.musicEnabled ? gameSettings.musicVolume * 0.78 : 0;
