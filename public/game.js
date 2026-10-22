@@ -3091,7 +3091,10 @@ let lookPointer = null, lastX = 0, lastY = 0;
 let necromancerDivePendingClient = false, necromancerDiveClientTimer = null;
 
 function rendererPointerSetup() {
-  const el = $('game');
+  // Ouve o canvas 3D diretamente para o toque de destino não ser engolido
+  // por elementos HUD/overlay; o retângulo usado no raycast é o do próprio canvas.
+  const el = renderer.domElement;
+  el.style.touchAction = 'none';
 
   el.addEventListener('pointerdown', e => {
     if (started && necromancerDivePendingClient) {
@@ -3113,6 +3116,10 @@ function rendererPointerSetup() {
         e.stopPropagation();
         return;
       }
+      showNotice('Toque numa área visível do chão para escolher onde emergir.');
+      e.preventDefault();
+      e.stopPropagation();
+      return;
     }
     if (!started ||
         (e.clientX < 155 && e.clientY > innerHeight - 190) ||
