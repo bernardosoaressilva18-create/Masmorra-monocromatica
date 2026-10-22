@@ -839,12 +839,12 @@ function setHealthBar(entity, hp, maxHp) {
 }
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
-  const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : heroClass === 'healer' ? 0x66d8ac : heroClass === 'necromancer' ? 0x9764cc : heroClass === 'monk' ? 0xd7a05b : 0x72e6ff;
+  const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : heroClass === 'healer' ? 0x66d8ac : heroClass === 'necromancer' ? 0x9764cc : heroClass === 'skeleton' ? 0xd9d1b9 : heroClass === 'monk' ? 0xd7a05b : 0x72e6ff;
   const armorColor = skin === 'shadow' ? 0x343a50 : skin === 'ember' ? 0x9b4a2b : (color ?? classColor);
   const darkColor = skin === 'shadow' ? 0x11131d : skin === 'ember' ? 0x3b1915 : 0x151d2a;
   const armor = new THREE.MeshStandardMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
   const dark = new THREE.MeshStandardMaterial({ color: darkColor, metalness: .35, roughness: .55 });
-  const skinTone = heroClass === 'goblin' ? 0x83bb56 : heroClass === 'ogre' ? 0x8c7952 : 0xe2b99a;
+  const skinTone = heroClass === 'goblin' ? 0x83bb56 : heroClass === 'ogre' ? 0x8c7952 : heroClass === 'skeleton' ? 0xe0dccb : 0xe2b99a;
   const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .82 });
   const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xc9a45d, metalness: .72, roughness: .3 });
@@ -2367,14 +2367,15 @@ function updateState(m) {
     incoming.add(id);
     let obj = remotePlayers.get(id);
     if (!obj) {
-      obj = makeHero(summon.color || 0x80c86b, 'goblin', 'default');
-      obj.userData.playerClass = 'goblin'; obj.userData.skin = 'default';
+      const isSkeleton = summon.summonType === 'skeleton' || summon.playerClass === 'skeleton' || String(summon.name || '').toLowerCase().includes('esqueleto');
+      obj = makeHero(summon.color || (isSkeleton ? 0xe0dccb : 0x80c86b), isSkeleton ? 'skeleton' : 'goblin', isSkeleton ? 'shadow' : 'default');
+      obj.userData.playerClass = isSkeleton ? 'skeleton' : 'goblin'; obj.userData.skin = isSkeleton ? 'shadow' : 'default';
       scene.add(obj); remotePlayers.set(id, obj);
     }
     obj.userData.targetX = summon.x;
     obj.userData.targetZ = summon.z;
     obj.userData.targetRot = summon.rot || 0;
-    obj.userData.name = summon.name || 'Goblin aliado';
+    obj.userData.name = summon.name || (summon.summonType === 'skeleton' ? 'Esqueleto aliado' : 'Goblin aliado');
     obj.userData.serverHp = summon.hp ?? 72;
     setHealthBar(obj, summon.hp ?? 60, summon.maxHp ?? 72);
   }
