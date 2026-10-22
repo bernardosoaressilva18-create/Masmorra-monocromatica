@@ -994,9 +994,9 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const eyeSocketMat = new THREE.MeshStandardMaterial({ color: 0x101522, roughness: .58 });
   const pupilMat = new THREE.MeshStandardMaterial({ color: 0x172238, metalness: .12, roughness: .28 });
   for (const side of [-1,1]) {
-    add(new THREE.SphereGeometry(.038,12,8), eyeSocketMat,side*.09,1.96,-.244,1.15,1,.55);
-    add(new THREE.SphereGeometry(.021,12,8), glow,side*.09,1.96,-.263,1.05,1,.45);
-    add(new THREE.SphereGeometry(.014,10,8), pupilMat,side*.09,1.96,-.271,1,1,.4);
+    addHead(new THREE.SphereGeometry(.038,12,8), eyeSocketMat,side*.09,1.96,-.244,1.15,1,.55);
+    addHead(new THREE.SphereGeometry(.021,12,8), glow,side*.09,1.96,-.263,1.05,1,.45);
+    addHead(new THREE.SphereGeometry(.014,10,8), pupilMat,side*.09,1.96,-.271,1,1,.4);
     const brow = addHead(new THREE.CapsuleGeometry(.015,.055,4,8), dark,side*.09,2.015,-.245,1,.75,.65);
     brow.rotation.z = side * -.12;
   }
@@ -1022,7 +1022,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       const ear = addHead(new THREE.SphereGeometry(.045,10,8), skinMaterial, side*.25,1.94,-.005,.72,1.18,.55);
       ear.rotation.z = side*.12;
     }
-    add(new THREE.SphereGeometry(.018,8,6), palette.accent ? classAccentMaterial : gold, side*.15,1.88,-.235,.8,.7,.55);
+    addHead(new THREE.SphereGeometry(.018,8,6), palette.accent ? classAccentMaterial : gold, side*.15,1.88,-.235,.8,.7,.55);
   }
   // Camadas de ombreira, braçadeiras e luvas com materiais contrastantes.
   for (const side of [-1,1]) {
@@ -1064,7 +1064,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   // Espada com lâmina facetada, guarda dourada e pomo
   const sword = new THREE.Group();
   const blade = new THREE.Mesh(new THREE.CylinderGeometry(.018,.065,.72,4), steel); blade.position.y=.48; sword.add(blade);
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(.018,.68,.06), glow); edge.position.set(.043,.48,-.002); sword.add(edge);
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(.012,.62,.022), glow); edge.position.set(.036,.48,-.025); sword.add(edge);
   const guard = new THREE.Mesh(new THREE.BoxGeometry(.31,.065,.12), gold); guard.position.y=.12; sword.add(guard);
   const grip = new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.2,16), dark); grip.position.y=.015; sword.add(grip);
   const pommel = new THREE.Mesh(new THREE.SphereGeometry(.07,8,6), gold); pommel.position.y=-.09; sword.add(pommel);
@@ -1146,28 +1146,28 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   if (heroClass === 'goblin') {
     g.scale.setScalar(.88);
     cape.visible = false; capeTailL.visible = false; capeTailR.visible = false;
-    add(new THREE.BoxGeometry(.22,.09,.16), dark, 0,1.87,-.24);
-    add(new THREE.BoxGeometry(.12,.035,.06), gold, 0,1.88,-.29);
+    addHead(new THREE.BoxGeometry(.22,.09,.16), dark, 0,1.87,-.24);
+    addHead(new THREE.BoxGeometry(.12,.035,.06), gold, 0,1.88,-.29);
   } else if (heroClass === 'ogre') {
     g.scale.setScalar(1.18);
     cape.visible = false; capeTailL.visible = false; capeTailR.visible = false;
-    add(new THREE.BoxGeometry(.42,.20,.14), dark, 0,1.54,-.25);
-    add(new THREE.BoxGeometry(.24,.06,.05), gold, 0,1.54,-.34);
+    addHead(new THREE.BoxGeometry(.42,.20,.14), dark, 0,1.54,-.25);
+    addHead(new THREE.BoxGeometry(.24,.06,.05), gold, 0,1.54,-.34);
   } else if (heroClass === 'knight') {
-    add(new THREE.BoxGeometry(.38,.075,.095), steel, 0,2.08,-.205);
-    add(new THREE.BoxGeometry(.10,.23,.09), steel, -.215,1.91,-.12);
-    add(new THREE.BoxGeometry(.10,.23,.09), steel, .215,1.91,-.12);
-    add(new THREE.ConeGeometry(.085,.27,5), gold, 0,2.30,.015);
-    add(new THREE.BoxGeometry(.22,.035,.045), classAccentMaterial, 0,2.02,-.25);
+    addHead(new THREE.BoxGeometry(.38,.075,.095), steel, 0,2.08,-.205);
+    addHead(new THREE.BoxGeometry(.10,.23,.09), steel, -.215,1.91,-.12);
+    addHead(new THREE.BoxGeometry(.10,.23,.09), steel, .215,1.91,-.12);
+    addHead(new THREE.ConeGeometry(.085,.27,5), gold, 0,2.30,.015);
+    addHead(new THREE.BoxGeometry(.22,.035,.045), classAccentMaterial, 0,2.02,-.25);
   } else if (heroClass === 'mage') {
-    const hood = add(new THREE.ConeGeometry(.30,.34,8), clothMaterial, 0,2.19,.045);
+    const hood = addHead(new THREE.ConeGeometry(.30,.34,8), clothMaterial, 0,2.19,.045);
     hood.rotation.x = -.08;
     add(new THREE.ConeGeometry(.43,.58,8), clothMaterial, 0,.78,.02,1,.86,.72);
     add(new THREE.OctahedronGeometry(.105,1), classAccentMaterial, 0,1.58,-.18,1,1.15,.72);
     const focusHalo = add(new THREE.TorusGeometry(.13,.018,5,18), classAccentMaterial, 0,1.58,-.21);
     focusHalo.rotation.x = Math.PI / 2;
   } else if (heroClass === 'archer') {
-    const hood = add(new THREE.ConeGeometry(.285,.36,7), clothMaterial, 0,2.18,.035);
+    const hood = addHead(new THREE.ConeGeometry(.285,.36,7), clothMaterial, 0,2.18,.035);
     hood.rotation.x = -.05;
     add(new THREE.ConeGeometry(.29,.36,6), clothMaterial, 0,1.40,.34,1,.86,.44);
     const quiver = add(new THREE.CylinderGeometry(.085,.11,.52,8), dark, -.32,1.23,.34);
@@ -1180,14 +1180,14 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     strap.rotation.z = -.27;
   } else if (heroClass === 'healer') {
     add(new THREE.ConeGeometry(.43,.72,8), clothMaterial, 0,.79,.03,1,.9,.8);
-    const hood = add(new THREE.ConeGeometry(.30,.38,8), clothMaterial,0,2.17,.03);
+    const hood = addHead(new THREE.ConeGeometry(.30,.38,8), clothMaterial,0,2.17,.03);
     hood.rotation.x=-.08;
     add(new THREE.TorusGeometry(.19,.035,6,18),gold,0,1.57,0).rotation.x=Math.PI/2;
     add(new THREE.OctahedronGeometry(.13,1),new THREE.MeshStandardMaterial({color:0xc4fff0,emissive:0x39dba7,emissiveIntensity:1.1}),0,1.28,-.43,.8,1.2,.55);
     for (const side of [-1,1]) add(new THREE.BoxGeometry(.07,.3,.08),gold,side*.27,1.14,-.35).rotation.z=side*.18;
   } else if (heroClass === 'necromancer') {
     add(new THREE.ConeGeometry(.43,.72,7),clothMaterial,0,.78,.03,1,.9,.8);
-    const hood = add(new THREE.ConeGeometry(.32,.42,7),clothMaterial,0,2.15,.04);
+    const hood = addHead(new THREE.ConeGeometry(.32,.42,7),clothMaterial,0,2.15,.04);
     hood.rotation.x=-.12;
     add(new THREE.SphereGeometry(.12,10,8),new THREE.MeshStandardMaterial({color:0xe3d7f2,roughness:.7}),0,1.30,-.44,1,.88,.55);
     add(new THREE.TorusGeometry(.17,.025,5,18),classAccentMaterial,0,1.30,-.45).rotation.x=Math.PI/2;
@@ -1198,23 +1198,23 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     g.scale.setScalar(.96);
     add(new THREE.BoxGeometry(.64,.13,.46),clothMaterial,0,.93,0);
     add(new THREE.BoxGeometry(.53,.06,.05),gold,0,.94,-.25);
-    add(new THREE.BoxGeometry(.47,.09,.33),clothMaterial,0,2.02,-.02);
-    add(new THREE.BoxGeometry(.20,.055,.035),gold,0,2.03,-.20);
-    add(new THREE.ConeGeometry(.08,.16,5),gold,-.30,2.02,-.02).rotation.z=.7;
+    addHead(new THREE.BoxGeometry(.47,.09,.33),clothMaterial,0,2.02,-.02);
+    addHead(new THREE.BoxGeometry(.20,.055,.035),gold,0,2.03,-.20);
+    addHead(new THREE.ConeGeometry(.08,.16,5),gold,-.30,2.02,-.02).rotation.z=.7;
   }
   // Ornamentação adicional por skin: silhueta e emissivos diferentes, sem alterar hitbox.
   if (skin === 'rune') {
     add(new THREE.TorusGeometry(.27,.025,7,24), classAccentMaterial, 0,1.3,-.42).rotation.x=Math.PI/2;
-    add(new THREE.OctahedronGeometry(.11,2), glow, 0,2.23,-.04,1,1.2,.7);
+    addHead(new THREE.OctahedronGeometry(.11,2), glow, 0,2.23,-.04,1,1.2,.7);
     for (const side of [-1,1]) add(new THREE.OctahedronGeometry(.085,1), glow, side*.52,1.48,-.02);
   } else if (skin === 'celestial') {
-    const halo = add(new THREE.TorusGeometry(.32,.026,8,30), classAccentMaterial, 0,2.28,.02);
+    const halo = addHead(new THREE.TorusGeometry(.32,.026,8,30), classAccentMaterial, 0,2.28,.02);
     halo.rotation.x=Math.PI/2.15;
     add(new THREE.OctahedronGeometry(.10,2), glow, 0,1.3,-.43,1,1.25,.65);
     for (const side of [-1,1]) add(new THREE.SphereGeometry(.075,14,10), gold, side*.52,1.52,-.015);
   } else if (skin === 'bloodmoon') {
     for (const side of [-1,1]) {
-      const horn = add(new THREE.ConeGeometry(.085,.28,7), classAccentMaterial, side*.18,2.20,.02);
+      const horn = addHead(new THREE.ConeGeometry(.085,.28,7), classAccentMaterial, side*.18,2.20,.02);
       horn.rotation.z = side * -.24;
       const spike = add(new THREE.ConeGeometry(.07,.22,7), classAccentMaterial, side*.53,1.49,-.015);
       spike.rotation.z = side * -Math.PI/2;
