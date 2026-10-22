@@ -1224,7 +1224,7 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
           ? Math.hypot(target.x - monster.x, target.z - monster.z)
           : Infinity;
         const isGoblinClone = summon.summonType === 'goblin_clone';
-        const aggroBonus = isGoblinClone ? 2.5 : 0.12;
+        const aggroBonus = isGoblinClone ? 10 : 0.12;
         const shouldTargetSummon = distance < 34 && distance + aggroBonus < currentTargetDistance;
         if (shouldTargetSummon) {
           targetPriority = distance;
