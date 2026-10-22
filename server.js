@@ -898,7 +898,11 @@ setInterval(() => {
     } else if (players.length > 0) {
       room.emptySince = 0;
     }
-    if (!room.started && room.players.size === 0) { rooms.delete(roomCode); continue; }
+    // Apaga qualquer sala sem jogadores ativos depois da janela de reconexão.
+    if (room.players.size === 0 && (!room.started || !room.emptySince || now - room.emptySince > 120000)) {
+      rooms.delete(roomCode);
+      continue;
+    }
     if (!room.started || players.length === 0) continue;
     if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0||now<(p.invisibleUntil||0))continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;if(now<(t.dodgeUntil||0)){t.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você evitou o golpe.'}));}else{takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}}
     if (room.safeZoneUntil && now >= room.safeZoneUntil) {
