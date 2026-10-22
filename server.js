@@ -470,33 +470,38 @@ wss.on('connection', ws => {
       let requestedX = Math.max(-12, Math.min(12, Number(msg.x) || 0));
       let requestedZ = Math.max(-168, Math.min(5, Number(msg.z) || 0));
 
-      // O Mergulho precisa deslocar o necromante de verdade, não permitir
-      // que ele reapareça praticamente no mesmo lugar após um toque próximo.
-      const minDiveDistance = 24;
+      // Garante um deslocamento realmente visível. Se o ponto tocado estiver
+      // perto demais ou bloqueado, procura o ponto livre mais distante nas proximidades.
+      const minDiveDistance = 36;
       const dx = requestedX - oldX;
       const dz = requestedZ - oldZ;
       const distance = Math.hypot(dx, dz);
+      const angle = distance > 0.001 ? Math.atan2(dz, dx) : (player.rot || 0);
       if (distance < minDiveDistance) {
-        const angle = distance > 0.001 ? Math.atan2(dz, dx) : (player.rot || 0);
         requestedX = Math.max(-12, Math.min(12, oldX + Math.cos(angle) * minDiveDistance));
         requestedZ = Math.max(-168, Math.min(5, oldZ + Math.sin(angle) * minDiveDistance));
       }
       let landing = resolveServerMovement(room, player, requestedX, requestedZ);
-      // If the requested direction points into a wall/boundary, choose the
-      // clearest legal landing point so a tap nearby never becomes a tiny dive.
-      if (Math.hypot(landing.x - oldX, landing.z - oldZ) < 18) {
+      const landingDistance = point => Math.hypot(point.x - oldX, point.z - oldZ);
+      if (landingDistance(landing) < minDiveDistance) {
         const candidates = [];
-        for (let step = 0; step < 16; step++) {
-          const angle = (Math.PI * 2 * step) / 16;
-          const x = Math.max(-12, Math.min(12, oldX + Math.cos(angle) * minDiveDistance));
-          const z = Math.max(-168, Math.min(5, oldZ + Math.sin(angle) * minDiveDistance));
-          const candidate = resolveServerMovement(room, player, x, z);
-          candidates.push(candidate);
+        // Procura vários ângulos e distâncias; isso evita reaparecer perto
+        // quando o clique aponta para uma parede ou para o limite do mapa.
+        for (let step = 0; step < 32; step++) {
+          const a = (Math.PI * 2 * step) / 32;
+          for (let radius = 36; radius <= 56; radius += 4) {
+            const x = Math.max(-12, Math.min(12, oldX + Math.cos(a) * radius));
+            const z = Math.max(-168, Math.min(5, oldZ + Math.sin(a) * radius));
+            const candidate = resolveServerMovement(room, player, x, z);
+            if (landingDistance(candidate) >= minDiveDistance) candidates.push(candidate);
+          }
         }
-        candidates.sort((a, b) => Math.hypot(b.x - oldX, b.z - oldZ) - Math.hypot(a.x - oldX, a.z - oldZ));
-        if (candidates.length && Math.hypot(candidates[0].x - oldX, candidates[0].z - oldZ) > Math.hypot(landing.x - oldX, landing.z - oldZ)) landing = candidates[0];
+        candidates.sort((a, b) => landingDistance(b) - landingDistance(a));
+        if (candidates.length) landing = candidates[0];
       }
-      player.x = landing.x; player.z = landing.z;
+      // Se a geometria do mapa não permitir 36 unidades, usa o ponto livre
+      // mais distante encontrado, em vez de falhar ou deixar o jogador preso.
+            player.x = landing.x; player.z = landing.z;
       player.necromancerDivePending = false;
       player.necromancerDiveUntil = 0;
       player.invisibleUntil = 0;
