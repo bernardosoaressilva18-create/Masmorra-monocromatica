@@ -425,25 +425,7 @@ for (let z = -30; z <= 8; z += 6) {
   }
   box(7.3, .55, .8, trim, 0, 4, -31.8);
 
-  const rune = new THREE.Mesh(
-    new THREE.RingGeometry(1.2, 1.5, 48),
-    new THREE.MeshBasicMaterial({
-      color: 0x53cde9,
-      transparent: true,
-      opacity: .48,
-      side: THREE.DoubleSide
-    })
-  );
-  rune.rotation.x = -Math.PI / 2;
-  rune.position.set(0, .02, -16);
-  activeEnvironmentGroup.add(rune);
-
-  for (let i = 0; i < 6; i++) {
-    const a = i * Math.PI / 3;
-    const crystalMesh = new THREE.Mesh(new THREE.OctahedronGeometry(.35), crystal);
-    crystalMesh.position.set(Math.cos(a) * 2, .4, -16 + Math.sin(a) * 2);
-    activeEnvironmentGroup.add(crystalMesh);
-  }
+  // Removido o círculo mágico e o conjunto de cristais do centro da primeira fase.
 
   // Portões mágicos entre as três fases.
   for (const z of [-30, -62, -94, -126]) {
@@ -606,8 +588,6 @@ function buildDungeonVisualPass() {
     { z: -78, color: 0x76f0ad }, { z: -110, color: 0xffa45e },
     { z: -153, color: 0xff77b7 }
   ];
-  const runeGeometry = new THREE.TorusGeometry(2.15, 0.025, 5, 44);
-  const runeInnerGeometry = new THREE.TorusGeometry(1.72, 0.012, 4, 36);
   const crystalGeometry = new THREE.OctahedronGeometry(0.25, 1);
   const crystalMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.95,
@@ -620,18 +600,7 @@ function buildDungeonVisualPass() {
   let crystalIndex = 0;
   for (let zi = 0; zi < zoneData.length; zi++) {
     const zone = zoneData[zi];
-    const runeMaterial = new THREE.MeshBasicMaterial({
-      color: zone.color, transparent: true, opacity: 0.35,
-      side: THREE.DoubleSide, depthWrite: false
-    });
-    const floorRune = new THREE.Mesh(runeGeometry, runeMaterial);
-    floorRune.rotation.x = Math.PI / 2; floorRune.position.set(0, 0.023, zone.z); detailGroup.add(floorRune);
-    const innerMaterial = new THREE.MeshBasicMaterial({
-      color: zone.color, transparent: true, opacity: 0.20,
-      side: THREE.DoubleSide, depthWrite: false
-    });
-    const innerRune = new THREE.Mesh(runeInnerGeometry, innerMaterial);
-    innerRune.rotation.x = Math.PI / 2; innerRune.position.set(0, 0.026, zone.z); detailGroup.add(innerRune);
+    // Piso central limpo: sem círculos/runa no meio da fase.
     for (const side of [-1, 1]) {
       for (let j = 0; j < 4; j++) {
         const x = side * (9.5 + (j % 2) * 1.15);
