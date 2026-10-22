@@ -1081,9 +1081,28 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     add(new THREE.BoxGeometry(.20,.055,.035),gold,0,2.03,-.20);
     add(new THREE.ConeGeometry(.08,.16,5),gold,-.30,2.02,-.02).rotation.z=.7;
   }
+  // Ornamentação adicional por skin: silhueta e emissivos diferentes, sem alterar hitbox.
+  if (skin === 'rune') {
+    add(new THREE.TorusGeometry(.27,.025,7,24), classAccentMaterial, 0,1.3,-.42).rotation.x=Math.PI/2;
+    add(new THREE.OctahedronGeometry(.11,2), glow, 0,2.23,-.04,1,1.2,.7);
+    for (const side of [-1,1]) add(new THREE.OctahedronGeometry(.085,1), glow, side*.52,1.48,-.02);
+  } else if (skin === 'celestial') {
+    const halo = add(new THREE.TorusGeometry(.32,.026,8,30), classAccentMaterial, 0,2.28,.02);
+    halo.rotation.x=Math.PI/2.15;
+    add(new THREE.OctahedronGeometry(.10,2), glow, 0,1.3,-.43,1,1.25,.65);
+    for (const side of [-1,1]) add(new THREE.SphereGeometry(.075,14,10), gold, side*.52,1.52,-.015);
+  } else if (skin === 'bloodmoon') {
+    for (const side of [-1,1]) {
+      const horn = add(new THREE.ConeGeometry(.085,.28,7), classAccentMaterial, side*.18,2.20,.02);
+      horn.rotation.z = side * -.24;
+      const spike = add(new THREE.ConeGeometry(.07,.22,7), classAccentMaterial, side*.53,1.49,-.015);
+      spike.rotation.z = side * -Math.PI/2;
+    }
+    add(new THREE.OctahedronGeometry(.12,1), glow, 0,1.3,-.44,.8,1.1,.55);
+  }
   for (const side of [-1,1]) {
-    add(new THREE.SphereGeometry(.032,10,8), classAccentMaterial, side*.092,1.96,-.245);
-    add(new THREE.SphereGeometry(.055,10,8), classAccentMaterial, side*.48,1.49,-.21);
+    add(new THREE.SphereGeometry(.032,12,10), classAccentMaterial, side*.092,1.96,-.245);
+    add(new THREE.SphereGeometry(.055,14,10), classAccentMaterial, side*.48,1.49,-.21);
   }
   g.userData.sword=classWeapon;
   const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color:classColor,transparent:true,opacity:.72,side:THREE.DoubleSide}));
