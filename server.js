@@ -386,7 +386,8 @@ wss.on('connection', ws => {
       }
 
       let room = rooms.get(code);
-      if (!room) room = newRoom(code, player.id, !!msg.public);\n      if (msg.public) { room.isPublic = true; room.code = code; }
+      if (!room) room = newRoom(code, player.id, !!msg.public);
+      if (msg.public) { room.isPublic = true; room.code = code; }
 
       // Um token aleatório permite recuperar o mesmo personagem após uma queda breve.
       const requestedToken = typeof msg.resumeToken === 'string' ? msg.resumeToken : '';
