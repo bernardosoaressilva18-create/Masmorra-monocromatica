@@ -2181,3 +2181,48 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
     max-height:44dvh!important;
   }
 }
+
+
+/* Update 2 v1 — skill tree compacta no celular, sem esticar os ramos */
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  align-items:start!important;
+  align-content:start!important;
+  grid-auto-rows:max-content!important;
+  max-height:min(48dvh,420px)!important;
+  overflow:auto!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch{
+  display:flex!important;
+  flex-direction:column!important;
+  align-self:start!important;
+  height:auto!important;
+  min-height:0!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  align-content:start!important;
+  grid-auto-rows:max-content!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node{
+  min-height:0!important;
+  height:auto!important;
+  align-self:start!important;
+}
+@media(max-width:560px){
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    max-height:min(49dvh,440px)!important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node{
+    padding:6px 5px!important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node small{
+    -webkit-line-clamp:2!important;
+  }
+}
