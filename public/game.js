@@ -1081,19 +1081,19 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   if (heroClass === 'mage') {
     const staff = new THREE.Group();
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,.95,16), gold); shaft.position.y=.4; staff.add(shaft);
-    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.18,1), glow); orb.position.y=.98; staff.add(orb);
+    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.18,1), glow); orb.position.y=.98; staff.add(orb); staff.userData.orb = orb;
     staff.position.set(.52,.65,-.04); staff.rotation.z=-.12; g.add(staff); classWeapon = staff;
   } else if (heroClass === 'healer') {
     const staff = new THREE.Group();
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.047,.07,1.12,8), gold); shaft.position.y=.43; staff.add(shaft);
-    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(.19,2), new THREE.MeshStandardMaterial({color:0x8ffff0,emissive:0x23bf91,emissiveIntensity:1.7,metalness:.3,roughness:.2})); crystal.position.y=1.03; staff.add(crystal);
-    const halo = new THREE.Mesh(new THREE.TorusGeometry(.23,.025,6,20), new THREE.MeshStandardMaterial({color:0xc8fff0,emissive:0x3ad7ab,emissiveIntensity:.8})); halo.position.y=1.03; halo.rotation.x=Math.PI/2; staff.add(halo);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(.19,2), new THREE.MeshStandardMaterial({color:0x8ffff0,emissive:0x23bf91,emissiveIntensity:1.7,metalness:.3,roughness:.2})); crystal.position.y=1.03; staff.add(crystal); staff.userData.orb = crystal;
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(.23,.025,6,20), new THREE.MeshStandardMaterial({color:0xc8fff0,emissive:0x3ad7ab,emissiveIntensity:.8})); halo.position.y=1.03; halo.rotation.x=Math.PI/2; staff.add(halo); staff.userData.halo = halo;
     staff.position.set(.52,.58,-.04); staff.rotation.z=-.12; g.add(staff); classWeapon = staff;
   } else if (heroClass === 'necromancer') {
     const staff = new THREE.Group();
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.05,.075,1.18,7), dark); shaft.position.y=.42; staff.add(shaft);
-    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(.19,1), new THREE.MeshStandardMaterial({color:0xc6a1ff,emissive:0x6e26b8,emissiveIntensity:1.9,roughness:.22})); orb.position.y=1.04; staff.add(orb);
-    const boneRing = new THREE.Mesh(new THREE.TorusGeometry(.23,.027,5,16), steel); boneRing.position.y=1.04; boneRing.rotation.x=Math.PI/2; staff.add(boneRing);
+    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(.19,1), new THREE.MeshStandardMaterial({color:0xc6a1ff,emissive:0x6e26b8,emissiveIntensity:1.9,roughness:.22})); orb.position.y=1.04; staff.add(orb); staff.userData.orb = orb;
+    const boneRing = new THREE.Mesh(new THREE.TorusGeometry(.23,.027,5,16), steel); boneRing.position.y=1.04; boneRing.rotation.x=Math.PI/2; staff.add(boneRing); staff.userData.halo = boneRing;
     staff.position.set(.52,.56,-.04); staff.rotation.z=-.14; g.add(staff); classWeapon = staff;
   } else if (heroClass === 'archer') {
     const bow = new THREE.Group();
@@ -1271,8 +1271,11 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     classShield = new THREE.Group();
     const face = new THREE.Mesh(new THREE.CylinderGeometry(.19,.24,.075,6), armor);
     face.rotation.x = Math.PI/2; face.rotation.z = Math.PI/6; classShield.add(face);
+    const shieldRim = new THREE.Mesh(new THREE.TorusGeometry(.205,.018,5,6), gold);
+    shieldRim.rotation.x = Math.PI/2; shieldRim.rotation.z = Math.PI/6; shieldRim.position.z = -.012; classShield.add(shieldRim);
     const boss = new THREE.Mesh(new THREE.OctahedronGeometry(.105,1), gold); boss.position.z = -.047; classShield.add(boss);
     const rune = new THREE.Mesh(new THREE.OctahedronGeometry(.055,1), glow); rune.position.set(0,.015,-.105); classShield.add(rune);
+    const shieldGrip = new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.25,8), dark); shieldGrip.position.z = .055; shieldGrip.rotation.z = Math.PI/2; classShield.add(shieldGrip);
     classShield.position.set(-.59,1.10,-.23); classShield.rotation.z = -.12; g.add(classShield);
   } else if (heroClass === 'mage' || heroClass === 'healer' || heroClass === 'necromancer') {
     classCharm = new THREE.Group();
@@ -1351,6 +1354,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   for (const tail of [capeTailL,capeTailR]) tail.scale.x *= silhouette.cape;
   if (classWeapon && classWeapon.scale) classWeapon.scale.multiplyScalar(silhouette.weapon);
   g.userData.silhouetteProfile = silhouette;
+  g.userData.torsoBaseScaleY = torsoMesh ? torsoMesh.scale.y : 1;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
   g.userData.baseY = 0;
   attachHealthBar(g);
@@ -3753,7 +3757,7 @@ const right = new THREE.Vector3(
     const breath = Math.sin(phase * .8);
     // 1) Respiração subtil do peitoral.
     if (myPlayer.userData.torso) {
-      const torsoBaseY = myPlayer.userData.silhouetteProfile ? myPlayer.userData.silhouetteProfile.torsoY : 1;
+      const torsoBaseY = myPlayer.userData.torsoBaseScaleY || 1;
       myPlayer.userData.torso.scale.y = torsoBaseY * (1 + breath * .012 + (moving ? Math.abs(Math.sin(phase*2))*.006 : 0));
       // 2) Inclinação ao atacar e 3) inclinação rápida durante esquiva.
       myPlayer.userData.torso.rotation.z = (moving ? Math.sin(phase) * .01 : Math.sin(phase * .5) * .006) + attackHit * .12 - dodgeLean * .35;
@@ -3800,6 +3804,11 @@ const right = new THREE.Vector3(
       weapon.rotation.x = rest.x - attackHit * 1.05 + Math.sin(phase) * .025 * stride;
       weapon.rotation.z = rest.z - attackHit * .42 + Math.sin(phase * .5) * .012;
       weapon.position.y = rest.y + Math.sin(phase) * .018 * stride;
+      if (weapon.userData.orb) {
+        weapon.userData.orb.rotation.y += dt * 1.8;
+        weapon.userData.orb.rotation.x = Math.sin(phase * .8 + idleSeed) * .10;
+      }
+      if (weapon.userData.halo) weapon.userData.halo.rotation.z += dt * .75;
     }
     if (myPlayer.userData.baseRing) myPlayer.userData.baseRing.rotation.z += dt * (moving ? .38 : .16);
     if (myPlayer.userData.waistSigil) myPlayer.userData.waistSigil.rotation.y += dt * (moving ? 1.2 : .45);
@@ -3813,6 +3822,10 @@ const right = new THREE.Vector3(
       myPlayer.userData.classShield.rotation.x = dodgeLean*.12;
     }
     for (const part of myPlayer.userData.decorativeParts || []) part.rotation.y += dt*.12;
+    if (myPlayer.userData.classShield) {
+      const shieldPulse = 1 + Math.sin(phase * 1.6) * .012;
+      myPlayer.userData.classShield.scale.set(shieldPulse, shieldPulse, shieldPulse);
+    }
   }
 
   // Movimento suave dos outros jogadores
@@ -3885,7 +3898,7 @@ const right = new THREE.Vector3(
       obj.userData.classCharm.rotation.z = Math.sin(rp*.7 + remoteIdleSeed)*.07;
       obj.userData.classCharm.position.y = 1.53 + Math.sin(rp*1.15 + remoteIdleSeed)*.022;
     }
-    if (obj.userData.classShield) obj.userData.classShield.rotation.z = -.12 + Math.sin(rp)*(remoteMoving?.025:.01);
+    if (obj.userData.classShield) obj.userData.classShield.rotation.z = -.12 + Math.sin(rp) * (remoteMoving ? .025 : .01);
     for (const part of obj.userData.decorativeParts || []) part.rotation.y += dt*.08;
     obj.position.y = remoteMoving ? Math.abs(Math.sin(rp * 2)) * .012 : Math.sin(rp * .8) * .004;
     if (obj.userData.cape) {
