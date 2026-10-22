@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ultimo-legado-update-2-v10';
+const CACHE_NAME = 'ultimo-legado-update-2-v11';
 const SHELL = ['./', './index.html', './style.css', './game.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
