@@ -184,6 +184,15 @@
     <input id="lookVerticalSensitivity" type="range" min="0.5" max="3" step="0.1" value="0.9">
     <label class="setting-range" for="graphicsQuality">Qualidade gráfica</label>
     <select id="graphicsQuality" class="settings-select"><option value="low">Baixa · mais FPS</option><option value="balanced" selected>Equilibrada</option><option value="high">Alta · mais detalhes</option></select>
+    <section class="hud-edit-tools" aria-label="Personalizar controles">
+      <strong>CONTROLES NA TELA</strong>
+      <p>Toque em “Mover HUD” e arraste o joystick e os botões para onde ficar melhor. A posição é salva neste aparelho.</p>
+      <div class="hud-edit-actions">
+        <button id="hudEditBtn" type="button">✥ MOVER HUD</button>
+        <button id="hudResetBtn" type="button">RESTAURAR</button>
+      </div>
+      <small id="hudEditStatus" aria-live="polite">Controles no lugar padrão.</small>
+    </section>
     <label class="setting-toggle"><input id="hapticsEnabled" type="checkbox" checked> Vibração ao atacar e esquivar</label>
     <label class="setting-range" for="musicVolume">Volume da música <output id="musicVolumeValue">32%</output></label>
     <input id="musicVolume" type="range" min="0" max="1" step="0.05" value="0.32">
@@ -200,7 +209,7 @@
       </div>
       <p class="diagnostics-note">Heap JS não é a RAM total do celular. Memória da GPU e uso real da RAM não são expostos por muitos navegadores.</p>
     </section>
-    <p class="settings-note">As configurações ficam salvas neste dispositivo. Trilha: “JRPG - End Dungeon”, de HydroGene (CC0, OpenGameArt).</p>
+    <p class="settings-note">As configurações ficam salvas neste dispositivo. Trilha: “Medieval: The Old Tower Inn”, de RandomMind (CC0, OpenGameArt).</p>
   </div>
   <div id="notice" class="notice"></div>
   <div class="objective">
