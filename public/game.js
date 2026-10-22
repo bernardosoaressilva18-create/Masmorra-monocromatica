@@ -116,38 +116,29 @@ function ensureAudio(){
           osc.connect(env);env.connect(musicBus);osc.start(now);osc.stop(now+duration+.08);
         }
       };
+      // Trilha procedural original com pads harmônicos, baixo e frases melódicas de RPG.
       const tick=()=>{
         if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
         const step=musicStep++,astral=currentRealmVisual===2;
         const lead=astral?astralLead:dungeonLead,bass=astral?astralBass:dungeonBass,chords=astral?astralChords:dungeonChords;
+        const bar=Math.floor(step/8)%chords.length;
         if(step%8===0){
-          const chord=chords[Math.floor(step/8)%chords.length];
-          schedulePad(chord,4.8,.018);
-          scheduleMusicNote(bass[Math.floor(step/8)%bass.length],3.3,.075,'sine');
+          schedulePad(chords[bar],4.9,astral?.021:.024);
+          scheduleMusicNote(bass[bar],3.8,.09,'sine');
+          scheduleMusicNote(bass[bar]*2,1.6,.018,'triangle');
         }
-        if(step%2===0){
-          const note=lead[(Math.floor(step/2)+Math.floor(step/16))%lead.length];
-          scheduleMusicNote(note,1.05,.055,'triangle');
-          if(step%4===0)scheduleMusicNote(note*2,.62,.012,'sine');
-        } else if(step%4===1){
-          scheduleMusicNote(lead[(Math.floor(step/2)+3)%lead.length],.42,.012,'sine');
-        }
-        if(step%16===12)scheduleMusicNote(lead[(Math.floor(step/2)+7)%lead.length]*1.5,.85,.014,'sine');
-        // Camada de arpejo e pulso suave para soar mais como trilha de RPG, menos como bipes isolados.
+        // Melodia espaçada, com respostas suaves em vez de uma sequência constante de bipes.
         if(step%4===0){
-          const chord=chords[Math.floor(step/8)%chords.length];
-          const arp=chord[(Math.floor(step/4))%chord.length];
-          scheduleMusicNote(arp*2,.78,.022,'triangle');
+          const phrase=(Math.floor(step/4)+Math.floor(step/32)*3)%lead.length;
+          scheduleMusicNote(lead[phrase],1.35,astral?.052:.058,'triangle');
+          if(step%8===0)scheduleMusicNote(lead[phrase]*1.5,.95,.012,'sine');
+        } else if(step%4===2 && step%8!==6){
+          const answer=lead[(Math.floor(step/4)+5)%lead.length];
+          scheduleMusicNote(answer,.72,.022,'sine');
         }
-        if(step%8===4){
-          const bassNote=bass[Math.floor(step/8)%bass.length];
-          scheduleMusicNote(bassNote*1.5,.28,.009,'sine');
-        }
-        if(step%16===15){
-          scheduleMusicNote(lead[(Math.floor(step/2)+5)%lead.length],1.25,.026,'triangle');
-        }
+        if(step%8===4)scheduleMusicNote(bass[bar]*1.5,.28,.025,'triangle');
       };
-      tick();musicTimer=window.setInterval(tick,620);
+      tick();musicTimer=window.setInterval(tick,760);
     }
     if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
   }catch(_){}
