@@ -107,8 +107,8 @@ function updateAudioLevels() {
 function ensureAudio() {
   try {
     if (!backgroundMusic) {
-      // HydroGene, “JRPG - End Dungeon” (CC0), hosted on OpenGameArt.
-      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/end_dungeon_0.mp3');
+      // RandomMind, “Medieval: Exploration” (CC0). Trilha medieval de exploração; créditos opcionais.
+      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/Exploration_0.mp3');
       backgroundMusic.loop = true;
       backgroundMusic.preload = 'auto';
       backgroundMusic.volume = gameSettings.musicEnabled ? gameSettings.musicVolume * 0.78 : 0;
@@ -831,15 +831,16 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const palette = skinPalette[skin] || skinPalette.default;
   const armorColor = palette.armor;
   const darkColor = palette.dark;
-  const armor = new THREE.MeshStandardMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
-  const dark = new THREE.MeshStandardMaterial({ color: darkColor, metalness: .35, roughness: .55 });
+  // Acabamento PBR aprimorado compartilhado por todas as classes e skins.
+  const armor = new THREE.MeshPhysicalMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .034, metalness: .46, roughness: .39, clearcoat: .34, clearcoatRoughness: .32 });
+  const dark = new THREE.MeshStandardMaterial({ color: darkColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .012, metalness: .31, roughness: .58 });
   const skinTone = heroClass === 'goblin' ? 0x83bb56 : heroClass === 'ogre' ? 0x8c7952 : heroClass === 'skeleton' ? 0xe0dccb : 0xe2b99a;
-  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .82 });
-  const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
-  const gold = new THREE.MeshStandardMaterial({ color: palette.trim, metalness: .72, roughness: .3 });
-  const glow = new THREE.MeshStandardMaterial({ color: palette.glow, emissive: palette.glow, emissiveIntensity: 1.4, metalness: .25, roughness: .25 });
-  const classAccentMaterial = new THREE.MeshStandardMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: 0.68, metalness: 0.48, roughness: 0.28 });
-  const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, roughness: 0.78, metalness: 0.08 });
+  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .77, bumpMap: surfaceTexture, bumpScale: .007 });
+  const steel = new THREE.MeshPhysicalMaterial({ color: 0xc2d7e4, metalness: .88, roughness: .2, clearcoat: .28, clearcoatRoughness: .22 });
+  const gold = new THREE.MeshPhysicalMaterial({ color: palette.trim, metalness: .76, roughness: .27, clearcoat: .3, clearcoatRoughness: .25 });
+  const glow = new THREE.MeshPhysicalMaterial({ color: palette.glow, emissive: palette.glow, emissiveIntensity: 1.22, metalness: .25, roughness: .23, clearcoat: .42 });
+  const classAccentMaterial = new THREE.MeshPhysicalMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: .5, metalness: .49, roughness: .27, clearcoat: .5, clearcoatRoughness: .25 });
+  const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .018, roughness: .83, metalness: .06 });
   const add = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
     const mesh = new THREE.Mesh(geo, material);
     mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
@@ -854,7 +855,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const legPivot = new THREE.Group();
     legPivot.position.set(side*.2,.68,0);
     g.add(legPivot);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.145,.34,6,14), dark);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.145,.34,9,20), dark);
     leg.position.set(0,-.21,0);
     if (!isMobileDevice) { leg.castShadow = true; leg.receiveShadow = true; }
     legPivot.add(leg);
@@ -872,7 +873,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const armPivot = new THREE.Group();
     armPivot.position.set(side*.48,1.51,0);
     g.add(armPivot);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,6,14), armor);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.42,9,20), armor);
     arm.position.set(0,-.22,0);
     arm.rotation.z=side*-.12;
     if (!isMobileDevice) { arm.castShadow = true; arm.receiveShadow = true; }
@@ -881,7 +882,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const elbow = new THREE.Group();
     elbow.position.set(0,-.39,0);
     armPivot.add(elbow);
-    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.105,.24,5,10), dark);
+    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.105,.24,8,16), dark);
     forearm.position.set(0,-.13,-.005);
     if (!isMobileDevice) { forearm.castShadow = true; forearm.receiveShadow = true; }
     elbow.add(forearm);
@@ -890,7 +891,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     elbow.add(wrist);
     armPivot.userData.elbow = elbow;
     arms.push({ mesh: armPivot, side });
-    add(new THREE.SphereGeometry(.19,12,10), steel, side*.48,1.49,0,1.08,.65,1.0);
+    add(new THREE.SphereGeometry(.19,20,16), steel, side*.48,1.49,0,1.08,.65,1.0);
     add(new THREE.CapsuleGeometry(.12,.19,3,6), dark, side*.49,.91,-.015);
     add(new THREE.SphereGeometry(.105,10,8), gold, side*.49,.83,-.02);
   }
@@ -911,7 +912,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   capeCrest.rotation.z=Math.PI/4;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  headMesh = add(new THREE.SphereGeometry(.255,28,20), skinMaterial,0,1.94,-.015,
+  headMesh = add(new THREE.SphereGeometry(.255,36,28), skinMaterial,0,1.94,-.015,
     heroClass === 'ogre' ? 1.28 : heroClass === 'goblin' ? .93 : 1,
     heroClass === 'ogre' ? 1.12 : heroClass === 'goblin' ? 1.04 : 1,
     heroClass === 'ogre' ? 1.12 : 1);
@@ -1100,6 +1101,31 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     }
     add(new THREE.OctahedronGeometry(.12,1), glow, 0,1.3,-.44,.8,1.1,.55);
   }
+  // Update 2 v11: passe de microdetalhes reutilizado por TODAS as classes e skins.
+  // Placas sobrepostas, costuras metálicas e rebites melhoram a leitura sem alterar colisões ou poderes.
+  for (let row = 0; row < 3; row++) {
+    const y = 1.08 + row * .13;
+    const plate = add(new THREE.SphereGeometry(.205,24,16), armor, 0, y, -.365, 1.32, .30, .13);
+    plate.rotation.x = -.035;
+    add(new THREE.BoxGeometry(.29,.012,.014), gold, 0, y + .045, -.405);
+    add(new THREE.SphereGeometry(.018,10,8), classAccentMaterial, 0, y, -.414);
+  }
+  // Pequenos rebites nos encaixes dos ombros e antebraços, com reflexo físico.
+  for (const side of [-1,1]) {
+    for (const y of [1.43,1.51,1.59]) {
+      const rivet = add(new THREE.SphereGeometry(.026,12,10), gold, side*.48, y, -.19);
+      rivet.scale.set(1,.85,.6);
+    }
+    for (const y of [1.02,1.12,1.22]) {
+      add(new THREE.BoxGeometry(.125,.014,.018), classAccentMaterial, side*.48, y, -.215).rotation.z = side * -.10;
+    }
+    add(new THREE.TorusGeometry(.118,.012,6,20), gold, side*.2,.33,0).rotation.x = Math.PI/2;
+    add(new THREE.BoxGeometry(.07,.018,.022), glow, side*.2,.58,-.185);
+  }
+  const waistSigil = add(new THREE.OctahedronGeometry(.075,2), classAccentMaterial, 0,.91,-.30);
+  waistSigil.rotation.z = Math.PI/4;
+  add(new THREE.TorusGeometry(.105,.012,6,24), gold,0,.91,-.302).rotation.x = Math.PI/2;
+
   for (const side of [-1,1]) {
     add(new THREE.SphereGeometry(.032,12,10), classAccentMaterial, side*.092,1.96,-.245);
     add(new THREE.SphereGeometry(.055,14,10), classAccentMaterial, side*.48,1.49,-.21);
