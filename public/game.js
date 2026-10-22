@@ -2857,7 +2857,104 @@ function placeSpellButtons() {
     lightning.style.setProperty('right', '18px', 'important');
     lightning.style.setProperty('bottom', '166px', 'important');
   }
+  applySavedHudPositions();
 }
+
+const HUD_MOVABLE_IDS = ['joystick','chestBtn','dodgeBtn','attackBtn','fireBtn','lightningBtn'];
+let hudEditMode = false;
+let hudDragState = null;
+let hudLayout = {};
+try { hudLayout = JSON.parse(localStorage.getItem('ultimoLegadoHudLayout') || '{}') || {}; } catch { hudLayout = {}; }
+function hudOrientationKey() { return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'; }
+function saveHudLayout() {
+  try { localStorage.setItem('ultimoLegadoHudLayout', JSON.stringify(hudLayout)); } catch {}
+}
+function applySavedHudPositions() {
+  if (!hud) return;
+  const group = hudLayout[hudOrientationKey()] || {};
+  for (const id of HUD_MOVABLE_IDS) {
+    const el = $(id);
+    if (!el) continue;
+    const saved = group[id];
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      const maxX = Math.max(0, window.innerWidth - el.offsetWidth);
+      const maxY = Math.max(0, window.innerHeight - el.offsetHeight);
+      el.style.setProperty('position', 'fixed', 'important');
+      el.style.setProperty('left', Math.round(Math.max(0, Math.min(1, saved.x)) * maxX) + 'px', 'important');
+      el.style.setProperty('top', Math.round(Math.max(0, Math.min(1, saved.y)) * maxY) + 'px', 'important');
+      el.style.setProperty('right', 'auto', 'important');
+      el.style.setProperty('bottom', 'auto', 'important');
+      el.style.setProperty('transform', 'none', 'important');
+      el.dataset.hudCustomPosition = 'true';
+    } else if (el.dataset.hudCustomPosition === 'true') {
+      el.style.removeProperty('left');
+      el.style.removeProperty('top');
+      el.style.removeProperty('transform');
+      el.style.removeProperty('position');
+      if (id !== 'fireBtn' && id !== 'lightningBtn') {
+        el.style.removeProperty('right');
+        el.style.removeProperty('bottom');
+      }
+      delete el.dataset.hudCustomPosition;
+    }
+  }
+}
+function setHudEditMode(enabled) {
+  hudEditMode = !!enabled;
+  hud.classList.toggle('hud-edit-mode', hudEditMode);
+  const btn = $('hudEditBtn');
+  const status = $('hudEditStatus');
+  if (btn) btn.textContent = hudEditMode ? '✓ CONCLUIR EDIÇÃO' : '✥ MOVER HUD';
+  if (status) status.textContent = hudEditMode
+    ? 'EDIÇÃO ATIVA: arraste os controles. Toque em Concluir para jogar.'
+    : 'Posições salvas neste aparelho.';
+  if (hudEditMode) showNotice('Arraste o joystick e os botões para ajustar o HUD.');
+}
+document.addEventListener('pointerdown', event => {
+  if (!hudEditMode) return;
+  const el = event.target.closest('#joystick, #chestBtn, #dodgeBtn, #attackBtn, #fireBtn, #lightningBtn');
+  if (!el || !hud.contains(el)) return;
+  const rect = el.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+  hudDragState = { el, pointerId: event.pointerId, dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+  el.style.setProperty('position', 'fixed', 'important');
+  el.style.setProperty('right', 'auto', 'important');
+  el.style.setProperty('bottom', 'auto', 'important');
+  el.style.setProperty('transform', 'none', 'important');
+  el.style.setProperty('left', rect.left + 'px', 'important');
+  el.style.setProperty('top', rect.top + 'px', 'important');
+  el.dataset.hudCustomPosition = 'true';
+}, true);
+document.addEventListener('pointermove', event => {
+  if (!hudDragState || event.pointerId !== hudDragState.pointerId) return;
+  event.preventDefault();
+  const { el, dx, dy } = hudDragState;
+  const x = Math.max(0, Math.min(window.innerWidth - el.offsetWidth, event.clientX - dx));
+  const y = Math.max(0, Math.min(window.innerHeight - el.offsetHeight, event.clientY - dy));
+  el.style.setProperty('left', Math.round(x) + 'px', 'important');
+  el.style.setProperty('top', Math.round(y) + 'px', 'important');
+}, true);
+function finishHudDrag(event) {
+  if (!hudDragState || (event && event.pointerId !== hudDragState.pointerId)) return;
+  const { el } = hudDragState;
+  const rect = el.getBoundingClientRect();
+  const maxX = Math.max(1, window.innerWidth - rect.width);
+  const maxY = Math.max(1, window.innerHeight - rect.height);
+  const key = hudOrientationKey();
+  if (!hudLayout[key]) hudLayout[key] = {};
+  hudLayout[key][el.id] = {
+    x: Math.max(0, Math.min(1, rect.left / maxX)),
+    y: Math.max(0, Math.min(1, rect.top / maxY))
+  };
+  saveHudLayout();
+  hudDragState = null;
+}
+document.addEventListener('pointerup', finishHudDrag, true);
+document.addEventListener('pointercancel', finishHudDrag, true);
+
 function updateOrientationToggleLabel() {
   const button = $('orientationToggleBtn');
   if (!button) return;
@@ -2899,7 +2996,27 @@ function refreshSettingsUI() {
   $('sfxVolume').value = String(gameSettings.sfxVolume);
   $('sfxVolumeValue').textContent = Math.round(gameSettings.sfxVolume * 100) + '%';
 }
+
 refreshSettingsUI();
+$('hudEditBtn')?.addEventListener('click', () => setHudEditMode(!hudEditMode));
+$('hudResetBtn')?.addEventListener('click', () => {
+  hudLayout = {};
+  saveHudLayout();
+  for (const id of HUD_MOVABLE_IDS) {
+    const el = $(id);
+    if (!el) continue;
+    el.style.removeProperty('left');
+    el.style.removeProperty('top');
+    el.style.removeProperty('right');
+    el.style.removeProperty('bottom');
+    el.style.removeProperty('position');
+    el.style.removeProperty('transform');
+    delete el.dataset.hudCustomPosition;
+  }
+  placeSpellButtons();
+  if ($('hudEditStatus')) $('hudEditStatus').textContent = 'HUD restaurado ao padrão.';
+  showNotice('Controles restaurados à posição padrão.');
+});
 
 $('settingsBtn').addEventListener('click', e => {
   e.preventDefault(); e.stopPropagation(); ensureAudio(); playSfx('ui');
