@@ -641,8 +641,9 @@ wss.on('connection', ws => {
           damageEnemy(enemy, 5);
           if (enemy.alive) {
             const dx = enemy.x - center.x, dz = enemy.z - center.z, dist = Math.hypot(dx, dz) || 1;
-            enemy.x = Math.max(-13, Math.min(13, center.x + dx / dist * 1.35));
-            enemy.z = Math.max(-170, Math.min(8, center.z + dz / dist * 1.35));
+            const pulledDistance = Math.max(.72, dist - 2.0);
+            enemy.x = Math.max(-13, Math.min(13, center.x + dx / dist * pulledDistance));
+            enemy.z = Math.max(-170, Math.min(8, center.z + dz / dist * pulledDistance));
             const last = targets[targets.length - 1];
             if (last && last.id === enemy.id) { last.x = enemy.x; last.z = enemy.z; }
           }
