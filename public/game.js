@@ -2445,26 +2445,19 @@ function attack() {
 $('startBtn').addEventListener('click', async () => {
   ensureAudio();
   playSfx('ui');
-  // Ao tocar em JOGAR, tenta colocar o jogo em tela cheia e deitado.
-  // Alguns navegadores recusam o bloqueio; nesse caso o jogador ainda pode girar o aparelho manualmente.
+  // No celular, não force a tela deitada: entrada e lobby devem acompanhar
+  // a orientação escolhida pelo jogador. O jogo continua podendo alternar
+  // para paisagem pelo botão de orientação durante a partida.
   if (isMobileDevice) {
-    // O bloqueio é tentado após a ação do usuário; o Android pode recusá-lo
-    // fora de tela cheia. A interface continua responsiva se o navegador negar.
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
         await document.documentElement.requestFullscreen();
       }
     } catch (_) {}
-    try {
-      if (screen.orientation?.lock) await screen.orientation.lock('landscape');
-      else {
-        const legacyLock = screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation;
-        if (typeof legacyLock === 'function') legacyLock.call(screen, 'landscape');
-      }
-    } catch (_) {
-      // Não força loop nem recarrega: o usuário pode girar o aparelho manualmente.
-    }
-    setTimeout(onResize, 80);
+    setTimeout(() => {
+      onResize();
+      updateOrientationToggleLabel();
+    }, 120);
   }
   $('startScreen').classList.add('hidden');
   menu.classList.remove('hidden');
