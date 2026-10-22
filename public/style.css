@@ -2358,3 +2358,61 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
     max-height:58dvh!important;
   }
 }
+
+
+/* Update 2 v7 — conexões reais entre talentos e nitidez reforçada em paisagem. */
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list,
+#hud .skill-tree .skill-branch-list {
+  position:relative!important;
+  padding-left:10px!important;
+  gap:12px!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list::before,
+#hud .skill-tree .skill-branch-list::before {
+  content:"";
+  position:absolute;
+  z-index:0;
+  left:3px;
+  top:17px;
+  bottom:17px;
+  width:2px;
+  border-radius:2px;
+  background:linear-gradient(180deg,#e9c47788,#76e7f255 45%,#76e7f2a8);
+  pointer-events:none;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node,
+#hud .skill-tree .skill-node {
+  position:relative!important;
+  z-index:1;
+  overflow:visible!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node::before,
+#hud .skill-tree .skill-node::before {
+  content:"";
+  position:absolute;
+  left:-7px;
+  top:18px;
+  width:7px;
+  height:2px;
+  background:#76e7f2a8;
+  pointer-events:none;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node.unlocked::before,
+#hud .skill-tree .skill-node.unlocked::before {
+  background:#e9c477;
+  box-shadow:0 0 6px #e9c47780;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node.available::before,
+#hud .skill-tree .skill-node.available::before {
+  background:#8cf5ff;
+  box-shadow:0 0 6px #76e7f280;
+}
+.skill-branch-title {
+  position:relative;
+  z-index:1;
+  padding-bottom:5px;
+  border-bottom:1px solid rgba(118,231,242,.16);
+}
+@media (orientation:landscape) and (pointer:coarse) {
+  #game canvas { image-rendering:auto; }
+}
