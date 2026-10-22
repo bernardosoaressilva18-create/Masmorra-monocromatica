@@ -2527,24 +2527,24 @@ $('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 
 const CLASS_ABILITY_CONFIG = {
   knight: [
-    { ability: 'knight_shield', icon: '🛡️', label: 'ESCUDO', cooldown: 12 },
-    { ability: 'knight_dash', icon: '⚔️', label: 'AVANÇO', cooldown: 9 }
+    { ability: 'knight_shield', icon: '🛡️', label: 'ESCUDO', description: 'Reduz o dano recebido por 4,2 segundos.', cooldown: 12 },
+    { ability: 'knight_dash', icon: '⚔️', label: 'AVANÇO', description: 'Avança, puxa inimigos próximos e causa dano.', cooldown: 9 }
   ],
   mage: [
-    { ability: 'fire', icon: '🔥', label: 'FOGO', cooldown: 4, spell: true },
-    { ability: 'lightning', icon: 'ϟ', label: 'RAIO', cooldown: 3.5, spell: true }
+    { ability: 'fire', icon: '🔥', label: 'FOGO', description: 'Lança fogo e incendeia o alvo.', cooldown: 4, spell: true },
+    { ability: 'lightning', icon: 'ϟ', label: 'RAIO', description: 'Dispara um raio mágico em cadeia.', cooldown: 3.5, spell: true }
   ],
   archer: [
-    { ability: 'arrow_rain', icon: '🏹', label: 'CHUVA', cooldown: 8 },
-    { ability: 'incendiary_arrows', icon: '🔥', label: 'INCENDIÁRIAS', cooldown: 12 }
+    { ability: 'arrow_rain', icon: '🏹', label: 'CHUVA', description: 'Dispara uma chuva de flechas em área.', cooldown: 8 },
+    { ability: 'incendiary_arrows', icon: '🔥', label: 'INCENDIÁRIAS', description: 'Incendeia uma área e causa queimadura.', cooldown: 12 }
   ],
   goblin: [
-    { ability: 'goblin_invis', icon: '👻', label: 'INVISÍVEL', cooldown: 14 },
-    { ability: 'goblin_summon', icon: '👺', label: 'INVOCAR 2', cooldown: 20 }
+    { ability: 'goblin_invis', icon: '👻', label: 'INVISÍVEL', description: 'Fica invisível por 5 segundos e os monstros param de perseguir você.', cooldown: 14 },
+    { ability: 'goblin_summon', icon: '👺', label: 'INVOCAR 2', description: 'Invoca dois goblins aliados por 12 segundos.', cooldown: 20 }
   ],
   ogre: [
-    { ability: 'ogre_slam', icon: '💥', label: 'SOCO NO CHÃO', cooldown: 10 },
-    { ability: 'ogre_haste', icon: '💨', label: 'VELOCIDADE', cooldown: 15 }
+    { ability: 'ogre_slam', icon: '💥', label: 'SOCO NO CHÃO', description: 'Dá um soco no chão, causa dano em área e repele inimigos.', cooldown: 10 },
+    { ability: 'ogre_haste', icon: '💨', label: 'VELOCIDADE', description: 'Aumenta a velocidade por 5 segundos.', cooldown: 15 }
   ]
 };
 let ogreHasteUntil = 0;
@@ -2559,7 +2559,7 @@ function updateClassAbilityButtons() {
     if (icon) icon.textContent = ability.icon;
     if (small) small.innerHTML = ability.label + ' <b id="' + timerId + '">OK</b>';
     button.setAttribute('aria-label', ability.label);
-    button.title = ability.label;
+    button.title = ability.description || ability.label;
     button.dataset.classAbility = ability.ability;
   });
 }
@@ -3098,7 +3098,7 @@ const right = new THREE.Vector3(
         .add(right.multiplyScalar(v.x))
         .normalize();
 
-      const classMoveMultiplier = selectedClass === 'goblin' ? 1.24 : selectedClass === 'ogre' ? .75 : selectedClass === 'archer' ? 1.12 : 1;
+      const classMoveMultiplier = selectedClass === 'goblin' ? 1.10 : selectedClass === 'ogre' ? .88 : selectedClass === 'archer' ? 1.12 : 1;
       const hasteMultiplier = selectedClass === 'ogre' && performance.now() < ogreHasteUntil ? 1.65 : 1;
       const moveSpeed = 5.8 * classMoveMultiplier * hasteMultiplier * (unlockedSkills.has('swift_step') ? 1.18 : 1);
       const nextPosition = resolveDungeonMovement(
