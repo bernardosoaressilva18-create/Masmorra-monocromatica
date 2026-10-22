@@ -729,11 +729,40 @@ function buildAstralWorld(){
   for(let i=0;i<12;i++){const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.28+Math.random()*.28,0),i%3===0?cyanMat:crystalMat);crystal.position.set((Math.random()-.5)*20,1.4+Math.random()*2.3,-5-Math.random()*165);crystal.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);activeEnvironmentGroup.add(crystal);astralFloaters.push({mesh:crystal,baseY:crystal.position.y,phase:Math.random()*Math.PI*2,speed:.45+Math.random()*.65});}
   if(!isMobileDevice){const l=new THREE.PointLight(0x9168ff,25,62,2);l.position.set(0,5,-78);activeEnvironmentGroup.add(l);const sky=new THREE.PointLight(0x39cfff,17,52,2);sky.position.set(-8,4,-150);activeEnvironmentGroup.add(sky);}
   environmentGroups.astral=activeEnvironmentGroup;activeEnvironmentGroup.visible=false;activeEnvironmentGroup=null;
+  buildEclipseWorld();
+}
+
+let eclipsePortal=null;
+function buildEclipseWorld(){
+  const source=environmentGroups.astral;
+  if(!source)return;
+  const eclipse=source.clone(true);eclipse.name='environment-eclipse-selvagem';
+  const palette=[0x2b4025,0x4d6330,0x304a2a,0x57452a,0x7a3340];
+  let index=0;
+  eclipse.traverse(node=>{
+    if(!node.isMesh)return;
+    if(Array.isArray(node.material))node.material=node.material.map(m=>m.clone());
+    else if(node.material)node.material=node.material.clone();
+    const mats=Array.isArray(node.material)?node.material:[node.material];
+    for(const material of mats){
+      if(material.color)material.color.setHex(palette[index%palette.length]);
+      if(material.emissive){material.emissive.setHex(index%2?0x382018:0x19331b);material.emissiveIntensity=Math.max(.25,material.emissiveIntensity||.3);}
+      if('roughness' in material)material.roughness=Math.min(.92,(material.roughness||.5)+.12);
+    }
+    index++;
+  });
+  const frame=new THREE.MeshStandardMaterial({color:0x9a3f45,emissive:0x5d1524,emissiveIntensity:1.3,metalness:.5,roughness:.25});
+  eclipsePortal=new THREE.Group();
+  const arch=new THREE.Mesh(new THREE.TorusGeometry(1.72,.095,10,64),frame);arch.scale.set(1.48,1.17,1);arch.position.set(0,2.08,-.3);eclipsePortal.add(arch);
+  const core=new THREE.Mesh(new THREE.CircleGeometry(1.52,40),new THREE.MeshBasicMaterial({color:0x7b2945,transparent:true,opacity:.22,side:THREE.DoubleSide}));core.position.set(0,2.08,-.24);eclipsePortal.add(core);
+  const glow=new THREE.PointLight(0xe34d5c,.45,14,2);glow.position.set(0,2.1,0);eclipsePortal.add(glow);
+  eclipsePortal.position.set(0,0,-168);eclipsePortal.userData.open=false;eclipse.add(eclipsePortal);
+  scene.add(eclipse);eclipse.visible=false;environmentGroups.eclipse=eclipse;
 }
 function showRealmTransition(realm){
   const overlay=$('phaseTransition');if(!overlay)return;
-  $('phaseTransitionTitle').textContent=realm===2?'VALE ASTRAL':'MUNDO MONOCROMÁTICO';
-  $('phaseTransitionSub').textContent=realm===2?'UM NOVO MUNDO · CINCO REGIÕES · UM NOVO GUARDIÃO':'A masmorra continua à sua espera';
+  $('phaseTransitionTitle').textContent=realm===3?'ECLIPSE SELVAGEM':realm===2?'VALE ASTRAL':'MUNDO MONOCROMÁTICO';
+  $('phaseTransitionSub').textContent=realm===3?'MUNDO III · CINCO REGIÕES · O SOBERANO DO ECLIPSE':realm===2?'MUNDO II · CINCO REGIÕES · UM NOVO GUARDIÃO':'MUNDO I · CINCO REGIÕES · SOBREVIVA À MASMORRA';
   overlay.dataset.realm=String(realm);
   overlay.classList.remove('hidden','phase-out');overlay.classList.add('phase-in');
   setTimeout(()=>{overlay.classList.remove('phase-in');overlay.classList.add('phase-out');},2300);
@@ -1661,6 +1690,7 @@ function setStatus(t) {
 }
 
 let connectionRequested = false, reconnectAttempts = 0, reconnectTimer = null, activeConnectCode = '';
+let listPublicRoomsOnConnect = false;
 let resumeToken = '';
 try { resumeToken = sessionStorage.getItem('masmorraResumeToken') || ''; } catch {}
 
@@ -1687,7 +1717,12 @@ function connect(code = '', automaticRetry = false) {
 
   socket.addEventListener('open', () => {
     if (ws !== socket) return;
-    sendJoin(activeConnectCode || code);
+    if (listPublicRoomsOnConnect) {
+      listPublicRoomsOnConnect = false;
+      send({ type: 'listPublicRooms' });
+    } else {
+      sendJoin(activeConnectCode || code);
+    }
   });
   socket.addEventListener('message', e => {
     if (ws !== socket) return;
@@ -2248,7 +2283,11 @@ function handleMessage(m) {
       const create = document.createElement('button');
       create.type = 'button';
       create.textContent = 'CRIAR SALA PÚBLICA';
-      create.addEventListener('click', () => send({ type: 'joinPublic' }));
+      create.addEventListener('click', () => {
+        joiningPublicRoom = true;
+        quickMatchRequested = true;
+        send({ type: 'joinPublic', resumeToken, name: $('playerName').value.trim() || 'Aventureiro', class: selectedClass, skin: selectedSkin, skills: Array.from(unlockedSkills), talentPoints: skillPoints });
+      });
       list.appendChild(create);
     } else {
       for (const room of m.rooms) {
@@ -2555,8 +2594,8 @@ function updateState(m) {
     for (const obj of chestMeshes.values()) obj.visible = false;
     return;
   }
-  const realm=Number(m.realm)===2?2:1,realmChanged=realm!==currentRealmVisual;
-  if(realmChanged){currentRealmVisual=realm;realmIntroTimer=3.2;for(const [name,group] of Object.entries(environmentGroups))group.visible=(realm===1&&name==='dungeon')||(realm===2&&name==='astral');document.body.classList.toggle('realm-astral',realm===2);appliedInitialServerPosition=false;yaw=targetYaw=0;pitch=targetPitch=.25;if(realmPortal)realmPortal.visible=realm===1;showRealmTransition(realm);playSfx('portal');showNotice(realm===2?'Novo mundo descoberto: Vale Astral!':'Você voltou ao mundo da masmorra.');}
+  const realm=[1,2,3].includes(Number(m.realm))?Number(m.realm):1,realmChanged=realm!==currentRealmVisual;
+  if(realmChanged){currentRealmVisual=realm;realmIntroTimer=3.2;for(const [name,group] of Object.entries(environmentGroups))group.visible=(realm===1&&name==='dungeon')||(realm===2&&name==='astral')||(realm===3&&name==='eclipse');document.body.classList.toggle('realm-astral',realm===2);document.body.classList.toggle('realm-eclipse',realm===3);appliedInitialServerPosition=false;yaw=targetYaw=0;pitch=targetPitch=.25;if(realmPortal)realmPortal.visible=realm===1;if(eclipsePortal)eclipsePortal.visible=realm===2;showRealmTransition(realm);playSfx('portal');showNotice(realm===2?'Novo mundo descoberto: Vale Astral!':realm===3?'Novo mundo descoberto: Eclipse Selvagem!':'Você voltou ao mundo da masmorra.');}
   if (!started) {
     started = true;
     $('lobby').classList.add('hidden');
@@ -2708,6 +2747,7 @@ function updateState(m) {
   const aliveMonsters=m.monsters.filter(monster=>monster.alive).length;
   gateMeshes.forEach((gate,index)=>{const n=index+1;gate.userData.open=phase>n||(phase===n&&aliveMonsters===0);});
   if(realmPortal){realmPortal.visible=realm===1;realmPortal.userData.open=realm===1&&phase===5&&!!m.boss&&!m.boss.alive;}
+  if(eclipsePortal){eclipsePortal.visible=realm===2;eclipsePortal.userData.open=realm===2&&phase===5&&!!m.boss&&!m.boss.alive;}
   const phaseObjective=document.querySelector('.objective strong');
   if(phaseObjective){
     if(phase===5&&m.boss&&!m.boss.alive&&realm===1){const nearGate=myPlayer&&Math.hypot(myPlayer.position.x, myPlayer.position.z+168)<16;phaseObjective.textContent=nearGate?'PORTÃO ABERTO! Atravesse para o Vale Astral':'Siga pelo Abismo até o portão do Vale Astral';}
@@ -2916,22 +2956,15 @@ $('quickMatchBtn')?.addEventListener('click', () => {
 });
 function requestPublicRooms() {
   $('publicRoomsPanel')?.classList.remove('hidden');
-  $('publicRoomsList').innerHTML = '<p>Buscando salas disponíveis…</p>';
-  send({ type: 'listPublicRooms' });
-}
-$('publicRoomsBtn')?.addEventListener('click', () => {
-  if (ws && ws.readyState === WebSocket.OPEN) requestPublicRooms();
-  else {
-    connect('');
-    const wait = setInterval(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        clearInterval(wait);
-        requestPublicRooms();
-      }
-    }, 200);
-    setTimeout(() => clearInterval(wait), 8000);
+  $('publicRoomsList').textContent = 'Buscando salas disponíveis…';
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    send({ type: 'listPublicRooms' });
+    return;
   }
-});
+  listPublicRoomsOnConnect = true;
+  connect('');
+}
+$('publicRoomsBtn')?.addEventListener('click', requestPublicRooms);
 $('refreshPublicRoomsBtn')?.addEventListener('click', requestPublicRooms);
 
 $('readyBtn').addEventListener('click', () => send({ type: 'ready' }));
@@ -3661,7 +3694,8 @@ function animate() {
     if (realmPortalCore) realmPortalCore.material.opacity=open?.31+Math.sin(worldTime*2.4)*.12:.035+Math.sin(worldTime*1.25)*.018;
     if(realmPortal.userData.glow)realmPortal.userData.glow.intensity=open?8+Math.sin(worldTime*3)*2:.35;
   }
-  if(astralStarField&&environmentGroups.astral?.visible)astralStarField.rotation.y+=dt*.0016;
+  if(astralStarField&&(environmentGroups.astral?.visible||environmentGroups.eclipse?.visible))astralStarField.rotation.y+=dt*.0016;
+  if(eclipsePortal){const open=!!eclipsePortal.userData.open;const arch=eclipsePortal.children[0];if(arch)arch.rotation.z+=dt*(open?.42:.10);const core=eclipsePortal.children[1];if(core)core.material.opacity=open?.32+Math.sin(worldTime*2.5)*.12:.035+Math.sin(worldTime)*.012;const light=eclipsePortal.children[2];if(light)light.intensity=open?8+Math.sin(worldTime*3)*2:.4;}
   for(const f of astralFloaters){f.mesh.position.y=f.baseY+Math.sin(worldTime*f.speed+f.phase)*.24;f.mesh.rotation.y+=dt*f.speed*.32;f.mesh.rotation.x+=dt*f.speed*.12;}
   // Amortece o giro da câmera para o arrasto ficar mais fluido sem reduzir a sensibilidade.
   const cameraInputSmooth = 1 - Math.exp(-18 * dt);
