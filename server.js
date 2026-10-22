@@ -492,7 +492,7 @@ wss.on('connection', ws => {
 
       // O destino é validado diretamente, pois resolveServerMovement foi feito
       // para passos curtos e pode recuar o ponto de aterrissagem para perto da origem.
-      const minDiveDistance = 128;
+      const minDiveDistance = 145;
       const landingDistance = point => Math.hypot(point.x - oldX, point.z - oldZ);
       const clickDistance = Math.hypot(requestedX - oldX, requestedZ - oldZ);
       const angle = clickDistance > 0.001 ? Math.atan2(requestedZ - oldZ, requestedX - oldX) : (player.rot || 0);
@@ -505,13 +505,13 @@ wss.on('connection', ws => {
         let bestScore = Infinity;
         for (let step = 0; step < 72; step++) {
           const a = angle + (Math.PI * 2 * step) / 72;
-          for (let radius = minDiveDistance; radius <= 168; radius += 4) {
+          for (let radius = minDiveDistance; radius <= 172; radius += 3) {
             const x = Math.max(-12, Math.min(12, oldX + Math.cos(a) * radius));
             const z = Math.max(-168, Math.min(5, oldZ + Math.sin(a) * radius));
             const candidate = { x, z };
             const distance = landingDistance(candidate);
             if (distance < minDiveDistance - 0.5 || isServerPositionBlocked(room, x, z)) continue;
-            const score = Math.hypot(x - requestedX, z - requestedZ) + Math.abs(distance - Math.max(minDiveDistance, clickDistance)) * 0.12;
+            const score = Math.hypot(x - requestedX, z - requestedZ) + Math.abs(distance - Math.max(minDiveDistance, clickDistance)) * 0.18;
             if (score < bestScore) {
               bestScore = score;
               landing = candidate;
