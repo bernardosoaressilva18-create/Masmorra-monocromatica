@@ -49,6 +49,21 @@ let audioContext = null, musicBus = null, sfxBus = null, backgroundMusic = null;
 function saveGameSettings() {
   try { localStorage.setItem('mmGameSettings', JSON.stringify(gameSettings)); } catch {}
 }
+
+// Keep the WebGL drawing buffer and the mobile viewport in sync after rotation.
+function syncRendererSize(width = window.innerWidth, height = window.innerHeight) {
+  if (!renderer) return;
+  const w = Math.max(1, Math.round(width));
+  const h = Math.max(1, Math.round(height));
+  renderer.setSize(w, h, false);
+  const canvas = renderer.domElement;
+  Object.assign(canvas.style, {
+    position: 'fixed', left: '0px', top: '0px',
+    width: '100vw', height: '100dvh',
+    maxWidth: '100vw', maxHeight: '100dvh',
+    transform: 'none', zIndex: '0'
+  });
+}
 function vibrateGame(pattern = 12) {
   if (!gameSettings.haptics || !isMobileDevice || !navigator.vibrate) return;
   try { navigator.vibrate(pattern); } catch {}
@@ -74,7 +89,7 @@ function applyGraphicsQuality() {
   if (quality === 'low') adaptivePixelRatio = Math.min(adaptivePixelRatio, isMobileDevice ? 0.85 : 1.0);
   if (renderer) {
     renderer.setPixelRatio(adaptivePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    syncRendererSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = !isMobileDevice && quality === 'high';
     renderer.shadowMap.needsUpdate = true;
   }
@@ -107,8 +122,8 @@ function updateAudioLevels() {
 function ensureAudio() {
   try {
     if (!backgroundMusic) {
-      // RandomMind, “Medieval: Exploration” (CC0). Trilha medieval de exploração.
-      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/Exploration.mp3');
+      // RandomMind, “Medieval: The Old Tower Inn” (CC0). Música medieval instrumental para ambientação RPG.
+      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/The_Old_Tower_Inn.mp3');
       backgroundMusic.loop = true;
       backgroundMusic.preload = 'auto';
       backgroundMusic.volume = gameSettings.musicEnabled ? gameSettings.musicVolume * 0.78 : 0;
@@ -218,7 +233,7 @@ function init3D() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
   renderer.setPixelRatio(adaptivePixelRatio);
-  renderer.setSize(innerWidth, innerHeight);
+  syncRendererSize(innerWidth, innerHeight);
   // Sombras suaves no PC; no celular ficam desligadas para preservar FPS.
   renderer.shadowMap.enabled = !isMobileDevice && gameSettings.graphicsQuality === 'high';
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -1399,8 +1414,8 @@ function onResize() {
   if (viewportResizeFrame) cancelAnimationFrame(viewportResizeFrame);
   viewportResizeFrame = requestAnimationFrame(() => {
     viewportResizeFrame = 0;
-    const width = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
-    const height = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
+    const width = Math.max(1, Math.round(window.innerWidth));
+    const height = Math.max(1, Math.round(window.innerHeight));
     if (renderer && camera) {
       const landscapeMobile = isMobileDevice && width > height;
       const previousLandscapeMobile = isMobileDevice && renderer.domElement.height > renderer.domElement.width;
@@ -1414,9 +1429,8 @@ function onResize() {
       camera.fov = isMobileDevice && height > width ? 76 : (isMobileDevice ? 66 : 62);
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(adaptivePixelRatio);
-      renderer.setSize(width, height, false);
-      renderer.domElement.style.width = '100%';
-      renderer.domElement.style.height = '100%';
+      syncRendererSize(width, height);
+
     }
     placeSpellButtons();
   });
@@ -3244,7 +3258,7 @@ function updatePerformanceMonitor() {
   if (renderer && Math.abs(nextRatio - adaptivePixelRatio) >= .01) {
     adaptivePixelRatio = Math.round(nextRatio * 100) / 100;
     renderer.setPixelRatio(adaptivePixelRatio);
-    renderer.setSize(innerWidth, innerHeight);
+    syncRendererSize(innerWidth, innerHeight);
   }
   if (perfBadge) {
     const memoryBytes = performance.memory && Number.isFinite(performance.memory.usedJSHeapSize)
