@@ -492,7 +492,7 @@ wss.on('connection', ws => {
 
       // O destino é validado diretamente, pois resolveServerMovement foi feito
       // para passos curtos e pode recuar o ponto de aterrissagem para perto da origem.
-      const minDiveDistance = 88;
+      const minDiveDistance = 112;
       const landingDistance = point => Math.hypot(point.x - oldX, point.z - oldZ);
       const clickDistance = Math.hypot(requestedX - oldX, requestedZ - oldZ);
       const angle = clickDistance > 0.001 ? Math.atan2(requestedZ - oldZ, requestedX - oldX) : (player.rot || 0);
@@ -501,7 +501,7 @@ wss.on('connection', ws => {
         landing = { x: requestedX, z: requestedZ };
       } else {
         // Procura primeiro uma área segura próxima à direção escolhida; nunca
-        // aceita silenciosamente um ponto a menos de 68 unidades da origem.
+        // aceita silenciosamente um ponto a menos da distância mínima configurada.
         let bestScore = Infinity;
         for (let step = 0; step < 72; step++) {
           const a = angle + (Math.PI * 2 * step) / 72;
