@@ -1282,7 +1282,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
   const bone = matBody(0xb8c5d3, .48, .25);
   const eyeColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x8ffcff : kind === 'thorn' ? 0x8dff74 : kind === 'inferno' ? 0xff692e : kind === 'abyss' ? 0xc08bff : 0xff3f68;
   const eyeMat = new THREE.MeshStandardMaterial({
-    color: eyeColor, emissive: eyeColor, emissiveIntensity: 1.5, roughness: .3
+    color: eyeColor, emissive: eyeColor, emissiveIntensity: 1.9, roughness: .24
   });
   const animatedLimbs = [];
   const addMesh = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
@@ -1296,23 +1296,23 @@ function makeMonster(kind = 'stalker', phase = 1) {
     // Grande criatura blindada, com ombros largos, placas e chifres.
     const armor = matBody(phase === 2 ? 0x49316b : 0x414957, .48, .35);
     const belly = matBody(0x242a36, .86);
-    addMesh(new THREE.CapsuleGeometry(.55,.65,5,8), armor, 0,1.0,0,1.1,1, .9);
+    addMesh(new THREE.CapsuleGeometry(.55,.65,12,20), armor, 0,1.0,0,1.1,1, .9);
     addMesh(new THREE.DodecahedronGeometry(.52,1), belly, 0,1.0,-.03,1,.85,.72);
-    addMesh(new THREE.SphereGeometry(.34,16,12), armor, 0,1.85,-.03,1,.9,.9);
+    addMesh(new THREE.SphereGeometry(.34,32,24), armor, 0,1.85,-.03,1,.9,.9);
     for (const side of [-1,1]) {
       addMesh(new THREE.BoxGeometry(.48,.42,.5), armor, side*.62,1.48,0);
-      const horn=addMesh(new THREE.ConeGeometry(.16,.58,7), bone, side*.24,2.2,-.02);
+      const horn=addMesh(new THREE.ConeGeometry(.16,.58,12), bone, side*.24,2.2,-.02);
       horn.rotation.z=side*-.38;
-      addMesh(new THREE.SphereGeometry(.085,10,8),eyeMat,side*.14,1.91,-.33);
-      addMesh(new THREE.CapsuleGeometry(.18,.48,3,6),armor,side*.63,.67,0);
+      addMesh(new THREE.SphereGeometry(.085,20,16),eyeMat,side*.14,1.91,-.33);
+      addMesh(new THREE.CapsuleGeometry(.18,.48,8,16),armor,side*.63,.67,0);
       const claw=addMesh(new THREE.ConeGeometry(.14,.38,6),bone,side*.68,.32,-.13);
       claw.rotation.x=Math.PI;
     }
   } else if (kind === 'wraith') {
     // Espectro cristalino: corpo estreito, capa em pontas e cristais cianos.
     const robe = new THREE.MeshStandardMaterial({color:0x263f62, roughness:.42, metalness:.2, emissive:0x102b55, emissiveIntensity:.65});
-    addMesh(new THREE.ConeGeometry(.62,1.25,7),robe,0,.72,0,1,1,.85);
-    addMesh(new THREE.SphereGeometry(.32,16,12),matBody(0x182537,.55,.25),0,1.55,0);
+    addMesh(new THREE.ConeGeometry(.62,1.25,16),robe,0,.72,0,1,1,.85);
+    addMesh(new THREE.SphereGeometry(.32,32,24),matBody(0x182537,.55,.25),0,1.55,0);
     addMesh(new THREE.OctahedronGeometry(.16),eyeMat,-.13,1.59,-.27);
     addMesh(new THREE.OctahedronGeometry(.16),eyeMat,.13,1.59,-.27);
     for(const side of [-1,1]){
@@ -1325,14 +1325,14 @@ function makeMonster(kind = 'stalker', phase = 1) {
     // Criatura vegetal da floresta: casca, espinhos e cipós.
     const bark = matBody(0x3c5a3e,.92,.04);
     const leaf = matBody(0x527e46,.82,.02);
-    addMesh(new THREE.CapsuleGeometry(.34,.7,4,9),bark,0,.88,0,1.05,1,.85);
-    addMesh(new THREE.DodecahedronGeometry(.38,1),leaf,0,1.55,-.05,1,.9,.82);
+    addMesh(new THREE.CapsuleGeometry(.34,.7,10,18),bark,0,.88,0,1.05,1,.85);
+    addMesh(new THREE.IcosahedronGeometry(.38,2),leaf,0,1.55,-.05,1,.9,.82);
     for(const side of [-1,1]){
       const horn=addMesh(new THREE.ConeGeometry(.15,.7,6),bark,side*.22,2.05,-.02);
       horn.rotation.z=side*-.35;
       const thorn=addMesh(new THREE.ConeGeometry(.11,.58,5),leaf,side*.36,1.22,.18);
       thorn.rotation.z=side*.72;
-      addMesh(new THREE.SphereGeometry(.075,12,8),eyeMat,side*.13,1.63,-.34);
+      addMesh(new THREE.SphereGeometry(.075,20,16),eyeMat,side*.13,1.63,-.34);
       const vine=addMesh(new THREE.CapsuleGeometry(.07,.42,3,5),leaf,side*.42,.91,-.01);
       vine.rotation.z=side*.55;
       const claw=addMesh(new THREE.ConeGeometry(.09,.32,6),bone,side*.46,.57,-.2);
@@ -1343,8 +1343,8 @@ function makeMonster(kind = 'stalker', phase = 1) {
     // Demônio do vulcão com placas de basalto e fissuras laranja.
     const basalt = matBody(0x31201d,.88,.16);
     const magma = new THREE.MeshStandardMaterial({color:0xff6b32,emissive:0xff3210,emissiveIntensity:1.65,roughness:.4});
-    addMesh(new THREE.DodecahedronGeometry(.5,1),basalt,0,1.05,0,1.12,1.05,.9);
-    addMesh(new THREE.SphereGeometry(.32,18,12),basalt,0,1.75,-.03);
+    addMesh(new THREE.IcosahedronGeometry(.5,2),basalt,0,1.05,0,1.12,1.05,.9);
+    addMesh(new THREE.SphereGeometry(.32,32,24),basalt,0,1.75,-.03);
     addMesh(new THREE.BoxGeometry(.32,.42,.05),magma,0,1.18,-.47);
     for(const side of [-1,1]){
       const horn=addMesh(new THREE.ConeGeometry(.16,.65,6),bone,side*.24,2.18,-.02);
@@ -1366,13 +1366,13 @@ function makeMonster(kind = 'stalker', phase = 1) {
       shard.rotation.z=side*.35;
       const wing=addMesh(new THREE.ConeGeometry(.27,1.1,6),voidMat,side*.67,1.5,.16);
       wing.rotation.z=side*(Math.PI*.36);
-      addMesh(new THREE.SphereGeometry(.07,12,8),eyeMat,side*.13,1.84,-.31);
+      addMesh(new THREE.SphereGeometry(.07,20,16),eyeMat,side*.13,1.84,-.31);
     }
   } else {
     // Predador ágil com carapaça, espinhos nas costas e garras.
     const hide = matBody(phase === 2 ? 0x385d66 : 0x51465d, .66, .12);
-    addMesh(new THREE.SphereGeometry(.48,16,12),hide,0,.87,0,1.05,.85,1.25);
-    addMesh(new THREE.SphereGeometry(.32,16,12),matBody(0x242432),0,1.45,-.2,1,.9,1);
+    addMesh(new THREE.SphereGeometry(.48,32,24),hide,0,.87,0,1.05,.85,1.25);
+    addMesh(new THREE.SphereGeometry(.32,32,24),matBody(0x242432),0,1.45,-.2,1,.9,1);
     addMesh(new THREE.BoxGeometry(.12,.13,.24),eyeMat,-.13,1.48,-.48);
     addMesh(new THREE.BoxGeometry(.12,.13,.24),eyeMat,.13,1.48,-.48);
     for(const side of [-1,1]){
@@ -1386,12 +1386,29 @@ function makeMonster(kind = 'stalker', phase = 1) {
       addMesh(new THREE.CapsuleGeometry(.13,.36,3,5),dark,side*.22,.35,.03);
     }
   }
+  // Placas de ombro facetadas e rebites: dão volume sem mudar a hitbox.
+  if (kind !== 'wraith' && kind !== 'abyss') {
+    const shoulderMat = matBody(kind === 'thorn' ? 0x304c32 : kind === 'inferno' ? 0x4c2920 : kind === 'brute' ? 0x626d80 : 0x393447, .48, .34);
+    for (const side of [-1, 1]) {
+      const shoulder = addMesh(new THREE.IcosahedronGeometry(kind === 'brute' ? .30 : .22, 1), shoulderMat, side * (kind === 'brute' ? .60 : .43), 1.35, -.015, 1.12, .78, .92);
+      shoulder.rotation.z = side * -.16;
+      addMesh(new THREE.SphereGeometry(.045, 16, 12), bone, side * (kind === 'brute' ? .66 : .47), 1.39, -.20, 1, .85, .55);
+    }
+  }
+  // Sulcos de armadura na frente do tronco para a silhueta não parecer lisa.
+  if (kind === 'brute' || kind === 'inferno' || kind === 'abyss') {
+    const seamMat = new THREE.MeshStandardMaterial({ color: eyeColor, emissive: eyeColor, emissiveIntensity: .48, roughness: .38, metalness: .3 });
+    for (let row = 0; row < 3; row++) {
+      const seam = addMesh(new THREE.BoxGeometry(.22 - row * .025, .035, .025), seamMat, 0, .88 + row * .15, -.49);
+      seam.rotation.z = row === 1 ? .08 : -.05;
+    }
+  }
   // Núcleo emissivo reforça a silhueta e dá a cada família uma leitura visual própria.
-  const core = addMesh(new THREE.OctahedronGeometry(.14,1),eyeMat,0,1.12,-.40,.9,1.15,.65);
+  const core = addMesh(new THREE.OctahedronGeometry(.14,2),eyeMat,0,1.12,-.40,.9,1.15,.65);
   core.rotation.set(.12,.2,.08);
   // Sombra/anel de identidade fixo no chão, sem pulsação.
   const ringColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x63e9ff : kind === 'thorn' ? 0x8dff74 : kind === 'inferno' ? 0xff692e : kind === 'abyss' ? 0xc08bff : 0xff4269;
-  const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,24),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,40),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.kind=kind;
   g.userData.eyeMaterial=eyeMat;
@@ -3671,8 +3688,8 @@ const right = new THREE.Vector3(
     for (const limb of obj.userData.animatedLimbs || []) {
       const limbPhase = phase * gait + (limb.side > 0 ? Math.PI : 0);
       const swing = Math.sin(limbPhase);
-      const walkAmount = moving ? (kind === 'brute' ? .17 : kind === 'wraith' ? .075 : .14) : .012;
-      const attackPower = kind === 'brute' ? .62 : kind === 'wraith' ? .28 : .42;
+      const walkAmount = moving ? (kind === 'brute' ? .21 : kind === 'wraith' ? .095 : .18) : .008;
+      const attackPower = kind === 'brute' ? .72 : kind === 'wraith' ? .34 : .50;
       limb.mesh.rotation.x = swing * walkAmount - attackPulse * attackPower * (limb.side < 0 ? 1 : .25);
       limb.mesh.rotation.z = limb.baseRotationZ
         + Math.sin(phase * .65 * gait + limb.side) * (moving ? .022 : .006);
