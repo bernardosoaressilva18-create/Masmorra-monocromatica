@@ -363,6 +363,7 @@ wss.on('connection', ws => {
       }
       msg.code = room.code;
       msg.public = true;
+      msg.type = 'join';
     }
 
     if (msg.type === 'join') {
