@@ -3697,8 +3697,12 @@ const right = new THREE.Vector3(
     }
     const attackProgress = obj.userData.attackAnim > 0
       ? (1 - obj.userData.attackAnim / .38) : 0;
-    const attackPulse = obj.userData.attackAnim > 0
-      ? Math.sin(THREE.MathUtils.clamp(attackProgress, 0, 1) * Math.PI) : 0;
+    const attackT = THREE.MathUtils.clamp(attackProgress, 0, 1);
+    // Três fases claras: prepara o golpe, avança no impacto e recua para recuperar.
+    const windup = obj.userData.attackAnim > 0 ? Math.sin(Math.min(1, attackT / .30) * Math.PI * .5) : 0;
+    const strike = obj.userData.attackAnim > 0 ? Math.sin(Math.max(0, Math.min(1, (attackT - .28) / .42)) * Math.PI) : 0;
+    const recovery = obj.userData.attackAnim > 0 ? Math.sin(Math.max(0, (attackT - .68) / .32) * Math.PI * .5) : 0;
+    const attackPulse = obj.userData.attackAnim > 0 ? Math.sin(attackT * Math.PI) : 0;
 
     const idleBob = kind === 'wraith' ? .045
       : moving ? .018 : .007;
@@ -3715,26 +3719,35 @@ const right = new THREE.Vector3(
       obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
     }
 
-    const attackTilt = attackPulse * (kind === 'brute' ? .30 : kind === 'wraith' ? .20 : .42);
+    const attackTilt = strike * (kind === 'brute' ? .42 : kind === 'wraith' ? .24 : .50);
+    const windupTilt = windup * (kind === 'brute' ? .16 : .10);
+    const recoveryTilt = recovery * .08;
     const walkTilt = kind === 'stalker' && moving ? Math.sin(phase) * .015 : 0;
-    const targetTilt = -attackTilt + walkTilt;
+    const targetTilt = windupTilt - attackTilt + recoveryTilt + walkTilt;
     obj.rotation.x = THREE.MathUtils.lerp(obj.rotation.x, targetTilt, 1 - Math.exp(-12 * dt));
 
     for (const limb of obj.userData.animatedLimbs || []) {
       const limbPhase = phase * gait + (limb.side > 0 ? Math.PI : 0);
       const swing = Math.sin(limbPhase);
       const walkAmount = moving ? (kind === 'brute' ? .21 : kind === 'wraith' ? .095 : .18) : .008;
-      const attackPower = kind === 'brute' ? .72 : kind === 'wraith' ? .34 : .50;
-      limb.mesh.rotation.x = swing * walkAmount - attackPulse * attackPower * (limb.side < 0 ? 1 : .25);
+      const attackPower = kind === 'brute' ? .88 : kind === 'wraith' ? .42 : .62;
+      const windupPower = kind === 'brute' ? .24 : .16;
+      const sideBias = limb.side < 0 ? 1 : .25;
+      limb.mesh.rotation.x = swing * walkAmount + windup * windupPower * sideBias - strike * attackPower * sideBias + recovery * .12 * sideBias;
       limb.mesh.rotation.z = limb.baseRotationZ
         + Math.sin(phase * .65 * gait + limb.side) * (moving ? .022 : .006);
     }
 
+    // Os olhos destacam o instante do impacto sem criar luzes dinâmicas adicionais.
+    if (obj.userData.eyeMaterial) {
+      const baseGlow = kind === 'brute' ? 1.9 : 1.65;
+      obj.userData.eyeMaterial.emissiveIntensity = baseGlow + strike * (kind === 'inferno' ? 2.0 : 1.1);
+    }
     // O anel no chão pulsa junto ao golpe para comunicar melhor o perigo do ataque.
     const attackRing = obj.userData.attackRing;
     if (attackRing) {
-      attackRing.material.opacity = .48 + attackPulse * .42;
-      const ringScale = 1 + attackPulse * .18;
+      const ringScale = 1 + windup * .05 + strike * .28 + recovery * .06;
+      attackRing.material.opacity = .30 + windup * .22 + strike * .58;
       attackRing.scale.set(ringScale, ringScale, ringScale);
     }
   }
