@@ -133,6 +133,19 @@ function ensureAudio(){
           scheduleMusicNote(lead[(Math.floor(step/2)+3)%lead.length],.42,.012,'sine');
         }
         if(step%16===12)scheduleMusicNote(lead[(Math.floor(step/2)+7)%lead.length]*1.5,.85,.014,'sine');
+        // Camada de arpejo e pulso suave para soar mais como trilha de RPG, menos como bipes isolados.
+        if(step%4===0){
+          const chord=chords[Math.floor(step/8)%chords.length];
+          const arp=chord[(Math.floor(step/4))%chord.length];
+          scheduleMusicNote(arp*2,.78,.022,'triangle');
+        }
+        if(step%8===4){
+          const bassNote=bass[Math.floor(step/8)%bass.length];
+          scheduleMusicNote(bassNote*1.5,.28,.009,'sine');
+        }
+        if(step%16===15){
+          scheduleMusicNote(lead[(Math.floor(step/2)+5)%lead.length],1.25,.026,'triangle');
+        }
       };
       tick();musicTimer=window.setInterval(tick,620);
     }
