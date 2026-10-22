@@ -959,8 +959,18 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     add(new THREE.ConeGeometry(.09,.20,5), dark, -.12,2.25,.02,1,1,.8).rotation.z = -.3;
     add(new THREE.ConeGeometry(.09,.20,5), dark, .12,2.25,.02,1,1,.8).rotation.z = .3;
   }
+  // Face pass: readable eye sockets, pupils and brows from the normal game camera.
   add(new THREE.BoxGeometry(.32,.09,.2), dark,0,2.04,-.17);
-  for (const side of [-1,1]) add(new THREE.SphereGeometry(.035,8,6), glow,side*.09,1.96,-.239);
+  const eyeSocketMat = new THREE.MeshStandardMaterial({ color: 0x101522, roughness: .58 });
+  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x172238, metalness: .12, roughness: .28 });
+  for (const side of [-1,1]) {
+    add(new THREE.SphereGeometry(.043,16,12), eyeSocketMat,side*.09,1.96,-.244,1.15,1,.55);
+    add(new THREE.SphereGeometry(.027,16,12), glow,side*.09,1.96,-.263,1.05,1,.45);
+    add(new THREE.SphereGeometry(.012,12,8), pupilMat,side*.09,1.96,-.271,1,1,.4);
+    const brow = add(new THREE.CapsuleGeometry(.018,.065,4,10), dark,side*.09,2.015,-.245,1,.75,.65);
+    brow.rotation.z = side * -.12;
+  }
+  add(new THREE.SphereGeometry(.035,16,12), skinMaterial,0,1.91,-.255,.72,.9,.58);
   // Ombreiras e pequenos rebites metálicos
   for (const side of [-1,1]) {
     const pad=add(new THREE.SphereGeometry(.22,12,8), steel,side*.48,1.51,0,1.15,.7,1.0);
@@ -972,14 +982,14 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const blade = new THREE.Mesh(new THREE.BoxGeometry(.085,.72,.055), steel); blade.position.y=.48; sword.add(blade);
   const edge = new THREE.Mesh(new THREE.BoxGeometry(.018,.68,.06), glow); edge.position.set(.043,.48,-.002); sword.add(edge);
   const guard = new THREE.Mesh(new THREE.BoxGeometry(.31,.065,.12), gold); guard.position.y=.12; sword.add(guard);
-  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.2,8), dark); grip.position.y=.015; sword.add(grip);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.2,16), dark); grip.position.y=.015; sword.add(grip);
   const pommel = new THREE.Mesh(new THREE.SphereGeometry(.07,8,6), gold); pommel.position.y=-.09; sword.add(pommel);
   sword.position.set(.57,1.0,-.12); sword.rotation.z=-.25; g.add(sword);
   sword.visible = heroClass === 'knight';
   let classWeapon = sword;
   if (heroClass === 'mage') {
     const staff = new THREE.Group();
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,.95,8), gold); shaft.position.y=.4; staff.add(shaft);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,.95,16), gold); shaft.position.y=.4; staff.add(shaft);
     const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.18,1), glow); orb.position.y=.98; staff.add(orb);
     staff.position.set(.52,.65,-.04); staff.rotation.z=-.12; g.add(staff); classWeapon = staff;
   } else if (heroClass === 'healer') {
@@ -1010,12 +1020,12 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     daggers.position.set(.55,1.02,-.13); daggers.rotation.z=-.20; g.add(daggers); classWeapon = daggers;
   } else if (heroClass === 'ogre') {
     const club = new THREE.Group();
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(.07,.10,.95,8), dark);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(.07,.10,.95,16), dark);
     handle.position.y=.32; handle.rotation.z=-.12; club.add(handle);
     const head = new THREE.Mesh(new THREE.IcosahedronGeometry(.25,1), new THREE.MeshStandardMaterial({color:0x795239,roughness:.88}));
     head.position.set(.04,.83,0); head.scale.set(1.1,1,.92); club.add(head);
     for (const side of [-1,1]) {
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(.055,.18,5), gold);
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(.055,.18,10), gold);
       spike.position.set(side*.20,.85,0); spike.rotation.z=side*-Math.PI/2; club.add(spike);
     }
     club.position.set(.58,.78,-.12); club.rotation.z=-.30; g.add(club); classWeapon = club;
@@ -1147,6 +1157,13 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     }
     add(new THREE.TorusGeometry(.118,.012,6,20), gold, side*.2,.33,0).rotation.x = Math.PI/2;
     add(new THREE.BoxGeometry(.07,.018,.022), glow, side*.2,.58,-.185);
+  }
+  // Placas laterais da cintura e aros das botas completam a silhueta da armadura.
+  for (const side of [-1,1]) {
+    const hipPlate = add(new THREE.SphereGeometry(.16,20,14), armor,side*.255,.88,-.015,1.0,.72,.7);
+    hipPlate.rotation.z = side * -.18;
+    add(new THREE.TorusGeometry(.105,.014,8,24), gold,side*.2,.24,0).rotation.x = Math.PI/2;
+    add(new THREE.BoxGeometry(.19,.035,.035), classAccentMaterial,side*.2,.38,-.18).rotation.z = side * -.06;
   }
   const waistSigil = add(new THREE.OctahedronGeometry(.075,2), classAccentMaterial, 0,.91,-.30);
   waistSigil.rotation.z = Math.PI/4;
@@ -1353,7 +1370,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
       addMesh(new THREE.BoxGeometry(.07,.38,.08),magma,side*.21,1.03,-.47,1,1,.7);
       const arm=addMesh(new THREE.CapsuleGeometry(.15,.4,4,7),basalt,side*.48,1.03,0);
       arm.rotation.z=side*.22;
-      const claw=addMesh(new THREE.ConeGeometry(.12,.4,5),bone,side*.57,.64,-.15);
+      const claw=addMesh(new THREE.ConeGeometry(.12,.4,10),bone,side*.57,.64,-.15);
       claw.rotation.x=Math.PI;
     }
   } else if (kind === 'abyss') {
@@ -1380,10 +1397,10 @@ function makeMonster(kind = 'stalker', phase = 1) {
       ear.rotation.z=side*-.28;
       const arm=addMesh(new THREE.CapsuleGeometry(.12,.42,3,6),hide,side*.48,.95,-.02);
       arm.rotation.z=side*.42;
-      const claw=addMesh(new THREE.ConeGeometry(.075,.3,5),bone,side*.56,.64,-.23);
+      const claw=addMesh(new THREE.ConeGeometry(.075,.3,10),bone,side*.56,.64,-.23);
       claw.rotation.x=Math.PI;
       addMesh(new THREE.ConeGeometry(.11,.38,5),bone,side*.2,1.13,.35);
-      addMesh(new THREE.CapsuleGeometry(.13,.36,3,5),dark,side*.22,.35,.03);
+      addMesh(new THREE.CapsuleGeometry(.13,.36,8,16),dark,side*.22,.35,.03);
     }
   }
   // Placas de ombro facetadas e rebites: dão volume sem mudar a hitbox.
@@ -3710,10 +3727,12 @@ const right = new THREE.Vector3(
     bossMesh.userData.animPhase = (bossMesh.userData.animPhase || 0) + dt * (Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04 ? 5.5 : 1.7);
     const bossPhase = bossMesh.userData.animPhase;
     const bossMoving = Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04;
-    bossMesh.position.y = .08 + Math.sin(bossPhase * 1.5) * .045;
-    if (bossMesh.userData.torso) bossMesh.userData.torso.rotation.z = Math.sin(bossPhase) * (bossMoving ? .035 : .018);
-    for (const arm of bossMesh.userData.arms || []) arm.mesh.rotation.x = Math.sin(bossPhase + (arm.side > 0 ? Math.PI : 0)) * (bossMoving ? .2 : .045);
-    if (bossMesh.userData.eyeMaterial) bossMesh.userData.eyeMaterial.emissiveIntensity = 2.3 + (Math.sin(bossPhase * 2.1) + 1) * .55;
+    const bossHealthRatio = bossMesh.userData.serverHp !== undefined && bossMesh.userData.serverMaxHp ? bossMesh.userData.serverHp / bossMesh.userData.serverMaxHp : 1;
+    const bossIntensity = bossHealthRatio < .34 ? 1.45 : bossHealthRatio < .67 ? 1.18 : 1;
+    bossMesh.position.y = .08 + Math.sin(bossPhase * 1.5) * .06 * bossIntensity;
+    if (bossMesh.userData.torso) bossMesh.userData.torso.rotation.z = Math.sin(bossPhase) * (bossMoving ? .055 : .024);
+    for (const arm of bossMesh.userData.arms || []) arm.mesh.rotation.x = Math.sin(bossPhase + (arm.side > 0 ? Math.PI : 0)) * (bossMoving ? .25 : .06);
+    if (bossMesh.userData.eyeMaterial) bossMesh.userData.eyeMaterial.emissiveIntensity = (2.3 + (Math.sin(bossPhase * 2.1) + 1) * .55) * bossIntensity;
     // O Guardião respira, balança os braços e pulsa os olhos durante a perseguição.
   }
   // Emissive pulse and slow core rotation make enemies feel alive without extra lights.
