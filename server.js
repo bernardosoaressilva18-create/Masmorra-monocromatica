@@ -492,7 +492,7 @@ wss.on('connection', ws => {
 
       // O destino é validado diretamente, pois resolveServerMovement foi feito
       // para passos curtos e pode recuar o ponto de aterrissagem para perto da origem.
-      const minDiveDistance = 112;
+      const minDiveDistance = 128;
       const landingDistance = point => Math.hypot(point.x - oldX, point.z - oldZ);
       const clickDistance = Math.hypot(requestedX - oldX, requestedZ - oldZ);
       const angle = clickDistance > 0.001 ? Math.atan2(requestedZ - oldZ, requestedX - oldX) : (player.rot || 0);
@@ -505,7 +505,7 @@ wss.on('connection', ws => {
         let bestScore = Infinity;
         for (let step = 0; step < 72; step++) {
           const a = angle + (Math.PI * 2 * step) / 72;
-          for (let radius = minDiveDistance; radius <= 160; radius += 4) {
+          for (let radius = minDiveDistance; radius <= 168; radius += 4) {
             const x = Math.max(-12, Math.min(12, oldX + Math.cos(a) * radius));
             const z = Math.max(-168, Math.min(5, oldZ + Math.sin(a) * radius));
             const candidate = { x, z };
@@ -1223,7 +1223,9 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         const currentTargetDistance = target
           ? Math.hypot(target.x - monster.x, target.z - monster.z)
           : Infinity;
-        const shouldTargetSummon = distance < 30 && distance + 0.12 < currentTargetDistance;
+        const isGoblinClone = summon.summonType === 'goblin_clone';
+        const aggroBonus = isGoblinClone ? 2.5 : 0.12;
+        const shouldTargetSummon = distance < 34 && distance + aggroBonus < currentTargetDistance;
         if (shouldTargetSummon) {
           targetPriority = distance;
           nearest = distance;
