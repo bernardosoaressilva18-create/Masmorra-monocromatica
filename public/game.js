@@ -826,7 +826,7 @@ function setHealthBar(entity, hp, maxHp) {
 }
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const g = new THREE.Group();
-  const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : 0x72e6ff;
+  const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : heroClass === 'healer' ? 0x66d8ac : heroClass === 'necromancer' ? 0x9764cc : heroClass === 'monk' ? 0xd7a05b : 0x72e6ff;
   const armorColor = skin === 'shadow' ? 0x343a50 : skin === 'ember' ? 0x9b4a2b : (color ?? classColor);
   const darkColor = skin === 'shadow' ? 0x11131d : skin === 'ember' ? 0x3b1915 : 0x151d2a;
   const armor = new THREE.MeshStandardMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .025, metalness: .38, roughness: .48 });
@@ -959,6 +959,18 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,.95,8), gold); shaft.position.y=.4; staff.add(shaft);
     const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.18,1), glow); orb.position.y=.98; staff.add(orb);
     staff.position.set(.52,.65,-.04); staff.rotation.z=-.12; g.add(staff); classWeapon = staff;
+  } else if (heroClass === 'healer') {
+    const staff = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.047,.07,1.12,8), gold); shaft.position.y=.43; staff.add(shaft);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(.19,2), new THREE.MeshStandardMaterial({color:0x8ffff0,emissive:0x23bf91,emissiveIntensity:1.7,metalness:.3,roughness:.2})); crystal.position.y=1.03; staff.add(crystal);
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(.23,.025,6,20), new THREE.MeshStandardMaterial({color:0xc8fff0,emissive:0x3ad7ab,emissiveIntensity:.8})); halo.position.y=1.03; halo.rotation.x=Math.PI/2; staff.add(halo);
+    staff.position.set(.52,.58,-.04); staff.rotation.z=-.12; g.add(staff); classWeapon = staff;
+  } else if (heroClass === 'necromancer') {
+    const staff = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.05,.075,1.18,7), dark); shaft.position.y=.42; staff.add(shaft);
+    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(.19,1), new THREE.MeshStandardMaterial({color:0xc6a1ff,emissive:0x6e26b8,emissiveIntensity:1.9,roughness:.22})); orb.position.y=1.04; staff.add(orb);
+    const boneRing = new THREE.Mesh(new THREE.TorusGeometry(.23,.027,5,16), steel); boneRing.position.y=1.04; boneRing.rotation.x=Math.PI/2; staff.add(boneRing);
+    staff.position.set(.52,.56,-.04); staff.rotation.z=-.14; g.add(staff); classWeapon = staff;
   } else if (heroClass === 'archer') {
     const bow = new THREE.Group();
     const arc = new THREE.Mesh(new THREE.TorusGeometry(.34,.045,6,18,Math.PI*1.25), gold); arc.rotation.z=-Math.PI*.62; bow.add(arc);
@@ -984,6 +996,15 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       spike.position.set(side*.20,.85,0); spike.rotation.z=side*-Math.PI/2; club.add(spike);
     }
     club.position.set(.58,.78,-.12); club.rotation.z=-.30; g.add(club); classWeapon = club;
+  } else if (heroClass === 'monk') {
+    // O monge combate desarmado, com faixas e punhos reforçados.
+    classWeapon = new THREE.Group();
+    for (const side of [-1,1]) {
+      const wrap = new THREE.Mesh(new THREE.TorusGeometry(.105,.035,5,12), new THREE.MeshStandardMaterial({color:0xe8d1a5,roughness:.78}));
+      wrap.position.set(side*.49,1.04,-.16); wrap.rotation.y=Math.PI/2; g.add(wrap);
+      const fist = new THREE.Mesh(new THREE.SphereGeometry(.105,10,8), new THREE.MeshStandardMaterial({color:0xd7a05b,roughness:.8}));
+      fist.position.set(side*.5,.92,-.18); fist.scale.set(1.0,.9,1.1); g.add(fist);
+    }
   }
   // Detail pass: layered armor, class sigils, trim and distinct silhouettes.
   const collar = add(new THREE.TorusGeometry(.205,.035,6,20), gold, 0,1.56,0);
@@ -1028,7 +1049,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     add(new THREE.OctahedronGeometry(.105,1), classAccentMaterial, 0,1.58,-.18,1,1.15,.72);
     const focusHalo = add(new THREE.TorusGeometry(.13,.018,5,18), classAccentMaterial, 0,1.58,-.21);
     focusHalo.rotation.x = Math.PI / 2;
-  } else {
+  } else if (heroClass === 'archer') {
     const hood = add(new THREE.ConeGeometry(.285,.36,7), clothMaterial, 0,2.18,.035);
     hood.rotation.x = -.05;
     add(new THREE.ConeGeometry(.29,.36,6), clothMaterial, 0,1.40,.34,1,.86,.44);
@@ -1040,6 +1061,29 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     }
     const strap = add(new THREE.BoxGeometry(.075,.60,.035), gold, -.10,1.22,-.385);
     strap.rotation.z = -.27;
+  } else if (heroClass === 'healer') {
+    add(new THREE.ConeGeometry(.43,.72,8), clothMaterial, 0,.79,.03,1,.9,.8);
+    const hood = add(new THREE.ConeGeometry(.30,.38,8), clothMaterial,0,2.17,.03);
+    hood.rotation.x=-.08;
+    add(new THREE.TorusGeometry(.19,.035,6,18),gold,0,1.57,0).rotation.x=Math.PI/2;
+    add(new THREE.OctahedronGeometry(.13,1),new THREE.MeshStandardMaterial({color:0xc4fff0,emissive:0x39dba7,emissiveIntensity:1.1}),0,1.28,-.43,.8,1.2,.55);
+    for (const side of [-1,1]) add(new THREE.BoxGeometry(.07,.3,.08),gold,side*.27,1.14,-.35).rotation.z=side*.18;
+  } else if (heroClass === 'necromancer') {
+    add(new THREE.ConeGeometry(.43,.72,7),clothMaterial,0,.78,.03,1,.9,.8);
+    const hood = add(new THREE.ConeGeometry(.32,.42,7),clothMaterial,0,2.15,.04);
+    hood.rotation.x=-.12;
+    add(new THREE.SphereGeometry(.12,10,8),new THREE.MeshStandardMaterial({color:0xe3d7f2,roughness:.7}),0,1.30,-.44,1,.88,.55);
+    add(new THREE.TorusGeometry(.17,.025,5,18),classAccentMaterial,0,1.30,-.45).rotation.x=Math.PI/2;
+    for (const side of [-1,1]) add(new THREE.ConeGeometry(.07,.20,5),steel,side*.12,1.31,-.45).rotation.z=Math.PI;
+  } else {
+    // Monge: roupa curta, faixa na cabeça e silhueta compacta.
+    cape.visible=false; capeTailL.visible=false; capeTailR.visible=false;
+    g.scale.setScalar(.96);
+    add(new THREE.BoxGeometry(.64,.13,.46),clothMaterial,0,.93,0);
+    add(new THREE.BoxGeometry(.53,.06,.05),gold,0,.94,-.25);
+    add(new THREE.BoxGeometry(.47,.09,.33),clothMaterial,0,2.02,-.02);
+    add(new THREE.BoxGeometry(.20,.055,.035),gold,0,2.03,-.20);
+    add(new THREE.ConeGeometry(.08,.16,5),gold,-.30,2.02,-.02).rotation.z=.7;
   }
   for (const side of [-1,1]) {
     add(new THREE.SphereGeometry(.032,10,8), classAccentMaterial, side*.092,1.96,-.245);
@@ -1392,7 +1436,10 @@ const classDescriptions = {
   mage: 'Mago: pouca vida, mas feitiços poderosos em área.',
   archer: 'Arqueiro: ataque rápido e grande alcance.',
   goblin: 'Goblin: pequeno, veloz e especialista em ataques rápidos.',
-  ogre: 'Ogro: enorme, resistente e lento, com golpes devastadores.'
+  ogre: 'Ogro: enorme, resistente e lento, com golpes devastadores.',
+  healer: 'Curandeiro: 100 de vida, cajado à distância, cura e espíritos guardiões.',
+  necromancer: 'Necromante: 90 de vida, cajado sombrio e esqueletos aliados.',
+  monk: 'Monge: 110 de vida, combo de três golpes, atordoamento e mobilidade.'
 };
 let selectedClass = 'knight';
 let selectedSkin = 'default';
@@ -1517,7 +1564,10 @@ function updateHeroShowcase() {
     mage:{name:'Mago',glyph:'🔮',desc:'Magia fortalecida · cajado arcano'},
     archer:{name:'Arqueiro',glyph:'🏹',desc:'Ataque rápido · alcance maior'},
     goblin:{name:'Goblin',glyph:'👺',desc:'Ágil · duas adagas · esquiva rápida'},
-    ogre:{name:'Ogro',glyph:'👹',desc:'Tanque · clava pesada · dano alto'}
+    ogre:{name:'Ogro',glyph:'👹',desc:'Tanque · clava pesada · dano alto'},
+    healer:{name:'Curandeiro',glyph:'🌿',desc:'Cajado à distância · cura e espíritos guardiões'},
+    necromancer:{name:'Necromante',glyph:'💀',desc:'Cajado sombrio · horda de esqueletos'},
+    monk:{name:'Monge',glyph:'🥋',desc:'Combo de três golpes · impacto e mobilidade'}
   }[selectedClass] || {name:'Cavaleiro',glyph:'🛡️',desc:'Defesa elevada'};
   const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
   const avatar=$('heroPreviewAvatar');
@@ -1703,7 +1753,13 @@ function renderLobby3DPreview() {
         ? {color:0xc7ff7a,glow:0x63b448}
         : heroClass === 'ogre'
           ? {color:0xffbe7c,glow:0xb56d3e}
-          : {color:0x8beaff,glow:0x3ebee8};
+          : heroClass === 'healer'
+            ? {color:0xa2ffe4,glow:0x37c99a}
+            : heroClass === 'necromancer'
+              ? {color:0xd4afff,glow:0x8b4fcd}
+              : heroClass === 'monk'
+                ? {color:0xffd99b,glow:0xd7a05b}
+                : {color:0x8beaff,glow:0x3ebee8};
   if (lobbyPreviewRing) {
     lobbyPreviewRing.material.color.setHex(effectPalette.color);
     lobbyPreviewRing.material.opacity = .72 + Math.sin(time*2.2)*.18;
@@ -1829,12 +1885,18 @@ function handleClassAbilityMessage(m) {
   const colors = {
     knight_shield: 0x79caff, knight_dash: 0xe9c477, arrow_rain: 0x9ccfff,
     incendiary_arrows: 0xff632b, goblin_invis: 0x9c8cff, goblin_summon: 0x7ce36c,
-    ogre_slam: 0xff9d4a, ogre_haste: 0xffd86e
+    ogre_slam: 0xff9d4a, ogre_haste: 0xffd86e,
+    healer_cure: 0x70ffd1, healer_guardian_spirits: 0x8cffe8,
+    necromancer_summon: 0xa77bdb, necromancer_dive: 0xb4a0e8, necromancer_dive_arrive: 0xb4a0e8,
+    monk_impact_palm: 0xffcc78, monk_winged_steps: 0xe9c58c
   };
   const radii = {
     knight_shield: 1.4, knight_dash: 3.8, arrow_rain: 4.6,
     incendiary_arrows: 4.1, goblin_invis: 1.5, goblin_summon: 2.1,
-    ogre_slam: 5.2, ogre_haste: 1.7
+    ogre_slam: 5.2, ogre_haste: 1.7,
+    healer_cure: 3.8, healer_guardian_spirits: 7,
+    necromancer_summon: 3.2, necromancer_dive: 1.9, necromancer_dive_arrive: 2.8,
+    monk_impact_palm: 4.2, monk_winged_steps: 2.6
   };
   const center = m.center || { x: m.x, z: m.z };
   addClassAbilityRing(center.x, center.z, radii[m.ability] || 2.5, colors[m.ability] || 0x76e7f2);
@@ -1851,6 +1913,18 @@ function handleClassAbilityMessage(m) {
       else if (CLASS_ABILITY_CONFIG[selectedClass]?.[1]?.ability === m.ability) lightningCooldown = spec.cooldown;
     }
     if (m.ability === 'ogre_haste') ogreHasteUntil = performance.now() + 5000;
+    if (m.ability === 'necromancer_dive') {
+      necromancerDivePendingClient = true;
+      clearTimeout(necromancerDiveClientTimer);
+      necromancerDiveClientTimer = setTimeout(() => {
+        necromancerDivePendingClient = false;
+        showNotice('O tempo do Mergulho acabou.');
+      }, 5000);
+    }
+    if (m.ability === 'necromancer_dive_arrive') {
+      necromancerDivePendingClient = false;
+      clearTimeout(necromancerDiveClientTimer);
+    }
     if (m.ability === 'knight_shield' && myPlayer) setHeroShielded(myPlayer, true);
     if (m.ability === 'knight_dash' && myPlayer && Number.isFinite(m.x) && Number.isFinite(m.z)) {
       myPlayer.position.set(m.x, 0, m.z);
@@ -2632,6 +2706,18 @@ const CLASS_ABILITY_CONFIG = {
   ogre: [
     { ability: 'ogre_slam', icon: '💥', label: 'SOCO NO CHÃO', description: 'Dá um soco no chão, causa dano em área e repele inimigos.', cooldown: 10 },
     { ability: 'ogre_haste', icon: '💨', label: 'VELOCIDADE', description: 'Aumenta a velocidade por 5 segundos.', cooldown: 15 }
+  ],
+  healer: [
+    { ability: 'healer_cure', icon: '💚', label: 'CURA', description: 'Cura você e aliados vivos em até 50 de vida.', cooldown: 23 },
+    { ability: 'healer_guardian_spirits', icon: '🪽', label: 'ESPÍRITOS', description: 'Por 20 s, cura aliados próximos e também cura inimigos próximos.', cooldown: 40 }
+  ],
+  necromancer: [
+    { ability: 'necromancer_summon', icon: '💀', label: 'HORDA', description: 'Invoca até cinco esqueletos aliados por 18 segundos.', cooldown: 30 },
+    { ability: 'necromancer_dive', icon: '🕳️', label: 'MERGULHO', description: 'Desaparece por até 5 s; toque no chão para voltar e deixar um esqueleto na origem.', cooldown: 15 }
+  ],
+  monk: [
+    { ability: 'monk_impact_palm', icon: '👊', label: 'PALMA', description: 'Onda de choque: 8 de dano, empurra e atordoa inimigos.', cooldown: 18 },
+    { ability: 'monk_winged_steps', icon: '🪽', label: 'PASSOS', description: 'Avanço veloz com esquiva breve e velocidade extra.', cooldown: 15 }
   ]
 };
 let ogreHasteUntil = 0;
@@ -2988,11 +3074,32 @@ joyEl.addEventListener('lostpointercapture', endJoy);
 
 // Arrastar fora dos controles para girar a câmera
 let lookPointer = null, lastX = 0, lastY = 0;
+let necromancerDivePendingClient = false, necromancerDiveClientTimer = null;
 
 function rendererPointerSetup() {
   const el = $('game');
 
   el.addEventListener('pointerdown', e => {
+    if (started && necromancerDivePendingClient) {
+      const rect = el.getBoundingClientRect();
+      const pointer = new THREE.Vector2(
+        ((e.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1,
+        -((e.clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1
+      );
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(pointer, camera);
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const landing = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(groundPlane, landing)) {
+        send({ type: 'necromancerDiveTarget', x: landing.x, z: landing.z });
+        necromancerDivePendingClient = false;
+        clearTimeout(necromancerDiveClientTimer);
+        lookPointer = null;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
     if (!started ||
         (e.clientX < 155 && e.clientY > innerHeight - 190) ||
         (e.clientX > innerWidth - 135 && e.clientY > innerHeight - 155)) return;
