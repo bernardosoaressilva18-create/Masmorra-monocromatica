@@ -703,12 +703,23 @@ function buildAstralWorld(){
     for(const side of [-1,1]){const pylon=new THREE.Mesh(new THREE.OctahedronGeometry(.85+(index%3)*.12,0),side===-1?crystalMat:cyanMat);pylon.scale.set(.72,2.2,.72);pylon.position.set(side*11.2,1.15,zone.z+(index%2?5:-5));activeEnvironmentGroup.add(pylon);}
   });
   for(const z of [-30.5,-62,-94,-130]){box(8.6,.18,z===-130?9.5:3.8,bridgeMat,0,-.025,z);for(const x of [-3.7,3.7]){const c=new THREE.Mesh(new THREE.OctahedronGeometry(.24,0),cyanMat);c.position.set(x,.22,z);activeEnvironmentGroup.add(c);}}
+  // Pequenas pedras rúnicas dão escala ao caminho sem criar luzes dinâmicas extras.
+  const runeStoneCount = isMobileDevice ? 8 : 16;
+  for(let i=0;i<runeStoneCount;i++){
+    const side=i%2===0?-1:1, z=-8-Math.random()*160;
+    const stone=new THREE.Mesh(new THREE.DodecahedronGeometry(.22+Math.random()*.16,0),i%3===0?cyanMat:deepStone);
+    stone.position.set(side*(10.1+Math.random()*2.1),.16,z); stone.rotation.set(Math.random()*.3,Math.random()*Math.PI,Math.random()*.3);
+    stone.scale.set(.8,.65,1.15); activeEnvironmentGroup.add(stone);
+    if(i%3===0){const mark=new THREE.Mesh(new THREE.TorusGeometry(.16,.018,5,16),crystalMat);mark.position.set(stone.position.x,.26,z);mark.rotation.x=Math.PI/2;activeEnvironmentGroup.add(mark);}
+  }
   for(const z of [-30,-62,-94,-126]){
     const arch=new THREE.Group(),frame=new THREE.MeshStandardMaterial({color:0x68569e,emissive:0x4c35aa,emissiveIntensity:1.15,metalness:.35,roughness:.28});
     for(const x of [-3.15,3.15]){const p=new THREE.Mesh(new THREE.BoxGeometry(.3,4.2,.35),frame);p.position.set(x,2.1,0);arch.add(p);}
     const top=new THREE.Mesh(new THREE.BoxGeometry(6.6,.32,.4),frame);top.position.set(0,4.22,0);arch.add(top);
     const loop=new THREE.Mesh(new THREE.TorusGeometry(1.72,.065,8,48),new THREE.MeshStandardMaterial({color:0x9e83ff,emissive:0x754dff,emissiveIntensity:1.8,roughness:.25,metalness:.2}));loop.position.set(0,2.08,-.1);loop.scale.set(1.45,1.12,1);arch.add(loop);
-    const veil=new THREE.Mesh(new THREE.PlaneGeometry(5.15,3.6),new THREE.MeshBasicMaterial({color:0x6639d9,transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false}));veil.position.set(0,2.08,-.08);arch.add(veil);arch.position.z=z;activeEnvironmentGroup.add(arch);
+    const veil=new THREE.Mesh(new THREE.PlaneGeometry(5.15,3.6),new THREE.MeshBasicMaterial({color:0x6639d9,transparent:true,opacity:.09,side:THREE.DoubleSide,depthWrite:false}));veil.position.set(0,2.08,-.08);arch.add(veil);
+    for(const side of [-1,1]){const lamp=new THREE.Mesh(new THREE.OctahedronGeometry(.16,1),cyanMat);lamp.position.set(side*2.8,.45,-.12);arch.add(lamp);}
+    arch.position.z=z;activeEnvironmentGroup.add(arch);
   }
   const starCount = gameSettings.graphicsQuality === 'low' ? (isMobileDevice ? 45 : 70) : gameSettings.graphicsQuality === 'high' ? (isMobileDevice ? 100 : 260) : (isMobileDevice ? 90 : 180);
   const starPositions = new Float32Array(starCount * 3);
@@ -1221,6 +1232,11 @@ function makeBoss() {
     const claw = new THREE.Mesh(new THREE.ConeGeometry(.18, .55, 5), bone); claw.position.set(side * 1.2, .82, -.05); claw.rotation.z = Math.PI; g.add(claw);
   }
   // Armadura adicional e núcleo central: melhora a leitura do chefe a distância.
+  // Placas sobrepostas no peito enquadram o núcleo e deixam o chefe mais distinto.
+  for(let i=0;i<3;i++){
+    const plate=new THREE.Mesh(new THREE.BoxGeometry(.34-i*.035,.16,.11),i===1?bone:armor);
+    plate.position.set(0,2.18-i*.19,-.92); plate.rotation.z=(i-1)*.035; g.add(plate);
+  }
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.27,1),eye);
   core.position.set(0,1.78,-1.00); core.scale.set(.9,1.15,.62); g.add(core);
   const coreHalo = new THREE.Mesh(new THREE.TorusGeometry(.37,.04,7,32),
@@ -1229,6 +1245,8 @@ function makeBoss() {
   for (const side of [-1,1]) {
     const pauldron = new THREE.Mesh(new THREE.DodecahedronGeometry(.38,1),armor);
     pauldron.position.set(side*.91,2.18,-.08); pauldron.scale.set(1.12,.82,.86); g.add(pauldron);
+    const shoulderMark=new THREE.Mesh(new THREE.TorusGeometry(.19,.025,6,20),eye);
+    shoulderMark.position.set(side*.91,2.2,-.43); shoulderMark.scale.set(1,.78,.55); g.add(shoulderMark);
     const spike = new THREE.Mesh(new THREE.ConeGeometry(.15,.43,6),bone);
     spike.position.set(side*1.02,2.55,-.02); spike.rotation.z=side*-.35; g.add(spike);
   }
@@ -3733,6 +3751,7 @@ const right = new THREE.Vector3(
     if (bossMesh.userData.torso) bossMesh.userData.torso.rotation.z = Math.sin(bossPhase) * (bossMoving ? .055 : .024);
     for (const arm of bossMesh.userData.arms || []) arm.mesh.rotation.x = Math.sin(bossPhase + (arm.side > 0 ? Math.PI : 0)) * (bossMoving ? .25 : .06);
     if (bossMesh.userData.eyeMaterial) bossMesh.userData.eyeMaterial.emissiveIntensity = (2.3 + (Math.sin(bossPhase * 2.1) + 1) * .55) * bossIntensity;
+    if (bossMesh.userData.coreHalo) { bossMesh.userData.coreHalo.rotation.z += dt * (bossMoving ? .65 : .24); bossMesh.userData.coreHalo.material.emissiveIntensity = 1.0 + (Math.sin(bossPhase * 2.4) + 1) * .45; }
     // O Guardião respira, balança os braços e pulsa os olhos durante a perseguição.
   }
   // Emissive pulse and slow core rotation make enemies feel alive without extra lights.
