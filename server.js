@@ -314,11 +314,18 @@ function isServerPositionBlocked(room, x, z) {
   return false;
 }
 function resolveServerMovement(room, player, nextX, nextZ) {
-  let x = Math.max(-13, Math.min(13, nextX));
-  let z = Math.max(-174, Math.min(8, nextZ));
-  if (isServerPositionBlocked(room, x, player.z)) x = player.x;
-  if (isServerPositionBlocked(room, x, z)) z = player.z;
-  return { x, z };
+  const x = Math.max(-13, Math.min(13, nextX));
+  const z = Math.max(-174, Math.min(8, nextZ));
+  const canMoveX = !isServerPositionBlocked(room, x, player.z);
+  const canMoveZ = !isServerPositionBlocked(room, player.x, z);
+  if (canMoveX && canMoveZ) {
+    if (!isServerPositionBlocked(room, x, z)) return { x, z };
+    if (Math.abs(x - player.x) >= Math.abs(z - player.z)) return { x, z: player.z };
+    return { x: player.x, z };
+  }
+  if (canMoveX) return { x, z: player.z };
+  if (canMoveZ) return { x: player.x, z };
+  return { x: player.x, z: player.z };
 }
 
 function state(room) {
