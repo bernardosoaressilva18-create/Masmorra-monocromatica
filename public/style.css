@@ -2272,3 +2272,22 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
     image-rendering:auto;
   }
 }
+
+
+/* Update 2 v4 — skill tree com proporção estável em celular e paisagem */
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{
+  display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;align-items:start!important;align-content:start!important;grid-auto-rows:max-content!important;gap:10px!important;width:100%!important;max-height:min(58dvh,520px)!important;overflow:auto!important;box-sizing:border-box!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch{width:100%!important;min-width:0!important;height:auto!important;min-height:0!important;align-self:start!important;box-sizing:border-box!important}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:7px!important}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node{width:100%!important;min-width:0!important;min-height:76px!important;height:auto!important;align-self:start!important;box-sizing:border-box!important;white-space:normal!important;overflow-wrap:anywhere!important}
+@media(max-width:760px){
+ #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{display:flex!important;flex-flow:row nowrap!important;align-items:flex-start!important;justify-content:flex-start!important;gap:10px!important;overflow-x:auto!important;overflow-y:auto!important;overscroll-behavior-x:contain;scroll-snap-type:x proximity;max-height:min(54dvh,460px)!important;padding:4px 5px 12px!important}
+ #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch{flex:0 0 min(78vw,300px)!important;width:min(78vw,300px)!important;max-width:min(78vw,300px)!important;scroll-snap-align:start}
+ #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node{min-height:68px!important;padding:8px!important}
+}
+@media(orientation:landscape) and (max-height:560px) and (pointer:coarse){
+ #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{max-height:58dvh!important}
+ #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch{flex-basis:min(42vw,290px)!important;width:min(42vw,290px)!important;max-width:min(42vw,290px)!important}
+}
+@media(prefers-reduced-motion:reduce){#lobby .skill-tree{scroll-behavior:auto!important;scroll-snap-type:none!important}}
