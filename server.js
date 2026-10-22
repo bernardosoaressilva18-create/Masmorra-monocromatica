@@ -1141,7 +1141,7 @@ setInterval(() => {
       for (const summon of (room.summons || [])) {
         if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
-        const aggroPriority = Math.max(0, distance - 4.5);
+        const aggroPriority = Math.max(0, distance - 7);
         if (aggroPriority < targetPriority) {
           targetPriority = aggroPriority;
           nearest = distance;
@@ -1150,8 +1150,9 @@ setInterval(() => {
       }
 
       if (target && nearest > 1.8 && nearest < 70) {
-        const dx = target.x - monster.x;
-        const dz = target.z - monster.z;
+        const movementTarget = target.isSummon && target.sourceSummon ? target.sourceSummon : target;
+        const dx = movementTarget.x - monster.x;
+        const dz = movementTarget.z - monster.z;
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
