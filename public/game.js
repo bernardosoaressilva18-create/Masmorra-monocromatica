@@ -1355,7 +1355,12 @@ function onResize() {
   });
 }
 addEventListener('resize', onResize, { passive: true });
-addEventListener('orientationchange', () => setTimeout(onResize, 120), { passive: true });
+addEventListener('orientationchange', () => {
+  // Android/browser can report the old viewport for a moment after rotation.
+  setTimeout(onResize, 100);
+  setTimeout(onResize, 320);
+  setTimeout(onResize, 650);
+}, { passive: true });
 if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize, { passive: true });
 
 function setStatus(t) {
