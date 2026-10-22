@@ -492,7 +492,7 @@ wss.on('connection', ws => {
 
       // O destino é validado diretamente, pois resolveServerMovement foi feito
       // para passos curtos e pode recuar o ponto de aterrissagem para perto da origem.
-      const minDiveDistance = 68;
+      const minDiveDistance = 88;
       const landingDistance = point => Math.hypot(point.x - oldX, point.z - oldZ);
       const clickDistance = Math.hypot(requestedX - oldX, requestedZ - oldZ);
       const angle = clickDistance > 0.001 ? Math.atan2(requestedZ - oldZ, requestedX - oldX) : (player.rot || 0);
@@ -1223,7 +1223,7 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         const currentTargetDistance = target
           ? Math.hypot(target.x - monster.x, target.z - monster.z)
           : Infinity;
-        const shouldTargetSummon = distance < 22 && distance + 0.12 < currentTargetDistance;
+        const shouldTargetSummon = distance < 30 && distance + 0.12 < currentTargetDistance;
         if (shouldTargetSummon) {
           targetPriority = distance;
           nearest = distance;
