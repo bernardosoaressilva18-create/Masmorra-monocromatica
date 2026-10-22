@@ -1842,6 +1842,36 @@ function handleMessage(m) {
     return;
   }
 
+  if (m.type === 'publicRooms') {
+    const list = $('publicRoomsList');
+    if (!list) return;
+    list.replaceChildren();
+    if (!m.rooms || !m.rooms.length) {
+      const p = document.createElement('p');
+      p.textContent = 'Nenhuma sala aberta. Você pode abrir uma agora:';
+      list.appendChild(p);
+      const create = document.createElement('button');
+      create.type = 'button';
+      create.textContent = 'CRIAR SALA PÚBLICA';
+      create.addEventListener('click', () => send({ type: 'joinPublic' }));
+      list.appendChild(create);
+    } else {
+      for (const room of m.rooms) {
+        const row = document.createElement('div');
+        row.className = 'public-room-row';
+        const info = document.createElement('span');
+        info.textContent = 'Sala pública · ' + room.players + '/' + room.maxPlayers;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'ENTRAR';
+        btn.addEventListener('click', () => { joiningPublicRoom = true; connect(room.code); });
+        row.append(info, btn);
+        list.appendChild(row);
+      }
+    }
+    return;
+  }
+
   if (m.type === 'joined') {
     playerId = m.id;
     if (typeof m.resumeToken === 'string' && m.resumeToken) {
