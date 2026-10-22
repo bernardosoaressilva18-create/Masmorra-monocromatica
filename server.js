@@ -472,7 +472,7 @@ wss.on('connection', ws => {
 
       // Garante um deslocamento realmente visível. Se o ponto tocado estiver
       // perto demais ou bloqueado, procura o ponto livre mais distante nas proximidades.
-      const minDiveDistance = 36;
+      const minDiveDistance = 52;
       const dx = requestedX - oldX;
       const dz = requestedZ - oldZ;
       const distance = Math.hypot(dx, dz);
@@ -490,7 +490,7 @@ wss.on('connection', ws => {
         // distante, em vez de depender de um clique perto da borda ou obstáculo.
         for (let step = 0; step < 48; step++) {
           const a = (Math.PI * 2 * step) / 48;
-          for (let radius = 36; radius <= 72; radius += 4) {
+          for (let radius = 52; radius <= 96; radius += 4) {
             const x = Math.max(-12, Math.min(12, oldX + Math.cos(a) * radius));
             const z = Math.max(-168, Math.min(5, oldZ + Math.sin(a) * radius));
             const candidate = resolveServerMovement(room, player, x, z);
