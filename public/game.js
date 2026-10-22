@@ -56,8 +56,8 @@ function vibrateGame(pattern = 12) {
 function applyGraphicsQuality() {
   const quality = gameSettings.graphicsQuality;
   renderPixelRatioCap = quality === 'low' ? (isMobileDevice ? 0.85 : 1.0)
-    : quality === 'high' ? (isMobileDevice ? 1.55 : 2.0)
-    : (isMobileDevice ? 1.25 : 1.5);
+    : quality === 'high' ? (isMobileDevice ? 1.6 : 2.0)
+    : (isMobileDevice ? 1.35 : 1.5);
   adaptivePixelRatio = Math.max(isMobileDevice ? 0.75 : 0.8, Math.min(devicePixelRatio, renderPixelRatioCap));
   if (quality === 'low') adaptivePixelRatio = Math.min(adaptivePixelRatio, isMobileDevice ? 0.85 : 1.0);
   if (renderer) {
@@ -3037,7 +3037,7 @@ function updatePerformanceMonitor() {
   perfFrames = 0;
   perfWindowStart = now;
 
-  if (lastFps < 43) {
+  if (lastFps < 34) {
     slowFpsSamples++;
     fastFpsSamples = 0;
   } else if (lastFps > 57) {
@@ -3049,8 +3049,8 @@ function updatePerformanceMonitor() {
   }
 
   let nextRatio = adaptivePixelRatio;
-  if (slowFpsSamples >= 1) {
-    nextRatio = Math.max(isMobileDevice ? .75 : .8, adaptivePixelRatio - .08);
+  if (slowFpsSamples >= 2) {
+    nextRatio = Math.max(isMobileDevice ? .75 : .8, adaptivePixelRatio - .04);
     slowFpsSamples = 0;
   } else if (fastFpsSamples >= 4) {
     nextRatio = Math.min(Math.min(devicePixelRatio, renderPixelRatioCap), adaptivePixelRatio + .05);
