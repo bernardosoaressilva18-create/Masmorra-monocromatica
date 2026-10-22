@@ -1749,7 +1749,8 @@ $('skillCloseBtn')?.addEventListener('click', () => $('skillPanel')?.classList.a
 syncLoadoutUI();
 updateHeroShowcase();
 
-let joiningPublicRoom = false;\nfunction sendJoin(code) {
+let joiningPublicRoom = false;
+function sendJoin(code) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   activeConnectCode = code || activeConnectCode || roomCode || '';
   send({
@@ -1760,8 +1761,10 @@ let joiningPublicRoom = false;\nfunction sendJoin(code) {
     skin: selectedSkin,
     skills: Array.from(unlockedSkills),
     talentPoints: skillPoints,
-    code
+    code,
+    public: joiningPublicRoom
   });
+  joiningPublicRoom = false;
 }
 
 function send(data) {
