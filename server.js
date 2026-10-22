@@ -499,7 +499,7 @@ wss.on('connection', ws => {
 
       // O destino é validado diretamente, pois resolveServerMovement foi feito
       // para passos curtos e pode recuar o ponto de aterrissagem para perto da origem.
-      const minDiveDistance = 78; // Garante que o mergulho realmente leve o Necromante para longe da origem.
+      const minDiveDistance = 92; // Mantém uma distância de emergência maior para evitar que o mergulho termine perto da origem.
       const landingDistance = point => Math.hypot(point.x - oldX, point.z - oldZ);
       const clickDistance = Math.hypot(requestedX - oldX, requestedZ - oldZ);
       const angle = clickDistance > 0.001 ? Math.atan2(requestedZ - oldZ, requestedX - oldX) : (player.rot || 0);
