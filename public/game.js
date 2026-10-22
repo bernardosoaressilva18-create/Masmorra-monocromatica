@@ -1750,11 +1750,12 @@ syncLoadoutUI();
 updateHeroShowcase();
 
 let joiningPublicRoom = false;
+let quickMatchRequested = false;
 function sendJoin(code) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   activeConnectCode = code || activeConnectCode || roomCode || '';
   send({
-    type: 'join',
+    type: quickMatchRequested ? 'joinPublic' : 'join',
     resumeToken,
     name: $('playerName').value.trim() || 'Aventureiro',
     class: selectedClass,
@@ -1765,6 +1766,7 @@ function sendJoin(code) {
     public: joiningPublicRoom
   });
   joiningPublicRoom = false;
+  quickMatchRequested = false;
 }
 
 function send(data) {
@@ -2498,6 +2500,17 @@ $('startBtn').addEventListener('click', async () => {
 });
 
 $('playBtn').addEventListener('click', () => connect(''));
+$('quickMatchBtn')?.addEventListener('click', () => {
+  quickMatchRequested = true;
+  joiningPublicRoom = true;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    send({ type: 'joinPublic', resumeToken, name: $('playerName').value.trim() || 'Aventureiro', class: selectedClass, skin: selectedSkin, skills: Array.from(unlockedSkills), talentPoints: skillPoints });
+    quickMatchRequested = false;
+    joiningPublicRoom = false;
+  } else {
+    connect('');
+  }
+});
 function requestPublicRooms() {
   $('publicRoomsPanel')?.classList.remove('hidden');
   $('publicRoomsList').innerHTML = '<p>Buscando salas disponíveis…</p>';
