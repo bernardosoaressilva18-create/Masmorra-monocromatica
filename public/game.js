@@ -44,7 +44,7 @@ const gameSettings = {
   sfxVolume: clampSetting(storedGameSettings.sfxVolume, 0, 1, 0.72),
   musicEnabled: storedGameSettings.musicEnabled !== false
 };
-let audioContext = null, musicBus = null, sfxBus = null, musicTimer = null, musicStep = 0;
+let audioContext = null, musicBus = null, sfxBus = null, backgroundMusic = null;
 
 function saveGameSettings() {
   try { localStorage.setItem('mmGameSettings', JSON.stringify(gameSettings)); } catch {}
@@ -53,12 +53,20 @@ function vibrateGame(pattern = 12) {
   if (!gameSettings.haptics || !isMobileDevice || !navigator.vibrate) return;
   try { navigator.vibrate(pattern); } catch {}
 }
+function getRenderPixelRatioCap(width = window.innerWidth, height = window.innerHeight) {
+  const landscapeMobile = isMobileDevice && width > height;
+  const quality = gameSettings.graphicsQuality;
+  if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 1.0 : 0.85) : 1.0;
+  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 1.7 : 1.55) : 2.0;
+  return isMobileDevice ? (landscapeMobile ? 1.4 : 1.25) : 1.5;
+}
+function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.innerHeight) {
+  return isMobileDevice && width > height ? 0.85 : (isMobileDevice ? 0.75 : 0.8);
+}
 function applyGraphicsQuality() {
   const quality = gameSettings.graphicsQuality;
-  renderPixelRatioCap = quality === 'low' ? (isMobileDevice ? 0.85 : 1.0)
-    : quality === 'high' ? (isMobileDevice ? 1.6 : 2.0)
-    : (isMobileDevice ? 1.35 : 1.5);
-  adaptivePixelRatio = Math.max(isMobileDevice ? 0.75 : 0.8, Math.min(devicePixelRatio, renderPixelRatioCap));
+  renderPixelRatioCap = getRenderPixelRatioCap();
+  adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(), Math.min(devicePixelRatio || 1, renderPixelRatioCap));
   if (quality === 'low') adaptivePixelRatio = Math.min(adaptivePixelRatio, isMobileDevice ? 0.85 : 1.0);
   if (renderer) {
     renderer.setPixelRatio(adaptivePixelRatio);
@@ -68,93 +76,59 @@ function applyGraphicsQuality() {
   }
 }
 document.addEventListener('visibilitychange', () => {
-  if (!audioContext) return;
   if (document.hidden) {
-    if (audioContext.state === 'running') audioContext.suspend().catch(() => {});
-  } else if (audioContext.state === 'suspended' && started) {
-    audioContext.resume().catch(() => {});
+    if (backgroundMusic) backgroundMusic.pause();
+    if (audioContext && audioContext.state === 'running') audioContext.suspend().catch(() => {});
+  } else {
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    if (backgroundMusic && gameSettings.musicEnabled && gameSettings.musicVolume > 0) {
+      backgroundMusic.play().catch(() => {});
+    }
   }
 });
 
 function updateAudioLevels() {
-  if (!audioContext || !musicBus || !sfxBus) return;
-  const now = audioContext.currentTime;
-  musicBus.gain.setTargetAtTime(gameSettings.musicEnabled ? gameSettings.musicVolume * 0.8 : 0, now, 0.12);
-  sfxBus.gain.setTargetAtTime(gameSettings.sfxVolume, now, 0.06);
-}
-function scheduleMusicNote(frequency,duration=.72,peak=.095,waveform='triangle'){
-  if(!audioContext||!musicBus||!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
-  const now=audioContext.currentTime,oscillator=audioContext.createOscillator(),envelope=audioContext.createGain();
-  oscillator.type=waveform;oscillator.frequency.setValueAtTime(Math.max(20,frequency),now);
-  envelope.gain.setValueAtTime(.0001,now);envelope.gain.exponentialRampToValueAtTime(Math.max(.001,peak),now+.035);
-  envelope.gain.exponentialRampToValueAtTime(.0001,now+Math.max(.12,duration));
-  oscillator.connect(envelope);envelope.connect(musicBus);oscillator.start(now);oscillator.stop(now+Math.max(.14,duration)+.025);
-}
-function ensureAudio(){
-  const AudioConstructor=window.AudioContext||window.webkitAudioContext;if(!AudioConstructor)return;
-  try{
-    if(!audioContext){
-      audioContext=new AudioConstructor();musicBus=audioContext.createGain();sfxBus=audioContext.createGain();
-      musicBus.connect(audioContext.destination);sfxBus.connect(audioContext.destination);
-      for(const [frequency,volume] of [[55,.018],[82.41,.011],[110,.005]]){
-        const drone=audioContext.createOscillator(),gain=audioContext.createGain();drone.type='sine';drone.frequency.value=frequency;gain.gain.value=volume;drone.connect(gain);gain.connect(musicBus);drone.start();
-      }
-      const dungeonLead=[293.66,349.23,392,440,392,349.23,329.63,293.66,261.63,329.63,392,440,523.25,440,392,329.63];
-      const astralLead=[392,493.88,587.33,659.25,587.33,493.88,440,392,349.23,440,523.25,659.25,698.46,659.25,523.25,440];
-      const dungeonBass=[73.42,55,65.41,49],astralBass=[98,73.42,82.41,61.74];
-      const dungeonChords=[[146.83,174.61,220],[110,146.83,174.61],[130.81,164.81,196],[98,130.81,164.81]];
-      const astralChords=[[196,246.94,293.66],[164.81,196,246.94],[174.61,220,261.63],[146.83,174.61,220]];
-      const schedulePad=(frequencies,duration=3.1,peak=.018)=>{
-        if(!audioContext||!musicBus||!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
-        const now=audioContext.currentTime;
-        for(const frequency of frequencies){
-          const osc=audioContext.createOscillator(),env=audioContext.createGain();
-          osc.type='sine';osc.frequency.value=frequency;
-          env.gain.setValueAtTime(.0001,now);env.gain.linearRampToValueAtTime(peak,now+.55);
-          env.gain.setTargetAtTime(peak*.72,now+.55,.45);
-          env.gain.setTargetAtTime(.0001,now+duration-.5,.32);
-          osc.connect(env);env.connect(musicBus);osc.start(now);osc.stop(now+duration+.08);
-        }
-      };
-      const schedulePluck=(frequency,duration=.62,peak=.035)=>{
-        if(!audioContext||!musicBus||!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
-        const now=audioContext.currentTime,osc=audioContext.createOscillator(),harmonic=audioContext.createOscillator();
-        const filter=audioContext.createBiquadFilter(),env=audioContext.createGain();
-        osc.type='triangle';osc.frequency.setValueAtTime(Math.max(30,frequency),now);
-        harmonic.type='sine';harmonic.frequency.setValueAtTime(Math.max(30,frequency*2.01),now);
-        filter.type='lowpass';filter.frequency.setValueAtTime(Math.min(2400,frequency*7),now);filter.Q.value=.65;
-        env.gain.setValueAtTime(.0001,now);env.gain.linearRampToValueAtTime(peak,now+.018);
-        env.gain.exponentialRampToValueAtTime(Math.max(.0002,peak*.28),now+.16);
-        env.gain.exponentialRampToValueAtTime(.0001,now+duration);
-        osc.connect(filter);harmonic.connect(filter);filter.connect(env);env.connect(musicBus);
-        osc.start(now);harmonic.start(now);osc.stop(now+duration+.03);harmonic.stop(now+duration+.03);
-      };
-      // Arranjo original de fantasia: acordes longos, baixo suave, arpejos e melodia contínua.
-      const tick=()=>{
-        if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
-        const step=musicStep++,astral=currentRealmVisual===2;
-        const lead=astral?astralLead:dungeonLead,bass=astral?astralBass:dungeonBass,chords=astral?astralChords:dungeonChords;
-        const beat=step%8,bar=Math.floor(step/8)%chords.length,chord=chords[bar];
-        if(beat===0){
-          schedulePad(chord,4.8,astral?.017:.019);
-          scheduleMusicNote(bass[bar],2.8,astral?.055:.062,'sine');
-          schedulePluck(chord[0]*.5,1.3,.023);
-        }
-        const arpPattern=[0,1,2,1,0,2,1,2];
-        const arpTone=chord[arpPattern[beat]]*(beat===4||beat===7?2:1);
-        schedulePluck(arpTone,beat===7?.82:.48,astral?.025:.029);
-        if(beat===1||beat===5){
-          const melodyIndex=(step*2+Math.floor(step/8)*3)%lead.length;
-          scheduleMusicNote(lead[melodyIndex],.95,astral?.024:.027,'sine');
-        }else if(beat===3||beat===7){
-          const answer=lead[(step+5)%lead.length];
-          schedulePluck(answer,.66,.018);
-        }
-      };
-      tick();musicTimer=window.setInterval(tick,430);
+  if (backgroundMusic) {
+    const volume = gameSettings.musicEnabled ? Math.max(0, Math.min(1, gameSettings.musicVolume * 0.78)) : 0;
+    backgroundMusic.volume = volume;
+    if (!gameSettings.musicEnabled || volume <= 0) {
+      backgroundMusic.pause();
+    } else if (!document.hidden) {
+      backgroundMusic.play().catch(() => {});
     }
-    if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
-  }catch(_){}
+  }
+  if (!audioContext || !sfxBus) return;
+  sfxBus.gain.setTargetAtTime(gameSettings.sfxVolume, audioContext.currentTime, 0.06);
+}
+function ensureAudio() {
+  try {
+    if (!backgroundMusic) {
+      // HydroGene, “JRPG - End Dungeon”, loopable CC0 track hosted on OpenGameArt.
+      backgroundMusic = new Audio('https://opengameart.org/sites/default/files/end_dungeon_0.mp3');
+      backgroundMusic.loop = true;
+      backgroundMusic.preload = 'auto';
+      backgroundMusic.volume = gameSettings.musicEnabled ? gameSettings.musicVolume * 0.78 : 0;
+      backgroundMusic.addEventListener('error', () => {
+        console.warn('[O Último Legado] A faixa externa não pôde ser carregada.');
+        if (started) showNotice('A trilha não carregou. Confira a conexão de internet.');
+      });
+    }
+    const AudioConstructor = window.AudioContext || window.webkitAudioContext;
+    if (AudioConstructor && !audioContext) {
+      audioContext = new AudioConstructor();
+      musicBus = audioContext.createGain();
+      sfxBus = audioContext.createGain();
+      musicBus.connect(audioContext.destination);
+      sfxBus.connect(audioContext.destination);
+    }
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    updateAudioLevels();
+    if (gameSettings.musicEnabled && gameSettings.musicVolume > 0 && !document.hidden) {
+      backgroundMusic.play().catch(() => {});
+    }
+  } catch (error) {
+    console.warn('[O Último Legado] Áudio indisponível neste navegador:', error);
+  }
 }
 function playSfx(kind = 'ui') {
   if (gameSettings.sfxVolume <= 0) return;
@@ -214,10 +188,8 @@ function resolveDungeonMovement(fromX, fromZ, nextX, nextZ) {
   if (isDungeonPositionBlocked(x, z)) z = fromZ;
   return { x, z };
 }
-let renderPixelRatioCap = gameSettings.graphicsQuality === 'low' ? (isMobileDevice ? 0.85 : 1.0)
-  : gameSettings.graphicsQuality === 'high' ? (isMobileDevice ? 1.55 : 2.0)
-  : (isMobileDevice ? 1.25 : 1.5);
-let adaptivePixelRatio = Math.min(devicePixelRatio, renderPixelRatioCap);
+let renderPixelRatioCap = getRenderPixelRatioCap();
+let adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(), Math.min(devicePixelRatio || 1, renderPixelRatioCap));
 let perfBadge = null, perfFrames = 0, perfWindowStart = performance.now();
 let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
 
@@ -1363,8 +1335,15 @@ function onResize() {
     const width = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth));
     const height = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight));
     if (renderer && camera) {
+      const landscapeMobile = isMobileDevice && width > height;
+      const previousLandscapeMobile = isMobileDevice && renderer.domElement.height > renderer.domElement.width;
+      renderPixelRatioCap = getRenderPixelRatioCap(width, height);
+      if (landscapeMobile !== previousLandscapeMobile) {
+        adaptivePixelRatio = Math.min(devicePixelRatio || 1, renderPixelRatioCap);
+      } else {
+        adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(width, height), Math.min(adaptivePixelRatio, renderPixelRatioCap));
+      }
       camera.aspect = width / height;
-      // Campo de visão maior no retrato; o horizontal usa enquadramento mais baixo.
       camera.fov = isMobileDevice && height > width ? 76 : (isMobileDevice ? 66 : 62);
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(adaptivePixelRatio);
@@ -3147,7 +3126,6 @@ function rendererPointerSetup() {
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
 }
-rendererPointerSetup();
 
 
 function disposeImpactEffect(effect) {
@@ -3178,7 +3156,7 @@ function updatePerformanceMonitor() {
 
   let nextRatio = adaptivePixelRatio;
   if (slowFpsSamples >= 2) {
-    nextRatio = Math.max(isMobileDevice ? .75 : .8, adaptivePixelRatio - .04);
+    nextRatio = Math.max(getMinimumRenderPixelRatio(), adaptivePixelRatio - .04);
     slowFpsSamples = 0;
   } else if (fastFpsSamples >= 4) {
     nextRatio = Math.min(Math.min(devicePixelRatio, renderPixelRatioCap), adaptivePixelRatio + .05);
@@ -3194,7 +3172,7 @@ function updatePerformanceMonitor() {
     const memoryBytes = performance.memory && Number.isFinite(performance.memory.usedJSHeapSize)
       ? performance.memory.usedJSHeapSize : null;
     const memoryText = memoryBytes === null ? 'JS heap n/d' : 'JS ' + Math.round(memoryBytes / (1024 * 1024)) + ' MB';
-    const baseRatio = Math.max(.1, Math.min(devicePixelRatio, renderPixelRatioCap));
+    const baseRatio = Math.max(.1, Math.min(devicePixelRatio || 1, renderPixelRatioCap));
     const qualityText = 'Q ' + Math.round(adaptivePixelRatio / baseRatio * 100) + '%';
     const pingText = measuredPing === null ? 'Ping —' : 'Ping ' + measuredPing + ' ms';
     perfBadge.textContent = Math.round(lastFps) + ' FPS · ' + pingText + ' · ' + memoryText + ' · ' + qualityText;
@@ -3631,4 +3609,34 @@ const right = new THREE.Vector3(
   renderLobby3DPreview();
 }
 
-init3D();
+try {
+  init3D();
+  // The renderer exists now, so its canvas is safe to use for touch controls.
+  rendererPointerSetup();
+  const gameCanvas = renderer && renderer.domElement;
+  if (gameCanvas) {
+    gameCanvas.addEventListener('webglcontextlost', event => {
+      event.preventDefault();
+      const message = 'Os gráficos foram pausados pelo navegador. Tentando recuperar a imagem…';
+      if (started) showNotice(message); else setStatus(message);
+    });
+    gameCanvas.addEventListener('webglcontextrestored', () => {
+      adaptivePixelRatio = Math.min(devicePixelRatio || 1, renderPixelRatioCap);
+      onResize();
+      if (started) showNotice('Gráficos recuperados! Pode continuar a aventura.');
+      else setStatus('Gráficos recuperados.');
+    });
+  }
+} catch (error) {
+  console.error('[O Último Legado] Falha ao inicializar os gráficos 3D:', error);
+  const bootError = document.createElement('div');
+  bootError.setAttribute('role', 'alert');
+  bootError.textContent = 'Não foi possível iniciar os gráficos 3D. Recarregue a página e tente novamente.';
+  Object.assign(bootError.style, {
+    position: 'fixed', inset: '12px', zIndex: '99999', display: 'grid',
+    placeItems: 'center', padding: '24px', borderRadius: '14px',
+    background: '#080d16', color: '#f0f7ff', textAlign: 'center',
+    font: '600 15px/1.55 system-ui, sans-serif'
+  });
+  document.body.appendChild(bootError);
+}
