@@ -1979,3 +1979,48 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
   #hud .badge strong { font-size: 9px; letter-spacing: .6px; }
   #hud .stats { font-size: 10px; }
 }
+
+
+/* v49 — coloca a fileira de controles no rodapé e rebaixa o personagem no lobby. */
+@media (orientation: portrait) {
+  #lobby.lobby-screen:not(.hidden) {
+    display:flex!important;
+    height:100dvh!important;
+    min-height:100dvh!important;
+    max-height:100dvh!important;
+    overflow-x:hidden!important;
+    overflow-y:hidden!important;
+  }
+  #lobby .lobby-layout {
+    flex:1 1 0!important;
+    min-height:0!important;
+    height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+  }
+  #lobby .lobby-stage {
+    height:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+  }
+  #lobby .lobby-bottom-bar {
+    flex:0 0 auto!important;
+    margin-top:auto!important;
+    margin-bottom:0!important;
+    padding-bottom:0!important;
+  }
+  #lobby .lobby-hint {
+    margin-top:4px!important;
+    margin-bottom:max(6px,env(safe-area-inset-bottom))!important;
+  }
+}
+@media (orientation: landscape) {
+  #lobby .lobby-bottom-bar {
+    margin-top:auto!important;
+    margin-bottom:0!important;
+  }
+  #lobby .lobby-hint {
+    margin-bottom:max(4px,env(safe-area-inset-bottom))!important;
+  }
+}
