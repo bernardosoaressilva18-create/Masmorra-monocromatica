@@ -99,17 +99,42 @@ function ensureAudio(){
       for(const [frequency,volume] of [[55,.018],[82.41,.011],[110,.005]]){
         const drone=audioContext.createOscillator(),gain=audioContext.createGain();drone.type='sine';drone.frequency.value=frequency;gain.gain.value=volume;drone.connect(gain);gain.connect(musicBus);drone.start();
       }
-      const dungeonLead=[261.63,329.63,392,523.25,392,349.23,293.66,392,440,523.25,587.33,523.25,440,392,329.63,261.63];
-      const astralLead=[392,523.25,659.25,783.99,880,783.99,659.25,587.33,698.46,880,987.77,880,783.99,698.46,587.33,523.25];
-      const dungeonBass=[65.41,98,73.42,110],astralBass=[82.41,123.47,98,146.83];
-      const tick=()=>{if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;const step=musicStep++,lead=currentRealmVisual===2?astralLead:dungeonLead,bass=currentRealmVisual===2?astralBass:dungeonBass;
-        scheduleMusicNote(lead[step%lead.length],.42,.10,step%4===0?'sine':'triangle');
-        if(step%4===0)scheduleMusicNote(bass[Math.floor(step/4)%bass.length],1.45,.065,'sine');
-        if(step%4===2)scheduleMusicNote(lead[(step+2)%lead.length]*1.5,.22,.018,'sine');
-        if(step%2===1)scheduleMusicNote(lead[(step+5)%lead.length]*2,.17,.022,'sine');
-        if(step%8===4)scheduleMusicNote(bass[(Math.floor(step/4)+1)%bass.length]*2,.11,.014,'square');
+      const dungeonLead=[293.66,349.23,392,440,392,349.23,329.63,293.66,261.63,329.63,392,440,523.25,440,392,329.63];
+      const astralLead=[392,493.88,587.33,659.25,587.33,493.88,440,392,349.23,440,523.25,659.25,698.46,659.25,523.25,440];
+      const dungeonBass=[73.42,55,65.41,49],astralBass=[98,73.42,82.41,61.74];
+      const dungeonChords=[[146.83,174.61,220],[110,146.83,174.61],[130.81,164.81,196],[98,130.81,164.81]];
+      const astralChords=[[196,246.94,293.66],[164.81,196,246.94],[174.61,220,261.63],[146.83,174.61,220]];
+      const schedulePad=(frequencies,duration=3.1,peak=.018)=>{
+        if(!audioContext||!musicBus||!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
+        const now=audioContext.currentTime;
+        for(const frequency of frequencies){
+          const osc=audioContext.createOscillator(),env=audioContext.createGain();
+          osc.type='sine';osc.frequency.value=frequency;
+          env.gain.setValueAtTime(.0001,now);env.gain.linearRampToValueAtTime(peak,now+.55);
+          env.gain.setTargetAtTime(peak*.72,now+.55,.45);
+          env.gain.setTargetAtTime(.0001,now+duration-.5,.32);
+          osc.connect(env);env.connect(musicBus);osc.start(now);osc.stop(now+duration+.08);
+        }
       };
-      tick();musicTimer=window.setInterval(tick,470);
+      const tick=()=>{
+        if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;
+        const step=musicStep++,astral=currentRealmVisual===2;
+        const lead=astral?astralLead:dungeonLead,bass=astral?astralBass:dungeonBass,chords=astral?astralChords:dungeonChords;
+        if(step%8===0){
+          const chord=chords[Math.floor(step/8)%chords.length];
+          schedulePad(chord,4.8,.018);
+          scheduleMusicNote(bass[Math.floor(step/8)%bass.length],3.3,.075,'sine');
+        }
+        if(step%2===0){
+          const note=lead[(Math.floor(step/2)+Math.floor(step/16))%lead.length];
+          scheduleMusicNote(note,1.05,.055,'triangle');
+          if(step%4===0)scheduleMusicNote(note*2,.62,.012,'sine');
+        } else if(step%4===1){
+          scheduleMusicNote(lead[(Math.floor(step/2)+3)%lead.length],.42,.012,'sine');
+        }
+        if(step%16===12)scheduleMusicNote(lead[(Math.floor(step/2)+7)%lead.length]*1.5,.85,.014,'sine');
+      };
+      tick();musicTimer=window.setInterval(tick,620);
     }
     if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
   }catch(_){}
