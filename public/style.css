@@ -2554,3 +2554,62 @@ html, body { width:100%; min-width:0; }
   #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch { padding:4px!important; }
   #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node { min-height:42px!important; padding:4px!important; }
 }
+
+
+/* Update 2 v3: árvore de habilidades compacta e sem esticar os ramos */
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] {
+  min-width: 0;
+  overflow: hidden;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  align-items: start !important;
+  justify-items: stretch;
+  gap: clamp(6px, 1.4vw, 12px) !important;
+  width: 100%;
+  max-width: 920px;
+  height: auto !important;
+  max-height: min(58dvh, 560px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch {
+  min-width: 0;
+  width: 100%;
+  height: auto !important;
+  align-self: start;
+  box-sizing: border-box;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node {
+  min-width: 0;
+  width: 100%;
+  min-height: 58px;
+  height: auto !important;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-height: 55dvh !important;
+    gap: 6px !important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node {
+    min-height: 48px;
+    padding: 6px 4px;
+  }
+}
+@media (max-width: 380px) {
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
