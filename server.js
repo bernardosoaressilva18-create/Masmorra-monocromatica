@@ -220,12 +220,13 @@ function grantLoot(player, source) {
 function createWave(phase,realm=1){
  const original={1:['stalker','stalker','brute','stalker','brute'],2:['wraith','stalker','wraith','brute','wraith','brute'],3:['thorn','thorn','brute','wraith','thorn','brute','wraith'],4:['inferno','brute','inferno','wraith','brute','inferno','wraith','brute'],5:['abyss','abyss','brute','abyss','wraith','abyss','brute','abyss','wraith']};
  const astral={1:['wraith','thorn','stalker','wraith','brute','thorn'],2:['thorn','inferno','wraith','thorn','brute','wraith','inferno'],3:['abyss','thorn','wraith','abyss','brute','thorn','inferno','wraith'],4:['inferno','abyss','brute','wraith','inferno','thorn','abyss','brute','wraith'],5:['abyss','abyss','inferno','brute','abyss','wraith','inferno','abyss','brute']};
- const kindsByPhase=realm===2?astral:original,count=phase===1?(realm===2?6:5):6+phase+(realm===2?1:0),kinds=kindsByPhase[phase]||kindsByPhase[5],center=-((phase-1)*32+14),now=Date.now();
- return Array.from({length:count},(_,i)=>{const kind=kinds[i%kinds.length],base=phase===1?5:7+phase*2,scale=realm===2?1.3:1,hp=Math.round(((kind==='brute'?base*2:base)+(phase-1)*2)*scale);return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*22,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:now+i*1700,alive:true,hp,maxHp:hp,attackAt:0};});
+ const eclipse={1:['thorn','abyss','inferno','thorn','brute','abyss'],2:['abyss','inferno','thorn','abyss','brute','inferno','thorn'],3:['inferno','abyss','thorn','inferno','brute','abyss','thorn','inferno'],4:['abyss','inferno','abyss','thorn','brute','inferno','abyss','thorn','inferno'],5:['abyss','abyss','inferno','thorn','brute','abyss','inferno','abyss','thorn']};
+ const kindsByPhase=realm===3?eclipse:realm===2?astral:original,count=phase===1?(realm===1?5:6):6+phase+(realm===1?0:1),kinds=kindsByPhase[phase]||kindsByPhase[5],center=-((phase-1)*32+14),now=Date.now();
+ return Array.from({length:count},(_,i)=>{const kind=kinds[i%kinds.length],base=phase===1?5:7+phase*2,scale=realm===1?1:realm===2?1.3:1.65,hp=Math.round(((kind==='brute'?base*2:base)+(phase-1)*2)*scale);return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*22,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:now+i*1700,alive:true,hp,maxHp:hp,attackAt:0};});
 }
 function advancePhase(room) {
   if (room.phase >= 5) return;
-  const names=room.realm===2?['','Jardins Estelares','Ponte do Vazio','Bosque de Cristal','Coroa Celeste','Trono Astral']:['','Cripta Esquecida','Cavernas Mágicas','Floresta Amaldiçoada','Terras Vulcânicas','Abismo Final'];
+  const names=room.realm===3?['','Raízes do Eclipse','Pântano Rubro','Ruínas Vivas','Coração Selvagem','Trono do Eclipse']:room.realm===2?['','Jardins Estelares','Ponte do Vazio','Bosque de Cristal','Coroa Celeste','Trono Astral']:['','Cripta Esquecida','Cavernas Mágicas','Floresta Amaldiçoada','Terras Vulcânicas','Abismo Final'];
   room.phase++;
   room.safeZoneUntil = Date.now() + 20000;
   room.nextSafeBroadcast = 0;
@@ -243,8 +244,8 @@ function advancePhase(room) {
     // A vida é autoritativa no servidor; a interface recebe hp/maxHp pelo estado normal.
     const bossPartySize = Math.max(1, [...room.players.values()]
       .filter(p => p.connected !== false && p.hp > 0).length);
-    const bossBaseHp = room.realm === 2 ? 700 : 450;
-    const bossExtraPlayerHp = room.realm === 2 ? 150 : 100;
+    const bossBaseHp = room.realm === 3 ? 1000 : room.realm === 2 ? 700 : 450;
+    const bossExtraPlayerHp = room.realm === 3 ? 220 : room.realm === 2 ? 150 : 100;
     const bossHp = bossBaseHp + (bossPartySize - 1) * bossExtraPlayerHp;
     room.boss={id:'realm-'+(room.realm||1)+'-final-boss',x:0,z:-150,alive:true,hp:bossHp,maxHp:bossHp,lifePhase:1,attackAt:0};
     broadcast(room, { type: 'notice', text: 'FASE 5: ' + names[5] + '! O Guardião Supremo despertou com carapaça reforçada e ' + bossHp + ' de vida!' });
@@ -257,6 +258,12 @@ function enterAstralRealm(room){
  room.realm=2;room.phase=1;room.monsters=createWave(1,2);room.boss=null;room.cursedBoss=null;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;
  room.chests=[{id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},{id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}];
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
+ broadcast(room,state(room));
+}
+function enterEclipseRealm(room){
+ room.realm=3;room.phase=1;room.monsters=createWave(1,3);room.boss=null;room.cursedBoss=null;room.safeZoneUntil=Date.now()+18000;room.nextSafeBroadcast=0;
+ room.chests=[{id:'e0',x:8,z:-12,openedBy:[]},{id:'e1',x:-8,z:-44,openedBy:[]},{id:'e2',x:8,z:-76,openedBy:[]},{id:'e3',x:-8,z:-108,openedBy:[]},{id:'e4',x:8,z:-140,openedBy:[]}];
+ for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ MUNDO III! Você chegou ao Eclipse Selvagem: inimigos mais fortes, novo guardião e +3 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 
@@ -303,7 +310,7 @@ const STATIC_DUNGEON_COLLIDERS = (() => {
 function isServerPositionBlocked(room, x, z) {
   const playerRadius = 0.43;
   // Colisores de pilares são exclusivos do mundo original.
-  if ((room.realm || 1) !== 2) {
+  if ((room.realm || 1) === 1) {
     for (const obstacle of STATIC_DUNGEON_COLLIDERS) {
       if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
     }
@@ -589,7 +596,7 @@ wss.on('connection', ws => {
           const gateText=room.realm===1?'O portão do Vale Astral está selado! Derrote o Guardião Supremo.':'O portão final está selado! Derrote o Guardião Astral.';
           player.ws.send(JSON.stringify({type:'notice',text:gateText}));
         }
-      }else if(room.realm===1&&room.phase===5&&requestedZ<gateZ&&room.boss&&!room.boss.alive){enterAstralRealm(room);}
+      }else if(room.phase===5&&requestedZ<gateZ&&room.boss&&!room.boss.alive){if(room.realm===1)enterAstralRealm(room);else if(room.realm===2)enterEclipseRealm(room);else player.z=collisionResolved.z;}
       else if(room.phase<5&&requestedZ<gateZ&&enemiesAlive){
         player.z = gateZ + 0.7;
         if (Date.now() - player.lastGateNotice > 1800) {
