@@ -484,20 +484,24 @@ wss.on('connection', ws => {
       let landing = resolveServerMovement(room, player, requestedX, requestedZ);
       const landingDistance = point => Math.hypot(point.x - oldX, point.z - oldZ);
       if (landingDistance(landing) < minDiveDistance) {
-        const candidates = [];
-        // Procura vários ângulos e distâncias; isso evita reaparecer perto
-        // quando o clique aponta para uma parede ou para o limite do mapa.
-        for (let step = 0; step < 32; step++) {
-          const a = (Math.PI * 2 * step) / 32;
-          for (let radius = 36; radius <= 56; radius += 4) {
+        let bestCandidate = landing;
+        let bestDistance = landingDistance(landing);
+        // Varre o mapa em raios e ângulos. Guarda sempre o ponto válido mais
+        // distante, em vez de depender de um clique perto da borda ou obstáculo.
+        for (let step = 0; step < 48; step++) {
+          const a = (Math.PI * 2 * step) / 48;
+          for (let radius = 36; radius <= 72; radius += 4) {
             const x = Math.max(-12, Math.min(12, oldX + Math.cos(a) * radius));
             const z = Math.max(-168, Math.min(5, oldZ + Math.sin(a) * radius));
             const candidate = resolveServerMovement(room, player, x, z);
-            if (landingDistance(candidate) >= minDiveDistance) candidates.push(candidate);
+            const distance = landingDistance(candidate);
+            if (distance > bestDistance) {
+              bestDistance = distance;
+              bestCandidate = candidate;
+            }
           }
         }
-        candidates.sort((a, b) => landingDistance(b) - landingDistance(a));
-        if (candidates.length) landing = candidates[0];
+        landing = bestCandidate;
       }
       // Se a geometria do mapa não permitir 36 unidades, usa o ponto livre
       // mais distante encontrado, em vez de falhar ou deixar o jogador preso.
@@ -1172,10 +1176,13 @@ setInterval(() => {
       for (const summon of (room.summons || [])) {
         if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
-        // Negative scores for summons inside the 7-unit taunt radius break ties with a player at point-blank range.
-        const aggroPriority = distance - 12;
-        if (distance < 22 && aggroPriority < targetPriority) {
-          targetPriority = aggroPriority;
+        // Summons are valid combat targets in their own right. Within 22 units,
+        // prefer a summon over a player unless the player is substantially closer.
+        const playerDistance = target && !target.isSummon ? nearest : Infinity;
+        const shouldTargetSummon = distance < 22 &&
+          (!target || target.isSummon || distance <= Math.max(2, playerDistance - 3));
+        if (shouldTargetSummon) {
+          targetPriority = distance;
           nearest = distance;
           target = { ...summon, id: 'summon:' + summon.id, isSummon: true, sourceSummon: summon };
         }
