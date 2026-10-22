@@ -2440,3 +2440,37 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
   #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree { grid-template-columns:repeat(2,minmax(0,1fr))!important; max-height:62dvh!important; }
   #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node { min-height:52px!important; }
 }
+
+
+/* Update 2 v9 — correções de viewport ao girar o celular. */
+html, body { width:100%; min-width:0; }
+#game, #gameCanvas, #game canvas {
+  max-width:100vw;
+}
+#game canvas {
+  display:block;
+  width:100%;
+  height:100%;
+  image-rendering:auto;
+}
+@media (orientation:landscape) and (pointer:coarse) {
+  #game, #gameCanvas {
+    width:100vw!important;
+    height:100dvh!important;
+    max-width:100vw!important;
+    max-height:100dvh!important;
+    overflow:hidden!important;
+  }
+  #game .topbar, #game .objective, #game .players, #game .inventory-panel {
+    max-width:calc(100vw - 12px);
+  }
+}
+@media (orientation:portrait) and (pointer:coarse) {
+  #game, #gameCanvas {
+    width:100vw!important;
+    height:100dvh!important;
+    max-width:100vw!important;
+    max-height:100dvh!important;
+    overflow:hidden!important;
+  }
+}
