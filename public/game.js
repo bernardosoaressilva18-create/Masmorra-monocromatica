@@ -1749,7 +1749,7 @@ $('skillCloseBtn')?.addEventListener('click', () => $('skillPanel')?.classList.a
 syncLoadoutUI();
 updateHeroShowcase();
 
-function sendJoin(code) {
+let joiningPublicRoom = false;\nfunction sendJoin(code) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   activeConnectCode = code || activeConnectCode || roomCode || '';
   send({
@@ -2465,6 +2465,26 @@ $('startBtn').addEventListener('click', async () => {
 });
 
 $('playBtn').addEventListener('click', () => connect(''));
+function requestPublicRooms() {
+  $('publicRoomsPanel')?.classList.remove('hidden');
+  $('publicRoomsList').innerHTML = '<p>Buscando salas disponíveis…</p>';
+  send({ type: 'listPublicRooms' });
+}
+$('publicRoomsBtn')?.addEventListener('click', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) requestPublicRooms();
+  else {
+    connect('');
+    const wait = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        clearInterval(wait);
+        requestPublicRooms();
+      }
+    }, 200);
+    setTimeout(() => clearInterval(wait), 8000);
+  }
+});
+$('refreshPublicRoomsBtn')?.addEventListener('click', requestPublicRooms);
+
 $('readyBtn').addEventListener('click', () => send({ type: 'ready' }));
 $('startMatchBtn').addEventListener('click', () => send({ type: 'startMatch' }));
 
