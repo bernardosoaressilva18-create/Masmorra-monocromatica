@@ -980,16 +980,21 @@ setInterval(() => {
       let target = null;
       let nearest = Infinity;
 
+      // Monstros podem escolher jogadores OU goblins aliados como alvo.
       for (const player of players) {
         if (player.hp <= 0 || now < (player.invisibleUntil || 0)) continue;
-        const distance = Math.hypot(
-          player.x - monster.x,
-          player.z - monster.z
-        );
-
+        const distance = Math.hypot(player.x - monster.x, player.z - monster.z);
         if (distance < nearest) {
           nearest = distance;
           target = player;
+        }
+      }
+      for (const summon of (room.summons || [])) {
+        if (summon.hp <= 0 || summon.expiresAt <= now) continue;
+        const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
+        if (distance < nearest) {
+          nearest = distance;
+          target = { ...summon, isSummon: true, sourceSummon: summon };
         }
       }
 
@@ -1013,20 +1018,24 @@ setInterval(() => {
         if (!monster.attackWarnAt && monsterNow - (monster.attackAt || 0) > 2200) {
           monster.attackWarnAt = monsterNow;
           broadcast(room, { type: 'monsterWindup', id: monster.id, targetId: target.id, duration: 460 });
-          target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
+          if (!target.isSummon && target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
         } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460) {
           monster.attackAt = monsterNow;
           monster.attackWarnAt = 0;
           broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
-          if (Date.now() < (target.dodgeUntil || 0)) {
-            target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você evitou o golpe.' }));
+          if (target.isSummon) {
+            const summon = target.sourceSummon;
+            summon.hp = Math.max(0, summon.hp - 4);
+            if (summon.hp <= 0) broadcast(room, { type: 'notice', text: 'Um monstro derrotou um goblin aliado!' });
+          } else if (Date.now() < (target.dodgeUntil || 0)) {
+            if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você evitou o golpe.' }));
           } else {
             takeDamage(room, target, 4);
-            target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
+            if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
           }
-          if (target.hp <= 0) {
+          if (!target.isSummon && target.hp <= 0) {
             target.hp = 0;
-            target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
+            if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
           }
         }
       } else if (!target || nearest > 2.5) {
