@@ -2075,3 +2075,66 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
 .public-rooms-head button,.public-room-row button{border:1px solid #477180;border-radius:6px;background:#142833;color:#d9f8ff;padding:8px 10px;font-size:10px;font-weight:800}
 .public-room-row{padding:8px 0;border-top:1px solid #ffffff18;font-size:11px;color:#dce7ef}
 .public-rooms-panel p{font-size:11px;color:#9aabb8;line-height:1.4}
+
+
+/* Update 2 v1 — árvore de talentos compacta, sem esticar os ramos */
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"]{
+  min-width:0!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  align-items:start!important;
+  gap:8px!important;
+  max-height:min(48dvh,430px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:2px!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch{
+  height:auto!important;
+  align-self:start!important;
+  min-height:0!important;
+  padding:6px!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-title{
+  min-height:0!important;
+  margin:2px 0 7px!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node{
+  min-height:0!important;
+  height:auto!important;
+  gap:5px!important;
+  padding:7px 6px!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node small{
+  display:-webkit-box!important;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden!important;
+}
+#lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:5px!important;
+}
+@media(max-width:560px){
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-tree{
+    grid-template-columns:1fr!important;
+    gap:7px!important;
+    max-height:min(46dvh,400px)!important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-branch-list{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    align-items:stretch!important;
+    gap:6px!important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-node{
+    min-width:0!important;
+    min-height:78px!important;
+    overflow-wrap:anywhere!important;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-head{
+    flex-wrap:wrap!important;
+  }
+}
