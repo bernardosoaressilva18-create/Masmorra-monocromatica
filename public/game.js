@@ -1604,7 +1604,8 @@ function renderLobby3DPreview() {
   const portrait = height >= width;
   const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.72,410) : Math.min(width*0.48,640)));
   const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.48,760) : Math.min(height*0.70,600)));
-  const centerTop = Math.floor(height*(portrait ? 0.405 : 0.44));
+  // Enquadra o avatar um pouco mais abaixo para abrir espaço visual no topo do lobby.
+  const centerTop = Math.floor(height*(portrait ? 0.49 : 0.50));
   const left = Math.floor((width-previewWidth)/2);
   const top = Math.max(0,Math.min(height-previewHeight,centerTop-Math.floor(previewHeight/2)));
   const bottom = height-top-previewHeight;
