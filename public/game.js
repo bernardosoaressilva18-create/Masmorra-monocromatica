@@ -5,7 +5,7 @@ const $ = id => document.getElementById(id);
 const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('menuStatus');
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
-let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null, lobbyPreviewRing = null, lobbyPreviewParticles = null, lobbyPreviewRunes = null;
+let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null, lobbyPreviewRing = null, lobbyPreviewParticles = null, lobbyPreviewRunes = null, lobbyPreviewCrystals = null;
 let activeEnvironmentGroup=null;
 const environmentGroups=Object.create(null);
 let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=null,astralStarField=null;
@@ -77,16 +77,17 @@ function ensureAudio(){
       for(const [frequency,volume] of [[55,.018],[82.41,.011],[110,.005]]){
         const drone=audioContext.createOscillator(),gain=audioContext.createGain();drone.type='sine';drone.frequency.value=frequency;gain.gain.value=volume;drone.connect(gain);gain.connect(musicBus);drone.start();
       }
-      const dungeonLead=[220,261.63,329.63,392,349.23,293.66,261.63,196,220,293.66,349.23,440,392,329.63,261.63,220];
-      const astralLead=[440,523.25,659.25,783.99,698.46,587.33,659.25,880,783.99,659.25,523.25,493.88,587.33,698.46,523.25,440];
-      const dungeonBass=[55,82.41,65.41,98],astralBass=[110,164.81,130.81,196];
+      const dungeonLead=[261.63,329.63,392,523.25,392,349.23,293.66,392,440,523.25,587.33,523.25,440,392,329.63,261.63];
+      const astralLead=[392,523.25,659.25,783.99,880,783.99,659.25,587.33,698.46,880,987.77,880,783.99,698.46,587.33,523.25];
+      const dungeonBass=[65.41,98,73.42,110],astralBass=[82.41,123.47,98,146.83];
       const tick=()=>{if(!gameSettings.musicEnabled||gameSettings.musicVolume<=0)return;const step=musicStep++,lead=currentRealmVisual===2?astralLead:dungeonLead,bass=currentRealmVisual===2?astralBass:dungeonBass;
-        scheduleMusicNote(lead[step%lead.length],.38,.105,step%4===0?'sine':'triangle');
-        if(step%4===0)scheduleMusicNote(bass[Math.floor(step/4)%bass.length],1.65,.07,'sine');
-        if(step%2===1)scheduleMusicNote(lead[(step+5)%lead.length]*2,.19,.026,'sine');
-        if(step%8===4)scheduleMusicNote(bass[(Math.floor(step/4)+1)%bass.length]*2,.12,.018,'square');
+        scheduleMusicNote(lead[step%lead.length],.42,.10,step%4===0?'sine':'triangle');
+        if(step%4===0)scheduleMusicNote(bass[Math.floor(step/4)%bass.length],1.45,.065,'sine');
+        if(step%4===2)scheduleMusicNote(lead[(step+2)%lead.length]*1.5,.22,.018,'sine');
+        if(step%2===1)scheduleMusicNote(lead[(step+5)%lead.length]*2,.17,.022,'sine');
+        if(step%8===4)scheduleMusicNote(bass[(Math.floor(step/4)+1)%bass.length]*2,.11,.014,'square');
       };
-      tick();musicTimer=window.setInterval(tick,430);
+      tick();musicTimer=window.setInterval(tick,470);
     }
     if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});updateAudioLevels();
   }catch(_){}
@@ -157,7 +158,7 @@ let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .012 : .009);
+  scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .007 : .0055);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: false });
@@ -216,6 +217,7 @@ function init3D() {
   scene.add(moon);
 
   buildDungeon();
+  buildDungeonVisualPass();
   createPlayer();
   initLobby3DPreview();
   onResize();
@@ -240,7 +242,7 @@ function buildDungeon() {
 
   // Uma única textura partilhada mantém o detalhe visual sem criar materiais por objeto.
   const dungeonTexture = surfaceTexture.clone();
-  dungeonTexture.repeat.set(3, 3);
+  dungeonTexture.repeat.set(5, 5);
   const floor = mat(0x292e38, .82, .08);
   floor.map = dungeonTexture;
   floor.bumpMap = dungeonTexture;
@@ -555,6 +557,99 @@ for (let z = -30; z <= 8; z += 6) {
 }
 
 
+
+function buildDungeonVisualPass() {
+  const parent = environmentGroups.dungeon || scene;
+  const detailGroup = new THREE.Group();
+  detailGroup.name = 'dungeon-visual-upgrade-pass';
+  parent.add(detailGroup);
+  const zoneData = [
+    { z: -14, color: 0x75eaff }, { z: -46, color: 0xb49aff },
+    { z: -78, color: 0x76f0ad }, { z: -110, color: 0xffa45e },
+    { z: -153, color: 0xff77b7 }
+  ];
+  const runeGeometry = new THREE.TorusGeometry(2.15, 0.025, 5, 44);
+  const runeInnerGeometry = new THREE.TorusGeometry(1.72, 0.012, 4, 36);
+  const crystalGeometry = new THREE.OctahedronGeometry(0.25, 1);
+  const crystalMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.95,
+    metalness: 0.18, roughness: 0.24
+  });
+  const crystalsPerZone = 8;
+  const crystalInstances = new THREE.InstancedMesh(crystalGeometry, crystalMaterial, zoneData.length * crystalsPerZone);
+  crystalInstances.name = 'realm-crystal-instanced-decor';
+  const dummy = new THREE.Object3D();
+  let crystalIndex = 0;
+  for (let zi = 0; zi < zoneData.length; zi++) {
+    const zone = zoneData[zi];
+    const runeMaterial = new THREE.MeshBasicMaterial({
+      color: zone.color, transparent: true, opacity: 0.35,
+      side: THREE.DoubleSide, depthWrite: false
+    });
+    const floorRune = new THREE.Mesh(runeGeometry, runeMaterial);
+    floorRune.rotation.x = Math.PI / 2; floorRune.position.set(0, 0.023, zone.z); detailGroup.add(floorRune);
+    const innerMaterial = new THREE.MeshBasicMaterial({
+      color: zone.color, transparent: true, opacity: 0.20,
+      side: THREE.DoubleSide, depthWrite: false
+    });
+    const innerRune = new THREE.Mesh(runeInnerGeometry, innerMaterial);
+    innerRune.rotation.x = Math.PI / 2; innerRune.position.set(0, 0.026, zone.z); detailGroup.add(innerRune);
+    for (const side of [-1, 1]) {
+      for (let j = 0; j < 4; j++) {
+        const x = side * (9.5 + (j % 2) * 1.15);
+        const z = zone.z - 5.4 + j * 3.6;
+        const scale = 0.72 + (j % 3) * 0.18;
+        dummy.position.set(x, 0.48 + (j % 3) * 0.48, z);
+        dummy.rotation.set(0.15 * (j % 2), j * 0.67 + zi * 0.22, 0.16 * side);
+        dummy.scale.set(scale * 0.82, scale * (1.35 + (j % 2) * 0.25), scale * 0.72);
+        dummy.updateMatrix();
+        crystalInstances.setMatrixAt(crystalIndex, dummy.matrix);
+        crystalInstances.setColorAt(crystalIndex, new THREE.Color(zone.color));
+        crystalIndex++;
+      }
+    }
+  }
+  crystalInstances.count = crystalIndex; crystalInstances.instanceMatrix.needsUpdate = true;
+  if (crystalInstances.instanceColor) crystalInstances.instanceColor.needsUpdate = true;
+  detailGroup.add(crystalInstances);
+  const lanternGeometry = new THREE.SphereGeometry(0.105, 8, 7);
+  const lanternMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffd28b, emissive: 0xffa63b, emissiveIntensity: 1.6,
+    roughness: 0.35, metalness: 0.08
+  });
+  const bracketGeometry = new THREE.BoxGeometry(0.12, 0.30, 0.18);
+  const bracketMaterial = new THREE.MeshStandardMaterial({color:0x67533b, metalness:0.45, roughness:0.62});
+  const lanternCount = 20;
+  const lanterns = new THREE.InstancedMesh(lanternGeometry, lanternMaterial, lanternCount);
+  const brackets = new THREE.InstancedMesh(bracketGeometry, bracketMaterial, lanternCount);
+  let lanternIndex = 0;
+  for (const zone of zoneData) {
+    for (const side of [-1, 1]) {
+      for (const offset of [-8, 5]) {
+        dummy.position.set(side * 13.7, 2.9, zone.z + offset);
+        dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
+        lanterns.setMatrixAt(lanternIndex, dummy.matrix);
+        dummy.position.set(side * 13.83, 2.65, zone.z + offset);
+        dummy.rotation.set(0, side < 0 ? 0.15 : -0.15, 0); dummy.scale.setScalar(1); dummy.updateMatrix();
+        brackets.setMatrixAt(lanternIndex, dummy.matrix);
+        lanternIndex++;
+      }
+    }
+  }
+  lanterns.instanceMatrix.needsUpdate = true; brackets.instanceMatrix.needsUpdate = true;
+  detailGroup.add(brackets, lanterns);
+  const gateGeometry = new THREE.TorusGeometry(2.18, 0.038, 6, 48);
+  for (let i = 0; i < 4; i++) {
+    const haloMat = new THREE.MeshStandardMaterial({
+      color: zoneData[i].color, emissive: zoneData[i].color,
+      emissiveIntensity: 0.72, metalness: 0.35, roughness: 0.3
+    });
+    const halo = new THREE.Mesh(gateGeometry, haloMat);
+    halo.position.set(0, 2.12, [-30, -62, -94, -126][i] + 0.42);
+    halo.scale.set(1.37, 0.92, 1); detailGroup.add(halo);
+  }
+}
+
 function buildAstralWorld(){
   const astral=new THREE.Group();astral.name='environment-vale-astral';scene.add(astral);activeEnvironmentGroup=astral;
   const deepStone=new THREE.MeshStandardMaterial({color:0x17132f,roughness:.82,metalness:.12});
@@ -686,6 +781,14 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const steel = new THREE.MeshStandardMaterial({ color: 0xc2d7e4, metalness: .82, roughness: .22 });
   const gold = new THREE.MeshStandardMaterial({ color: 0xc9a45d, metalness: .72, roughness: .3 });
   const glow = new THREE.MeshStandardMaterial({ color: 0x8beaff, emissive: 0x168fc0, emissiveIntensity: 1.4, metalness: .25, roughness: .25 });
+  const classAccentMaterial = new THREE.MeshStandardMaterial({
+    color: classColor, emissive: classColor, emissiveIntensity: 0.58,
+    metalness: 0.48, roughness: 0.28
+  });
+  const clothMaterial = new THREE.MeshStandardMaterial({
+    color: skin === 'shadow' ? 0x25263f : skin === 'ember' ? 0x5b241c : classColor,
+    roughness: 0.78, metalness: 0.08
+  });
   const add = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
     const mesh = new THREE.Mesh(geo, material);
     mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
@@ -749,6 +852,12 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   // Capa dividida em painéis para dar silhueta de aventureiro
   const cape=add(new THREE.BoxGeometry(.58,.72,.13), dark,0,1.23,.29);
   cape.rotation.x=-.08;
+  // Back-facing crest and metal hems make the third-person silhouette readable.
+  for (const y of [1.53,1.39,1.25,1.11]) add(new THREE.BoxGeometry(.43,.018,.018), gold,0,y,.371);
+  add(new THREE.BoxGeometry(.024,.59,.02), gold,-.245,1.24,.371);
+  add(new THREE.BoxGeometry(.024,.59,.02), gold,.245,1.24,.371);
+  const capeCrest=add(new THREE.OctahedronGeometry(.105,1),classAccentMaterial,0,1.34,.39,.8,1.1,.42);
+  capeCrest.rotation.z=Math.PI/4;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
   headMesh = add(new THREE.SphereGeometry(.255,20,14), skinMaterial,0,1.94,-.015);
@@ -782,12 +891,63 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const string = new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.66,5), steel); string.position.set(-.12,0,0); string.rotation.z=Math.PI*.1; bow.add(string);
     bow.position.set(.56,1.08,-.08); bow.rotation.z=-.18; g.add(bow); classWeapon = bow;
   }
+  // Detail pass: layered armor, class sigils, trim and distinct silhouettes.
+  const collar = add(new THREE.TorusGeometry(.205,.035,6,20), gold, 0,1.56,0);
+  collar.rotation.x = Math.PI / 2;
+  add(new THREE.OctahedronGeometry(.145,1), classAccentMaterial, 0,1.29,-.405,.78,1.12,.42);
+  for (const y of [1.10,1.18,1.26]) add(new THREE.BoxGeometry(.34,.018,.025), gold, 0,y,-.405);
+  for (const side of [-1,1]) {
+    const vambrace = add(new THREE.BoxGeometry(.15,.24,.075), steel, side*.48,1.12,-.16);
+    vambrace.rotation.z = side * -.12;
+    const shoulderTrim = add(new THREE.TorusGeometry(.185,.022,5,18), gold, side*.48,1.51,-.135);
+    shoulderTrim.scale.set(1.15,.74,1);
+    add(new THREE.BoxGeometry(.075,.46,.045), classAccentMaterial, side*.20,1.22,-.382).rotation.z = side*.22;
+  }
+  add(new THREE.BoxGeometry(.18,.15,.10), dark, -.26,.90,-.245);
+  add(new THREE.BoxGeometry(.18,.15,.10), dark, .26,.90,-.245);
+  add(new THREE.BoxGeometry(.08,.07,.035), gold, -.26,.90,-.306);
+  add(new THREE.BoxGeometry(.08,.07,.035), gold, .26,.90,-.306);
+  const capeTailL = add(new THREE.ConeGeometry(.19,.54,5), clothMaterial, -.19,.73,.33,1,.92,.48);
+  capeTailL.rotation.z = .10;
+  const capeTailR = add(new THREE.ConeGeometry(.19,.54,5), dark, .19,.73,.33,1,.92,.48);
+  capeTailR.rotation.z = -.10;
+  if (heroClass === 'knight') {
+    add(new THREE.BoxGeometry(.38,.075,.095), steel, 0,2.08,-.205);
+    add(new THREE.BoxGeometry(.10,.23,.09), steel, -.215,1.91,-.12);
+    add(new THREE.BoxGeometry(.10,.23,.09), steel, .215,1.91,-.12);
+    add(new THREE.ConeGeometry(.085,.27,5), gold, 0,2.30,.015);
+    add(new THREE.BoxGeometry(.22,.035,.045), classAccentMaterial, 0,2.02,-.25);
+  } else if (heroClass === 'mage') {
+    const hood = add(new THREE.ConeGeometry(.30,.34,8), clothMaterial, 0,2.19,.045);
+    hood.rotation.x = -.08;
+    add(new THREE.ConeGeometry(.43,.58,8), clothMaterial, 0,.78,.02,1,.86,.72);
+    add(new THREE.OctahedronGeometry(.105,1), classAccentMaterial, 0,1.58,-.18,1,1.15,.72);
+    const focusHalo = add(new THREE.TorusGeometry(.13,.018,5,18), classAccentMaterial, 0,1.58,-.21);
+    focusHalo.rotation.x = Math.PI / 2;
+  } else {
+    const hood = add(new THREE.ConeGeometry(.285,.36,7), clothMaterial, 0,2.18,.035);
+    hood.rotation.x = -.05;
+    add(new THREE.ConeGeometry(.29,.36,6), clothMaterial, 0,1.40,.34,1,.86,.44);
+    const quiver = add(new THREE.CylinderGeometry(.085,.11,.52,8), dark, -.32,1.23,.34);
+    quiver.rotation.z = -.14;
+    for (let i=0;i<3;i++) {
+      add(new THREE.CylinderGeometry(.009,.013,.44,5), gold, -.39+i*.065,1.49,.34).rotation.z = -.12 + i*.08;
+      add(new THREE.ConeGeometry(.026,.09,5), steel, -.39+i*.065,1.75,.34);
+    }
+    const strap = add(new THREE.BoxGeometry(.075,.60,.035), gold, -.10,1.22,-.385);
+    strap.rotation.z = -.27;
+  }
+  for (const side of [-1,1]) {
+    add(new THREE.SphereGeometry(.032,10,8), classAccentMaterial, side*.092,1.96,-.245);
+    add(new THREE.SphereGeometry(.055,10,8), classAccentMaterial, side*.48,1.49,-.21);
+  }
   g.userData.sword=classWeapon;
-  const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.62,side:THREE.DoubleSide}));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color:classColor,transparent:true,opacity:.72,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.heroClass = heroClass;
   g.userData.heroSkin = skin;
   g.userData.cape=cape;
+  g.userData.capeTails=[capeTailL,capeTailR];
   g.userData.torso = torsoMesh;
   g.userData.head = headMesh;
   g.userData.legs = legs;
@@ -828,9 +988,25 @@ function makeBoss() {
     const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.22, .9, isMobileDevice ? 4 : 6, isMobileDevice ? 7 : 10), armor); arm.position.set(side * 1.12, 1.6, 0); arm.rotation.z = side * -.22; g.add(arm); bossArms.push({ mesh: arm, side });
     const claw = new THREE.Mesh(new THREE.ConeGeometry(.18, .55, 5), bone); claw.position.set(side * 1.2, .82, -.05); claw.rotation.z = Math.PI; g.add(claw);
   }
+  // Armadura adicional e núcleo central: melhora a leitura do chefe a distância.
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.27,1),eye);
+  core.position.set(0,1.78,-1.00); core.scale.set(.9,1.15,.62); g.add(core);
+  const coreHalo = new THREE.Mesh(new THREE.TorusGeometry(.37,.04,7,32),
+    new THREE.MeshStandardMaterial({color:0xb99aff,emissive:0x793bff,emissiveIntensity:1.25,metalness:.22,roughness:.28}));
+  coreHalo.position.set(0,1.78,-.96); g.add(coreHalo);
+  for (const side of [-1,1]) {
+    const pauldron = new THREE.Mesh(new THREE.DodecahedronGeometry(.38,1),armor);
+    pauldron.position.set(side*.91,2.18,-.08); pauldron.scale.set(1.12,.82,.86); g.add(pauldron);
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(.15,.43,6),bone);
+    spike.position.set(side*1.02,2.55,-.02); spike.rotation.z=side*-.35; g.add(spike);
+  }
+  for (let i=0;i<3;i++) {
+    const spine = new THREE.Mesh(new THREE.ConeGeometry(.14,.52,6),bone);
+    spine.position.set((i-1)*.35,2.05,.60); spine.rotation.x=Math.PI/2; spine.rotation.z=(i-1)*-.12; g.add(spine);
+  }
   const rune = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.65, 32), new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .7, side: THREE.DoubleSide }));
   rune.rotation.x = -Math.PI / 2; rune.position.y = .04; g.add(rune);
-  g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; g.userData.torso = torso; g.userData.arms = bossArms; g.userData.animPhase = Math.random()*Math.PI*2; return g;
+  g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; g.userData.coreMesh=core; g.userData.coreHalo=coreHalo; g.userData.torso = torso; g.userData.arms = bossArms; g.userData.animPhase = Math.random()*Math.PI*2; return g;
 }
 function makeChest(realm=currentRealmVisual) {
   const group=new THREE.Group();
@@ -989,11 +1165,17 @@ function makeMonster(kind = 'stalker', phase = 1) {
       addMesh(new THREE.CapsuleGeometry(.13,.36,3,5),dark,side*.22,.35,.03);
     }
   }
+  // Núcleo emissivo reforça a silhueta e dá a cada família uma leitura visual própria.
+  const core = addMesh(new THREE.OctahedronGeometry(.14,1),eyeMat,0,1.12,-.40,.9,1.15,.65);
+  core.rotation.set(.12,.2,.08);
   // Sombra/anel de identidade fixo no chão, sem pulsação.
   const ringColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x63e9ff : kind === 'thorn' ? 0x8dff74 : kind === 'inferno' ? 0xff692e : kind === 'abyss' ? 0xc08bff : 0xff4269;
   const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,24),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
   g.userData.kind=kind;
+  g.userData.eyeMaterial=eyeMat;
+  g.userData.coreMesh=core;
+  g.userData.eyePulseOffset=Math.random()*Math.PI*2;
   g.userData.attackRing = ring;
   g.userData.animatedLimbs = animatedLimbs;
   g.userData.walkPhase = Math.random() * Math.PI * 2;
@@ -1193,13 +1375,56 @@ function updateHeroShowcase() {
   document.querySelectorAll('.skin-pick').forEach(el=>el.classList.toggle('selected',el.dataset.skin===selectedSkin));
   refreshLobby3DPreview();
 }
+
+function buildLobbyStageBackdrop() {
+  const stone = new THREE.MeshStandardMaterial({color:0x142536, metalness:.52, roughness:.38});
+  const trim = new THREE.MeshStandardMaterial({color:0xd2b16a, metalness:.72, roughness:.28, emissive:0x50380d, emissiveIntensity:.28});
+  const glow = new THREE.MeshStandardMaterial({color:0x62ddff, emissive:0x138fc9, emissiveIntensity:1.35, metalness:.28, roughness:.24});
+  const column = new THREE.CylinderGeometry(.105,.17,2.75,9);
+  const cap = new THREE.CylinderGeometry(.22,.22,.13,10);
+  const base = new THREE.CylinderGeometry(.24,.28,.15,10);
+  for (const side of [-1,1]) {
+    const pillar = new THREE.Mesh(column,stone); pillar.position.set(side*1.25,1.22,-1.02); lobbyPreviewScene.add(pillar);
+    const pillarBase = new THREE.Mesh(base,trim); pillarBase.position.set(side*1.25,.10,-1.02); lobbyPreviewScene.add(pillarBase);
+    const pillarCap = new THREE.Mesh(cap,trim); pillarCap.position.set(side*1.25,2.62,-1.02); lobbyPreviewScene.add(pillarCap);
+    const light = new THREE.Mesh(new THREE.OctahedronGeometry(.105,1),glow); light.position.set(side*1.25,2.82,-.99); lobbyPreviewScene.add(light);
+    const sideRune = new THREE.Mesh(new THREE.TorusGeometry(.18,.014,5,20),glow);
+    sideRune.position.set(side*1.25,1.82,-.88); sideRune.scale.set(.72,1.35,1); lobbyPreviewScene.add(sideRune);
+  }
+  const outerPortal = new THREE.Mesh(new THREE.TorusGeometry(1.24,.055,8,56),glow);
+  outerPortal.position.set(0,1.34,-1.24); outerPortal.scale.set(.98,1.22,1); lobbyPreviewScene.add(outerPortal);
+  const innerPortal = new THREE.Mesh(new THREE.TorusGeometry(1.08,.018,5,48),trim);
+  innerPortal.position.set(0,1.34,-1.20); innerPortal.scale.set(.98,1.22,1); lobbyPreviewScene.add(innerPortal);
+  const backPanel = new THREE.Mesh(new THREE.PlaneGeometry(2.38,3.0),
+    new THREE.MeshBasicMaterial({color:0x08131f,transparent:true,opacity:.34,depthWrite:false}));
+  backPanel.position.set(0,1.38,-1.30); lobbyPreviewScene.add(backPanel);
+  const upperCrest = new THREE.Mesh(new THREE.OctahedronGeometry(.18,1),trim);
+  upperCrest.position.set(0,2.80,-1.10); upperCrest.rotation.z=Math.PI/4; lobbyPreviewScene.add(upperCrest);
+  lobbyPreviewCrystals = new THREE.Group();
+  const crystalGeo = new THREE.OctahedronGeometry(.12,1);
+  const palettes = [
+    new THREE.MeshStandardMaterial({color:0x70e8ff,emissive:0x28cfff,emissiveIntensity:1.25,metalness:.18,roughness:.24}),
+    new THREE.MeshStandardMaterial({color:0xb6a1ff,emissive:0x7958ff,emissiveIntensity:1.2,metalness:.18,roughness:.24}),
+    new THREE.MeshStandardMaterial({color:0x80ffbd,emissive:0x2dd987,emissiveIntensity:1.1,metalness:.18,roughness:.24})
+  ];
+  for (let i=0;i<6;i++) {
+    const crystal=new THREE.Mesh(crystalGeo,palettes[i%palettes.length]);
+    crystal.userData.phase=i*1.17; crystal.userData.baseY=.63+(i%3)*.62;
+    crystal.userData.baseX=(i%2===0?-1:1)*(1.04+(i%3)*.09); crystal.userData.baseZ=-.20-(i%3)*.31;
+    crystal.position.set(crystal.userData.baseX,crystal.userData.baseY,crystal.userData.baseZ);
+    crystal.rotation.set(.25*i,.45*i,.18*i); crystal.scale.set(.7+(i%3)*.15,1.05+(i%2)*.20,.72+(i%3)*.08);
+    lobbyPreviewCrystals.add(crystal);
+  }
+  lobbyPreviewScene.add(lobbyPreviewCrystals);
+}
+
 function initLobby3DPreview() {
   if (lobbyPreviewScene || !renderer) return;
   lobbyPreviewScene = new THREE.Scene();
   lobbyPreviewScene.background = null;
-  lobbyPreviewCamera = new THREE.PerspectiveCamera(31, 0.56, 0.1, 50);
-  lobbyPreviewCamera.position.set(0, 1.32, 6.1);
-  lobbyPreviewCamera.lookAt(0, 1.12, 0);
+  lobbyPreviewCamera = new THREE.PerspectiveCamera(38, 0.62, 0.1, 50);
+  lobbyPreviewCamera.position.set(0, 1.56, 5.55);
+  lobbyPreviewCamera.lookAt(0, 1.32, 0);
   lobbyPreviewScene.add(new THREE.HemisphereLight(0xe3f6ff, 0x263448, 2.5));
   const keyLight = new THREE.DirectionalLight(0xffe5b0, 3.0);
   keyLight.position.set(-3.8, 6, 4.5); lobbyPreviewScene.add(keyLight);
@@ -1207,6 +1432,7 @@ function initLobby3DPreview() {
   fillLight.position.set(4, 3, 2.5); lobbyPreviewScene.add(fillLight);
   const rimLight = new THREE.PointLight(0x4fcfff, 8, 10, 2);
   rimLight.position.set(0, 2.5, -1.3); lobbyPreviewScene.add(rimLight);
+  buildLobbyStageBackdrop();
   const baseMaterial = new THREE.MeshStandardMaterial({color:0x132638,metalness:0.55,roughness:0.35,emissive:0x10384a,emissiveIntensity:0.55});
   lobbyPreviewPlatform = new THREE.Mesh(new THREE.CylinderGeometry(0.78,0.88,0.13,36),baseMaterial);
   lobbyPreviewPlatform.position.y = -0.105; lobbyPreviewScene.add(lobbyPreviewPlatform);
@@ -1236,7 +1462,7 @@ function refreshLobby3DPreview() {
   if (!lobbyPreviewScene) return;
   if (lobbyPreviewHero) { lobbyPreviewScene.remove(lobbyPreviewHero); disposeObject3D(lobbyPreviewHero); lobbyPreviewHero = null; }
   lobbyPreviewHero = makeHero(null, selectedClass || 'knight', selectedSkin || 'default');
-  lobbyPreviewHero.scale.setScalar(1.28);
+  lobbyPreviewHero.scale.setScalar(1.24);
   lobbyPreviewHero.position.set(0,0,0);
   lobbyPreviewHero.rotation.y = Math.PI;
   if (lobbyPreviewHero.userData.healthBar) lobbyPreviewHero.userData.healthBar.visible = false;
@@ -1250,9 +1476,9 @@ function renderLobby3DPreview() {
   const height = renderer.domElement.clientHeight || innerHeight;
   if (width < 2 || height < 2) return;
   const portrait = height >= width;
-  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.62,300) : Math.min(width*0.43,590)));
-  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.49,430) : Math.min(height*0.66,520)));
-  const centerTop = Math.floor(height*(portrait ? 0.445 : 0.465));
+  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.72,410) : Math.min(width*0.48,640)));
+  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.48,760) : Math.min(height*0.70,600)));
+  const centerTop = Math.floor(height*(portrait ? 0.405 : 0.44));
   const left = Math.floor((width-previewWidth)/2);
   const top = Math.max(0,Math.min(height-previewHeight,centerTop-Math.floor(previewHeight/2)));
   const bottom = height-top-previewHeight;
@@ -1308,6 +1534,11 @@ function renderLobby3DPreview() {
       : -0.08 + Math.sin(idle * 0.55) * 0.025;
     lobbyPreviewHero.userData.cape.rotation.z = Math.sin(idle * 0.4) * 0.018;
   }
+  if (lobbyPreviewHero.userData.capeTails) {
+    const tails=lobbyPreviewHero.userData.capeTails;
+    if (tails[0]) tails[0].rotation.z=.10+Math.sin(idle*.7)*.035;
+    if (tails[1]) tails[1].rotation.z=-.10+Math.sin(idle*.7+Math.PI)*.035;
+  }
   const effectPalette = heroClass === 'mage'
     ? {color:0xb49aff,glow:0x8064ff}
     : heroClass === 'archer'
@@ -1334,10 +1565,19 @@ function renderLobby3DPreview() {
       particle.material.opacity = .25 + (Math.sin(phase*1.7)+1)*.25;
     });
   }
+  if (lobbyPreviewCrystals) {
+    lobbyPreviewCrystals.children.forEach((crystal,index)=>{
+      const phase=crystal.userData.phase;
+      crystal.position.y=crystal.userData.baseY+Math.sin(time*1.15+phase)*.09;
+      crystal.position.x=crystal.userData.baseX+Math.sin(time*.55+phase)*.035;
+      crystal.rotation.y=time*.42+phase;
+      crystal.rotation.x=.2+Math.sin(time*.7+phase)*.08;
+    });
+  }
   lobbyPreviewCamera.aspect = previewWidth/previewHeight;
-  lobbyPreviewCamera.position.z = portrait ? 5.25 : 5.6;
+  lobbyPreviewCamera.position.z = portrait ? 5.55 : 5.8;
   lobbyPreviewCamera.updateProjectionMatrix();
-  lobbyPreviewCamera.lookAt(0,1.1,0);
+  lobbyPreviewCamera.lookAt(0,1.32,0);
   renderer.autoClear = false;
   renderer.setScissorTest(true);
   renderer.setViewport(left,bottom,previewWidth,previewHeight);
@@ -2556,6 +2796,21 @@ const right = new THREE.Vector3(
     if (bossMesh.userData.eyeMaterial) bossMesh.userData.eyeMaterial.emissiveIntensity = 2.3 + (Math.sin(bossPhase * 2.1) + 1) * .55;
     // O Guardião respira, balança os braços e pulsa os olhos durante a perseguição.
   }
+  // Emissive pulse and slow core rotation make enemies feel alive without extra lights.
+  for (const obj of monsterMeshes.values()) {
+    if (!obj.visible || obj === bossMesh) continue;
+    const offset=obj.userData.eyePulseOffset||0;
+    if (obj.userData.eyeMaterial) obj.userData.eyeMaterial.emissiveIntensity=1.1+(Math.sin(worldTime*2.6+offset)+1)*.42;
+    if (obj.userData.coreMesh) {
+      obj.userData.coreMesh.rotation.y+=dt*.42;
+      obj.userData.coreMesh.rotation.x=Math.sin(worldTime*1.2+offset)*.12;
+    }
+  }
+  if (bossMesh && bossMesh.userData.coreMesh) {
+    bossMesh.userData.coreMesh.rotation.y+=dt*.55;
+    bossMesh.userData.coreMesh.rotation.x=Math.sin(worldTime*1.5)*.12;
+    if (bossMesh.userData.coreHalo) bossMesh.userData.coreHalo.rotation.z+=dt*.35;
+  }
   // Anima os portões: as grades somem ao liberar a passagem.
   for (const gate of gateMeshes) {
     const targetScale = gate.userData.open ? 0 : 1;
@@ -2654,7 +2909,21 @@ const right = new THREE.Vector3(
   if (myPlayer) myPlayer.visible = !lobbyVisible;
   for (const obj of remotePlayers.values()) obj.visible = !lobbyVisible;
   updatePerformanceMonitor();
-  renderer.render(scene, camera);
+  const lobbyOverlayVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
+  if (lobbyOverlayVisible) {
+    // The lobby uses the same canvas for its independent hero preview. Hide the
+    // gameplay scene only for this frame so dungeon geometry/camera cannot bleed
+    // through the translucent lobby. Restore each exact previous visibility.
+    const priorVisibility = scene.children.map(child => [child, child.visible]);
+    try {
+      for (const child of scene.children) child.visible = false;
+      renderer.render(scene, camera);
+    } finally {
+      for (const [child, wasVisible] of priorVisibility) child.visible = wasVisible;
+    }
+  } else {
+    renderer.render(scene, camera);
+  }
   renderLobby3DPreview();
 }
 

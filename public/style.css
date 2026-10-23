@@ -1377,3 +1377,228 @@ body.realm-astral .notice{border:1px solid #a98cff66;box-shadow:0 0 22px #7047d9
  #lobby .hero-showcase-info{bottom:70px;width:300px;padding:7px 10px;}
  #lobby .hero-showcase-info>strong{font-size:20px;}
 }
+
+
+/* v35 — 50+ focused lobby, clarity, mobile and accessibility refinements.
+   Existing combat/network/gameplay styles are intentionally left intact. */
+
+/* 15–20: isolate the stage visually without covering the canvas-based 3D hero. */
+#lobby.lobby-screen{
+  background:
+    radial-gradient(ellipse at 50% 38%,rgba(28,88,125,.20),transparent 44%),
+    radial-gradient(ellipse at 50% 86%,rgba(22,48,76,.34),transparent 52%),
+    linear-gradient(180deg,rgba(3,8,16,.62),rgba(3,8,16,.30) 42%,rgba(3,8,16,.76));
+  isolation:isolate;
+}
+#lobby .lobby-stage:after{filter:none!important;opacity:.78;pointer-events:none;}
+#lobby .lobby-stage-top{z-index:6;max-width:calc(100% - 10px);white-space:normal;line-height:1.3;}
+#lobby .hero-showcase{z-index:1;pointer-events:none;}
+#lobby .hero-showcase-info{z-index:6;backdrop-filter:none;-webkit-backdrop-filter:none;}
+#lobby .lobby-team-box{z-index:5;}
+
+/* 21–29: keep the roster inside its card instead of letting legacy absolute
+   player-slot rules scatter members around the screen. */
+#lobby .lobby-team-box{position:absolute;left:10px;bottom:106px;width:min(320px,34vw);min-width:0;}
+#lobby .lobby-players{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:150px;overflow:auto;}
+#lobby .lobby-players .lobby-player{
+  position:relative!important;inset:auto!important;top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;
+  transform:none!important;float:none!important;width:auto!important;min-width:0;max-width:100%;
+  min-height:42px;padding:8px 9px;overflow-wrap:anywhere;
+}
+#lobby .lobby-player .lobby-name{display:block;max-width:100%;overflow-wrap:anywhere;line-height:1.25;}
+#lobby .lobby-player .lobby-state{display:block;margin-top:4px;line-height:1.2;}
+#lobby .lobby-empty{grid-column:1/-1;margin:0;padding:10px;border:1px dashed #8acfe633;border-radius:8px;color:#a9c1d2;font-size:11px;text-align:center;}
+#lobby .lobby-section-title{gap:8px;}
+#lobby .lobby-section-title>span{color:#ffe5a0;}
+#lobby .lobby-section-title>small{line-height:1.3;text-align:right;}
+#lobby .lobby-player.ready{border-color:#58ecac9c;}
+#lobby .lobby-player:not(.ready){border-color:#7eb1ce38;}
+#lobby .lobby-player:focus-within{outline:2px solid #93e8ff;outline-offset:2px;}
+
+/* 30–38: make the main avatar, class card and action bar easier to read. */
+#lobby .hero-showcase-info{
+  width:min(380px,58vw);padding:12px 15px;
+  border-color:#8ce6ff70;
+  background:linear-gradient(180deg,rgba(5,18,31,.95),rgba(5,13,24,.93));
+  box-shadow:0 12px 30px rgba(0,0,0,.5),0 0 22px rgba(59,188,239,.10);
+}
+#lobby .hero-showcase-info>small{font-size:9px;letter-spacing:2px;}
+#lobby .hero-showcase-info>strong{line-height:1.12;text-wrap:balance;}
+#lobby .hero-showcase-info p{line-height:1.45;text-wrap:balance;}
+#lobby .hero-showcase-tags{gap:6px;}
+#lobby .hero-showcase-tags span{font-size:8px;line-height:1.25;}
+#lobby .lobby-nav-btn{min-width:0;min-height:44px;line-height:1.25;white-space:normal;}
+#lobby .lobby-bottom-bar{bottom:max(42px,calc(env(safe-area-inset-bottom) + 34px));width:min(590px,calc(100% - 24px));gap:8px;}
+#lobby .lobby-class-button,#lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:52px;min-width:0;}
+#lobby .lobby-ready-button,#lobby .lobby-start-button{flex:1 1 42%;font-weight:900;letter-spacing:.4px;}
+#lobby .lobby-class-button{flex-basis:29%;}
+#lobby .lobby-hint{bottom:max(8px,calc(env(safe-area-inset-bottom) + 5px));z-index:8;max-width:calc(100% - 24px);line-height:1.3;text-align:center;}
+#lobby .lobby-header{padding-top:max(10px,env(safe-area-inset-top));}
+#lobby .lobby-room-pill{max-width:52vw;overflow:hidden;text-overflow:ellipsis;}
+#lobby .lobby-header-meta{min-width:0;flex-shrink:0;}
+#lobby .lobby-leave-mini{min-height:32px;touch-action:manipulation;}
+
+/* 39–45: robust phone portrait layout and safe-area-aware controls. */
+@media (orientation:portrait) and (max-width:760px){
+  #lobby .lobby-layout{flex:1 1 auto;min-height:0;height:auto;padding:0 8px 8px;overflow:visible;}
+  #lobby .lobby-stage{height:100%;min-height:0;padding-top:8px;}
+  #lobby .lobby-stage-top{top:5px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px);justify-content:center;font-size:7px;letter-spacing:.65px;}
+  #lobby .lobby-team-box{left:8px;bottom:190px;width:min(220px,54vw);padding:8px;}
+  #lobby .lobby-players{grid-template-columns:1fr;max-height:92px;gap:5px;}
+  #lobby .lobby-players .lobby-player{min-height:34px;padding:6px 7px;font-size:9px;}
+  #lobby .hero-showcase-info{left:50%;bottom:92px;transform:translateX(-50%);width:min(330px,78vw);padding:9px 10px;}
+  #lobby .hero-showcase-info>small{font-size:8px;}
+  #lobby .hero-showcase-info>strong{font-size:clamp(20px,5.4vw,26px);}
+  #lobby .hero-showcase-info p{font-size:10px;margin:5px 0 7px;}
+  #lobby .hero-showcase-tags span{font-size:7px;padding:4px 6px;}
+  #lobby .lobby-bottom-bar{bottom:max(43px,calc(env(safe-area-inset-bottom) + 36px));width:calc(100% - 18px);gap:5px;}
+  #lobby .lobby-class-button{flex-basis:30%;padding:6px 8px;}
+  #lobby .lobby-class-button small{font-size:8px;}
+  #lobby .lobby-class-button strong{font-size:10px;line-height:1.2;overflow-wrap:anywhere;}
+  #lobby .lobby-ready-button,#lobby .lobby-start-button{font-size:11px;padding:7px 8px;}
+  #lobby .lobby-hint{font-size:8px;bottom:max(5px,env(safe-area-inset-bottom));}
+  #lobby .lobby-nav{width:calc(100% - 20px);gap:6px;}
+  #lobby .lobby-nav-btn{padding:7px 4px;font-size:clamp(8px,2.4vw,10px);}
+}
+@media (orientation:portrait) and (max-width:390px){
+  #lobby .lobby-team-box{width:calc(100% - 16px);bottom:204px;}
+  #lobby .lobby-players{grid-template-columns:repeat(2,minmax(0,1fr));max-height:58px;}
+  #lobby .lobby-players .lobby-player{font-size:8px;padding:5px;}
+  #lobby .hero-showcase-info{bottom:112px;width:calc(100% - 32px);}
+  #lobby .lobby-bottom-bar{bottom:50px;}
+  #lobby .lobby-ready-button,#lobby .lobby-start-button{font-size:10px;}
+}
+@media (orientation:landscape) and (max-height:560px){
+  #lobby .lobby-layout{min-height:0;padding:0 12px;}
+  #lobby .lobby-stage{min-height:0;height:100%;}
+  #lobby .lobby-team-box{left:0;bottom:62px;width:min(250px,27vw);padding:7px;}
+  #lobby .lobby-players{max-height:60px;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
+  #lobby .lobby-players .lobby-player{min-height:30px;padding:4px;font-size:8px;}
+  #lobby .hero-showcase-info{bottom:66px;width:min(320px,39vw);padding:7px 10px;}
+  #lobby .hero-showcase-info>strong{font-size:20px;}
+  #lobby .lobby-bottom-bar{bottom:max(33px,calc(env(safe-area-inset-bottom) + 25px));min-height:38px;}
+  #lobby .lobby-class-button,#lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:38px;}
+  #lobby .lobby-hint{font-size:7px;}
+}
+@media (max-height:640px){
+  #lobby .hero-showcase-info{padding-top:7px;padding-bottom:7px;}
+  #lobby .lobby-team-box{padding-top:7px;padding-bottom:7px;}
+}
+
+/* 46–50: usability, touch, focus, and motion preferences. */
+#lobby button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+#lobby button:focus-visible{outline:2px solid #9deaff;outline-offset:3px;}
+#lobby .lobby-nav-btn:active,#lobby .lobby-class-button:active,#lobby .lobby-ready-button:active{filter:brightness(1.12);}
+#lobby .lobby-editor-backdrop{background:rgba(1,5,12,.72);backdrop-filter:none;-webkit-backdrop-filter:none;}
+#lobby .lobby-editor{box-shadow:0 24px 70px rgba(0,0,0,.78);overscroll-behavior:contain;}
+#lobby .lobby-editor-content{overscroll-behavior:contain;scrollbar-gutter:stable;}
+#lobby .lobby-players{scrollbar-width:thin;scrollbar-color:#3a6c87 #06111d;}
+@media(prefers-reduced-motion:reduce){
+  #lobby .hero-showcase-info,#lobby .lobby-online-dot,#lobby .lobby-player,#lobby .lobby-stage:after{animation:none!important;}
+  #lobby .lobby-nav-btn,#lobby .class-card,#lobby .skin-pick{transition:none!important;}
+}
+
+/* V36 — visual rebuild: clear 3D stage, hero card and a compact mobile-first roster. */
+#lobby.lobby-screen{
+  /* Let the WebGL portal/hero pass show through; the game scene behind it is
+     cleared to a dark base color while the gameplay meshes are hidden. */
+  background:
+    radial-gradient(ellipse at 50% 40%,rgba(22,103,145,.26),rgba(9,22,37,.10) 43%,transparent 70%),
+    radial-gradient(ellipse at 50% 100%,rgba(29,50,83,.32),transparent 58%),
+    linear-gradient(180deg,rgba(4,8,15,.22) 0%,rgba(7,15,26,.14) 48%,rgba(3,7,14,.48) 100%);
+  isolation:isolate;
+}
+#lobby .lobby-stage:after{filter:none!important;opacity:.58;animation:none!important;}
+#lobby .hero-showcase-info{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+#lobby .lobby-stage-top{top:7px;left:50%;transform:translateX(-50%);font-size:8px;letter-spacing:1px;white-space:nowrap;}
+#lobby .lobby-team-box{
+  top:clamp(72px,13vh,150px);bottom:auto;left:10px;
+  width:min(285px,35vw);min-width:0;
+  padding:10px;border:1px solid #75dfff52;border-radius:12px;
+  background:linear-gradient(145deg,rgba(5,17,29,.94),rgba(6,12,22,.89));
+  box-shadow:0 10px 28px rgba(0,0,0,.45),inset 0 1px rgba(255,255,255,.035);
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+#lobby .lobby-players{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;max-height:130px;overflow:auto;}
+#lobby .lobby-players .lobby-player{
+  position:relative!important;inset:auto!important;top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;
+  transform:none!important;float:none!important;width:auto!important;min-width:0;max-width:100%;
+  min-height:36px;padding:7px 8px;border-radius:7px;font-size:9px;overflow-wrap:anywhere;
+}
+#lobby .lobby-player .lobby-name{display:block;overflow-wrap:anywhere;line-height:1.2;}
+#lobby .lobby-player .lobby-state{display:block;margin-top:3px;font-size:7px;line-height:1.2;}
+#lobby .hero-showcase-info{
+  left:50%;bottom:clamp(140px,19vh,210px);transform:translateX(-50%);
+  width:min(380px,58vw);padding:12px 14px;
+  border:1px solid #87dfff5c;border-bottom:2px solid #e9c477;border-radius:11px;
+  background:linear-gradient(180deg,rgba(5,17,30,.97),rgba(4,11,21,.95));
+  box-shadow:0 12px 34px rgba(0,0,0,.48),0 0 24px rgba(40,176,228,.10);
+}
+#lobby .hero-showcase-info>small{font-size:9px;letter-spacing:2px;color:#8ceaff;}
+#lobby .hero-showcase-info>strong{font-size:clamp(21px,3vw,32px);line-height:1.1;}
+#lobby .hero-showcase-info p{font-size:11px;line-height:1.4;margin:6px 0 9px;color:#cedde9;}
+#lobby .hero-showcase-tags{justify-content:center;gap:6px;}
+#lobby .hero-showcase-tags span{font-size:8px;padding:5px 7px;}
+#lobby .lobby-bottom-bar{bottom:max(54px,calc(env(safe-area-inset-bottom) + 45px));width:min(600px,calc(100% - 26px));gap:8px;}
+#lobby .lobby-class-button,#lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:54px;}
+#lobby .lobby-class-button{flex-basis:28%;}
+#lobby .lobby-ready-button,#lobby .lobby-start-button{flex:1 1 42%;font-size:12px;}
+#lobby .lobby-hint{bottom:max(7px,env(safe-area-inset-bottom));line-height:1.3;font-size:8px;}
+#lobby .lobby-editor-backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(1,5,12,.78);}
+#lobby button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+#lobby button:focus-visible{outline:2px solid #9beaff;outline-offset:3px;}
+@media (orientation:portrait) and (max-width:760px){
+  #lobby .lobby-header{flex-basis:48px;padding-top:max(8px,env(safe-area-inset-top));}
+  #lobby .lobby-nav{flex-basis:48px;width:calc(100% - 20px);gap:6px;}
+  #lobby .lobby-nav-btn{min-height:40px;padding:6px 4px;font-size:clamp(8px,2.5vw,10px);letter-spacing:.35px;}
+  #lobby .lobby-layout{flex:1 1 auto;min-height:0;padding:0 8px;overflow:visible;}
+  #lobby .lobby-stage{height:100%;min-height:0;padding-top:8px;}
+  #lobby .lobby-stage-top{font-size:7px;top:6px;max-width:calc(100% - 12px);}
+  #lobby .lobby-team-box{top:clamp(56px,11vh,104px);bottom:auto;left:7px;width:min(230px,49vw);padding:7px;}
+  #lobby .lobby-section-title{margin-bottom:5px;}
+  #lobby .lobby-section-title>span{font-size:8px;letter-spacing:1px;}
+  #lobby .lobby-section-title>small{font-size:7px;letter-spacing:.25px;}
+  #lobby .lobby-players{grid-template-columns:1fr;gap:4px;max-height:94px;}
+  #lobby .lobby-players .lobby-player{min-height:31px;padding:5px 6px;font-size:8px;}
+  #lobby .lobby-players .lobby-player .lobby-state{font-size:7px;}
+  #lobby .hero-showcase-info{bottom:clamp(160px,19vh,215px);width:min(340px,80vw);padding:9px 10px;}
+  #lobby .hero-showcase-info>small{font-size:8px;}
+  #lobby .hero-showcase-info>strong{font-size:clamp(21px,5.5vw,27px);}
+  #lobby .hero-showcase-info p{font-size:10px;margin:4px 0 7px;}
+  #lobby .hero-showcase-tags span{font-size:7px;padding:4px 6px;}
+  #lobby .lobby-bottom-bar{bottom:max(55px,calc(env(safe-area-inset-bottom) + 47px));width:calc(100% - 18px);gap:5px;}
+  #lobby .lobby-class-button{flex-basis:30%;padding:6px 7px;}
+  #lobby .lobby-class-button small{font-size:8px;}
+  #lobby .lobby-class-button strong{font-size:10px;line-height:1.2;overflow-wrap:anywhere;}
+  #lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:48px;font-size:11px;padding:6px;}
+  #lobby .lobby-hint{font-size:8px;bottom:max(6px,env(safe-area-inset-bottom));}
+}
+@media (orientation:portrait) and (max-width:390px){
+  #lobby .lobby-team-box{width:min(195px,49vw);}
+  #lobby .lobby-players{grid-template-columns:1fr;max-height:86px;}
+  #lobby .lobby-players .lobby-player{font-size:8px;padding:4px 5px;}
+  #lobby .hero-showcase-info{bottom:clamp(166px,20vh,224px);width:calc(100% - 26px);}
+  #lobby .lobby-bottom-bar{bottom:max(58px,calc(env(safe-area-inset-bottom) + 50px));}
+  #lobby .lobby-ready-button,#lobby .lobby-start-button{font-size:10px;}
+}
+@media (orientation:landscape) and (max-height:560px){
+  #lobby .lobby-stage-top{font-size:7px;}
+  #lobby .lobby-team-box{top:58px;bottom:auto;left:0;width:min(245px,27vw);padding:7px;}
+  #lobby .lobby-players{grid-template-columns:repeat(2,minmax(0,1fr));max-height:68px;gap:4px;}
+  #lobby .lobby-players .lobby-player{min-height:29px;padding:4px;font-size:8px;}
+  #lobby .hero-showcase-info{bottom:clamp(64px,15vh,100px);width:min(320px,40vw);padding:7px 10px;}
+  #lobby .hero-showcase-info>strong{font-size:20px;}
+  #lobby .lobby-bottom-bar{bottom:max(33px,calc(env(safe-area-inset-bottom) + 27px));min-height:38px;}
+  #lobby .lobby-class-button,#lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:38px;}
+}
+@media(prefers-reduced-motion:reduce){
+  #lobby .lobby-stage:after,#lobby .hero-showcase-info,#lobby .lobby-online-dot,#lobby .lobby-player{animation:none!important;}
+}
+
+/* Tall-screen composition: keep the info card close to the 3D character instead of at the bottom edge. */
+@media (orientation:portrait) and (max-width:760px) and (max-height:1100px){
+  #lobby .hero-showcase-info{bottom:clamp(150px,17vh,190px);}
+}
+@media (orientation:portrait) and (max-width:760px) and (min-height:1101px){
+  #lobby .hero-showcase-info{bottom:clamp(155px,calc(48.6vh - 330px),665px);}
+}
