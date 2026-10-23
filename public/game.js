@@ -888,14 +888,14 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : heroClass === 'healer' ? 0x66d8ac : heroClass === 'necromancer' ? 0x9764cc : heroClass === 'skeleton' ? 0xd9d1b9 : heroClass === 'monk' ? 0xd7a05b : 0x72e6ff;
   // Paletas próprias: cada classe mantém uma identidade mesmo antes de escolher uma skin.
   const classBasePalette = {
-    knight: { armor:0x8395a9, dark:0x172536, trim:0xe0bd70, glow:0x80ddff, accent:0xc85161, cloth:0x263d58 },
-    mage: { armor:0x526dbb, dark:0x211d43, trim:0xe0bd70, glow:0x74dfff, accent:0x9587ff, cloth:0x314b8b },
-    archer: { armor:0x796344, dark:0x2d241b, trim:0xb58a4c, glow:0x9dd99b, accent:0x7fa55a, cloth:0x435936 },
-    goblin: { armor:0x5e7c37, dark:0x20291b, trim:0xb58b4b, glow:0xc6f16c, accent:0x8ec84b, cloth:0x354626 },
-    ogre: { armor:0x55412e, dark:0x281e16, trim:0x987647, glow:0xf2b647, accent:0x819a3e, cloth:0x493323 },
-    healer: { armor:0xd8dedb, dark:0x253b5c, trim:0xf1cd69, glow:0x8bf5d7, accent:0x6bcdb2, cloth:0x527fbd },
-    necromancer: { armor:0x403744, dark:0x18151f, trim:0x9b744b, glow:0xb97aff, accent:0x8e55a7, cloth:0x34202f },
-    monk: { armor:0xbcb19a, dark:0x51402f, trim:0xc49a5c, glow:0xf4d7a2, accent:0x984b34, cloth:0xd0c3a8 },
+    knight: { armor:0x2464c5, dark:0x263b4d, trim:0xebb94f, glow:0x65cfff, accent:0xc85161, cloth:0x1d3566 },
+    mage: { armor:0x2455c7, dark:0x38216f, trim:0xf2c65d, glow:0xc45bff, accent:0x9587ff, cloth:0x1c2f6e },
+    archer: { armor:0x1e7f4a, dark:0x383f3a, trim:0xbfa45a, glow:0x6dffb3, accent:0x7fa55a, cloth:0x17502f },
+    goblin: { armor:0x6bbf3a, dark:0x3a3a3a, trim:0xffd86b, glow:0xc6f16c, accent:0x8b5a3c, cloth:0x4a6e22 },
+    ogre: { armor:0xb0533a, dark:0x5a3a2f, trim:0xc9a46a, glow:0xf89b6b, accent:0xf2b647, cloth:0x7a3524 },
+    healer: { armor:0xffffff, dark:0x2e8b57, trim:0xc9a46a, glow:0x7fffd4, accent:0x6bcdb2, cloth:0x2e8b57 },
+    necromancer: { armor:0x1a1a1a, dark:0x2a1a33, trim:0xa58d6a, glow:0xc77dff, accent:0x6a3fbf, cloth:0x3b1f55 },
+    monk: { armor:0xf57c00, dark:0xb22222, trim:0xd7b56d, glow:0xffd86b, accent:0xb22222, cloth:0xd7b56d },
     skeleton: { armor:0xbeb5a4, dark:0x29242b, trim:0xa98d60, glow:0xb6a4d8, accent:0xa89cba, cloth:0x514453 }
   };
   const classPalette = classBasePalette[heroClass] || classBasePalette.knight;
