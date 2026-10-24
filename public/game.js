@@ -1105,6 +1105,36 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     add(new THREE.BoxGeometry(.12,.025,.045), gold, side*.20,.31,-.19);
     add(new THREE.SphereGeometry(.035,8,6), classAccentMaterial, side*.31,.89,-.27);
   }
+  // Passe de acabamento: silhueta de RPG estilizado, com placas sobrepostas e detalhes legíveis à distância.
+  // Peitoral em camadas com contorno, emblema central e gola para dar mais volume ao tronco.
+  add(new THREE.SphereGeometry(.285,20,14), armor, 0,1.34,-.285,1.08,.73,.28);
+  add(new THREE.TorusGeometry(.205,.018,6,24), gold, 0,1.34,-.365).rotation.x=Math.PI/2;
+  const chestSigil = add(new THREE.OctahedronGeometry(.105,1), classAccentMaterial, 0,1.34,-.39,.8,1.15,.55);
+  chestSigil.rotation.z=Math.PI/4;
+  add(new THREE.BoxGeometry(.42,.045,.045), steel, 0,1.58,-.20);
+  add(new THREE.BoxGeometry(.28,.035,.035), gold, 0,1.62,-.205);
+  // Ombreiras facetadas com filete metálico e rebites, sem alterar a hitbox.
+  for (const side of [-1,1]) {
+    const pauldron = add(new THREE.SphereGeometry(.205,16,12), armor, side*.49,1.56,-.015,1.12,.72,1.0);
+    pauldron.rotation.z=side*-.18;
+    const rim = add(new THREE.TorusGeometry(.145,.014,5,16), gold, side*.49,1.53,-.12);
+    rim.rotation.x=Math.PI/2;
+    add(new THREE.OctahedronGeometry(.055,0), classAccentMaterial, side*.49,1.61,-.19,.9,1.15,.7);
+    // Duas linhas de acabamento nas braçadeiras dão leitura de equipamento artesanal.
+    add(new THREE.TorusGeometry(.105,.012,5,12), gold, side*.49,1.12,-.015).rotation.x=Math.PI/2;
+    add(new THREE.BoxGeometry(.105,.018,.025), steel, side*.49,1.02,-.105);
+  }
+  // Placas de tecido frontais e bainha dourada para uma silhueta menos cilíndrica.
+  const frontTabard = add(new THREE.BoxGeometry(.30,.36,.045), clothMaterial, 0,.70,-.205);
+  frontTabard.rotation.x=-.08;
+  add(new THREE.ConeGeometry(.16,.13,5), clothMaterial, 0,.455,-.205,1,.75,.55);
+  add(new THREE.BoxGeometry(.32,.025,.035), gold, 0,.54,-.235);
+  add(new THREE.BoxGeometry(.085,.085,.035), classAccentMaterial, 0,.76,-.238);
+  // Acabamento das botas: biqueira, fivela e pequenas proteções laterais.
+  for (const side of [-1,1]) {
+    add(new THREE.BoxGeometry(.15,.045,.055), steel, side*.20,.17,-.18);
+    add(new THREE.SphereGeometry(.028,8,6), gold, side*.20,.18,-.215);
+  }
   // Fim do passe de silhueta: detalhes cosméticos não mudam colisão nem atributos.
   // Ombreiras e pequenos rebites metálicos
   for (const side of [-1,1]) {
