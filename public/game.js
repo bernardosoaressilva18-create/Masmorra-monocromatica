@@ -24,6 +24,7 @@ const cameraFocusScratch = new THREE.Vector3();
 const cameraPositionScratch = new THREE.Vector3();
 const lobbyCameraPositionScratch = new THREE.Vector3();
 let bossMesh = null, bossData = null;
+const bossPortalMeshes = new Map();
 let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 190 };
@@ -1595,6 +1596,45 @@ function makeChest(realm=currentRealmVisual) {
   return group;
 }
 
+function syncBossPortals(portals) {
+  const incoming = new Set();
+  for (const portalData of (Array.isArray(portals) ? portals : [])) {
+    if (!portalData || !portalData.id) continue;
+    const id = String(portalData.id);
+    incoming.add(id);
+    let group = bossPortalMeshes.get(id);
+    if (!group) {
+      group = new THREE.Group();
+      const ringMaterial = new THREE.MeshBasicMaterial({ color: 0xffa344, transparent: true, opacity: .48, side: THREE.DoubleSide, depthWrite: false });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.45, .09, 8, 36), ringMaterial);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = .08;
+      ring.renderOrder = 900;
+      group.add(ring);
+      const coreMaterial = new THREE.MeshBasicMaterial({ color: 0xff3c67, transparent: true, opacity: .12, side: THREE.DoubleSide, depthWrite: false });
+      const core = new THREE.Mesh(new THREE.CircleGeometry(1.35, 32), coreMaterial);
+      core.rotation.x = -Math.PI / 2;
+      core.position.y = .045;
+      core.renderOrder = 899;
+      group.add(core);
+      group.userData.portalRing = ring;
+      group.userData.portalCore = core;
+      scene.add(group);
+      bossPortalMeshes.set(id, group);
+    }
+    group.position.set(Number(portalData.x) || 0, 0, Number(portalData.z) || 0);
+    group.userData.portalData = portalData;
+    group.visible = true;
+  }
+  for (const [id, group] of bossPortalMeshes) {
+    if (!incoming.has(id)) {
+      scene.remove(group);
+      disposeObject3D(group);
+      bossPortalMeshes.delete(id);
+    }
+  }
+}
+
 function renderInventory() {
   const el = $('inventoryList');
   if (!el) return;
@@ -1919,7 +1959,7 @@ const SKILL_BRANCHES = [
     {id:'vitality',icon:'♥',name:'Vitalidade',desc:'+25 de vida máxima.'},
     {id:'iron_skin',icon:'🛡',name:'Pele de ferro',desc:'Recebe 20% menos dano.',req:'vitality'},
     {id:'regeneration',icon:'✚',name:'Regeneração',desc:'Recupera 2 de vida a cada 3 s.',req:'iron_skin'},
-    {id:'second_wind',icon:'🌟',name:'Segunda chance',desc:'Uma vez, sobrevive a um golpe fatal.',req:'regeneration'},
+    {id:'second_wind',icon:'🌟',name:'Última resistência',desc:'Recebe 20% menos dano quando está com 30% da vida ou menos.',req:'regeneration'},
     {id:'party_guard',icon:'🤝',name:'Guarda em grupo',desc:'Recebe menos dano perto de aliado.',req:'second_wind'}
   ]},
   { id:'arcane', title:'✦ MAGIA & TESOUROS', skills:[
@@ -2408,6 +2448,16 @@ function handleMessage(m) {
   if (m.type === 'error') {
     loading.classList.add('hidden');
     setStatus(m.message);
+    if (String(m.message || '').includes('Esta partida já começou')) {
+      connectionRequested = false;
+      resumeToken = '';
+      reconnectAttempts = 0;
+      clearTimeout(reconnectTimer);
+      try { sessionStorage.removeItem('masmorraResumeToken'); } catch {}
+      if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+      menu.classList.remove('hidden');
+      hud.classList.add('hidden');
+    }
     return;
   }
 
@@ -2900,11 +2950,14 @@ function updateState(m) {
   const bossPanel = $('bossPanel');
   if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 5 || !m.boss || !m.boss.alive);
   bossData = m.boss || null;
+  syncBossPortals(bossData && bossData.alive ? bossData.portals : []);
   if (bossData && bossData.alive) {
     const bossTitle=document.querySelector('.boss-title');
     if(bossTitle)bossTitle.textContent=realm===2?'GUARDIÃO ASTRAL':'GUARDIÃO DO ABISMO';
     if (!bossMesh) { bossMesh = makeBoss(); scene.add(bossMesh); }
     bossMesh.visible = true; bossMesh.userData.targetX = bossData.x; bossMesh.userData.targetZ = bossData.z;
+    bossMesh.userData.serverHp = Number(bossData.hp) || 0;
+    bossMesh.userData.serverMaxHp = Number(bossData.maxHp) || 1;
     const lifePhase = bossData.lifePhase || 1; bossMesh.userData.lifePhase = lifePhase;
     bossMesh.userData.bodyMaterial.color.set(lifePhase === 1 ? 0x29202f : lifePhase === 2 ? 0x59202f : 0x8b182a);
     bossMesh.userData.eyeMaterial.color.set(lifePhase === 3 ? 0xffc12e : 0xff345d);
@@ -4190,6 +4243,11 @@ const right = new THREE.Vector3(
   if (bossMesh && bossMesh.visible && bossMesh.userData.targetX !== undefined) {
     bossMesh.position.x = THREE.MathUtils.lerp(bossMesh.position.x, bossMesh.userData.targetX, monsterSmooth);
     bossMesh.position.z = THREE.MathUtils.lerp(bossMesh.position.z, bossMesh.userData.targetZ, monsterSmooth);
+    if (myPlayer) {
+      const faceBoss = Math.atan2(myPlayer.position.x - bossMesh.position.x, myPlayer.position.z - bossMesh.position.z);
+      const turnBoss = Math.atan2(Math.sin(faceBoss - bossMesh.rotation.y), Math.cos(faceBoss - bossMesh.rotation.y));
+      bossMesh.rotation.y += turnBoss * (1 - Math.exp(-5 * dt));
+    }
     bossMesh.userData.animPhase = (bossMesh.userData.animPhase || 0) + dt * (Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04 ? 5.5 : 1.7);
     const bossPhase = bossMesh.userData.animPhase;
     const bossMoving = Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04;
@@ -4202,6 +4260,25 @@ const right = new THREE.Vector3(
     if (bossMesh.userData.coreHalo) { bossMesh.userData.coreHalo.rotation.z += dt * (bossMoving ? .65 : .24); bossMesh.userData.coreHalo.material.emissiveIntensity = 1.0 + (Math.sin(bossPhase * 2.4) + 1) * .45; }
     // O Guardião respira, balança os braços e pulsa os olhos durante a perseguição.
   }
+  // Portais do Guardião pulsam enquanto carregam e ficam vermelhos quando vão explodir.
+  for (const portal of bossPortalMeshes.values()) {
+    const data = portal.userData.portalData || {};
+    const warning = Date.now() < (Number(data.spawnAt) || 0);
+    const pulse = (Math.sin(worldTime * (warning ? 4.5 : 8.5)) + 1) * .5;
+    const ring = portal.userData.portalRing;
+    const core = portal.userData.portalCore;
+    if (ring) {
+      ring.rotation.z += dt * (warning ? .35 : 1.15);
+      ring.scale.setScalar(warning ? .90 + pulse * .07 : 1 + pulse * .16);
+      ring.material.color.setHex(warning ? 0xffa344 : 0xff214e);
+      ring.material.opacity = warning ? .48 + pulse * .18 : .78 + pulse * .18;
+    }
+    if (core) {
+      core.material.color.setHex(warning ? 0xffa344 : 0xff214e);
+      core.material.opacity = warning ? .08 + pulse * .07 : .23 + pulse * .16;
+    }
+  }
+
   // Emissive pulse and slow core rotation make enemies feel alive without extra lights.
   for (const obj of monsterMeshes.values()) {
     if (!obj.visible || obj === bossMesh) continue;
