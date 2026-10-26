@@ -352,6 +352,7 @@ function state(room) {
     hostId: room.hostId,
     monsters: [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])],
     boss: room.boss,
+    portalOpen: room.phase === 5 && !!room.boss && !room.boss.alive,
     chests: room.chests.map(chest => ({ id: chest.id, x: chest.x, z: chest.z, opened: chest.openedBy.length > 0, cursed: !!chest.cursed }))
   };
 }
@@ -453,9 +454,13 @@ wss.on('connection', ws => {
       // Um token aleatório permite recuperar o mesmo personagem após uma queda breve.
       const requestedToken = typeof msg.resumeToken === 'string' ? msg.resumeToken : '';
       const savedPlayer = requestedToken
-        ? [...room.players.values()].find(p => p.resumeToken === requestedToken && p.connected === false)
+        ? [...room.players.values()].find(p => p.resumeToken === requestedToken && p.connected === false && p.hp > 0)
         : null;
       const resumed = !!savedPlayer;
+      if (room.started && !resumed) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Esta partida já começou. Um personagem morto não pode voltar com vida; crie uma nova sala para recomeçar.' }));
+        return;
+      }
 
       if (resumed) {
         player = savedPlayer;
@@ -1326,9 +1331,9 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
       else {
       let target = null, nearest = Infinity;
       for (const p of players) { if (p.hp <= 0 || now < (p.invisibleUntil || 0)) continue; const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
-      if (target && nearest > 2.35 && nearest < 24) {
+      if (target && nearest > 2.35 && nearest < 80) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
-        const speed = boss.lifePhase === 1 ? 0.09 : boss.lifePhase === 2 ? 0.12 : 0.16;
+        const speed = boss.lifePhase === 1 ? 0.13 : boss.lifePhase === 2 ? 0.17 : 0.22;
         boss.x = Math.max(-12, Math.min(12, boss.x + dx / distance * speed));
         boss.z = Math.max(-156, Math.min(-144, boss.z + dz / distance * speed));
       }
