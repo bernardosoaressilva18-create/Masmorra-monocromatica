@@ -2887,8 +2887,8 @@ function updateState(m) {
   }
   const aliveMonsters=m.monsters.filter(monster=>monster.alive).length;
   gateMeshes.forEach((gate,index)=>{const n=index+1;gate.userData.open=phase>n||(phase===n&&aliveMonsters===0);});
-  if(realmPortal){realmPortal.visible=realm===1;realmPortal.userData.open=realm===1&&phase===5&&!!m.boss&&!m.boss.alive;}
-  if(eclipsePortal){eclipsePortal.visible=realm===2;eclipsePortal.userData.open=realm===2&&phase===5&&!!m.boss&&!m.boss.alive;}
+  if(realmPortal){realmPortal.visible=realm===1;realmPortal.userData.open=realm===1&&(!!m.portalOpen||(phase===5&&!!m.boss&&!m.boss.alive));}
+  if(eclipsePortal){eclipsePortal.visible=realm===2;eclipsePortal.userData.open=realm===2&&(!!m.portalOpen||(phase===5&&!!m.boss&&!m.boss.alive));}
   const phaseObjective=document.querySelector('.objective strong');
   if(phaseObjective){
     if(phase===5&&m.boss&&!m.boss.alive&&realm===1){const nearGate=myPlayer&&Math.hypot(myPlayer.position.x, myPlayer.position.z+168)<16;phaseObjective.textContent=nearGate?'PORTÃO ABERTO! Atravesse para o Vale Astral':'Siga pelo Abismo até o portão do Vale Astral';}
@@ -3110,6 +3110,24 @@ $('refreshPublicRoomsBtn')?.addEventListener('click', requestPublicRooms);
 
 $('readyBtn').addEventListener('click', () => send({ type: 'ready' }));
 $('startMatchBtn').addEventListener('click', () => send({ type: 'startMatch' }));
+
+const inventoryPanel = document.querySelector('.inventory-panel');
+const inventoryToggleBtn = $('inventoryToggleBtn');
+let inventoryHidden = false;
+try { inventoryHidden = localStorage.getItem('mmHideInventory') === '1'; } catch {}
+function applyInventoryVisibility() {
+  if (!inventoryPanel || !inventoryToggleBtn) return;
+  inventoryPanel.classList.toggle('inventory-hidden', inventoryHidden);
+  inventoryToggleBtn.textContent = inventoryHidden ? 'MOSTRAR INVENTÁRIO' : 'OCULTAR INVENTÁRIO';
+  inventoryToggleBtn.setAttribute('aria-expanded', String(!inventoryHidden));
+}
+inventoryToggleBtn?.addEventListener('click', () => {
+  inventoryHidden = !inventoryHidden;
+  try { localStorage.setItem('mmHideInventory', inventoryHidden ? '1' : '0'); } catch {}
+  applyInventoryVisibility();
+  playSfx('ui');
+});
+applyInventoryVisibility();
 
 function leaveRoomToMenu() {
   connectionRequested = false;
