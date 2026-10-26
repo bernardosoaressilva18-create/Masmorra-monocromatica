@@ -125,6 +125,8 @@ function refreshPlayerStats(player, restoreHealth = false) {
 }
 function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player, 'treasure_luck') ? .2 : 0) + (hasSkill(player, 'loot_sense') ? .1 : 0)); }
 function takeDamage(room, player, amount) {
+  // Personagens derrotados não recebem mais dano nem podem ser ressuscitados por efeitos posteriores.
+  if (!player || player.hp <= 0) return 0;
   // A esquiva é validada pelo servidor e concede uma janela curta contra dano.
   if (Date.now() < (player.dodgeUntil || 0)) return 0;
   let damage = amount * (1 - (statsFor(player).reduction || 0));
@@ -133,16 +135,16 @@ function takeDamage(room, player, amount) {
   const nearbyAlly = [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7);
   if (hasSkill(player, 'party_guard') && nearbyAlly) damage *= .9;
   if (hasSkill(player, 'team_resolve') && nearbyAlly) damage *= .85;
+  // "Segunda chance" não ressuscita: reduz dano enquanto a vida já está crítica.
+  if (hasSkill(player, 'second_wind') && player.hp <= Math.ceil((player.maxHp || 100) * .30)) damage *= .8;
   const hpBefore = player.hp;
   const appliedDamage = Math.max(1, Math.round(damage));
   player.hp = Math.max(0, player.hp - appliedDamage);
-  if (player.hp <= 0 && hasSkill(player, 'second_wind') && !player.secondWindUsed) {
-    player.secondWindUsed = true; player.hp = Math.max(1, Math.ceil(player.maxHp * .3));
-    player.ws.send(JSON.stringify({ type: 'notice', text: '🌟 Segunda chance! Você voltou com 30% da vida.' }));
-  }
   if (hpBefore > player.hp) {
     broadcast(room, { type: 'playerDamaged', id: player.id, amount: appliedDamage, hp: player.hp, maxHp: player.maxHp });
   }
+  if (player.hp <= 0) player.deathLocked = true;
+  return appliedDamage;
 }
 
 const RARITIES = [
@@ -233,7 +235,7 @@ function advancePhase(room) {
   for (const player of room.players.values()) {
     player.talentPoints = (player.talentPoints || 0) + 1;
     const before = player.hp;
-    player.hp = Math.min(player.maxHp || 100, player.hp + 15);
+    if (player.hp > 0) player.hp = Math.min(player.maxHp || 100, player.hp + 15);
     if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 20 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
   }
   room.monsters = createWave(room.phase, room.realm || 1);
@@ -247,7 +249,7 @@ function advancePhase(room) {
     const bossBaseHp = room.realm === 3 ? 1000 : room.realm === 2 ? 700 : 450;
     const bossExtraPlayerHp = room.realm === 3 ? 220 : room.realm === 2 ? 150 : 100;
     const bossHp = bossBaseHp + (bossPartySize - 1) * bossExtraPlayerHp;
-    room.boss={id:'realm-'+(room.realm||1)+'-final-boss',x:0,z:-150,alive:true,hp:bossHp,maxHp:bossHp,lifePhase:1,attackAt:0};
+    room.boss={id:'realm-'+(room.realm||1)+'-final-boss',x:0,z:-150,alive:true,hp:bossHp,maxHp:bossHp,lifePhase:1,attackAt:0,portals:[],nextPortalAt:Date.now()+4000,portalSequence:0};
     broadcast(room, { type: 'notice', text: 'FASE 5: ' + names[5] + '! O Guardião Supremo despertou com carapaça reforçada e ' + bossHp + ' de vida!' });
   } else {
     broadcast(room, { type: 'notice', text: 'MUNDO ' + room.phase + ' / 5: ' + names[room.phase] + '. Nova região descoberta!' });
@@ -257,13 +259,13 @@ function advancePhase(room) {
 function enterAstralRealm(room){
  room.realm=2;room.phase=1;room.monsters=createWave(1,2);room.boss=null;room.cursedBoss=null;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;
  room.chests=[{id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},{id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}];
- for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
+ for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 function enterEclipseRealm(room){
  room.realm=3;room.phase=1;room.monsters=createWave(1,3);room.boss=null;room.cursedBoss=null;room.safeZoneUntil=Date.now()+18000;room.nextSafeBroadcast=0;
  room.chests=[{id:'e0',x:8,z:-12,openedBy:[]},{id:'e1',x:-8,z:-44,openedBy:[]},{id:'e2',x:8,z:-76,openedBy:[]},{id:'e3',x:-8,z:-108,openedBy:[]},{id:'e4',x:8,z:-140,openedBy:[]}];
- for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ MUNDO III! Você chegou ao Eclipse Selvagem: inimigos mais fortes, novo guardião e +3 pontos de skill.'}));}
+ for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ MUNDO III! Você chegou ao Eclipse Selvagem: inimigos mais fortes, novo guardião e +3 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 
@@ -1077,19 +1079,23 @@ wss.on('connection', ws => {
   });
 
   ws.on('close', () => {
-    // Um socket antigo não deve remover a sessão caso o personagem já tenha retomado a conexão.
+    // Sair ou perder a conexão remove imediatamente o personagem: não fica um avatar fantasma.
     if (player.ws !== ws) return;
-    const room = player.room && rooms.get(player.room);
+    const oldCode = player.room;
+    const room = oldCode && rooms.get(oldCode);
     if (room) {
-      player.connected = false;
-      player.disconnectedAt = Date.now();
-      if (room.hostId === player.id) {
-        room.hostId = [...room.players.values()].find(p => p.connected !== false && p.id !== player.id)?.id || null;
+      room.players.delete(player.id);
+      room.summons = (room.summons || []).filter(summon => summon.ownerId !== player.id);
+      if (room.hostId === player.id) ensureRoomHost(room);
+      if (room.players.size === 0) {
+        if (room.started) room.emptySince = Date.now();
+        else rooms.delete(oldCode);
+      } else {
+        room.emptySince = 0;
+        broadcast(room, state(room));
       }
-      const activeCount = [...room.players.values()].filter(p => p.connected !== false).length;
-      if (activeCount === 0) room.emptySince = Date.now();
-      broadcast(room, state(room));
     }
+    player.room = null;
   });
 });
 
@@ -1327,13 +1333,47 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
 
     if (room.phase === 5 && room.boss && room.boss.alive) {
       const boss = room.boss;
+      // Portais de ruptura: o círculo avisa antes de explodir para dar tempo de esquivar.
+      if (!Array.isArray(boss.portals)) boss.portals = [];
+      boss.portals = boss.portals.filter(portal => now < portal.expiresAt);
+      const portalTargets = players.filter(p => p.hp > 0 && now >= (p.invisibleUntil || 0));
+      if (portalTargets.length && now >= (boss.nextPortalAt || 0)) {
+        const sequence = boss.portalSequence || 0;
+        const target = portalTargets[sequence % portalTargets.length];
+        const angle = sequence * 2.399963229728653;
+        const px = Math.max(-11.5, Math.min(11.5, target.x + Math.cos(angle) * 2.7));
+        const pz = Math.max(-169, Math.min(-132, target.z + Math.sin(angle) * 2.7));
+        boss.portals.push({
+          id: 'boss-rift-' + now + '-' + sequence, x: px, z: pz,
+          spawnAt: now + 1800, expiresAt: now + 4400, radius: 2.25, hitIds: []
+        });
+        boss.portalSequence = sequence + 1;
+        boss.nextPortalAt = now + (boss.lifePhase === 3 ? 6200 : 8500);
+        broadcast(room, { type: 'notice', text: '⚠ O Guardião abriu um portal de ruptura! Saia do círculo vermelho!' });
+      }
+      for (const portal of boss.portals) {
+        if (now < portal.spawnAt) continue;
+        portal.hitIds = Array.isArray(portal.hitIds) ? portal.hitIds : [];
+        for (const victim of portalTargets) {
+          if (portal.hitIds.includes(victim.id)) continue;
+          if (Math.hypot(victim.x - portal.x, victim.z - portal.z) > (portal.radius || 2.25)) continue;
+          portal.hitIds.push(victim.id);
+          const before = victim.hp;
+          takeDamage(room, victim, boss.lifePhase === 3 ? 16 : 10);
+          const dealt = before - victim.hp;
+          if (dealt > 0 && victim.ws && victim.ws.readyState === WebSocket.OPEN) {
+            victim.ws.send(JSON.stringify({ type: 'notice', text: '☄ O portal explodiu! Você perdeu ' + dealt + ' de vida.' }));
+            if (victim.hp <= 0) victim.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
+          }
+        }
+      }
       if (now < (boss.stunnedUntil || 0)) { boss.attackWarnAt = 0; }
       else {
       let target = null, nearest = Infinity;
       for (const p of players) { if (p.hp <= 0 || now < (p.invisibleUntil || 0)) continue; const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
       if (target && nearest > 2.35 && nearest < 80) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
-        const speed = boss.lifePhase === 1 ? 0.13 : boss.lifePhase === 2 ? 0.17 : 0.22;
+        const speed = boss.lifePhase === 1 ? 0.23 : boss.lifePhase === 2 ? 0.31 : 0.39;
         boss.x = Math.max(-12, Math.min(12, boss.x + dx / distance * speed));
         boss.z = Math.max(-156, Math.min(-144, boss.z + dz / distance * speed));
       }
