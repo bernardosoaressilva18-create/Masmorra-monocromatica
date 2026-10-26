@@ -2695,3 +2695,134 @@ html, body { width:100%; min-width:0; }
   #lobby .lobby-ready-button,
   #lobby .lobby-start-button {letter-spacing: 0 !important; font-size: 8px !important;}
 }
+
+
+/* Polimento visual: lobby, herói, combate, loot e chefes — outubro 2026. */
+:root {
+  --legacy-cyan: #83e8ff;
+  --legacy-gold: #f4cf82;
+  --legacy-panel: rgba(9, 17, 29, .92);
+}
+#lobby .lobby-stage {
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 50% 15%, rgba(66, 142, 191, .18), transparent 54%),
+    linear-gradient(145deg, rgba(14, 27, 43, .96), rgba(5, 10, 19, .98));
+  border-color: rgba(131, 232, 255, .25);
+  box-shadow: inset 0 1px rgba(255,255,255,.04), 0 18px 48px rgba(0,0,0,.24);
+}
+#lobby .hero-showcase {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(131, 232, 255, .24);
+  background: radial-gradient(ellipse at 50% 30%, rgba(63, 147, 193, .18), transparent 62%), rgba(5, 12, 22, .72);
+}
+#lobby .hero-showcase:after {
+  content: "";
+  position: absolute;
+  inset: auto 8% 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--legacy-cyan), var(--legacy-gold), transparent);
+  opacity: .7;
+  pointer-events: none;
+}
+#lobby .hero-preview-avatar {
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
+}
+#lobby .class-card {
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
+  border-color: rgba(151, 188, 214, .18);
+  background-image: linear-gradient(145deg, rgba(255,255,255,.035), transparent 55%);
+}
+#lobby .class-card:hover,
+#lobby .class-card.selected {
+  transform: translateY(-2px);
+  border-color: rgba(131, 232, 255, .78);
+  box-shadow: 0 0 0 1px rgba(131,232,255,.12), 0 8px 22px rgba(0,0,0,.22);
+}
+#lobby .lobby-ready-button,
+#lobby .lobby-start-button,
+#lobby .lobby-class-button,
+.primary,
+.start-button {
+  transition: filter .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+#lobby .lobby-ready-button:active,
+#lobby .lobby-start-button:active,
+#lobby .lobby-class-button:active,
+.primary:active,
+.start-button:active {
+  transform: translateY(1px) scale(.985);
+}
+#lobby .lobby-start-button:not(:disabled),
+.start-button {
+  box-shadow: 0 5px 18px rgba(69, 180, 218, .15);
+}
+.topbar .badge,
+.topbar .stats,
+.objective,
+.players,
+.boss-panel,
+.inventory-panel,
+.skill-panel,
+.settings-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+#hud .boss-panel {
+  border-color: rgba(255, 108, 116, .35);
+  box-shadow: 0 8px 26px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.035);
+}
+#hud .boss-health {
+  overflow: hidden;
+}
+#hud #bossHealthFill {
+  filter: drop-shadow(0 0 5px rgba(255, 76, 95, .45));
+  transition: width .22s ease;
+}
+#hud .inventory-panel {
+  border-color: rgba(244, 207, 130, .24);
+  box-shadow: 0 12px 34px rgba(0,0,0,.28);
+}
+#hud .selected-item {
+  border-color: rgba(131, 232, 255, .45);
+  background: linear-gradient(110deg, rgba(63, 152, 191, .12), rgba(244, 207, 130, .055));
+}
+#hud .skill-panel {
+  border-color: rgba(131, 232, 255, .24);
+  box-shadow: 0 12px 38px rgba(0,0,0,.32);
+}
+#hud .attack,
+#hud .spell-btn,
+#hud .dodge-btn,
+#hud .fire-btn,
+#hud .lightning-btn {
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter .12s ease, transform .12s ease;
+}
+#hud .attack:active,
+#hud .spell-btn:active,
+#hud .dodge-btn:active,
+#hud .fire-btn:active,
+#hud .lightning-btn:active {
+  filter: brightness(1.22);
+  transform: scale(.96);
+}
+#hud .notice {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+@media (prefers-reduced-motion: reduce) {
+  #lobby .class-card,
+  #lobby .lobby-ready-button,
+  #lobby .lobby-start-button,
+  #lobby .lobby-class-button,
+  #hud .attack,
+  #hud .spell-btn,
+  #hud .dodge-btn,
+  #hud .fire-btn,
+  #hud .lightning-btn {
+    transition: none !important;
+  }
+}
