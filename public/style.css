@@ -3036,3 +3036,35 @@ html, body { width:100%; min-width:0; }
 .skill-node:not(:disabled){cursor:pointer}
 .skill-node:not(:disabled):active .skill-node-icon{transform:scale(.94)}
 @media(max-width:760px){.skill-tree-branches{grid-template-columns:repeat(5,minmax(126px,1fr));gap:8px;padding:5px 2px 12px}.skill-branch{padding:8px 5px 10px}.skill-branch-list{gap:7px}.skill-node{padding:7px 3px}.skill-node .skill-node-icon{width:31px;height:31px;font-size:15px}.skill-node .skill-node-name{font-size:8px}.skill-node small{font-size:7px}.skill-node .skill-node-state{font-size:6px}}
+
+
+/* Reference-matched radial skill map: connected circular nodes instead of stacked columns. */
+.skill-orbit-scroll{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#536879 #101722;border:1px solid rgba(174,199,219,.16);border-radius:10px;background:radial-gradient(ellipse at 50% 45%,#172536 0%,#0a111c 68%,#070c13 100%);touch-action:pan-x pan-y}
+.skill-orbit-canvas{position:relative;width:100%;min-width:680px;height:520px;isolation:isolate}
+.skill-orbit-links{position:absolute;inset:0;width:100%;height:100%;z-index:0;overflow:visible}
+.skill-orbit-links line{stroke:#d7e2e9;stroke-width:.38;opacity:.82;vector-effect:non-scaling-stroke}
+.skill-orbit-links .skill-root-link{stroke:#f0d49a;stroke-width:.55;opacity:.95}
+.skill-orbit-links .skill-orbit-arc{fill:none;stroke:#9caebf;stroke-width:.4;opacity:.22;vector-effect:non-scaling-stroke}
+.skill-orbit-hub-ring{fill:#0c1724;stroke:#e4c27e;stroke-width:.55;vector-effect:non-scaling-stroke}
+.skill-orbit-hub{fill:#f0d28e}
+.skill-orbit-node{position:absolute;z-index:2;transform:translate(-50%,-50%);width:106px;min-height:75px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;padding:4px 4px 5px;border:0;border-radius:8px;background:rgba(8,15,24,.88);color:#e7eef4;text-align:center;box-shadow:0 2px 8px #0007;touch-action:manipulation}
+.skill-orbit-icon{display:grid;place-items:center;width:34px;height:34px;flex:none;border:1.5px solid #d7e0e8;border-radius:50%;background:radial-gradient(circle at 35% 25%,#f8fafc,#bdc8d1 75%,#657382);color:#1a2530;font-size:17px;box-shadow:0 0 0 3px #0b111b,0 0 10px #dce7f020}
+.skill-orbit-node strong{font-size:9px;line-height:1.15;font-weight:800;max-width:100%}
+.skill-orbit-node small{font-size:7px;line-height:1.2;color:#aebdcb;max-width:100%}
+.skill-orbit-node em{font-size:6px;line-height:1.15;letter-spacing:.1px;font-style:normal;color:#aebdcb;max-width:100%}
+.skill-orbit-node.available .skill-orbit-icon{border-color:#f0d28e;box-shadow:0 0 0 3px #0b111b,0 0 13px #e9c47770}
+.skill-orbit-node.available em{color:#f0d28e}
+.skill-orbit-node.unlocked .skill-orbit-icon{border-color:#a4e7ce;background:radial-gradient(circle at 35% 25%,#effff9,#a4e7ce 75%,#4e9b87);box-shadow:0 0 0 3px #0b111b,0 0 13px #74dcb36b}
+.skill-orbit-node.unlocked em{color:#8ee4bd}
+.skill-orbit-node.locked{opacity:.77;background:rgba(8,15,24,.72)}
+.skill-orbit-node.locked .skill-orbit-icon{border-color:#58697a;background:radial-gradient(circle at 35% 25%,#364353,#111a26 75%);color:#9caaba;box-shadow:0 0 0 3px #0b111b}
+.skill-orbit-node:disabled{cursor:not-allowed}
+.skill-orbit-node:not(:disabled){cursor:pointer}
+.skill-orbit-node:not(:disabled):active .skill-orbit-icon{transform:scale(.94)}
+.skill-orbit-branch-label{position:absolute;z-index:1;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;max-width:115px;text-align:center;color:#d4dee7;text-shadow:0 2px 6px #000}
+.skill-orbit-branch-label strong{font-size:8px;letter-spacing:.6px}
+.skill-orbit-branch-label small{font-size:8px;color:#e8c77f}
+.skill-orbit-point-counter{position:absolute;z-index:3;left:50%;bottom:1.5%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:4px 10px;border-radius:20px;background:#0b121dcc;color:#e9c477;pointer-events:none}
+.skill-orbit-point-counter strong{font-size:15px}
+.skill-orbit-point-counter small{font-size:7px;letter-spacing:.8px;color:#bdcadd;white-space:nowrap}
+@media(max-width:600px){.skill-orbit-canvas{min-width:680px;height:500px}.skill-orbit-node{width:100px}.skill-orbit-node strong{font-size:8px}.skill-orbit-node small{font-size:7px}.skill-orbit-node em{font-size:6px}.skill-orbit-branch-label strong{font-size:7px}}
