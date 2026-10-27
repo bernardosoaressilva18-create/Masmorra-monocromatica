@@ -3324,3 +3324,11 @@ html, body { width:100%; min-width:0; }
 @media(max-width:700px){.camera-zoom-controls{right:max(8px,env(safe-area-inset-right));top:46%;padding:4px;gap:3px}.camera-zoom-controls button{width:35px;height:35px;font-size:25px}}
 @media(orientation:landscape) and (max-height:500px){.camera-zoom-controls{top:48%;right:8px;flex-direction:row}.camera-zoom-controls button{width:31px;height:31px}}
 #hud.hud-edit-mode .camera-zoom-controls{display:none!important}
+
+
+/* Bugfix: keep joystick at the bottom when old saved HUD coordinates were corrupt. */
+@media (pointer:coarse) {
+  #hud #joystick:not([data-hud-custom-position="true"]) { top:auto!important; left:max(9px,env(safe-area-inset-left))!important; right:auto!important; bottom:max(12px,env(safe-area-inset-bottom))!important; }
+}
+/* Legacy zoom controls disabled; camera drag remains the only look gesture. */
+.camera-zoom-controls{display:none!important}
