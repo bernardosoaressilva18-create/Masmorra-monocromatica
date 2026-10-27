@@ -320,6 +320,17 @@ function statsFor(player) {
   const base = CLASS_STATS[player.playerClass] || CLASS_STATS.knight;
   return player.playerClass === 'archer' && hasSkill(player, 'archer_hawkeye') ? { ...base, range: base.range + 1.15 } : base;
 }
+function isTargetInFront(player, target, minimumDot = 0.12) {
+  if (!player || !target) return false;
+  const dx = Number(target.x) - Number(player.x);
+  const dz = Number(target.z) - Number(player.z);
+  const distance = Math.hypot(dx, dz);
+  if (!Number.isFinite(distance)) return false;
+  if (distance < 0.001) return true;
+  const rot = Number(player.rot) || 0;
+  const facingDot = (dx * -Math.sin(rot) + dz * -Math.cos(rot)) / distance;
+  return facingDot >= minimumDot;
+}
 function maxHealthFor(player) {
   return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0) + (hasSkill(player, 'final_blessing') ? 15 : 0)
     + (hasSkill(player, 'knight_fortress') ? 15 : 0) + (hasSkill(player, 'archer_hawkeye') ? 5 : 0)
@@ -1051,7 +1062,9 @@ wss.on('connection', ws => {
       player.abilityCooldowns[ability]=now+Math.max(4500,cooldownMs[ability]-cooldownReduction);
       if(room.gameMode==='pvp_rpg'){
         const rivals=()=>[...room.players.values()].filter(p=>p.connected!==false&&String(p.id)!==String(player.id)&&p.hp>0&&now>=(p.invisibleUntil||0));
-        const nearest=(range=12,origin=player)=>rivals().map(p=>({p,d:Math.hypot(p.x-origin.x,p.z-origin.z)})).filter(e=>e.d<=range).sort((a,b)=>a.d-b.d)[0]?.p||null;
+        const nearest=(range=12,origin=player)=>rivals()
+          .map(p=>({p,d:Math.hypot(p.x-origin.x,p.z-origin.z),facing:isTargetInFront(player,p,0.08)}))
+          .filter(e=>e.d<=range&&e.facing).sort((a,b)=>a.d-b.d)[0]?.p||null;
         const hit=(t,dmg,push=0,stun=0,burnMs=0,origin=player)=>{
           if(!t||t.hp<=0)return;
           applyPvpPlayerDamage(room,player,t,dmg);
@@ -1365,8 +1378,9 @@ wss.on('connection', ws => {
       player.mana=Math.max(0,(player.mana??100)-manaCost);
       const now=Date.now();
       if(room.gameMode==='pvp_rpg'){
-        const candidates=[...room.players.values()].filter(p=>p.connected!==false&&p.id!==player.id&&p.hp>0&&now>=(p.invisibleUntil||0))
-          .map(p=>({p,d:Math.hypot(p.x-player.x,p.z-player.z)})).filter(e=>e.d<=(spell==='fire'?8:10)).sort((a,b)=>a.d-b.d);
+        const candidates=[...room.players.values()].filter(p=>p.connected!==false&&String(p.id)!==String(player.id)&&p.hp>0&&now>=(p.invisibleUntil||0))
+          .map(p=>({p,d:Math.hypot(p.x-player.x,p.z-player.z),facing:isTargetInFront(player,p,spell === 'fire' ? 0.08 : 0)}))
+          .filter(e=>e.d<=(spell==='fire'?8:10)&&e.facing).sort((a,b)=>a.d-b.d);
         const t=candidates[0]?.p;if(!t){ws.send(JSON.stringify({type:'notice',text:'Nenhum rival ao alcance da magia.'}));broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:[]});broadcast(room,state(room));return;}
         const power=statsFor(player).spellPower*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1);
         const damage=Math.max(1,Math.round((spell==='fire'?10:8)*power));applyPvpPlayerDamage(room,player,t,damage);
@@ -1447,7 +1461,9 @@ wss.on('connection', ws => {
         const candidates=[
           ...[...room.players.values()].filter(p=>p.connected!==false&&p.id!==player.id&&p.hp>0&&now>=(p.invisibleUntil||0)).map(entity=>({entity,isPlayer:true})),
           ...room.monsters.filter(m=>m.alive&&m.spawned&&m.pvpSummoned&&String(m.ownerId)!==String(player.id)).map(entity=>({entity,isPlayer:false}))
-        ].map(e=>({...e,d:Math.hypot(e.entity.x-player.x,e.entity.z-player.z)})).filter(e=>e.d<=range).sort((a,b)=>a.d-b.d);
+        ].map(e=>({...e,d:Math.hypot(e.entity.x-player.x,e.entity.z-player.z),
+           facing:isTargetInFront(player,e.entity,player.playerClass==='archer'?0.48:0.12)}))
+          .filter(e=>e.d<=range&&e.facing).sort((a,b)=>a.d-b.d);
         const target=candidates[0];let damage=isMonk?[0,2,3,5][monkCombo]:player.baseDamage+(player.damageBuffHits>0?player.damageBuff:0);
         if(isMonk&&player.damageBuffHits>0)damage+=player.damageBuff;
         if(target){if(target.isPlayer){if(target.entity.hp/(target.entity.maxHp||1)<=.35&&hasSkill(player,'executioner'))damage+=2;applyPvpPlayerDamage(room,player,target.entity,damage);}

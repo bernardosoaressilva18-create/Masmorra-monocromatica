@@ -3808,6 +3808,8 @@ const right = new THREE.Vector3(
       myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
     }
 
+    // Face the view direction even when standing still, so PvP aiming uses the camera.
+    myPlayer.rotation.y = yaw;
     if (performance.now() - lastMove > 120) {
       send({
         type: 'move',
