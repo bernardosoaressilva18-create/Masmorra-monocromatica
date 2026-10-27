@@ -902,687 +902,237 @@ function makeGuardianSpirit(color = 0x8cffe8) {
 }
 
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
+  // Rebuild visual: fewer overlapping decorations, clearer silhouettes and stronger class identity.
   const g = new THREE.Group();
-  const classColor = heroClass === 'mage' ? 0x7565df : heroClass === 'archer' ? 0x4b9965 : heroClass === 'goblin' ? 0x63b448 : heroClass === 'ogre' ? 0xb56d3e : heroClass === 'healer' ? 0x66d8ac : heroClass === 'necromancer' ? 0x9764cc : heroClass === 'skeleton' ? 0xd9d1b9 : heroClass === 'monk' ? 0xd7a05b : 0x72e6ff;
-  // Paletas próprias: cada classe mantém uma identidade mesmo antes de escolher uma skin.
-  const classBasePalette = {
-    knight: { armor:0x2464c5, dark:0x263b4d, trim:0xebb94f, glow:0x65cfff, accent:0xc85161, cloth:0x1d3566 },
-    mage: { armor:0x2455c7, dark:0x38216f, trim:0xf2c65d, glow:0xc45bff, accent:0x9587ff, cloth:0x1c2f6e },
-    archer: { armor:0x1e7f4a, dark:0x383f3a, trim:0xbfa45a, glow:0x6dffb3, accent:0x7fa55a, cloth:0x17502f },
-    goblin: { armor:0x6bbf3a, dark:0x3a3a3a, trim:0xffd86b, glow:0xc6f16c, accent:0x8b5a3c, cloth:0x4a6e22 },
-    ogre: { armor:0xb0533a, dark:0x5a3a2f, trim:0xc9a46a, glow:0xf89b6b, accent:0xf2b647, cloth:0x7a3524 },
-    healer: { armor:0xffffff, dark:0x2e8b57, trim:0xc9a46a, glow:0x7fffd4, accent:0x6bcdb2, cloth:0x2e8b57 },
-    necromancer: { armor:0x1a1a1a, dark:0x2a1a33, trim:0xa58d6a, glow:0xc77dff, accent:0x6a3fbf, cloth:0x3b1f55 },
-    monk: { armor:0xf57c00, dark:0xb22222, trim:0xd7b56d, glow:0xffd86b, accent:0xb22222, cloth:0xd7b56d },
-    golem: { armor:0x777f83,dark:0x343b40,trim:0xd7bb84,glow:0xe1dfc9,accent:0x8d999e,cloth:0x303940 },
-    golem_clone: { armor:0x858b8e,dark:0x42484c,trim:0xb7ad95,glow:0xd2d0c3,accent:0x69777d,cloth:0x3d4449 },
-    skeleton: { armor:0xbeb5a4, dark:0x29242b, trim:0xa98d60, glow:0xb6a4d8, accent:0xa89cba, cloth:0x514453 }
+  const palettes = {
+    knight:{armor:0x3269c4,dark:0x17283e,trim:0xf1c75b,glow:0x79e7ff,cloth:0x173b71,skin:0xd2a27f},
+    mage:{armor:0x5f59cf,dark:0x271b58,trim:0xe9ca77,glow:0xd18bff,cloth:0x34246e,skin:0xd5a986},
+    archer:{armor:0x3f8758,dark:0x263d31,trim:0xd7b66e,glow:0x8af7c4,cloth:0x174d36,skin:0xc99673},
+    goblin:{armor:0x77b943,dark:0x293522,trim:0xeec85e,glow:0xffe77a,cloth:0x426528,skin:0x91b94a},
+    ogre:{armor:0xa95739,dark:0x4a2b24,trim:0xd6b172,glow:0xffa46b,cloth:0x6b3427,skin:0x8a9d45},
+    healer:{armor:0xe6e7dd,dark:0x315b64,trim:0xe7c879,glow:0x83ffe0,cloth:0x2e6471,skin:0xd9b496},
+    necromancer:{armor:0x483650,dark:0x17121f,trim:0x9d7ac4,glow:0xd17cff,cloth:0x302035,skin:0xa59aa7},
+    monk:{armor:0xc67b3c,dark:0x53332a,trim:0xf0d7a1,glow:0xffe18b,cloth:0x9c3d32,skin:0xc99770},
+    golem:{armor:0x737e83,dark:0x384249,trim:0xb3b9b5,glow:0xd8ffab,cloth:0x414c51,skin:0x777f83},
+    golem_clone:{armor:0x858d91,dark:0x424b50,trim:0xbfc4be,glow:0xd9e5cb,cloth:0x424b50,skin:0x858d91},
+    skeleton:{armor:0xd7d0bd,dark:0x292630,trim:0xb29a69,glow:0xd9bdff,cloth:0x514250,skin:0xe0dccb}
   };
-  const classPalette = classBasePalette[heroClass] || classBasePalette.knight;
-  const skinPalette = {
-    default: { ...classPalette, armor: color ?? classPalette.armor },
-    shadow: { armor: 0x343a50, dark: 0x11131d, trim: 0x9187cf, glow: 0xb7a4ff, accent: 0x9a8cff, cloth: 0x25263f },
-    ember: { armor: 0x9b4a2b, dark: 0x3b1915, trim: 0xf0a45b, glow: 0xff7546, accent: 0xff694e, cloth: 0x5b241c },
-    rune: { armor: 0x276b89, dark: 0x102435, trim: 0x70e9ee, glow: 0x6ef9ee, accent: 0x5ddde2, cloth: 0x183e58 },
-    celestial: { armor: 0xd4bd79, dark: 0x33425a, trim: 0xffedb7, glow: 0xfff0b8, accent: 0xffe5a1, cloth: 0x647b91 },
-    bloodmoon: { armor: 0x8f2948, dark: 0x260e20, trim: 0xf07a9c, glow: 0xff527e, accent: 0xf85c80, cloth: 0x4a142c }
+  const base = palettes[heroClass] || palettes.knight;
+  const skins = {
+    default:{armor:color ?? base.armor,dark:base.dark,trim:base.trim,glow:base.glow,cloth:base.cloth},
+    shadow:{armor:0x34394e,dark:0x10131c,trim:0x9d91d4,glow:0xc0aaff,cloth:0x202437},
+    ember:{armor:0x9a482c,dark:0x371b18,trim:0xf0aa62,glow:0xff6b43,cloth:0x58271f},
+    rune:{armor:0x246b85,dark:0x102b3b,trim:0x6feaf0,glow:0x67fff1,cloth:0x173f55},
+    celestial:{armor:0xc8b778,dark:0x29364b,trim:0xfff0bb,glow:0xfff2bd,cloth:0x61748b},
+    bloodmoon:{armor:0x8c2948,dark:0x270d20,trim:0xf07a9c,glow:0xff527e,cloth:0x461329}
   };
-  const palette = skinPalette[skin] || skinPalette.default;
-  const armorColor = palette.armor;
-  const darkColor = palette.dark;
-  // Materiais PBR têm resposta diferente por classe, não apenas uma cor diferente.
-  const surfaceStyle = {
-    knight: { metalness:.54, roughness:.30, cloth:.72, clearcoat:.32 }, mage: { metalness:.31, roughness:.38, cloth:.86, clearcoat:.22 },
-    archer: { metalness:.34, roughness:.43, cloth:.78, clearcoat:.20 }, goblin: { metalness:.24, roughness:.49, cloth:.82, clearcoat:.16 },
-    ogre: { metalness:.28, roughness:.55, cloth:.88, clearcoat:.12 }, healer: { metalness:.40, roughness:.32, cloth:.80, clearcoat:.28 },
-    necromancer: { metalness:.42, roughness:.46, cloth:.90, clearcoat:.20 }, monk: { metalness:.22, roughness:.48, cloth:.76, clearcoat:.14 },
-    skeleton: { metalness:.30, roughness:.58, cloth:.92, clearcoat:.10 }
-  }[heroClass] || { metalness:.42, roughness:.38, cloth:.82, clearcoat:.24 };
-  const armor = new THREE.MeshPhysicalMaterial({ color: armorColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .018, metalness: surfaceStyle.metalness, roughness: surfaceStyle.roughness, clearcoat: surfaceStyle.clearcoat, clearcoatRoughness: .34 });
-  const dark = new THREE.MeshStandardMaterial({ color: darkColor, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .007, metalness: Math.max(.08, surfaceStyle.metalness*.46), roughness: surfaceStyle.roughness + .16 });
-  const skinTone = heroClass === 'goblin' ? 0x8dbb45 : heroClass === 'ogre' ? 0x899c42 : heroClass === 'skeleton' ? 0xe0dccb : heroClass === 'monk' ? 0xc9966c : heroClass === 'archer' ? 0xc99c72 : heroClass === 'necromancer' ? 0xaaa0a8 : heroClass === 'healer' ? 0xd9ae8d : 0xe2b99a;
-  const skinMaterial = new THREE.MeshStandardMaterial({ color: skinTone, roughness: .74, bumpMap: surfaceTexture, bumpScale: .003 });
-  const steelTone = ({knight:0xb7c8d8,mage:0x8e9fcf,archer:0x9c8b6c,goblin:0x788b58,ogre:0x756044,healer:0xe4e9e4,necromancer:0x827887,monk:0xaaa38f,skeleton:0xd7d0c0})[heroClass] || 0xc2d7e4;
-  const steel = new THREE.MeshPhysicalMaterial({ color: steelTone, metalness: ['ogre','goblin','archer','monk'].includes(heroClass) ? .28 : Math.min(.88, surfaceStyle.metalness+.28), roughness: ['ogre','goblin','archer','monk'].includes(heroClass) ? .62 : Math.max(.22, surfaceStyle.roughness-.06), clearcoat: .25, clearcoatRoughness: .3 });
-  const gold = new THREE.MeshPhysicalMaterial({ color: palette.trim, metalness: ['ogre','goblin','archer','monk'].includes(heroClass) ? .34 : .68, roughness: ['ogre','goblin','archer','monk'].includes(heroClass) ? .58 : .32, clearcoat: .25, clearcoatRoughness: .34 });
-  const glow = new THREE.MeshPhysicalMaterial({ color: palette.glow, emissive: palette.glow, emissiveIntensity: 1.0, metalness: .22, roughness: .23, clearcoat: .42 });
-  const classAccentMaterial = new THREE.MeshPhysicalMaterial({ color: palette.accent, emissive: palette.accent, emissiveIntensity: ['mage','healer','necromancer'].includes(heroClass) ? .62 : .30, metalness: .38, roughness: .30, clearcoat: .42, clearcoatRoughness: .29 });
-  const clothMaterial = new THREE.MeshStandardMaterial({ color: palette.cloth, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .010, roughness: surfaceStyle.cloth, metalness: .035 });
-  const add = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
-    const mesh = new THREE.Mesh(geo, material);
-    mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
-    if (!isMobileDevice) { mesh.castShadow = true; mesh.receiveShadow = true; }
-    g.add(mesh); return mesh;
+  const p = skins[skin] || skins.default;
+  const armor = new THREE.MeshPhysicalMaterial({color:p.armor,metalness:heroClass==='monk'||heroClass==='ogre'||heroClass==='goblin'?.22:.48,roughness:heroClass==='golem'?.82:.34,clearcoat:.28,clearcoatRoughness:.34});
+  const dark = new THREE.MeshStandardMaterial({color:p.dark,roughness:.72,metalness:.12});
+  const trim = new THREE.MeshStandardMaterial({color:p.trim,roughness:.3,metalness:.62});
+  const glow = new THREE.MeshStandardMaterial({color:p.glow,emissive:p.glow,emissiveIntensity:1.45,roughness:.24,metalness:.22});
+  const cloth = new THREE.MeshStandardMaterial({color:p.cloth,roughness:.88,metalness:.02});
+  const skin = new THREE.MeshStandardMaterial({color:base.skin,roughness:.79});
+  const steel = new THREE.MeshStandardMaterial({color:heroClass==='golem'?0x69757c:0xbecbd6,roughness:.28,metalness:.72});
+  const accent = new THREE.MeshStandardMaterial({color:base.glow,emissive:base.glow,emissiveIntensity:.48,roughness:.3,metalness:.35});
+  const add = (geo, material, x,y,z,sx=1,sy=1,sz=1,parent=g) => {
+    const m = new THREE.Mesh(geo,material); m.position.set(x,y,z); m.scale.set(sx,sy,sz);
+    if(!isMobileDevice){m.castShadow=true;m.receiveShadow=true;} parent.add(m); return m;
   };
-  // Rig de cabeça independente: cabelo, rosto e elmo acompanham o movimento sem se separar.
-  const headRig = new THREE.Group();
-  headRig.position.y = 1.94;
-  g.add(headRig);
-  const addHead = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
-    const mesh = new THREE.Mesh(geo, material);
-    mesh.position.set(x, y - 1.94, z);
-    mesh.scale.set(sx, sy, sz);
-    if (!isMobileDevice) { mesh.castShadow = true; mesh.receiveShadow = true; }
-    headRig.add(mesh);
-    return mesh;
-  };
-  // Botas, pernas e braços guardados para animação procedural de caminhada.
-  const legs = [], arms = [];
-  let torsoMesh = null, headMesh = null;
-  for (const side of [-1,1]) {
-    // Quadril: a perna gira pelo topo em vez do centro da cápsula.
-    const legPivot = new THREE.Group();
-    legPivot.position.set(side*.2,.68,0);
-    g.add(legPivot);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.135,.34,12,20), dark);
-    leg.position.set(0,-.21,0);
-    if (!isMobileDevice) { leg.castShadow = true; leg.receiveShadow = true; }
-    legPivot.add(leg);
-    legs.push({ mesh: legPivot, side });
-    const boot = new THREE.Mesh(new THREE.CapsuleGeometry(.13,.12,5,10), steel);
-    boot.position.set(0,-.49,-.09);
-    boot.rotation.x = Math.PI / 2;
-    boot.scale.set(1,1,1.18);
-    if (!isMobileDevice) { boot.castShadow = true; boot.receiveShadow = true; }
-    legPivot.add(boot);
-    const toeCap = new THREE.Mesh(new THREE.SphereGeometry(.105,12,8), dark);
-    toeCap.position.set(0,-.49,-.235);
-    toeCap.scale.set(1.2,.48,.7);
-    legPivot.add(toeCap);
-    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.135,16,12), gold);
-    kneePad.position.set(0,-.285,-.035);
-    kneePad.scale.set(.9,.58,.82);
-    if (!isMobileDevice) { kneePad.castShadow = true; kneePad.receiveShadow = true; }
-    legPivot.add(kneePad);
-    const kneeJoint = new THREE.Mesh(new THREE.SphereGeometry(.105,14,10), dark);
-    kneeJoint.position.set(0,-.285,-.012);
-    kneeJoint.scale.set(.9,.9,.82);
-    legPivot.add(kneeJoint);
-    // Ombro: o braço acompanha uma articulação dedicada.
-    const armPivot = new THREE.Group();
-    armPivot.position.set(side*.48,1.51,0);
-    g.add(armPivot);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.12,.42,12,20), armor);
-    arm.position.set(0,-.22,0);
-    arm.rotation.z=side*-.12;
-    if (!isMobileDevice) { arm.castShadow = true; arm.receiveShadow = true; }
-    armPivot.add(arm);
-    // Cotovelo e antebraço separados para dar leitura de articulação durante o passo.
-    const elbow = new THREE.Group();
-    elbow.position.set(0,-.39,0);
-    armPivot.add(elbow);
-    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(.105,14,10), steel);
-    elbowJoint.position.set(0,0,-.008);
-    elbow.add(elbowJoint);
-    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.095,.24,10,18), dark);
-    forearm.position.set(0,-.13,-.005);
-    if (!isMobileDevice) { forearm.castShadow = true; forearm.receiveShadow = true; }
-    elbow.add(forearm);
-    const wrist = new THREE.Mesh(new THREE.SphereGeometry(.075,14,10), gold);
-    wrist.position.set(0,-.27,-.01);
-    elbow.add(wrist);
-    armPivot.userData.elbow = elbow;
-    arms.push({ mesh: armPivot, side });
-    add(new THREE.SphereGeometry(.14,16,12), steel, side*.48,1.49,0,1.08,.65,1.0);
-    add(new THREE.CapsuleGeometry(.12,.19,8,16), dark, side*.49,.91,-.015);
-    add(new THREE.SphereGeometry(.105,20,16), gold, side*.49,.83,-.02);
-  }
-  // Peitoral em camadas, gola e cinto
-  torsoMesh = add(new THREE.CapsuleGeometry(.36,.5,14,24), armor, 0,1.22,0,.98,1.03,.88);
-  add(new THREE.SphereGeometry(.27,20,14), steel, 0,1.25,-.31,1.25,1.18,.34);
-  add(new THREE.OctahedronGeometry(.12,1), glow, 0,1.27,-.395,.9,1.2,.55);
-  add(new THREE.BoxGeometry(.64,.12,.43), dark, 0,.91,0);
-  add(new THREE.BoxGeometry(.15,.15,.08), gold, 0,.91,-.23);
-  // Capa dividida em painéis para dar silhueta de aventureiro
-  const cape=add(new THREE.CapsuleGeometry(.30,.32,6,12), dark,0,1.23,.29,1,.78,.22);
-  cape.rotation.x=-.08;
-  // Back-facing crest and metal hems make the third-person silhouette readable.
-  for (const y of [1.53,1.39,1.25,1.11]) add(new THREE.BoxGeometry(.43,.018,.018), gold,0,y,.371);
-  add(new THREE.BoxGeometry(.024,.59,.02), gold,-.245,1.24,.371);
-  add(new THREE.BoxGeometry(.024,.59,.02), gold,.245,1.24,.371);
-  const capeCrest=add(new THREE.OctahedronGeometry(.105,1),classAccentMaterial,0,1.34,.39,.8,1.1,.42);
-  capeCrest.rotation.z=Math.PI/4;
-  add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
-  // Placas de antebraço, rebites e costuras no peitoral deixam as classes menos lisas.
-  for (const side of [-1, 1]) {
-    const bracer = add(new THREE.BoxGeometry(.20,.23,.13), steel, side*.49,1.17,-.105,.92,1,.82);
-    bracer.rotation.z = side * -.13;
-    add(new THREE.SphereGeometry(.038,12,8), gold, side*.49,1.18,-.184);
-    add(new THREE.BoxGeometry(.12,.025,.025), gold, side*.49,1.07,-.175);
-  }
-  for (const y of [1.06,1.13,1.20]) {
-    add(new THREE.BoxGeometry(.28,.018,.018), gold,0,y,-.374);
-  }
-  // Cintos laterais e pequenas bolsas para reforçar a silhueta de aventureiro.
-  for (const side of [-1,1]) {
-    const pouch = add(new THREE.BoxGeometry(.13,.16,.12), clothMaterial, side*.31,.91,-.08);
-    pouch.rotation.z = side * -.12;
-    add(new THREE.BoxGeometry(.10,.025,.025), gold, side*.31,.94,-.15);
-  }
-  // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
-  headMesh = addHead(new THREE.SphereGeometry(.27,32,24), skinMaterial,0,1.94,-.015,
-    heroClass === 'ogre' ? 1.28 : heroClass === 'goblin' ? .93 : 1,
-    heroClass === 'ogre' ? 1.12 : heroClass === 'goblin' ? 1.04 : 1,
-    heroClass === 'ogre' ? 1.12 : 1);
-  const baseHair = addHead(new THREE.SphereGeometry(.275,24,16,0,Math.PI*2,0,Math.PI*.48), dark,0,2.075,.005);
-  baseHair.visible = !['mage','archer','healer','necromancer','skeleton'].includes(heroClass);
-  if (heroClass === 'goblin') {
-    const eyeMat = new THREE.MeshStandardMaterial({color:0xd9d56a,emissive:0x817c24,emissiveIntensity:.35});
-    for (const side of [-1,1]) {
-      const ear = addHead(new THREE.ConeGeometry(.095,.34,4), skinMaterial, side*.32,2.00,.005,1,1,.62);
-      ear.rotation.z = side * -.88;
-      addHead(new THREE.SphereGeometry(.052,8,6), eyeMat, side*.09,1.96,-.239);
+  const legs=[], arms=[], decorativeParts=[];
+  const headRig = new THREE.Group(); headRig.position.y=1.78; g.add(headRig);
+  const addHead = (geo,material,x,y,z,sx=1,sy=1,sz=1) => add(geo,material,x,y-1.78,z,sx,sy,sz,headRig);
+  let torso=null, head=null, cape=null, classWeapon=null, classCharm=null, classShield=null, waistSigil=null;
+  const clothClasses=['mage','archer','healer','necromancer'];
+  const bulky=heroClass==='ogre'||heroClass==='golem'||heroClass==='golem_clone';
+  const tiny=heroClass==='goblin';
+  // Lower body: separate pivots give the gait a clear, readable stride.
+  const legMat=heroClass==='golem'||heroClass==='golem_clone'?armor:dark;
+  for(const side of [-1,1]){
+    const pivot=new THREE.Group();pivot.position.set(side*(bulky?.29:.19),.64,0);g.add(pivot);
+    if(heroClass==='golem'||heroClass==='golem_clone'){
+      const shin=add(new THREE.DodecahedronGeometry(.22,1),armor,0,-.22,0,1,.95,.9,pivot);
+      shin.rotation.z=side*.08;
+      add(new THREE.DodecahedronGeometry(.22,0),dark,0,-.43,-.08,1.2,.55,1.35,pivot);
+      add(new THREE.BoxGeometry(.11,.035,.04),glow,0,-.25,-.19,1,1,.5,pivot);
+    }else{
+      const leg=add(new THREE.CapsuleGeometry(tiny?.10:.13,.32,5,9),legMat,0,-.20,0,1,1,1,pivot);
+      const boot=add(new THREE.BoxGeometry(tiny?.20:.27,.14,.38),steel,0,-.43,-.055,1,.82,1,pivot);
+      add(new THREE.BoxGeometry(.20,.035,.04),trim,0,-.36,-.24,1,1,1,pivot);
+      legs.push({mesh:pivot,side});
     }
-  } else if (heroClass === 'ogre') {
-    for (const side of [-1,1]) {
-      const tusk = addHead(new THREE.ConeGeometry(.075,.23,6), new THREE.MeshStandardMaterial({color:0xf1e0b3,roughness:.6}), side*.15,1.79,-.205);
-      tusk.rotation.z = Math.PI + side*.18;
-      addHead(new THREE.SphereGeometry(.075,8,6), dark, side*.27,1.91,-.11,1.2,.8,.7);
+    if(heroClass==='golem'||heroClass==='golem_clone') legs.push({mesh:pivot,side});
+  }
+  // Core torso: robe silhouettes for casters, hard angular masses for tanks.
+  if(heroClass==='golem'||heroClass==='golem_clone'){
+    torso=add(new THREE.DodecahedronGeometry(.52,1),armor,0,1.12,0,1.22,1.05,.88);
+    torso.rotation.z=.03;
+    add(new THREE.DodecahedronGeometry(.36,1),dark,0,1.12,-.41,1.0,.9,.42);
+    waistSigil=add(new THREE.OctahedronGeometry(.17,1),glow,0,1.17,-.61,.8,1.18,.5);
+    for(const side of [-1,1]){
+      const shoulder=add(new THREE.DodecahedronGeometry(.32,1),armor,side*.57,1.48,0,1.1,1,.95);
+      shoulder.rotation.z=side*-.18;
+      add(new THREE.ConeGeometry(.10,.28,5),dark,side*.63,1.76,.02).rotation.z=side*-.38;
+      add(new THREE.DodecahedronGeometry(.21,0),armor,side*.53,.98,-.04,1.1,1.15,.95);
     }
-    addHead(new THREE.ConeGeometry(.09,.20,5), dark, -.12,2.25,.02,1,1,.8).rotation.z = -.3;
-    addHead(new THREE.ConeGeometry(.09,.20,5), dark, .12,2.25,.02,1,1,.8).rotation.z = .3;
-  }
-  // Face pass: readable eye sockets, pupils and brows from the normal game camera.
-  const faceBand = addHead(new THREE.BoxGeometry(.29,.065,.16), dark,0,2.04,-.17);
-  faceBand.visible = heroClass === 'knight' || heroClass === 'skeleton';
-  const eyeSocketMat = new THREE.MeshStandardMaterial({ color: 0x101522, roughness: .58 });
-  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x172238, metalness: .12, roughness: .28 });
-  for (const side of [-1,1]) {
-    addHead(new THREE.SphereGeometry(.038,12,8), eyeSocketMat,side*.09,1.96,-.244,1.15,1,.55);
-    addHead(new THREE.SphereGeometry(.021,12,8), glow,side*.09,1.96,-.263,1.05,1,.45);
-    addHead(new THREE.SphereGeometry(.014,10,8), pupilMat,side*.09,1.96,-.271,1,1,.4);
-    const brow = addHead(new THREE.CapsuleGeometry(.015,.055,4,8), dark,side*.09,2.015,-.245,1,.75,.65);
-    brow.rotation.z = side * -.12;
-  }
-  addHead(new THREE.SphereGeometry(.028,12,8), skinMaterial,0,1.91,-.255,.72,.9,.58);
-  // Update visual do herói: rosto, cabelo e silhueta mais legíveis.
-  const neck = add(new THREE.CylinderGeometry(.105,.13,.20,10), skinMaterial, 0,1.72,-.005);
-  const hairMat = new THREE.MeshStandardMaterial({ color: heroClass === 'skeleton' ? 0x37313d : darkColor, roughness:.86, map:surfaceTexture, bumpMap:surfaceTexture, bumpScale:.006 });
-  const hairCap = addHead(new THREE.SphereGeometry(.258,16,10,0,Math.PI*2,0,Math.PI*.56), hairMat, 0,2.075,.012,1.04,.76,1.02);
-  hairCap.visible = !['mage','archer','healer','necromancer'].includes(heroClass) && heroClass !== 'skeleton';
-  for (const side of [-1,1]) {
-    const sideLock = addHead(new THREE.CapsuleGeometry(.05,.13,4,7), hairMat, side*.215,2.00,-.005,.85,1,.8);
-    sideLock.rotation.z = side * -.10;
-    sideLock.visible = hairCap.visible;
-  }
-  const fringe = addHead(new THREE.SphereGeometry(.14,12,8), hairMat, 0,2.075,-.205,1.3,.42,.30);
-  fringe.rotation.z = -.06;
-  fringe.visible = hairCap.visible;
-  // Nariz, boca e orelhas dão volume ao rosto visto de perto.
-  addHead(new THREE.SphereGeometry(.028,10,8), skinMaterial, 0,1.925,-.275,.72,1,.72);
-  addHead(new THREE.BoxGeometry(.07,.014,.012), dark, 0,1.865,-.264);
-  for (const side of [-1,1]) {
-    if (!['goblin','ogre'].includes(heroClass)) {
-      const ear = addHead(new THREE.SphereGeometry(.045,10,8), skinMaterial, side*.25,1.94,-.005,.72,1.18,.55);
-      ear.rotation.z = side*.12;
-    }
-    addHead(new THREE.SphereGeometry(.018,8,6), palette.accent ? classAccentMaterial : gold, side*.15,1.88,-.235,.8,.7,.55);
-  }
-  // Camadas de ombreira, braçadeiras e luvas com materiais contrastantes.
-  for (const side of [-1,1]) {
-    const shoulderLayer = add(new THREE.SphereGeometry(.16,12,8), armor, side*.49,1.53,-.015,1.08,.65,.9);
-    shoulderLayer.rotation.z = side*-.16;
-    const shoulderRivet = add(new THREE.OctahedronGeometry(.043,0), gold, side*.49,1.55,-.205);
-    shoulderRivet.rotation.z = Math.PI/4;
-    add(new THREE.TorusGeometry(.105,.018,5,12), dark, side*.48,1.02,-.015).rotation.x=Math.PI/2;
-    add(new THREE.SphereGeometry(.105,10,8), dark, side*.49,.84,-.045,1,.78,.8);
-    const thighGuard = add(new THREE.BoxGeometry(.18,.20,.07), armor, side*.20,.61,-.12);
-    thighGuard.rotation.z = side*-.08;
-    add(new THREE.BoxGeometry(.14,.025,.02), gold, side*.20,.64,-.18);
-    add(new THREE.BoxGeometry(.22,.04,.25), dark, side*.2,.19,-.015);
-    add(new THREE.BoxGeometry(.16,.014,.02), gold, side*.2,.21,-.16);
-  }
-  // Cinto com fivela tridimensional e bolsa de equipamento lateral.
-  add(new THREE.BoxGeometry(.24,.17,.055), dark, -.29,.91,-.20);
-  add(new THREE.BoxGeometry(.12,.12,.045), gold, 0,.92,-.29);
-  add(new THREE.BoxGeometry(.065,.065,.05), classAccentMaterial, 0,.92,-.32);
-  add(new THREE.BoxGeometry(.10,.15,.085), clothMaterial, .34,.88,.02);
-  add(new THREE.BoxGeometry(.12,.025,.09), gold, .34,.97,.02);
-  // Emblema e fecho traseiro para a silhueta não parecer um boneco liso.
-  add(new THREE.OctahedronGeometry(.10,1), classAccentMaterial, 0,1.57,.39,.8,1.15,.45);
-  add(new THREE.TorusGeometry(.14,.018,5,16), gold, 0,1.57,.40).rotation.x=Math.PI/2;
-  add(new THREE.BoxGeometry(.34,.025,.035), gold, 0,1.05,.38);
-  // Costuras de tecido e pequenas placas de canela e botas.
-  for (const side of [-1,1]) {
-    add(new THREE.BoxGeometry(.10,.22,.04), steel, side*.20,.39,-.16);
-    add(new THREE.BoxGeometry(.12,.025,.045), gold, side*.20,.31,-.19);
-    add(new THREE.SphereGeometry(.035,8,6), classAccentMaterial, side*.31,.89,-.27);
-  }
-  // Passe de acabamento: silhueta de RPG estilizado, com placas sobrepostas e detalhes legíveis à distância.
-  // Peitoral em camadas com contorno, emblema central e gola para dar mais volume ao tronco.
-  add(new THREE.SphereGeometry(.285,20,14), armor, 0,1.34,-.285,1.08,.73,.28);
-  add(new THREE.TorusGeometry(.205,.018,6,24), gold, 0,1.34,-.365).rotation.x=Math.PI/2;
-  const chestSigil = add(new THREE.OctahedronGeometry(.105,1), classAccentMaterial, 0,1.34,-.39,.8,1.15,.55);
-  chestSigil.rotation.z=Math.PI/4;
-  add(new THREE.BoxGeometry(.42,.045,.045), steel, 0,1.58,-.20);
-  add(new THREE.BoxGeometry(.28,.035,.035), gold, 0,1.62,-.205);
-  // Ombreiras facetadas com filete metálico e rebites, sem alterar a hitbox.
-  for (const side of [-1,1]) {
-    const pauldron = add(new THREE.SphereGeometry(.205,16,12), armor, side*.49,1.56,-.015,1.12,.72,1.0);
-    pauldron.rotation.z=side*-.18;
-    const rim = add(new THREE.TorusGeometry(.145,.014,5,16), gold, side*.49,1.53,-.12);
-    rim.rotation.x=Math.PI/2;
-    add(new THREE.OctahedronGeometry(.055,0), classAccentMaterial, side*.49,1.61,-.19,.9,1.15,.7);
-    // Duas linhas de acabamento nas braçadeiras dão leitura de equipamento artesanal.
-    add(new THREE.TorusGeometry(.105,.012,5,12), gold, side*.49,1.12,-.015).rotation.x=Math.PI/2;
-    add(new THREE.BoxGeometry(.105,.018,.025), steel, side*.49,1.02,-.105);
-  }
-  // Placas de tecido frontais e bainha dourada para uma silhueta menos cilíndrica.
-  const frontTabard = add(new THREE.BoxGeometry(.30,.36,.045), clothMaterial, 0,.70,-.205);
-  frontTabard.rotation.x=-.08;
-  add(new THREE.ConeGeometry(.16,.13,5), clothMaterial, 0,.455,-.205,1,.75,.55);
-  add(new THREE.BoxGeometry(.32,.025,.035), gold, 0,.54,-.235);
-  add(new THREE.BoxGeometry(.085,.085,.035), classAccentMaterial, 0,.76,-.238);
-  // Acabamento das botas: biqueira, fivela e pequenas proteções laterais.
-  for (const side of [-1,1]) {
-    add(new THREE.BoxGeometry(.15,.045,.055), steel, side*.20,.17,-.18);
-    add(new THREE.SphereGeometry(.028,8,6), gold, side*.20,.18,-.215);
-  }
-  // Fim do passe de silhueta: detalhes cosméticos não mudam colisão nem atributos.
-  // Ombreiras e pequenos rebites metálicos
-  for (const side of [-1,1]) {
-    const pad=add(new THREE.SphereGeometry(.22,12,8), steel,side*.48,1.51,0,1.15,.7,1.0);
-    pad.rotation.z=side*-.2;
-    add(new THREE.SphereGeometry(.045,8,6), gold,side*.48,1.53,-.19);
-  }
-  // Espada com lâmina facetada, guarda dourada e pomo
-  const sword = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.CylinderGeometry(.018,.065,.72,4), steel); blade.position.y=.48; sword.add(blade);
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(.012,.62,.022), glow); edge.position.set(.036,.48,-.025); sword.add(edge);
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(.31,.065,.12), gold); guard.position.y=.12; sword.add(guard);
-  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.2,16), dark); grip.position.y=.015; sword.add(grip);
-  const pommel = new THREE.Mesh(new THREE.SphereGeometry(.07,8,6), gold); pommel.position.y=-.09; sword.add(pommel);
-  sword.position.set(.57,1.0,-.12); sword.rotation.z=-.25; g.add(sword);
-  sword.visible = heroClass === 'knight';
-  let classWeapon = sword;
-  if (heroClass === 'mage') {
-    const staff = new THREE.Group();
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,.95,16), gold); shaft.position.y=.4; staff.add(shaft);
-    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.18,1), glow); orb.position.y=.98; staff.add(orb); staff.userData.orb = orb;
-    staff.position.set(.52,.65,-.04); staff.rotation.z=-.12; g.add(staff); classWeapon = staff;
-  } else if (heroClass === 'healer') {
-    const staff = new THREE.Group();
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.047,.07,1.12,8), gold); shaft.position.y=.43; staff.add(shaft);
-    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(.19,2), new THREE.MeshStandardMaterial({color:0x8ffff0,emissive:0x23bf91,emissiveIntensity:1.7,metalness:.3,roughness:.2})); crystal.position.y=1.03; staff.add(crystal); staff.userData.orb = crystal;
-    const halo = new THREE.Mesh(new THREE.TorusGeometry(.23,.025,6,20), new THREE.MeshStandardMaterial({color:0xc8fff0,emissive:0x3ad7ab,emissiveIntensity:.8})); halo.position.y=1.03; halo.rotation.x=Math.PI/2; staff.add(halo); staff.userData.halo = halo;
-    staff.position.set(.52,.58,-.04); staff.rotation.z=-.12; g.add(staff); classWeapon = staff;
-  } else if (heroClass === 'necromancer') {
-    const staff = new THREE.Group();
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.05,.075,1.18,7), dark); shaft.position.y=.42; staff.add(shaft);
-    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(.19,1), new THREE.MeshStandardMaterial({color:0xc6a1ff,emissive:0x6e26b8,emissiveIntensity:1.9,roughness:.22})); orb.position.y=1.04; staff.add(orb); staff.userData.orb = orb;
-    const boneRing = new THREE.Mesh(new THREE.TorusGeometry(.23,.027,5,16), steel); boneRing.position.y=1.04; boneRing.rotation.x=Math.PI/2; staff.add(boneRing); staff.userData.halo = boneRing;
-    staff.position.set(.52,.56,-.04); staff.rotation.z=-.14; g.add(staff); classWeapon = staff;
-  } else if (heroClass === 'archer') {
-    const bow = new THREE.Group();
-    const arc = new THREE.Mesh(new THREE.TorusGeometry(.34,.045,6,18,Math.PI*1.25), gold); arc.rotation.z=-Math.PI*.62; bow.add(arc);
-    const string = new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.66,5), steel); string.position.set(-.12,0,0); string.rotation.z=Math.PI*.1; bow.add(string);
-    bow.position.set(.56,1.08,-.08); bow.rotation.z=-.18; g.add(bow); classWeapon = bow;
-  } else if (heroClass === 'goblin') {
-    const daggers = new THREE.Group();
-    for (const side of [-1,1]) {
-      const blade = new THREE.Mesh(new THREE.ConeGeometry(.075,.52,5), steel);
-      blade.position.set(side*.08,.27,0); blade.rotation.z = Math.PI + side*.18; daggers.add(blade);
-      const grip = new THREE.Mesh(new THREE.CylinderGeometry(.035,.045,.18,6), dark);
-      grip.position.set(side*.08,-.06,0); daggers.add(grip);
-    }
-    daggers.position.set(.55,1.02,-.13); daggers.rotation.z=-.20; g.add(daggers); classWeapon = daggers;
-  } else if (heroClass === 'ogre') {
-    const club = new THREE.Group();
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(.07,.10,.95,16), dark);
-    handle.position.y=.32; handle.rotation.z=-.12; club.add(handle);
-    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(.25,1), new THREE.MeshStandardMaterial({color:0x795239,roughness:.88}));
-    head.position.set(.04,.83,0); head.scale.set(1.1,1,.92); club.add(head);
-    for (const side of [-1,1]) {
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(.055,.18,10), gold);
-      spike.position.set(side*.20,.85,0); spike.rotation.z=side*-Math.PI/2; club.add(spike);
-    }
-    club.position.set(.58,.78,-.12); club.rotation.z=-.30; g.add(club); classWeapon = club;
-  } else if (heroClass === 'monk') {
-    // O monge combate desarmado, com faixas e punhos reforçados.
-    classWeapon = new THREE.Group();
-    for (const side of [-1,1]) {
-      const wrap = new THREE.Mesh(new THREE.TorusGeometry(.105,.035,5,12), new THREE.MeshStandardMaterial({color:0xe8d1a5,roughness:.78}));
-      wrap.position.set(side*.49,1.04,-.16); wrap.rotation.y=Math.PI/2; g.add(wrap);
-      const fist = new THREE.Mesh(new THREE.SphereGeometry(.105,20,16), new THREE.MeshStandardMaterial({color:0xd7a05b,roughness:.8}));
-      fist.position.set(side*.5,.92,-.18); fist.scale.set(1.0,.9,1.1); g.add(fist);
+  }else{
+    torso=add(heroClass==='ogre'?new THREE.CapsuleGeometry(.43,.53,7,12):heroClass==='monk'?new THREE.CapsuleGeometry(.31,.48,7,12):new THREE.CapsuleGeometry(.32,.48,7,12),heroClass==='ogre'?skin:armor,0,1.14,0,heroClass==='ogre'?1.28:1.0,heroClass==='ogre'?1.1:1,heroClass==='ogre'?1.02:.9);
+    if(clothClasses.includes(heroClass)){
+      add(new THREE.ConeGeometry(heroClass==='healer'?.42:.39,.78,8),cloth,0,.77,.02,1,1,.9);
+      add(new THREE.BoxGeometry(.055,.51,.035),trim,0,.91,-.36);
+      if(heroClass==='healer') add(new THREE.BoxGeometry(.31,.07,.04),glow,0,1.02,-.39);
+    }else{
+      add(new THREE.BoxGeometry(.50,.10,.38),dark,0,.89,0);
+      add(new THREE.BoxGeometry(.10,.12,.05),trim,0,.89,-.22);
+      add(new THREE.OctahedronGeometry(.12,1),accent,0,1.22,-.34,.85,1.15,.5);
+      add(new THREE.TorusGeometry(.16,.018,5,18),trim,0,1.22,-.36).rotation.x=Math.PI/2;
     }
   }
-  // Detail pass: layered armor, class sigils, trim and distinct silhouettes.
-  const collar = add(new THREE.TorusGeometry(.205,.035,6,20), gold, 0,1.56,0);
-  collar.rotation.x = Math.PI / 2;
-  add(new THREE.OctahedronGeometry(.145,1), classAccentMaterial, 0,1.29,-.405,.78,1.12,.42);
-  for (const y of [1.10,1.18,1.26]) add(new THREE.BoxGeometry(.34,.018,.025), gold, 0,y,-.405);
-  for (const side of [-1,1]) {
-    const vambrace = add(new THREE.BoxGeometry(.15,.24,.075), steel, side*.48,1.12,-.16);
-    vambrace.rotation.z = side * -.12;
-    const shoulderTrim = add(new THREE.TorusGeometry(.185,.022,5,18), gold, side*.48,1.51,-.135);
-    shoulderTrim.scale.set(1.15,.74,1);
-    add(new THREE.BoxGeometry(.075,.46,.045), classAccentMaterial, side*.20,1.22,-.382).rotation.z = side*.22;
+  // Arms use shoulder pivots, forearm guards and simplified gloves.
+  for(const side of [-1,1]){
+    const pivot=new THREE.Group();pivot.position.set(side*(bulky?.53:.43),1.40,0);g.add(pivot);
+    const armMaterial=heroClass==='ogre'||heroClass==='monk'||heroClass==='goblin'?skin:(heroClass==='golem'||heroClass==='golem_clone'?armor:armor);
+    if(heroClass==='golem'||heroClass==='golem_clone'){
+      add(new THREE.DodecahedronGeometry(.25,1),armMaterial,0,-.18,0,1.0,1.12,.95,pivot);
+      const fist=add(new THREE.DodecahedronGeometry(.23,1),armor,0,-.49,-.03,1.18,.95,1.12,pivot);
+      fist.rotation.z=side*.12;
+      add(new THREE.BoxGeometry(.09,.035,.035),glow,0,-.48,-.23,1,1,.5,pivot);
+    }else{
+      const upper=add(new THREE.CapsuleGeometry(heroClass==='ogre'?.16:.105,.32,5,9),armMaterial,0,-.15,0,1,1,1,pivot);
+      upper.rotation.z=side*-.08;
+      add(new THREE.SphereGeometry(.13,10,8),steel,0,-.36,-.02,1,.9,.85,pivot);
+      add(new THREE.CapsuleGeometry(.10,.22,4,8),heroClass==='monk'?skin:dark,0,-.48,-.02,1,1,1,pivot);
+    }
+    arms.push({mesh:pivot,side});
+    add(new THREE.SphereGeometry(.16,10,8),armor,side*(bulky?.53:.43),1.42,0,1.15,.82,.9);
+    if(heroClass!=='mage'&&heroClass!=='healer'&&heroClass!=='necromancer') add(new THREE.OctahedronGeometry(.045,0),trim,side*(bulky?.53:.43),1.45,-.14);
   }
-  add(new THREE.BoxGeometry(.18,.15,.10), dark, -.26,.90,-.245);
-  add(new THREE.BoxGeometry(.18,.15,.10), dark, .26,.90,-.245);
-  add(new THREE.BoxGeometry(.08,.07,.035), gold, -.26,.90,-.306);
-  add(new THREE.BoxGeometry(.08,.07,.035), gold, .26,.90,-.306);
-  const capeTailL = add(new THREE.ConeGeometry(.19,.54,5), clothMaterial, -.19,.73,.33,1,.92,.48);
-  capeTailL.rotation.z = .10;
-  const capeTailR = add(new THREE.ConeGeometry(.19,.54,5), dark, .19,.73,.33,1,.92,.48);
-  capeTailR.rotation.z = -.10;
-  if (heroClass === 'goblin') {
-    g.scale.setScalar(.88);
-    cape.visible = false; capeTailL.visible = false; capeTailR.visible = false;
-    addHead(new THREE.BoxGeometry(.22,.09,.16), dark, 0,1.87,-.24);
-    addHead(new THREE.BoxGeometry(.12,.035,.06), gold, 0,1.88,-.29);
-  } else if (heroClass === 'ogre') {
-    g.scale.setScalar(1.18);
-    cape.visible = false; capeTailL.visible = false; capeTailR.visible = false;
-    addHead(new THREE.BoxGeometry(.42,.20,.14), dark, 0,1.54,-.25);
-    addHead(new THREE.BoxGeometry(.24,.06,.05), gold, 0,1.54,-.34);
-  } else if (heroClass === 'knight') {
-    addHead(new THREE.BoxGeometry(.38,.075,.095), steel, 0,2.08,-.205);
-    addHead(new THREE.BoxGeometry(.10,.23,.09), steel, -.215,1.91,-.12);
-    addHead(new THREE.BoxGeometry(.10,.23,.09), steel, .215,1.91,-.12);
-    addHead(new THREE.ConeGeometry(.085,.27,5), gold, 0,2.30,.015);
-    addHead(new THREE.BoxGeometry(.22,.035,.045), classAccentMaterial, 0,2.02,-.25);
-  } else if (heroClass === 'mage') {
-    const hood = addHead(new THREE.ConeGeometry(.30,.34,8), clothMaterial, 0,2.19,.045);
-    hood.rotation.x = -.08;
-    add(new THREE.ConeGeometry(.43,.58,8), clothMaterial, 0,.78,.02,1,.86,.72);
-    add(new THREE.OctahedronGeometry(.105,1), classAccentMaterial, 0,1.58,-.18,1,1.15,.72);
-    const focusHalo = add(new THREE.TorusGeometry(.13,.018,5,18), classAccentMaterial, 0,1.58,-.21);
-    focusHalo.rotation.x = Math.PI / 2;
-  } else if (heroClass === 'archer') {
-    const hood = addHead(new THREE.ConeGeometry(.285,.36,7), clothMaterial, 0,2.18,.035);
-    hood.rotation.x = -.05;
-    add(new THREE.ConeGeometry(.29,.36,6), clothMaterial, 0,1.40,.34,1,.86,.44);
-    const quiver = add(new THREE.CylinderGeometry(.085,.11,.52,8), dark, -.32,1.23,.34);
-    quiver.rotation.z = -.14;
-    for (let i=0;i<3;i++) {
-      add(new THREE.CylinderGeometry(.009,.013,.44,5), gold, -.39+i*.065,1.49,.34).rotation.z = -.12 + i*.08;
-      add(new THREE.ConeGeometry(.026,.09,5), steel, -.39+i*.065,1.75,.34);
+  // A headgroup gives each class a distinct silhouette and visible facial focus.
+  if(heroClass==='golem'||heroClass==='golem_clone'){
+    head=addHead(new THREE.DodecahedronGeometry(.30,1),armor,0,1.92,-.01,1.08,1,.9);
+    for(const side of [-1,1]){
+      addHead(new THREE.SphereGeometry(.052,10,8),glow,side*.105,1.94,-.27,1,.85,.55);
+      addHead(new THREE.ConeGeometry(.09,.18,5),dark,side*.20,2.17,.0).rotation.z=side*-.35;
     }
-    const strap = add(new THREE.BoxGeometry(.075,.60,.035), gold, -.10,1.22,-.385);
-    strap.rotation.z = -.27;
-  } else if (heroClass === 'healer') {
-    add(new THREE.ConeGeometry(.43,.72,8), clothMaterial, 0,.79,.03,1,.9,.8);
-    const hood = addHead(new THREE.ConeGeometry(.30,.38,8), clothMaterial,0,2.17,.03);
-    hood.rotation.x=-.08;
-    add(new THREE.TorusGeometry(.19,.035,6,18),gold,0,1.57,0).rotation.x=Math.PI/2;
-    add(new THREE.OctahedronGeometry(.13,1),new THREE.MeshStandardMaterial({color:0xc4fff0,emissive:0x39dba7,emissiveIntensity:1.1}),0,1.28,-.43,.8,1.2,.55);
-    for (const side of [-1,1]) add(new THREE.BoxGeometry(.07,.3,.08),gold,side*.27,1.14,-.35).rotation.z=side*.18;
-  } else if (heroClass === 'necromancer') {
-    add(new THREE.ConeGeometry(.43,.72,7),clothMaterial,0,.78,.03,1,.9,.8);
-    const hood = addHead(new THREE.ConeGeometry(.32,.42,7),clothMaterial,0,2.15,.04);
-    hood.rotation.x=-.12;
-    add(new THREE.SphereGeometry(.12,10,8),new THREE.MeshStandardMaterial({color:0xe3d7f2,roughness:.7}),0,1.30,-.44,1,.88,.55);
-    add(new THREE.TorusGeometry(.17,.025,5,18),classAccentMaterial,0,1.30,-.45).rotation.x=Math.PI/2;
-    for (const side of [-1,1]) add(new THREE.ConeGeometry(.07,.20,5),steel,side*.12,1.31,-.45).rotation.z=Math.PI;
-  } else {
-    // Monge: roupa curta, faixa na cabeça e silhueta compacta.
-    cape.visible=false; capeTailL.visible=false; capeTailR.visible=false;
-    g.scale.setScalar(.96);
-    add(new THREE.BoxGeometry(.64,.13,.46),clothMaterial,0,.93,0);
-    add(new THREE.BoxGeometry(.53,.06,.05),gold,0,.94,-.25);
-    addHead(new THREE.BoxGeometry(.47,.09,.33),clothMaterial,0,2.02,-.02);
-    addHead(new THREE.BoxGeometry(.20,.055,.035),gold,0,2.03,-.20);
-    addHead(new THREE.ConeGeometry(.08,.16,5),gold,-.30,2.02,-.02).rotation.z=.7;
+    addHead(new THREE.BoxGeometry(.27,.045,.045),dark,0,1.82,-.265);
+  }else if(heroClass==='knight'){
+    head=addHead(new THREE.SphereGeometry(.245,16,12),steel,0,1.91,0,1,1.08,.94);
+    addHead(new THREE.BoxGeometry(.34,.20,.13),armor,0,1.91,-.11);
+    addHead(new THREE.BoxGeometry(.24,.045,.035),glow,0,1.94,-.19);
+    addHead(new THREE.ConeGeometry(.07,.25,5),trim,0,2.20,.01);
+    addHead(new THREE.BoxGeometry(.24,.04,.05),trim,0,1.82,-.19);
+  }else if(heroClass==='mage'||heroClass==='archer'||heroClass==='healer'||heroClass==='necromancer'){
+    head=addHead(new THREE.SphereGeometry(.225,16,12),skin,0,1.88,-.005);
+    const hoodColor=heroClass==='healer'?trim:cloth;
+    addHead(new THREE.SphereGeometry(.26,14,10,0,Math.PI*2,0,Math.PI*.72),hoodColor,0,2.02,.02,1.08,.92,1);
+    if(heroClass==='mage'||heroClass==='archer') addHead(new THREE.ConeGeometry(.22,.35,7),cloth,0,2.25,.03);
+    if(heroClass==='necromancer'){
+      addHead(new THREE.SphereGeometry(.16,12,10),steel,0,1.88,-.20,1,.8,.45);
+      addHead(new THREE.BoxGeometry(.22,.06,.04),dark,0,1.92,-.25);
+    }else{
+      addHead(new THREE.BoxGeometry(.27,.055,.05),dark,0,1.91,-.21);
+      for(const side of [-1,1]) addHead(new THREE.SphereGeometry(.035,10,8),glow,side*.085,1.92,-.24);
+    }
+  }else if(heroClass==='goblin'){
+    head=addHead(new THREE.SphereGeometry(.23,14,10),skin,0,1.86,0,1.05,.95,.94);
+    for(const side of [-1,1]){
+      const ear=addHead(new THREE.ConeGeometry(.095,.36,5),skin,side*.27,2.04,.02,1,.9,.65);ear.rotation.z=side*-.75;
+      addHead(new THREE.SphereGeometry(.036,10,8),glow,side*.085,1.88,-.21,.8,1,.5);
+    }
+    addHead(new THREE.BoxGeometry(.20,.075,.06),dark,0,1.77,-.22);
+  }else if(heroClass==='ogre'){
+    head=addHead(new THREE.SphereGeometry(.31,14,10),skin,0,1.91,-.01,1.18,1,.94);
+    for(const side of [-1,1]){
+      const tusk=addHead(new THREE.ConeGeometry(.06,.19,5),steel,side*.15,1.77,-.22);tusk.rotation.x=Math.PI;
+      addHead(new THREE.SphereGeometry(.045,10,8),glow,side*.11,1.94,-.24);
+      const horn=addHead(new THREE.ConeGeometry(.11,.26,5),dark,side*.22,2.19,0);horn.rotation.z=side*-.38;
+    }
+    addHead(new THREE.BoxGeometry(.24,.08,.06),dark,0,1.79,-.23);
+  }else if(heroClass==='monk'){
+    head=addHead(new THREE.SphereGeometry(.23,16,12),skin,0,1.88,0);
+    addHead(new THREE.BoxGeometry(.44,.09,.31),cloth,0,2.02,.005);
+    addHead(new THREE.BoxGeometry(.28,.035,.025),trim,0,2.01,-.18);
+    for(const side of [-1,1]) addHead(new THREE.SphereGeometry(.035,10,8),dark,side*.08,1.90,-.22);
+  }else{
+    head=addHead(new THREE.SphereGeometry(.22,14,10),skin,0,1.88,0);
   }
-  // Modelos de assinatura por classe: camadas visíveis, cores de tecido e pele exposta.
-  // As peças reutilizam geometrias simples para manter boa taxa de quadros em celulares.
-  if (heroClass === 'knight') {
-    // Elmo fechado, manto azul e brasão vermelho: silhueta de cavaleiro de fantasia.
-    addHead(new THREE.BoxGeometry(.25,.045,.08), classAccentMaterial,0,1.99,-.255);
-    add(new THREE.ConeGeometry(.31,.58,6), clothMaterial,0,.76,.35,1,.95,.48).rotation.x=-.05;
-    add(new THREE.OctahedronGeometry(.10,1), new THREE.MeshStandardMaterial({color:0xb84252,emissive:0x4a101b,emissiveIntensity:.3}),0,1.34,-.425,1,1.2,.55);
-  } else if (heroClass === 'mage') {
-    // Túnica azul em camadas, gola alta e runa clara no peito.
-    add(new THREE.ConeGeometry(.40,.65,8), clothMaterial,0,.77,.015,1,.96,.82);
-    add(new THREE.ConeGeometry(.25,.12,8), gold,0,1.51,-.015,1,.5,.72);
-    add(new THREE.BoxGeometry(.07,.47,.025), glow,0,1.08,-.395);
-    const beard = add(new THREE.ConeGeometry(.10,.22,7), dark,0,1.78,-.23,1,.95,.5);
-    beard.rotation.x=Math.PI;
-  } else if (heroClass === 'archer') {
-    // Colete de couro, correias e capa verde; aljava e arco permanecem bem legíveis.
-    add(new THREE.BoxGeometry(.42,.48,.09), dark,0,1.25,-.325).rotation.z=-.04;
-    add(new THREE.BoxGeometry(.08,.57,.04), gold,-.14,1.26,-.386).rotation.z=-.22;
-    add(new THREE.BoxGeometry(.08,.57,.04), clothMaterial,.13,1.26,-.386).rotation.z=.22;
-    add(new THREE.ConeGeometry(.33,.65,7), clothMaterial,0,.88,.30,1,.95,.65).rotation.x=-.10;
-    add(new THREE.TorusGeometry(.16,.022,5,16),gold,0,1.54,-.04).rotation.x=Math.PI/2;
-  } else if (heroClass === 'goblin') {
-    // Capuz com pontas de orelha, túnica curta e placas de couro escuras.
-    addHead(new THREE.SphereGeometry(.30,18,12,0,Math.PI*2,0,Math.PI*.66),clothMaterial,0,2.12,.045,1.22,.88,1.05);
-    const hoodTip = addHead(new THREE.ConeGeometry(.13,.30,5),dark,.02,2.26,.03,1,.9,.9);
-    hoodTip.rotation.z=-.12;
-    add(new THREE.ConeGeometry(.30,.40,6),clothMaterial,0,.87,.23,1,.88,.55);
-    const eyeRed = new THREE.MeshStandardMaterial({color:0xf6c85f,emissive:0x8a4c10,emissiveIntensity:.6,roughness:.3});
-    for(const side of [-1,1]) addHead(new THREE.SphereGeometry(.027,10,8),eyeRed,side*.09,1.96,-.276);
-  } else if (heroClass === 'ogre') {
-    // Pele verde exposta, peito e barriga volumosos, correia de couro e um ombro blindado.
-    for (const armData of arms) {
-      const pivot=armData.mesh;
-      if (pivot.children[0]) pivot.children[0].material=skinMaterial;
-      const elbow=pivot.userData.elbow;
-      if (elbow && elbow.children[0]) elbow.children[0].material=skinMaterial;
-      if (elbow && elbow.children[1]) elbow.children[1].material=skinMaterial;
-    }
-    add(new THREE.SphereGeometry(.37,24,18),skinMaterial,0,1.07,-.325,1.38,1.20,.48);
-    for(const side of [-1,1]) {
-      const muscle=add(new THREE.SphereGeometry(.23,20,14),skinMaterial,side*.19,1.43,-.30,1.18,.78,.56);
-      muscle.rotation.z=side*-.15;
-      add(new THREE.SphereGeometry(.105,16,12),skinMaterial,side*.54,.82,-.06,1.28,1.05,1.1);
-    }
-    add(new THREE.BoxGeometry(.74,.10,.08),dark,0,.91,-.34);
-    add(new THREE.BoxGeometry(.22,.15,.08),gold,0,.91,-.40);
-    const hugePad=add(new THREE.SphereGeometry(.24,16,12),dark,.47,1.57,-.02,1.2,.72,1.18);
-    hugePad.rotation.z=-.24;
-    for(let i=0;i<3;i++) {
-      const spike=add(new THREE.ConeGeometry(.055,.20,5),steel,.43+i*.10,1.76,-.02);
-      spike.rotation.z=-.34;
-    }
-  } else if (heroClass === 'healer') {
-    // Veste branca, manto azul e filetes dourados como um clérigo de suporte.
-    add(new THREE.ConeGeometry(.40,.75,8),new THREE.MeshStandardMaterial({color:0xe1e4dc,roughness:.9}),0,.75,.03,1,.96,.83);
-    add(new THREE.BoxGeometry(.055,.62,.025),gold,0,1.08,-.405);
-    for(const side of [-1,1]) {
-      add(new THREE.BoxGeometry(.07,.42,.025),clothMaterial,side*.22,1.01,-.386).rotation.z=side*.11;
-      add(new THREE.SphereGeometry(.12,14,10),clothMaterial,side*.43,1.50,.02,1.2,.65,.9);
-    }
-    add(new THREE.OctahedronGeometry(.09,1),new THREE.MeshStandardMaterial({color:0x68e3bf,emissive:0x208c72,emissiveIntensity:.9}),0,1.32,-.435);
-  } else if (heroClass === 'necromancer') {
-    // Manto negro-ameixa, ossos e uma relíquia pálida no peito.
-    add(new THREE.ConeGeometry(.42,.78,7),clothMaterial,0,.75,.03,1,.95,.84);
-    for(const side of [-1,1]) {
-      add(new THREE.BoxGeometry(.075,.48,.035),dark,side*.29,1.12,-.36).rotation.z=side*.17;
-      add(new THREE.SphereGeometry(.045,10,8),steel,side*.31,1.22,-.405,.8,1.2,.45);
-    }
-    const skullMat=new THREE.MeshStandardMaterial({color:0xd9cfb8,roughness:.76});
-    add(new THREE.SphereGeometry(.09,12,10),skullMat,0,1.12,-.427,1,.82,.45);
-    add(new THREE.ConeGeometry(.035,.09,5),skullMat,-.045,1.05,-.44).rotation.z=Math.PI;
-    add(new THREE.ConeGeometry(.035,.09,5),skullMat,.045,1.05,-.44).rotation.z=Math.PI;
-  } else if (heroClass === 'monk') {
-    // Faixas de tecido claras, faixa castanha na cintura e braços mais naturais.
-    for (const armData of arms) {
-      const pivot=armData.mesh;
-      if (pivot.children[0]) pivot.children[0].material=skinMaterial;
-      const elbow=pivot.userData.elbow;
-      if (elbow && elbow.children[0]) elbow.children[0].material=skinMaterial;
-      if (elbow && elbow.children[1]) elbow.children[1].material=skinMaterial;
-    }
-    add(new THREE.BoxGeometry(.62,.39,.06),clothMaterial,0,1.25,-.335).rotation.z=-.04;
-    add(new THREE.BoxGeometry(.66,.095,.075),dark,0,.91,-.34);
-    add(new THREE.BoxGeometry(.40,.10,.035),classAccentMaterial,0,.83,-.39).rotation.z=-.15;
-    for(const side of [-1,1]) {
-      add(new THREE.BoxGeometry(.13,.30,.04),clothMaterial,side*.49,1.17,-.12).rotation.z=side*.12;
-      add(new THREE.TorusGeometry(.105,.024,5,12),clothMaterial,side*.49,1.04,-.10).rotation.x=Math.PI/2;
+  // Simple class gear that reads clearly at gameplay scale.
+  if(heroClass==='knight'){
+    classWeapon=new THREE.Group();
+    add(new THREE.BoxGeometry(.055,.73,.045),steel,.58,1.02,-.12,1,1,1,classWeapon);
+    add(new THREE.ConeGeometry(.07,.23,4),steel,.58,1.50,-.12,1,1,1,classWeapon);
+    add(new THREE.BoxGeometry(.27,.055,.10),trim,.58,.66,-.12,1,1,1,classWeapon);
+    add(new THREE.CylinderGeometry(.035,.04,.19,8),dark,.58,.54,-.12,1,1,1,classWeapon);
+    g.add(classWeapon);
+    classShield=new THREE.Group();
+    add(new THREE.CylinderGeometry(.19,.22,.065,6),armor,-.55,1.04,-.18,1,1,1,classShield).rotation.x=Math.PI/2;
+    add(new THREE.TorusGeometry(.19,.022,5,6),trim,-.55,1.04,-.22,1,1,.45,classShield).rotation.x=Math.PI/2;
+    add(new THREE.OctahedronGeometry(.075,1),glow,-.55,1.04,-.25,1,1,.55,classShield);
+    g.add(classShield);
+  }else if(['mage','healer','necromancer'].includes(heroClass)){
+    classWeapon=new THREE.Group();
+    const staffMat=heroClass==='necromancer'?dark:trim;
+    add(new THREE.CylinderGeometry(.035,.052,1.05,8),staffMat,.55,.99,-.03,1,1,1,classWeapon);
+    const orb=add(new THREE.IcosahedronGeometry(.14,1),glow,.55,1.56,-.03,1,1,1,classWeapon);
+    orb.userData.isOrb=true; classWeapon.userData.orb=orb;
+    const halo=add(new THREE.TorusGeometry(.19,.022,6,18),glow,.55,1.56,-.03,1,1,.7,classWeapon);halo.rotation.x=Math.PI/2;classWeapon.userData.halo=halo;
+    g.add(classWeapon);
+    classCharm=new THREE.Group();add(new THREE.TorusGeometry(.11,.016,5,16),accent,0,0,0,1,1,1,classCharm);add(new THREE.OctahedronGeometry(.065,1),glow,0,.02,-.02);classCharm.position.set(-.35,1.46,-.28);g.add(classCharm);
+  }else if(heroClass==='archer'){
+    classWeapon=new THREE.Group();
+    const bow=add(new THREE.TorusGeometry(.30,.035,5,18,Math.PI*1.3),trim,.57,1.10,-.06,1,1,1,classWeapon);bow.rotation.z=-Math.PI*.63;
+    add(new THREE.CylinderGeometry(.008,.008,.54,5),steel,.45,1.10,-.06,1,1,1,classWeapon).rotation.z=.10;
+    add(new THREE.CylinderGeometry(.06,.08,.42,7),dark,-.30,1.25,.20).rotation.z=-.25;
+    g.add(classWeapon);
+  }else if(heroClass==='goblin'){
+    classWeapon=new THREE.Group();
+    for(const side of [-1,1]){
+      const dagger=add(new THREE.ConeGeometry(.055,.38,5),steel,side*.51,.91,-.12,1,1,1,classWeapon);dagger.rotation.z=Math.PI+side*.2;
+      add(new THREE.CylinderGeometry(.027,.035,.14,6),trim,side*.51,.68,-.12,1,1,1,classWeapon);
+    }g.add(classWeapon);
+  }else if(heroClass==='ogre'){
+    classWeapon=new THREE.Group();
+    add(new THREE.CylinderGeometry(.055,.085,.78,8),dark,.60,.94,-.06,1,1,1,classWeapon).rotation.z=-.22;
+    const headClub=add(new THREE.DodecahedronGeometry(.23,1),armor,.75,1.34,-.06,1.2,.9,.9,classWeapon);
+    for(const side of [-1,1]) add(new THREE.ConeGeometry(.045,.14,5),trim,.75+side*.16,1.34,-.06,1,1,1,classWeapon);
+    g.add(classWeapon);
+  }else{
+    classWeapon=new THREE.Group();g.add(classWeapon);
+  }
+  if(heroClass==='mage'||heroClass==='healer'||heroClass==='necromancer'||heroClass==='archer'){
+    cape=add(new THREE.ConeGeometry(.31,.68,6),dark,0,.83,.27,1,.95,.35);
+    cape.rotation.x=-.08;
+  }else cape=null;
+  const capeTails=[];
+  if(cape){
+    for(const side of [-1,1]){
+      const tail=add(new THREE.ConeGeometry(.12,.38,5),cloth,side*.14,.50,.30,1,.85,.32);
+      tail.rotation.z=side*-.12;capeTails.push(tail);
     }
   }
-  // Ornamentação adicional por skin: silhueta e emissivos diferentes, sem alterar hitbox.
-  if (skin === 'rune') {
-    add(new THREE.TorusGeometry(.27,.025,7,24), classAccentMaterial, 0,1.3,-.42).rotation.x=Math.PI/2;
-    addHead(new THREE.OctahedronGeometry(.11,2), glow, 0,2.23,-.04,1,1.2,.7);
-    for (const side of [-1,1]) add(new THREE.OctahedronGeometry(.085,1), glow, side*.52,1.48,-.02);
-  } else if (skin === 'celestial') {
-    const halo = addHead(new THREE.TorusGeometry(.32,.026,8,30), classAccentMaterial, 0,2.28,.02);
-    halo.rotation.x=Math.PI/2.15;
-    add(new THREE.OctahedronGeometry(.10,2), glow, 0,1.3,-.43,1,1.25,.65);
-    for (const side of [-1,1]) add(new THREE.SphereGeometry(.075,14,10), gold, side*.52,1.52,-.015);
-  } else if (skin === 'bloodmoon') {
-    for (const side of [-1,1]) {
-      const horn = addHead(new THREE.ConeGeometry(.085,.28,7), classAccentMaterial, side*.18,2.20,.02);
-      horn.rotation.z = side * -.24;
-      const spike = add(new THREE.ConeGeometry(.07,.22,7), classAccentMaterial, side*.53,1.49,-.015);
-      spike.rotation.z = side * -Math.PI/2;
-    }
-    add(new THREE.OctahedronGeometry(.12,1), glow, 0,1.3,-.44,.8,1.1,.55);
-  }
-  // Update 2 v11: passe de microdetalhes reutilizado por TODAS as classes e skins.
-  // Placas sobrepostas, costuras metálicas e rebites melhoram a leitura sem alterar colisões ou poderes.
-  for (let row = 0; row < 3; row++) {
-    const y = 1.08 + row * .13;
-    const plate = add(new THREE.SphereGeometry(.17,16,12), armor, 0, y, -.365, 1.32, .30, .13);
-    plate.rotation.x = -.035;
-    add(new THREE.BoxGeometry(.25,.009,.012), gold, 0, y + .045, -.405);
-    add(new THREE.SphereGeometry(.018,10,8), classAccentMaterial, 0, y, -.414);
-  }
-  // Pequenos rebites nos encaixes dos ombros e antebraços, com reflexo físico.
-  for (const side of [-1,1]) {
-    for (const y of [1.43,1.51,1.59]) {
-      const rivet = add(new THREE.SphereGeometry(.026,12,10), gold, side*.48, y, -.19);
-      rivet.scale.set(1,.85,.6);
-    }
-    for (const y of [1.02,1.12,1.22]) {
-      add(new THREE.BoxGeometry(.125,.014,.018), classAccentMaterial, side*.48, y, -.215).rotation.z = side * -.10;
-    }
-    add(new THREE.TorusGeometry(.118,.012,6,20), gold, side*.2,.33,0).rotation.x = Math.PI/2;
-    add(new THREE.BoxGeometry(.07,.018,.022), glow, side*.2,.58,-.185);
-  }
-  // Placas laterais da cintura e aros das botas completam a silhueta da armadura.
-  for (const side of [-1,1]) {
-    const hipPlate = add(new THREE.SphereGeometry(.16,20,14), armor,side*.255,.88,-.015,1.0,.72,.7);
-    hipPlate.rotation.z = side * -.18;
-    add(new THREE.TorusGeometry(.105,.014,8,24), gold,side*.2,.24,0).rotation.x = Math.PI/2;
-    add(new THREE.BoxGeometry(.19,.035,.035), classAccentMaterial,side*.2,.38,-.18).rotation.z = side * -.06;
-  }
-  const waistSigil = add(new THREE.OctahedronGeometry(.075,2), classAccentMaterial, 0,.91,-.30);
-  waistSigil.rotation.z = Math.PI/4;
-  add(new THREE.TorusGeometry(.105,.012,6,24), gold,0,.91,-.302).rotation.x = Math.PI/2;
-
-  for (const side of [-1,1]) {
-    add(new THREE.SphereGeometry(.032,12,10), classAccentMaterial, side*.092,1.96,-.245);
-    add(new THREE.SphereGeometry(.055,14,10), classAccentMaterial, side*.48,1.49,-.21);
-  }
-  // Itens visuais assinatura para o personagem ser reconhecível pela silhueta.
-  let classCharm = null, classShield = null;
-  const decorativeParts = [];
-  if (heroClass === 'knight') {
-    classShield = new THREE.Group();
-    const face = new THREE.Mesh(new THREE.CylinderGeometry(.19,.24,.075,6), armor);
-    face.rotation.x = Math.PI/2; face.rotation.z = Math.PI/6; classShield.add(face);
-    const shieldRim = new THREE.Mesh(new THREE.TorusGeometry(.205,.018,5,6), gold);
-    shieldRim.rotation.x = Math.PI/2; shieldRim.rotation.z = Math.PI/6; shieldRim.position.z = -.012; classShield.add(shieldRim);
-    const boss = new THREE.Mesh(new THREE.OctahedronGeometry(.105,1), gold); boss.position.z = -.047; classShield.add(boss);
-    const rune = new THREE.Mesh(new THREE.OctahedronGeometry(.055,1), glow); rune.position.set(0,.015,-.105); classShield.add(rune);
-    const shieldGrip = new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.25,8), dark); shieldGrip.position.z = .055; shieldGrip.rotation.z = Math.PI/2; classShield.add(shieldGrip);
-    classShield.position.set(-.59,1.10,-.23); classShield.rotation.z = -.12; g.add(classShield);
-  } else if (heroClass === 'mage' || heroClass === 'healer' || heroClass === 'necromancer') {
-    classCharm = new THREE.Group();
-    const charmGlow = heroClass === 'healer' ? glow : classAccentMaterial;
-    const loop = new THREE.Mesh(new THREE.TorusGeometry(.13,.018,5,16), charmGlow);
-    loop.rotation.x = Math.PI/2; classCharm.add(loop);
-    const stone = new THREE.Mesh(heroClass === 'necromancer' ? new THREE.IcosahedronGeometry(.075,0) : new THREE.OctahedronGeometry(.08,1), glow);
-    stone.position.y = .02; classCharm.add(stone);
-    classCharm.position.set(-.47,1.53,-.10); g.add(classCharm);
-  } else if (heroClass === 'archer') {
-    const shoulderCowl = add(new THREE.SphereGeometry(.17,12,10), clothMaterial, -.49,1.46,.01,.9,.65,.75);
-    shoulderCowl.rotation.z = .22;
-    add(new THREE.BoxGeometry(.17,.035,.025), gold, -.49,1.48,-.12).rotation.z = .22;
-  } else if (heroClass === 'goblin') {
-    for (const side of [-1,1]) {
-      const cuff = add(new THREE.TorusGeometry(.047,.012,4,10), gold, side*.325,1.99,-.015);
-      cuff.rotation.y = Math.PI/2; decorativeParts.push(cuff);
-      const patch = add(new THREE.SphereGeometry(.105,10,8), clothMaterial, side*.43,1.43,-.015,.85,.55,.75);
-      patch.rotation.z = side*-.25;
-    }
-  } else if (heroClass === 'ogre') {
-    for (const side of [-1,1]) {
-      const spike = add(new THREE.ConeGeometry(.075,.24,5), gold, side*.50,1.65,.01);
-      spike.rotation.z = side*-.32;
-      add(new THREE.SphereGeometry(.12,10,8), armor, side*.48,1.51,-.03,1,.78,.9);
-    }
-    add(new THREE.BoxGeometry(.36,.055,.045), gold, 0,1.43,-.29);
-  } else if (heroClass === 'monk') {
-    for (const side of [-1,1]) {
-      const wrap = add(new THREE.TorusGeometry(.105,.022,5,12), clothMaterial, side*.49,1.13,-.035);
-      wrap.rotation.x = Math.PI/2; wrap.rotation.z = side*.15; decorativeParts.push(wrap);
-      add(new THREE.BoxGeometry(.12,.025,.025), gold, side*.49,1.09,-.14).rotation.z = side*.10;
-    }
-  } else if (heroClass === 'golem' || heroClass === 'golem_clone') {
-    cape.visible=false; capeTailL.visible=false; capeTailR.visible=false;
-    g.scale.setScalar(heroClass === 'golem' ? 1.22 : .78);
-    const rock = new THREE.MeshStandardMaterial({color:heroClass === 'golem' ? 0x777f83 : 0x858b8e,roughness:.96,metalness:.03});
-    const crack = new THREE.MeshStandardMaterial({color:0x343b40,roughness:1});
-    const rune = new THREE.MeshStandardMaterial({color:0xe1dfc9,emissive:0x827a60,emissiveIntensity:.45,roughness:.65});
-    for (const side of [-1,1]) {
-      const shoulder=add(new THREE.DodecahedronGeometry(.31,1),rock,side*.53,1.48,-.02,1.08,1,.92); shoulder.rotation.z=side*-.22;
-      const spike=add(new THREE.ConeGeometry(.12,.30,5),crack,side*.56,1.76,0); spike.rotation.z=side*-.35;
-      add(new THREE.DodecahedronGeometry(.20,1),rock,side*.51,.84,-.12,1.15,.95,1.05);
-      add(new THREE.BoxGeometry(.11,.05,.17),rune,side*.51,.85,-.29);
-    }
-    add(new THREE.DodecahedronGeometry(.39,1),rock,0,1.31,-.27,1.05,.82,.62);
-    add(new THREE.OctahedronGeometry(.16,1),rune,0,1.34,-.49,.8,1.1,.45);
-    addHead(new THREE.DodecahedronGeometry(.31,1),rock,0,2.00,-.02,1.12,1.05,.9);
-    for (const side of [-1,1]) { addHead(new THREE.ConeGeometry(.10,.28,5),crack,side*.18,2.24,0).rotation.z=side*.34; addHead(new THREE.SphereGeometry(.035,8,6),rune,side*.09,1.98,-.29); }
-  } else if (heroClass === 'skeleton') {
-    for (let row=0; row<3; row++) {
-      const rib = add(new THREE.SphereGeometry(.16,10,7), steel, 0,1.12+row*.11,-.365,1.22,.22,.12);
-      decorativeParts.push(rib);
+  const ringColor=heroClass==='healer'?0x74ffd8:heroClass==='mage'||heroClass==='necromancer'?0xb697ff:heroClass==='golem'||heroClass==='golem_clone'?0xc4d0cf:heroClass==='ogre'?0xff9862:heroClass==='goblin'?0xc8f06b:heroClass==='archer'?0x88ffb4:0x75dfff;
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.48,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.y=.025;g.add(ring);
+  waistSigil=waistSigil||add(new THREE.OctahedronGeometry(.07,1),accent,0,.90,-.30,.9,1.1,.6);
+  if(heroClass==='golem'||heroClass==='golem_clone'){
+    // Cracks and runes are bright enough to read without covering the stone silhouette.
+    for(let i=0;i<3;i++){
+      const crack=add(new THREE.BoxGeometry(.018,.20,.014),glow,(i-1)*.12,1.12,-.59,1,1,1);
+      crack.rotation.z=(i-1)*-.32;decorativeParts.push(crack);
     }
   }
-  g.userData.classCharm = classCharm;
-  g.userData.classShield = classShield;
-  g.userData.decorativeParts = decorativeParts;
-  g.userData.idleSeed = Math.random() * Math.PI * 2;
-  g.userData.sword=classWeapon;
-  g.userData.weaponRest = { x: classWeapon.rotation.x, z: classWeapon.rotation.z, y: classWeapon.position.y };
-  g.userData.headRig = headRig;
-  const ring = new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color:classColor,transparent:true,opacity:.58,side:THREE.DoubleSide}));
-  ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
-  g.userData.heroClass = heroClass;
-  g.userData.heroSkin = skin;
-  g.userData.cape=cape;
-  g.userData.capeTails=[capeTailL,capeTailR];
-  g.userData.torso = torsoMesh;
-  g.userData.head = headMesh;
-  g.userData.headRig = headRig;
-  g.userData.baseRing = ring;
-  g.userData.waistSigil = waistSigil;
-  g.userData.legs = legs;
-  g.userData.arms = arms;
-  const silhouette = {
-    knight: { torsoX:1.06, torsoY:1, torsoZ:1.05, head:.98, shoulders:1.08, hips:1.02, legs:1.02, arms:1.04, cape:1.02, weapon:1.04 },
-    mage: { torsoX:.94, torsoY:1.02, torsoZ:.94, head:1.02, shoulders:.94, hips:.94, legs:1.01, arms:.94, cape:1.05, weapon:1.02 },
-    archer: { torsoX:.93, torsoY:1, torsoZ:.95, head:.99, shoulders:.94, hips:.95, legs:1.04, arms:.98, cape:.88, weapon:.98 },
-    goblin: { torsoX:.98, torsoY:.95, torsoZ:.96, head:1.02, shoulders:.91, hips:.95, legs:.92, arms:.94, cape:.90, weapon:.96 },
-    ogre: { torsoX:1.16, torsoY:1.03, torsoZ:1.12, head:1.08, shoulders:1.18, hips:1.12, legs:1.12, arms:1.16, cape:.85, weapon:1.12 },
-    healer: { torsoX:.94, torsoY:1.02, torsoZ:.96, head:1.02, shoulders:.94, hips:.96, legs:1, arms:.96, cape:1.10, weapon:1.02 },
-    necromancer: { torsoX:.92, torsoY:1.03, torsoZ:.94, head:1.01, shoulders:.93, hips:.94, legs:1.02, arms:.95, cape:1.12, weapon:1.04 },
-    monk: { torsoX:1, torsoY:.98, torsoZ:.97, head:.98, shoulders:.98, hips:1, legs:1.02, arms:1.02, cape:.75, weapon:1 },
-    skeleton: { torsoX:.88, torsoY:1.02, torsoZ:.88, head:.98, shoulders:.86, hips:.90, legs:1.04, arms:.90, cape:.80, weapon:.95 }
-  }[heroClass] || { torsoX:1, torsoY:1, torsoZ:1, head:1, shoulders:1, hips:1, legs:1, arms:1, cape:1, weapon:1 };
-  if (torsoMesh) torsoMesh.scale.set(torsoMesh.scale.x*silhouette.torsoX, torsoMesh.scale.y*silhouette.torsoY, torsoMesh.scale.z*silhouette.torsoZ);
-  headRig.scale.setScalar(silhouette.head);
-  for (const arm of arms) { arm.mesh.position.x *= silhouette.shoulders; arm.mesh.scale.x = silhouette.arms; }
-  for (const leg of legs) { leg.mesh.position.x *= silhouette.hips; leg.mesh.scale.x = silhouette.legs; }
-  cape.scale.x *= silhouette.cape;
-  for (const tail of [capeTailL,capeTailR]) tail.scale.x *= silhouette.cape;
-  if (classWeapon && classWeapon.scale) classWeapon.scale.multiplyScalar(silhouette.weapon);
-  g.userData.silhouetteProfile = silhouette;
-  g.userData.torsoBaseScaleY = torsoMesh ? torsoMesh.scale.y : 1;
-  g.userData.walkPhase = Math.random() * Math.PI * 2;
-  g.userData.baseY = 0;
+  const scale=heroClass==='goblin'?.82:heroClass==='ogre'?1.14:heroClass==='golem'?1.16:heroClass==='golem_clone'?.78:heroClass==='monk'?.96:1;
+  g.scale.setScalar(scale);
+  g.userData.heroClass=heroClass;g.userData.heroSkin=skin;g.userData.idleSeed=Math.random()*Math.PI*2;
+  g.userData.sword=classWeapon;g.userData.weaponRest={x:classWeapon.rotation.x,z:classWeapon.rotation.z,y:classWeapon.position.y};
+  g.userData.headRig=headRig;g.userData.head=head;g.userData.torso=torso;g.userData.torsoBaseScaleY=torso?torso.scale.y:1;
+  g.userData.legs=legs;g.userData.arms=arms;g.userData.cape=cape;g.userData.capeTails=capeTails;
+  g.userData.classCharm=classCharm;g.userData.classShield=classShield;g.userData.decorativeParts=decorativeParts;
+  g.userData.baseRing=ring;g.userData.waistSigil=waistSigil;g.userData.walkPhase=Math.random()*Math.PI*2;g.userData.baseY=0;
+  g.userData.silhouetteProfile={heroClass};
   attachHealthBar(g);
   return g;
 }
-
 function disposeObject3D(root) {
   if (!root) return;
   root.traverse(child => {
@@ -1758,197 +1308,121 @@ function interactChest() {
 }
 
 function makeMonster(kind = 'stalker', phase = 1) {
-  const g = new THREE.Group();
-  const matBody = (color, rough = .72, metal = .12) => mat(color, rough, metal);
-  const dark = new THREE.MeshStandardMaterial({ color: 0x11131d, map: surfaceTexture, bumpMap: surfaceTexture, bumpScale: .035, roughness: .84, metalness: .08 });
-  const bone = matBody(0xb8c5d3, .48, .25);
-  const eyeColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x8ffcff : kind === 'thorn' ? 0x8dff74 : kind === 'inferno' ? 0xff692e : kind === 'abyss' ? 0xc08bff : 0xff3f68;
-  const eyeMat = new THREE.MeshStandardMaterial({
-    color: eyeColor, emissive: eyeColor, emissiveIntensity: 1.9, roughness: .24
-  });
-  const animatedLimbs = [];
-  const addMesh = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
-    const m = new THREE.Mesh(geo, material);
-    m.position.set(x,y,z); m.scale.set(sx,sy,sz); g.add(m);
-    if (Math.abs(x) > .42 && y > .55 && y < 1.7 && (geo.type === 'CapsuleGeometry' || geo.type === 'BoxGeometry')) {
-      animatedLimbs.push({ mesh:m, side:Math.sign(x) || 1, baseRotationZ:m.rotation.z });
-      // Articulações visíveis acompanham o membro, em vez de deixar braços como barras soltas.
-      if (geo.type === 'CapsuleGeometry') {
-        const jointRadius = kind === 'brute' ? .115 : .082;
-        for (const jointY of [-.22, .22]) {
-          const joint = new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 10, 8), material);
-          joint.position.set(0, jointY, -.012);
-          joint.scale.set(1, .88, .92);
-          m.add(joint);
-        }
-      }
-    }
-    return m;
+  // Distinct monster silhouettes: predator, plant, specter, brute, inferno, abyss and assassin.
+  const g=new THREE.Group();
+  const eyeColor=kind==='brute'?0xffa342:kind==='wraith'?0x72f4ff:kind==='thorn'?0x9dff69:kind==='inferno'?0xff592d:kind==='abyss'?0xc49bff:kind==='assassin'?0xff5c86:phase===2?0xff5e76:0xff4269;
+  const bodyColor=kind==='thorn'?0x3e6a40:kind==='inferno'?0x3a2425:kind==='abyss'?0x251936:kind==='wraith'?0x223c59:kind==='brute'?0x4c5669:kind==='assassin'?0x292d42:phase===2?0x3c5262:0x4c4359;
+  const bodyMat=new THREE.MeshStandardMaterial({color:bodyColor,roughness:kind==='wraith'?.4:.78,metalness:kind==='brute'?.28:.08,emissive:kind==='abyss'?0x29143e:0x000000,emissiveIntensity:.35});
+  const dark=new THREE.MeshStandardMaterial({color:0x151923,roughness:.84,metalness:.08});
+  const bone=new THREE.MeshStandardMaterial({color:0xc5c9d3,roughness:.45,metalness:.24});
+  const glow=new THREE.MeshStandardMaterial({color:eyeColor,emissive:eyeColor,emissiveIntensity:2.0,roughness:.22,metalness:.18});
+  const leaf=new THREE.MeshStandardMaterial({color:0x72a94b,roughness:.86});
+  const rock=new THREE.MeshStandardMaterial({color:bodyColor,roughness:.92,metalness:.05});
+  const animatedLimbs=[];
+  const add=(geo,material,x,y,z,sx=1,sy=1,sz=1,parent=g)=>{
+    const m=new THREE.Mesh(geo,material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);
+    if(!isMobileDevice){m.castShadow=true;m.receiveShadow=true;}parent.add(m);return m;
   };
-
-  if (kind === 'brute') {
-    // Grande criatura blindada, com ombros largos, placas e chifres.
-    const armor = matBody(phase === 2 ? 0x49316b : 0x414957, .48, .35);
-    const belly = matBody(0x242a36, .86);
-    addMesh(new THREE.CapsuleGeometry(.55,.65,12,20), armor, 0,1.0,0,1.1,1, .9);
-    addMesh(new THREE.DodecahedronGeometry(.52,1), belly, 0,1.0,-.03,1,.85,.72);
-    addMesh(new THREE.SphereGeometry(.34,32,24), armor, 0,1.85,-.03,1,.9,.9);
-    for (const side of [-1,1]) {
-      addMesh(new THREE.BoxGeometry(.48,.42,.5), armor, side*.62,1.48,0);
-      const horn=addMesh(new THREE.ConeGeometry(.16,.58,12), bone, side*.24,2.2,-.02);
-      horn.rotation.z=side*-.38;
-      addMesh(new THREE.SphereGeometry(.085,20,16),eyeMat,side*.14,1.91,-.33);
-      addMesh(new THREE.CapsuleGeometry(.18,.48,8,16),armor,side*.63,.67,0);
-      const claw=addMesh(new THREE.ConeGeometry(.14,.38,6),bone,side*.68,.32,-.13);
-      claw.rotation.x=Math.PI;
-    }
-  } else if (kind === 'wraith') {
-    // Espectro cristalino: corpo estreito, capa em pontas e cristais cianos.
-    const robe = new THREE.MeshStandardMaterial({color:0x263f62, roughness:.42, metalness:.2, emissive:0x102b55, emissiveIntensity:.65});
-    addMesh(new THREE.ConeGeometry(.62,1.25,16),robe,0,.72,0,1,1,.85);
-    addMesh(new THREE.SphereGeometry(.32,32,24),matBody(0x182537,.55,.25),0,1.55,0);
-    addMesh(new THREE.OctahedronGeometry(.16),eyeMat,-.13,1.59,-.27);
-    addMesh(new THREE.OctahedronGeometry(.16),eyeMat,.13,1.59,-.27);
+  const limb=(geo,material,x,y,z,sx,sy,sz,side)=>{
+    const m=add(geo,material,x,y,z,sx,sy,sz);animatedLimbs.push({mesh:m,side,baseRotationZ:m.rotation.z});return m;
+  };
+  let core=null;
+  if(kind==='wraith'){
+    const shroud=add(new THREE.ConeGeometry(.52,1.55,9),bodyMat,0,.82,0,1,.95,.82);
+    shroud.rotation.x=.04;
+    add(new THREE.TorusGeometry(.29,.055,7,24),glow,0,1.48,-.03,1,1,.8).rotation.x=Math.PI/2;
+    add(new THREE.SphereGeometry(.30,16,12),dark,0,1.55,-.04,1,1,.95);
     for(const side of [-1,1]){
-      const spike=addMesh(new THREE.ConeGeometry(.13,.72,5),matBody(0x7deaff,.35,.4),side*.38,.98,0);
-      spike.rotation.z=side*-.65;
-      const shard=addMesh(new THREE.OctahedronGeometry(.2),eyeMat,side*.25,.55,-.15);
-      shard.rotation.z=side*.4;
+      add(new THREE.SphereGeometry(.063,12,8),glow,side*.12,1.58,-.31);
+      const arm=limb(new THREE.CapsuleGeometry(.085,.43,4,8),bodyMat,side*.43,1.13,0,1,1,1,side);arm.rotation.z=side*.3;
+      const wisp=add(new THREE.ConeGeometry(.11,.48,5),glow,side*.40,.66,.04);wisp.rotation.z=side*.3;
+      const shard=add(new THREE.OctahedronGeometry(.18,1),glow,side*.5,.78,.08);shard.rotation.z=side*.4;
     }
-  } else if (kind === 'thorn') {
-    // Criatura vegetal da floresta: casca, espinhos e cipós.
-    const bark = matBody(0x3c5a3e,.92,.04);
-    const leaf = matBody(0x527e46,.82,.02);
-    addMesh(new THREE.CapsuleGeometry(.34,.7,10,18),bark,0,.88,0,1.05,1,.85);
-    addMesh(new THREE.IcosahedronGeometry(.38,2),leaf,0,1.55,-.05,1,.9,.82);
+  }else if(kind==='thorn'){
+    add(new THREE.CylinderGeometry(.18,.31,1.05,7),bodyMat,0,.78,0);
+    add(new THREE.IcosahedronGeometry(.36,1),leaf,0,1.48,-.03,1,.95,.78);
+    add(new THREE.DodecahedronGeometry(.19,0),rock,0,1.42,-.27,1,1,.65);
     for(const side of [-1,1]){
-      const horn=addMesh(new THREE.ConeGeometry(.15,.7,6),bark,side*.22,2.05,-.02);
-      horn.rotation.z=side*-.35;
-      const thorn=addMesh(new THREE.ConeGeometry(.11,.58,5),leaf,side*.36,1.22,.18);
-      thorn.rotation.z=side*.72;
-      addMesh(new THREE.SphereGeometry(.075,20,16),eyeMat,side*.13,1.63,-.34);
-      const vine=addMesh(new THREE.CapsuleGeometry(.07,.42,3,5),leaf,side*.42,.91,-.01);
-      vine.rotation.z=side*.55;
-      const claw=addMesh(new THREE.ConeGeometry(.09,.32,6),bone,side*.46,.57,-.2);
-      claw.rotation.x=Math.PI;
+      const branch=limb(new THREE.CapsuleGeometry(.075,.45,3,6),bodyMat,side*.38,1.13,0,1,1,1,side);branch.rotation.z=side*.62;
+      add(new THREE.ConeGeometry(.10,.42,5),leaf,side*.55,1.48,.02).rotation.z=side*-.6;
+      add(new THREE.SphereGeometry(.052,10,8),glow,side*.12,1.50,-.27);
+      const leg=limb(new THREE.CapsuleGeometry(.12,.27,3,6),bodyMat,side*.20,.32,0,1,1,1,side);leg.rotation.z=side*.1;
+      add(new THREE.ConeGeometry(.09,.42,5),rock,side*.24,.95,.27).rotation.x=-.55;
     }
-    addMesh(new THREE.ConeGeometry(.25,.55,5),bark,0,.52,.23,1,.8,.75);
-  } else if (kind === 'inferno') {
-    // Demônio do vulcão com placas de basalto e fissuras laranja.
-    const basalt = matBody(0x31201d,.88,.16);
-    const magma = new THREE.MeshStandardMaterial({color:0xff6b32,emissive:0xff3210,emissiveIntensity:1.65,roughness:.4});
-    addMesh(new THREE.IcosahedronGeometry(.5,2),basalt,0,1.05,0,1.12,1.05,.9);
-    addMesh(new THREE.SphereGeometry(.32,32,24),basalt,0,1.75,-.03);
-    addMesh(new THREE.BoxGeometry(.32,.42,.05),magma,0,1.18,-.47);
+    for(let i=0;i<3;i++){const spike=add(new THREE.ConeGeometry(.09,.30,5),(i%2?leaf:bodyMat),(i-1)*.18,1.74,.22);spike.rotation.x=.6;}
+  }else if(kind==='brute'){
+    const chest=add(new THREE.DodecahedronGeometry(.56,1),bodyMat,0,1.05,0,1.15,1.05,.95);
+    chest.rotation.z=.03;
+    add(new THREE.SphereGeometry(.34,12,10),dark,0,1.77,-.02,1.15,1,.9);
+    add(new THREE.BoxGeometry(.26,.09,.05),glow,0,1.79,-.33);
     for(const side of [-1,1]){
-      const horn=addMesh(new THREE.ConeGeometry(.16,.65,6),bone,side*.24,2.18,-.02);
-      horn.rotation.z=side*-.42;
-      addMesh(new THREE.SphereGeometry(.075,12,8),eyeMat,side*.13,1.79,-.32);
-      addMesh(new THREE.BoxGeometry(.07,.38,.08),magma,side*.21,1.03,-.47,1,1,.7);
-      const arm=addMesh(new THREE.CapsuleGeometry(.15,.4,4,7),basalt,side*.48,1.03,0);
-      arm.rotation.z=side*.22;
-      const claw=addMesh(new THREE.ConeGeometry(.12,.4,10),bone,side*.57,.64,-.15);
-      claw.rotation.x=Math.PI;
+      const shoulder=add(new THREE.DodecahedronGeometry(.32,1),rock,side*.62,1.40,0,1.25,.95,1);
+      shoulder.rotation.z=side*-.16;
+      const horn=add(new THREE.ConeGeometry(.12,.39,5),bone,side*.22,2.05,-.02);horn.rotation.z=side*-.38;
+      const arm=limb(new THREE.CapsuleGeometry(.18,.48,4,8),bodyMat,side*.66,.98,0,1,1,1,side);arm.rotation.z=side*.15;
+      add(new THREE.DodecahedronGeometry(.22,0),rock,side*.70,.62,-.04,1.2,.95,1);
+      const leg=limb(new THREE.CapsuleGeometry(.16,.35,4,8),dark,side*.29,.30,0,1,1,1,side);
+      add(new THREE.BoxGeometry(.30,.10,.39),dark,side*.29,.12,-.08);
     }
-  } else if (kind === 'abyss') {
-    // Variante do vazio reservada a encontros avançados.
-    const voidMat = new THREE.MeshStandardMaterial({color:0x21162f,roughness:.42,metalness:.28,emissive:0x30134d,emissiveIntensity:.55});
-    addMesh(new THREE.OctahedronGeometry(.55,1),voidMat,0,1.08,0,1.05,1.35,.8);
-    addMesh(new THREE.SphereGeometry(.3,18,12),voidMat,0,1.8,-.06);
+    for(let i=0;i<3;i++){
+      const plate=add(new THREE.BoxGeometry(.26,.07,.04),glow,0,1.15+i*.14,-.48);plate.rotation.z=(i-1)*-.08;
+    }
+  }else if(kind==='inferno'){
+    add(new THREE.IcosahedronGeometry(.49,1),rock,0,1.02,0,1.12,1.08,.94);
+    add(new THREE.SphereGeometry(.29,12,10),dark,0,1.72,0);
     for(const side of [-1,1]){
-      const shard=addMesh(new THREE.OctahedronGeometry(.28,1),eyeMat,side*.44,1.25,.02);
-      shard.rotation.z=side*.35;
-      const wing=addMesh(new THREE.ConeGeometry(.27,1.1,6),voidMat,side*.67,1.5,.16);
-      wing.rotation.z=side*(Math.PI*.36);
-      addMesh(new THREE.SphereGeometry(.07,20,16),eyeMat,side*.13,1.84,-.31);
+      const horn=add(new THREE.ConeGeometry(.10,.36,5),bone,side*.22,2.02,0);horn.rotation.z=side*-.35;
+      add(new THREE.SphereGeometry(.052,10,8),glow,side*.12,1.73,-.26);
+      const arm=limb(new THREE.CapsuleGeometry(.12,.38,3,7),rock,side*.48,.98,0,1,1,1,side);arm.rotation.z=side*.2;
+      add(new THREE.BoxGeometry(.07,.38,.035),glow,side*.15,1.05,-.42).rotation.z=side*.18;
+      const leg=limb(new THREE.CapsuleGeometry(.13,.30,3,7),dark,side*.21,.30,0,1,1,1,side);
     }
-  } else {
-    // Predador ágil com carapaça, espinhos nas costas e garras.
-    const hide = matBody(phase === 2 ? 0x385d66 : 0x51465d, .66, .12);
-    addMesh(new THREE.SphereGeometry(.48,32,24),hide,0,.87,0,1.05,.85,1.25);
-    addMesh(new THREE.SphereGeometry(.32,32,24),matBody(0x242432),0,1.45,-.2,1,.9,1);
-    addMesh(new THREE.BoxGeometry(.12,.13,.24),eyeMat,-.13,1.48,-.48);
-    addMesh(new THREE.BoxGeometry(.12,.13,.24),eyeMat,.13,1.48,-.48);
+    for(let i=0;i<4;i++)add(new THREE.ConeGeometry(.11,.24,5),rock,(i-1.5)*.16,1.31,.32);
+  }else if(kind==='abyss'){
+    const voidBody=new THREE.OctahedronGeometry(.49,1);
+    add(voidBody,bodyMat,0,1.10,0,1.0,1.30,.78);
+    add(new THREE.SphereGeometry(.22,12,10),dark,0,1.83,-.02);
     for(const side of [-1,1]){
-      const ear=addMesh(new THREE.ConeGeometry(.13,.48,5),hide,side*.22,1.82,-.08);
-      ear.rotation.z=side*-.28;
-      const arm=addMesh(new THREE.CapsuleGeometry(.12,.42,3,6),hide,side*.48,.95,-.02);
-      arm.rotation.z=side*.42;
-      const claw=addMesh(new THREE.ConeGeometry(.075,.3,10),bone,side*.56,.64,-.23);
-      claw.rotation.x=Math.PI;
-      addMesh(new THREE.ConeGeometry(.11,.38,5),bone,side*.2,1.13,.35);
-      addMesh(new THREE.CapsuleGeometry(.13,.36,8,16),dark,side*.22,.35,.03);
+      add(new THREE.SphereGeometry(.06,10,8),glow,side*.10,1.85,-.24);
+      const wing=add(new THREE.ConeGeometry(.25,.90,5),bodyMat,side*.58,1.44,.12,1,1.15,.65);wing.rotation.z=side*Math.PI*.38;
+      const shard=add(new THREE.OctahedronGeometry(.20,1),glow,side*.45,1.07,-.10);shard.rotation.z=side*.35;
+    }
+    add(new THREE.TorusGeometry(.62,.035,5,28),glow,0,.05,0,1,1,.8).rotation.x=Math.PI/2;
+  }else if(kind==='assassin'){
+    add(new THREE.CapsuleGeometry(.25,.62,5,10),bodyMat,0,1.02,0,.88,1.05,.78);
+    add(new THREE.SphereGeometry(.22,12,10),dark,0,1.67,-.03);
+    add(new THREE.ConeGeometry(.24,.34,6),dark,0,1.84,.04,1,.9,.9);
+    add(new THREE.BoxGeometry(.31,.06,.045),glow,0,1.69,-.25);
+    for(const side of [-1,1]){
+      const arm=limb(new THREE.CapsuleGeometry(.09,.36,4,7),bodyMat,side*.37,1.11,0,1,1,1,side);arm.rotation.z=side*.24;
+      const blade=add(new THREE.ConeGeometry(.055,.40,5),bone,side*.49,.82,-.10);blade.rotation.z=Math.PI+side*.12;
+      const leg=limb(new THREE.CapsuleGeometry(.10,.34,3,7),dark,side*.16,.36,0,1,1,1,side);
+    }
+    add(new THREE.ConeGeometry(.16,.38,5),dark,0,.76,.27,1,1,.45);
+  }else{
+    // Stalker: low, fast four-legged predator with a forward-facing jaw.
+    add(new THREE.SphereGeometry(.43,14,10),bodyMat,0,.84,.05,1.20,.82,1.38);
+    add(new THREE.SphereGeometry(.27,12,9),dark,0,1.18,-.36,1,.9,1.05);
+    add(new THREE.ConeGeometry(.16,.37,5),bodyMat,0,1.08,-.58,1,.85,.85).rotation.x=-Math.PI/2;
+    for(const side of [-1,1]){
+      add(new THREE.SphereGeometry(.052,10,8),glow,side*.12,1.23,-.57);
+      const ear=add(new THREE.ConeGeometry(.08,.25,5),bone,side*.19,1.44,-.27);ear.rotation.z=side*-.25;
+      for(const z of [-.20,.34]){
+        const leg=limb(new THREE.CapsuleGeometry(.09,.30,3,7),bodyMat,side*.29,.48,z,1,1,1,side);leg.rotation.x=z<0?-.20:.20;leg.rotation.z=side*.12;
+      }
+      add(new THREE.ConeGeometry(.045,.24,5),bone,side*.22,.67,.22).rotation.x=.55;
     }
   }
-  // Detalhes adicionais de silhueta: caneleiras, garras segmentadas e placas dorsais.
-  if (kind !== 'wraith' && kind !== 'abyss') {
-    const legArmor = matBody(kind === 'thorn' ? 0x476b3d : kind === 'inferno' ? 0x4d2923 : kind === 'brute' ? 0x626c7b : 0x343d4c, .55, .28);
-    for (const side of [-1, 1]) {
-      addMesh(new THREE.SphereGeometry(kind === 'brute' ? .19 : .13, 14, 10), legArmor, side * (kind === 'brute' ? .31 : .22), .39, -.04, 1, .72, .8);
-      addMesh(new THREE.BoxGeometry(.055, .22, .055), bone, side * (kind === 'brute' ? .69 : .52), .58, -.16, 1, 1, .8);
-      const clawRidge = addMesh(new THREE.ConeGeometry(.045, .18, 5), bone, side * (kind === 'brute' ? .71 : .55), .42, -.22);
-      clawRidge.rotation.x = Math.PI;
-    }
-  }
-  if (['stalker', 'thorn', 'brute', 'inferno'].includes(kind)) {
-    const dorsalMat = matBody(kind === 'thorn' ? 0x628f49 : kind === 'inferno' ? 0x6e3324 : kind === 'brute' ? 0x778295 : 0x65546e, .62, .18);
-    for (let spine = 0; spine < 4; spine++) {
-      const y = .88 + spine * .19;
-      const z = kind === 'brute' ? .39 : .30;
-      const size = kind === 'brute' ? .18 : .13;
-      const ridge = addMesh(new THREE.ConeGeometry(size, size * 1.8, 5), dorsalMat, (spine % 2 ? -.07 : .07), y, z);
-      ridge.rotation.x = -.22;
-      ridge.rotation.z = (spine % 2 ? -.12 : .12);
-    }
-  }
-  // Pequenos detalhes de rosto ajudam a diferenciar expressões e leitura à distância.
-  if (kind !== 'wraith' && kind !== 'abyss') {
-    const browMat = matBody(kind === 'inferno' ? 0x1e1517 : kind === 'thorn' ? 0x243e2b : 0x211f2a, .78, .08);
-    for (const side of [-1, 1]) {
-      const brow = addMesh(new THREE.CapsuleGeometry(.035, .13, 3, 6), browMat, side * .13, kind === 'brute' ? 1.98 : 1.57, -.36);
-      brow.rotation.z = side * -.18;
-    }
-  }
-  // Placas de ombro facetadas e rebites: dão volume sem mudar a hitbox.
-  if (kind !== 'wraith' && kind !== 'abyss') {
-    const shoulderMat = matBody(kind === 'thorn' ? 0x304c32 : kind === 'inferno' ? 0x4c2920 : kind === 'brute' ? 0x626d80 : 0x393447, .48, .34);
-    for (const side of [-1, 1]) {
-      const shoulder = addMesh(new THREE.IcosahedronGeometry(kind === 'brute' ? .30 : .22, 1), shoulderMat, side * (kind === 'brute' ? .60 : .43), 1.35, -.015, 1.12, .78, .92);
-      shoulder.rotation.z = side * -.16;
-      addMesh(new THREE.SphereGeometry(.045, 16, 12), bone, side * (kind === 'brute' ? .66 : .47), 1.39, -.20, 1, .85, .55);
-    }
-  }
-  // Sulcos de armadura na frente do tronco para a silhueta não parecer lisa.
-  if (kind === 'brute' || kind === 'inferno' || kind === 'abyss') {
-    const seamMat = new THREE.MeshStandardMaterial({ color: eyeColor, emissive: eyeColor, emissiveIntensity: .48, roughness: .38, metalness: .3 });
-    for (let row = 0; row < 3; row++) {
-      const seam = addMesh(new THREE.BoxGeometry(.22 - row * .025, .035, .025), seamMat, 0, .88 + row * .15, -.49);
-      seam.rotation.z = row === 1 ? .08 : -.05;
-    }
-  }
-  // Núcleo emissivo reforça a silhueta e dá a cada família uma leitura visual própria.
-  const core = addMesh(new THREE.OctahedronGeometry(.14,2),eyeMat,0,1.12,-.40,.9,1.15,.65);
+  core=add(new THREE.OctahedronGeometry(kind==='brute'?.16:.12,1),glow,0,1.17,-.42,.9,1.1,.5);
   core.rotation.set(.12,.2,.08);
-  // Sombra/anel de identidade fixo no chão, sem pulsação.
-  const ringColor = kind === 'brute' ? 0xff9c35 : kind === 'wraith' ? 0x63e9ff : kind === 'thorn' ? 0x8dff74 : kind === 'inferno' ? 0xff692e : kind === 'abyss' ? 0xc08bff : 0xff4269;
-  const ring = new THREE.Mesh(new THREE.RingGeometry(.48,.55,40),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.55,side:THREE.DoubleSide}));
-  ring.rotation.x=-Math.PI/2; ring.position.y=.025; g.add(ring);
-  g.userData.kind=kind;
-  g.userData.eyeMaterial=eyeMat;
-  g.userData.coreMesh=core;
-  g.userData.eyePulseOffset=Math.random()*Math.PI*2;
-  g.userData.attackRing = ring;
-  g.userData.ringColor = ringColor;
-  g.userData.animatedLimbs = animatedLimbs;
-  g.userData.walkPhase = Math.random() * Math.PI * 2;
-  g.userData.lastX = undefined;
-  g.userData.lastZ = undefined;
-  g.userData.walking = false;
-  g.userData.baseY = 0;
+  const ring=new THREE.Mesh(new THREE.RingGeometry(kind==='brute'?.57:.43,kind==='brute'?.65:.50,32),new THREE.MeshBasicMaterial({color:eyeColor,transparent:true,opacity:.50,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.y=.025;g.add(ring);
+  g.userData.kind=kind;g.userData.eyeMaterial=glow;g.userData.coreMesh=core;g.userData.attackRing=ring;g.userData.ringColor=eyeColor;
+  g.userData.animatedLimbs=animatedLimbs;g.userData.walkPhase=Math.random()*Math.PI*2;g.userData.eyePulseOffset=Math.random()*Math.PI*2;
+  g.userData.lastX=undefined;g.userData.lastZ=undefined;g.userData.walking=false;g.userData.baseY=0;
   attachHealthBar(g);
   return g;
 }
-
 let viewportResizeFrame = 0;
 function onResize() {
   if (viewportResizeFrame) cancelAnimationFrame(viewportResizeFrame);
