@@ -1731,7 +1731,19 @@ function makeMonster(kind = 'stalker', phase = 1) {
   const addMesh = (geo, material, x, y, z, sx=1, sy=1, sz=1) => {
     const m = new THREE.Mesh(geo, material);
     m.position.set(x,y,z); m.scale.set(sx,sy,sz); g.add(m);
-    if (Math.abs(x) > .42 && y > .55 && y < 1.7 && (geo.type === 'CapsuleGeometry' || geo.type === 'BoxGeometry')) animatedLimbs.push({ mesh:m, side:Math.sign(x) || 1, baseRotationZ:m.rotation.z });
+    if (Math.abs(x) > .42 && y > .55 && y < 1.7 && (geo.type === 'CapsuleGeometry' || geo.type === 'BoxGeometry')) {
+      animatedLimbs.push({ mesh:m, side:Math.sign(x) || 1, baseRotationZ:m.rotation.z });
+      // Articulações visíveis acompanham o membro, em vez de deixar braços como barras soltas.
+      if (geo.type === 'CapsuleGeometry') {
+        const jointRadius = kind === 'brute' ? .115 : .082;
+        for (const jointY of [-.22, .22]) {
+          const joint = new THREE.Mesh(new THREE.SphereGeometry(jointRadius, 10, 8), material);
+          joint.position.set(0, jointY, -.012);
+          joint.scale.set(1, .88, .92);
+          m.add(joint);
+        }
+      }
+    }
     return m;
   };
 
