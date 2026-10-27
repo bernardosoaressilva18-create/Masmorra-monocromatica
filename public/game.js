@@ -1475,6 +1475,22 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       wrap.rotation.x = Math.PI/2; wrap.rotation.z = side*.15; decorativeParts.push(wrap);
       add(new THREE.BoxGeometry(.12,.025,.025), gold, side*.49,1.09,-.14).rotation.z = side*.10;
     }
+  } else if (heroClass === 'golem' || heroClass === 'golem_clone') {
+    cape.visible=false; capeTailL.visible=false; capeTailR.visible=false;
+    g.scale.setScalar(heroClass === 'golem' ? 1.22 : .78);
+    const rock = new THREE.MeshStandardMaterial({color:heroClass === 'golem' ? 0x777f83 : 0x858b8e,roughness:.96,metalness:.03});
+    const crack = new THREE.MeshStandardMaterial({color:0x343b40,roughness:1});
+    const rune = new THREE.MeshStandardMaterial({color:0xe1dfc9,emissive:0x827a60,emissiveIntensity:.45,roughness:.65});
+    for (const side of [-1,1]) {
+      const shoulder=add(new THREE.DodecahedronGeometry(.31,1),rock,side*.53,1.48,-.02,1.08,1,.92); shoulder.rotation.z=side*-.22;
+      const spike=add(new THREE.ConeGeometry(.12,.30,5),crack,side*.56,1.76,0); spike.rotation.z=side*-.35;
+      add(new THREE.DodecahedronGeometry(.20,1),rock,side*.51,.84,-.12,1.15,.95,1.05);
+      add(new THREE.BoxGeometry(.11,.05,.17),rune,side*.51,.85,-.29);
+    }
+    add(new THREE.DodecahedronGeometry(.39,1),rock,0,1.31,-.27,1.05,.82,.62);
+    add(new THREE.OctahedronGeometry(.16,1),rune,0,1.34,-.49,.8,1.1,.45);
+    addHead(new THREE.DodecahedronGeometry(.31,1),rock,0,2.00,-.02,1.12,1.05,.9);
+    for (const side of [-1,1]) { addHead(new THREE.ConeGeometry(.10,.28,5),crack,side*.18,2.24,0).rotation.z=side*.34; addHead(new THREE.SphereGeometry(.035,8,6),rune,side*.09,1.98,-.29); }
   } else if (heroClass === 'skeleton') {
     for (let row=0; row<3; row++) {
       const rib = add(new THREE.SphereGeometry(.16,10,7), steel, 0,1.12+row*.11,-.365,1.22,.22,.12);
