@@ -2102,7 +2102,16 @@ function renderSkillTrees() {
     '<path class="skill-orbit-arc" d="M 8 65 Q 50 7 92 65"/><path class="skill-orbit-arc" d="M 8 65 Q 50 98 92 65"/>'+
     connectorParts.join('')+'<circle cx="50" cy="50" r="3.2" class="skill-orbit-hub-ring"/><circle cx="50" cy="50" r="1.3" class="skill-orbit-hub"/>'+
     '</svg>'+nodesMarkup.join('')+'<div class="skill-orbit-point-counter"><strong>'+skillPoints+'</strong><small>PONTOS DISPONÍVEIS</small></div></div></div>';
-  const html=core+filterBar+branchLegend+graph+'<p class="skill-orbit-help">Toque em um círculo disponível para desbloquear. Pesquise pelo nome da habilidade para localizar seu nó.</p>';
+  const catalog = '<section class="skill-description-catalog"><h3>O QUE CADA TALENTO FAZ</h3><p>Veja os efeitos e requisitos antes de gastar pontos.</p>' +
+    branches.map(branch => '<section class="skill-description-branch"><h4>'+branch.title+'</h4><div class="skill-description-list">'+
+      branch.skills.map(skill => {
+        const unlocked=unlockedSkills.has(skill.id);
+        const canBuy=canUnlock({...skill,branch:branch.id});
+        const required=skill.req ? allSkills.find(item=>item.id===skill.req)?.name : '';
+        const state=unlocked?'DESBLOQUEADA':skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):canBuy?'DISPONÍVEL · 1 PONTO':skillPoints<1?'SEM PONTOS':'BLOQUEADA';
+        return '<article class="skill-description-card '+(unlocked?'unlocked':canBuy?'available':'locked')+'"><span class="skill-description-icon">'+skill.icon+'</span><div class="skill-description-copy"><strong>'+skill.name+'</strong><p>'+skill.desc+'</p><small>'+state+'</small></div></article>';
+      }).join('')+'</div></section>').join('')+'</section>';
+  const html=core+filterBar+branchLegend+graph+'<p class="skill-orbit-help">Toque em um círculo disponível para desbloquear. Confira os efeitos e requisitos abaixo.</p>'+catalog;
   const lobbyTree=$('skillTreeLobby'),hudTree=$('skillTreeHud');
   if(lobbyTree) lobbyTree.innerHTML=html;
   if(hudTree) hudTree.innerHTML=html;
