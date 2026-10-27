@@ -121,12 +121,14 @@ function requestTacticalTarget(room, monster, players, now) {
   if (tacticalAiInFlight.size >= TACTICAL_AI_MAX_IN_FLIGHT) return;
   const candidates = [];
   for (const player of players) {
-    if (player.hp <= 0 || now < (player.invisibleUntil || 0)) continue;
+    if (player.hp <= 0 || now < (player.invisibleUntil || 0) || !Number.isFinite(player.x) || !Number.isFinite(player.z)) continue;
+    const threat = getMonsterThreat(monster, player, now);
     candidates.push({
       id: 'player:' + String(player.id), x: player.x, z: player.z,
       health: player.hp, maxHealth: player.maxHp || player.hp || 100,
       playerClass: player.playerClass || 'knight', role: player.playerClass || 'knight',
-      threat: getMonsterThreat(monster, player, now), isSummon: false, alive: true
+      threat, recentDamage: threat, isSummon: false, alive: true,
+      shielded: Number(player.shieldUntil || 0) > now || Number(player.guardUntil || 0) > now
     });
   }
   for (const summon of (room.summons || [])) {
@@ -146,15 +148,25 @@ function requestTacticalTarget(room, monster, players, now) {
   tacticalAiStats.requests++;
   const requestController = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timeout = setTimeout(() => requestController?.abort(), 700);
+  const monsterKind = String(monster.kind || 'stalker').toLowerCase();
+  const monsterProfile = {
+    stalker: { attackRange: 2.5, aggression: 1.0 },
+    thorn: { attackRange: 2.7, aggression: 1.05 },
+    wraith: { attackRange: 3.0, aggression: 1.25 },
+    brute: { attackRange: 3.3, aggression: 1.15 },
+    inferno: { attackRange: 3.1, aggression: 1.3 },
+    abyss: { attackRange: 3.2, aggression: 1.35 },
+    assassin: { attackRange: 2.4, aggression: 1.4 }
+  }[monsterKind] || { attackRange: 2.5, aggression: 1.0 };
   fetch(TACTICAL_AI_URL + '/target', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-request-id': 'game-' + String(room.code).slice(0, 20) + '-' + key.slice(0, 40) },
-    body: JSON.stringify({ monster: { id: monster.id, kind: monster.kind, x: monster.x, z: monster.z, hp: monster.hp }, candidates, previousTargetId: room.tacticalAiCache?.get(key)?.targetId || null }),
+    body: JSON.stringify({ monster: { id: monster.id, kind: monsterKind, x: monster.x, z: monster.z, hp: monster.hp, ...monsterProfile }, candidates, previousTargetId: room.tacticalAiCache?.get(key)?.targetId || null }),
     signal: requestController?.signal
   }).then(response => response.ok ? response.json() : null).then(result => {
     const validTargets = new Set(candidates.map(candidate => candidate.id));
     if (result && typeof result.targetId === 'string' && validTargets.has(result.targetId)) {
-      room.tacticalAiCache.set(key, { targetId: result.targetId, at: Date.now(), version: result.version || 'unknown' });
+      room.tacticalAiCache.set(key, { targetId: result.targetId, at: Date.now(), version: result.version || 'unknown', confidence: Number.isFinite(result.decisionConfidence) ? result.decisionConfidence : null, profile: result.tacticalProfile || monsterKind });
       tacticalAiStats.decisions++;
       // Bound cache growth in rooms with many waves or long play sessions.
       if (room.tacticalAiCache.size > 256) {
