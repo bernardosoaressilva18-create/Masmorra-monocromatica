@@ -3181,3 +3181,27 @@ html, body { width:100%; min-width:0; }
 .lobby-modal-card:has(.skill-path-board){width:min(1180px,100%);max-width:1180px;max-height:94dvh;overflow:auto;padding:16px}
 @media(max-width:900px){.skill-path-columns{grid-template-columns:repeat(5,minmax(185px,1fr));overflow:visible}.skill-path-board{overflow-x:auto;touch-action:pan-x pan-y}.skill-path-branch{min-height:100%}.skill-path-node{grid-template-columns:22px 28px minmax(100px,1fr)}}
 @media(max-width:600px){.lobby-modal-card:has(.skill-path-board){padding:10px 8px;max-height:94dvh}.skill-tree-core-redesign{padding:9px}.skill-tree-tools{gap:6px}.skill-filter{padding:8px 7px;font-size:8px}.skill-path-board{padding:9px}.skill-path-columns{grid-template-columns:repeat(5,195px);gap:8px}.skill-path-branch{padding:8px}.skill-path-header h3{font-size:11px}.skill-path-node{padding:9px 7px;grid-template-columns:22px 28px minmax(0,1fr)}.skill-path-copy strong{font-size:11px}.skill-path-description{font-size:10px}.skill-description-list{grid-template-columns:1fr}.skill-description-card{padding:8px}}
+
+
+/* PvP RPG — seleção de modo e invocações com layout adaptado a celulares */
+.game-mode-label{display:block!important;margin:13px 0 7px!important;color:#d7c79f!important;font-size:9px!important;letter-spacing:1.8px!important;font-weight:900!important}
+.game-mode-select{display:block;width:100%;min-height:45px;margin:0 0 7px;padding:0 12px;border:1px solid #9b804b;border-radius:8px;background:linear-gradient(145deg,#141c27,#080d14);color:#edf5f8;font-size:12px;outline:none;touch-action:manipulation}
+.game-mode-select:focus{border-color:#76e7f2;box-shadow:0 0 0 2px #76e7f21b}
+.game-mode-select option{background:#101722;color:#edf5f8}
+.pvp-summon-controls{pointer-events:auto;position:absolute;z-index:4;left:50%;bottom:156px;transform:translateX(-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;width:min(390px,48vw);padding:9px;border:1px solid #9e83bd8f;border-radius:12px;background:linear-gradient(145deg,#1b1530ee,#080d16f2);box-shadow:0 10px 35px #0008;backdrop-filter:blur(10px)}
+.pvp-summon-controls label{grid-column:1/-1;color:#d7c1ff;font-size:8px;font-weight:900;letter-spacing:1.6px}
+.pvp-summon-controls select{min-width:0;width:100%;height:39px;padding:0 8px;border:1px solid #53456f;border-radius:7px;background:#0c111c;color:#eff3ff;font-size:10px;touch-action:manipulation}
+.pvp-summon-controls button{height:39px;padding:0 10px;border:1px solid #d5b6ff;border-radius:7px;background:linear-gradient(110deg,#8f65cb,#d8b7ff);color:#140d21;font-size:9px;font-weight:900;letter-spacing:.4px;white-space:nowrap;touch-action:manipulation}
+.pvp-summon-controls button:active{transform:scale(.97);filter:brightness(1.15)}
+.pvp-summon-controls small{grid-column:1/-1;color:#b9adc9;font-size:8px;line-height:1.35}
+.pvp-player-chip{border-color:#a58ae766;background:linear-gradient(110deg,#211630d9,#0a111bd9)}
+@media(max-width:700px){
+  .game-mode-select{font-size:11px}
+  .pvp-summon-controls{bottom:126px;width:min(92vw,360px);gap:5px;padding:7px}
+  .pvp-summon-controls select{height:36px;font-size:9px}
+  .pvp-summon-controls button{height:36px;padding:0 8px;font-size:8px}
+}
+@media(max-height:500px){
+  .pvp-summon-controls{bottom:92px;left:50%;width:min(58vw,390px);padding:5px}
+  .pvp-summon-controls label,.pvp-summon-controls small{font-size:7px}
+}
