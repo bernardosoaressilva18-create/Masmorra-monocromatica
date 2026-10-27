@@ -1509,7 +1509,7 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         broadcast(room,{type:'bossPattern',id,kind,label,damage,impactAt:now+windup,circles:boss.telegraphs});
         broadcast(room,{type:'notice',text:'⚠ O Guardião prepara ' + label + '! Saia dos círculos vermelhos!'});
       }
-      if (now < (boss.stunnedUntil || 0)) { boss.attackWarnAt = 0; }
+      if (boss.pendingPattern || now < (boss.stunnedUntil || 0)) { boss.attackWarnAt = 0; }
       else {
       let target = null, nearest = Infinity;
       for (const p of players) { if (p.hp <= 0 || now < (p.invisibleUntil || 0)) continue; const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
