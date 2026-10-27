@@ -2834,3 +2834,13 @@ html, body { width:100%; min-width:0; }
 #hud .inventory-panel.inventory-hidden>:not(.inventory-toggle){display:none!important}
 
 .lobby-build-number{display:inline-flex;align-items:center;justify-content:center;margin-left:7px;min-width:24px;height:24px;padding:0 6px;border:1px solid #8be5ff99;border-radius:7px;background:#173c51;color:#a8f3ff;font-size:11px;font-weight:900;letter-spacing:.5px;box-shadow:0 0 12px #4bcaf02b}
+
+
+/* HUD de mana: barra azul-violeta abaixo da barra superior. */
+#hud .mana-hud{position:absolute;top:58px;left:12px;z-index:15;width:min(220px,48vw);padding:7px 9px;border:1px solid rgba(111,153,255,.4);border-radius:10px;background:rgba(9,16,34,.86);box-shadow:0 4px 18px rgba(0,0,0,.2);pointer-events:none}
+#hud .mana-label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px;color:#b9c8ff;font-size:10px;font-weight:900;letter-spacing:.06em}
+#hud .mana-label b{color:#eef1ff;font-size:11px;font-variant-numeric:tabular-nums}
+#hud .mana-track{height:7px;overflow:hidden;border-radius:99px;background:#202844;box-shadow:inset 0 1px 2px #0008}
+#hud .mana-track i{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#596dff,#7ce8ff);box-shadow:0 0 10px #658cff88;transition:width .18s ease}
+#hud .mana-track i.low-mana{background:linear-gradient(90deg,#e45bff,#ff8bd7)}
+@media(max-width:560px){#hud .mana-hud{top:56px;left:8px;width:148px;padding:6px 7px}#hud .mana-label{font-size:9px}#hud .mana-label b{font-size:10px}}
