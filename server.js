@@ -523,15 +523,22 @@ const PVP_MONSTERS={
  thorn:{name:'Espinheiro',mana:30,hp:40,damage:3,attackMs:1250,speed:.24},
  assassin:{name:'Assassino Sombrio',mana:45,hp:28,damage:7,attackMs:850,speed:.36}
 };
-function createPvpMonster(room,player,kind){
+function createPvpMonster(room,player,kind,options={}){
  const p=PVP_MONSTERS[kind];if(!p||room.gameMode!=='pvp_rpg')return null;
  const alive=room.monsters.filter(m=>m.alive&&m.hp>0);
- if(alive.length>=16||alive.filter(m=>m.pvpSummoned&&String(m.ownerId)===String(player.id)).length>=3)return null;
+ const classSummoned=options.classSummoned===true;
+ const owned=alive.filter(m=>m.pvpSummoned&&String(m.ownerId)===String(player.id)&&
+   (classSummoned ? m.classSummoned===true : m.classSummoned!==true));
+ const ownerLimit=Number.isFinite(options.maxOwned)?Math.max(1,options.maxOwned):3;
+ if(alive.length>=16||owned.length>=ownerLimit)return null;
  const now=Date.now(),rot=Number(player.rot)||0;
- const m={id:'pvp-'+player.id+'-'+now+'-'+Math.random().toString(36).slice(2,7),kind,name:p.name,ownerId:player.id,
-  ownerName:player.name,pvpSummoned:true,x:Math.max(-12,Math.min(12,player.x-Math.sin(rot)*1.8)),
+ const m={id:'pvp-'+player.id+'-'+now+'-'+Math.random().toString(36).slice(2,7),kind,name:options.name||p.name,ownerId:player.id,
+  ownerName:player.name,pvpSummoned:true,classSummoned,summonClass:options.summonClass||null,
+  color:options.color||null,skin:options.skin||'default',x:Math.max(-12,Math.min(12,player.x-Math.sin(rot)*1.8)),
   z:Math.max(-27,Math.min(-3,player.z-Math.cos(rot)*1.8)),phase:1,realm:1,spawned:false,spawnAt:now+250,
-  alive:true,hp:p.hp,maxHp:p.hp,damage:p.damage,attackMs:p.attackMs,moveSpeed:p.speed,attackAt:0};
+  alive:true,hp:options.hp??p.hp,maxHp:options.hp??p.hp,damage:options.damage??p.damage,
+  attackMs:options.attackMs??p.attackMs,moveSpeed:options.speed??p.speed,attackAt:0,
+  expiresAt:options.durationMs?now+options.durationMs:0};
  room.monsters.push(m);return m;
 }
 function newRoom(code,hostId,isPublic=false,requestedGameMode='coop'){
@@ -1043,25 +1050,76 @@ wss.on('connection', ws => {
         + (ability === 'golem_rock_toss' && hasSkill(player, 'golem_mountaincore') ? 2000 : 0);
       player.abilityCooldowns[ability]=now+Math.max(4500,cooldownMs[ability]-cooldownReduction);
       if(room.gameMode==='pvp_rpg'){
-        const rivals=()=>[...room.players.values()].filter(p=>p.connected!==false&&p.id!==player.id&&p.hp>0&&now>=(p.invisibleUntil||0));
-        const nearest=(range=12)=>rivals().map(p=>({p,d:Math.hypot(p.x-player.x,p.z-player.z)})).filter(e=>e.d<=range).sort((a,b)=>a.d-b.d)[0]?.p||null;
-        const hit=(t,dmg,push=0,stun=0)=>{if(!t||t.hp<=0)return;applyPvpPlayerDamage(room,player,t,dmg);
-          if(push&&t.hp>0){const dx=t.x-player.x,dz=t.z-player.z,d=Math.hypot(dx,dz)||1;t.x=Math.max(-12,Math.min(12,t.x+dx/d*push));t.z=Math.max(-28,Math.min(-2,t.z+dz/d*push));}
-          if(stun&&t.hp>0)t.pvpStunnedUntil=now+stun;};
+        const rivals=()=>[...room.players.values()].filter(p=>p.connected!==false&&String(p.id)!==String(player.id)&&p.hp>0&&now>=(p.invisibleUntil||0));
+        const nearest=(range=12,origin=player)=>rivals().map(p=>({p,d:Math.hypot(p.x-origin.x,p.z-origin.z)})).filter(e=>e.d<=range).sort((a,b)=>a.d-b.d)[0]?.p||null;
+        const hit=(t,dmg,push=0,stun=0,burnMs=0,origin=player)=>{
+          if(!t||t.hp<=0)return;
+          applyPvpPlayerDamage(room,player,t,dmg);
+          if(burnMs>0&&t.hp>0){t.burnUntil=Math.max(t.burnUntil||0,now+burnMs);t.burnNextAt=Math.min(t.burnNextAt||now+1000,now+1000);t.burnOwnerId=player.id;}
+          if(push&&t.hp>0){const dx=t.x-origin.x,dz=t.z-origin.z,d=Math.hypot(dx,dz)||1;t.x=Math.max(-12,Math.min(12,t.x+dx/d*push));t.z=Math.max(-28,Math.min(-2,t.z+dz/d*push));}
+          if(stun&&t.hp>0)t.pvpStunnedUntil=now+stun;
+        };
         const targets=[];let text='',center={x:player.x,z:player.z};
+        const area=(origin,radius,damage,push=0,stun=0,burnMs=0)=>{
+          let count=0;
+          for(const t of rivals()){
+            if(Math.hypot(t.x-origin.x,t.z-origin.z)>radius)continue;
+            hit(t,damage,push,stun,burnMs,origin);targets.push({x:t.x,z:t.z});count++;
+          }
+          return count;
+        };
         if(ability==='knight_shield'){player.shieldUntil=now+4200;text='🛡️ Escudo por 4,2 segundos.';}
         else if(['knight_dash','necromancer_dive','monk_winged_steps'].includes(ability)){
-          const d=ability==='knight_dash'?3.4:ability==='necromancer_dive'?4.2:4.8;player.x=Math.max(-12,Math.min(12,player.x-Math.sin(player.rot||0)*d));player.z=Math.max(-27,Math.min(-3,player.z-Math.cos(player.rot||0)*d));player.dodgeUntil=now+450;
-          const t=nearest(4.2);if(t&&ability==='knight_dash'){hit(t,10,1.2);targets.push({x:t.x,z:t.z});}text='↗ Avanço PvP!';
-        }else if(['arrow_rain','incendiary_arrows','golem_rock_toss'].includes(ability)){
-          const t=nearest(ability==='golem_rock_toss'?11:10);if(t){hit(t,ability==='incendiary_arrows'?11:ability==='golem_rock_toss'?13:8,ability==='golem_rock_toss'?1.8:0);targets.push({x:t.x,z:t.z});center={x:t.x,z:t.z};}text='✦ Habilidade acertou a arena!';
-        }else if(ability==='goblin_invis'){player.invisibleUntil=now+5000;text='👻 Invisibilidade por 5s.';}
-        else if(['goblin_summon','necromancer_summon','golem_split'].includes(ability)){const kind=ability==='golem_split'?'brute':ability==='necromancer_summon'?'wraith':'stalker';let n=0;for(let i=0;i<2;i++)if(createPvpMonster(room,player,kind))n++;text=n?'✦ '+n+' monstros aliados invocados.':'Limite de monstros atingido.';}
-        else if(ability==='ogre_slam'){for(const t of rivals())if(Math.hypot(t.x-player.x,t.z-player.z)<=5.2){hit(t,12,1.6);targets.push({x:t.x,z:t.z});}text='💥 Impacto em área!';}
-        else if(ability==='ogre_haste'){player.ogreHasteUntil=now+5000;text='💨 Velocidade por 5s.';}
-        else if(ability==='healer_cure'){const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+26);player.shieldUntil=Math.max(player.shieldUntil||0,now+900);text='🌿 Cura: +'+(player.hp-before)+' vida.';}
-        else if(ability==='healer_guardian_spirits'){player.shieldUntil=Math.max(player.shieldUntil||0,now+5200);text='✦ Barreira de espíritos ativa.';}
-        else if(ability==='monk_impact_palm'){for(const t of rivals())if(Math.hypot(t.x-player.x,t.z-player.z)<=4.2){hit(t,9,1.3,850);targets.push({x:t.x,z:t.z});}text='👊 Palma de impacto!';}
+          const d=ability==='knight_dash'?3.4:ability==='necromancer_dive'?4.2:4.8;
+          player.x=Math.max(-12,Math.min(12,player.x-Math.sin(player.rot||0)*d));player.z=Math.max(-27,Math.min(-3,player.z-Math.cos(player.rot||0)*d));player.dodgeUntil=now+450;
+          center={x:player.x,z:player.z};
+          const t=nearest(4.2);if(t&&ability==='knight_dash'){hit(t,10,1.2,0,0,center);targets.push({x:t.x,z:t.z});}
+          text=ability==='knight_dash'?'↗ Avanço do cavaleiro!':ability==='monk_winged_steps'?'🪽 Passos Alados!':'🕳️ Deslocamento sombrio!';
+        }else if(ability==='arrow_rain'||ability==='incendiary_arrows'){
+          const t=nearest(10);
+          if(t){
+            center={x:t.x,z:t.z};
+            const radius=ability==='arrow_rain'?(hasSkill(player,'archer_volley')?5.2:4.6):4.1;
+            const count=area(center,radius,ability==='arrow_rain'?(hasSkill(player,'archer_volley')?10:8):7,0,0,ability==='incendiary_arrows'?(hasSkill(player,'archer_firetip')?7500:5000):0);
+            text=(ability==='arrow_rain'?'🏹 Chuva de flechas acertou ':'🔥 Flechas incendiárias atingiram ')+count+' rival(is)!';
+          }else text='Nenhum rival ao alcance da habilidade.';
+        }else if(ability==='golem_rock_toss'){
+          const requestedX=Number(msg.x),requestedZ=Number(msg.z);
+          const fallback=nearest(11);
+          const target=Number.isFinite(requestedX)&&Number.isFinite(requestedZ)
+            ? {x:Math.max(-12,Math.min(12,requestedX)),z:Math.max(-27,Math.min(-3,requestedZ))}
+            : (fallback?{x:fallback.x,z:fallback.z}:null);
+          if(target){center=target;const count=area(center,5.0,13,1.4,0,0);text='☄️ Pedra titânica: '+count+' rival(is) atingido(s)!';}
+          else text='Mire em uma área da arena para lançar a pedra.';
+        }else if(ability==='goblin_invis'){player.invisibleUntil=now+(hasSkill(player,'goblin_shadow')?7000:5000);text='👻 Invisibilidade ativada.';}
+        else if(['goblin_summon','necromancer_summon','golem_split'].includes(ability)){
+          let n=0;
+          if(ability==='goblin_summon'){
+            const count=hasSkill(player,'goblin_pack')?3:2;
+            for(let i=0;i<count;i++)if(createPvpMonster(room,player,'stalker',{classSummoned:true,summonClass:'goblin',name:'Goblin aliado',color:0x80c86b,hp:24,damage:3,attackMs:950,speed:.33,durationMs:12000,maxOwned:7}))n++;
+            text=n?'👺 '+n+' goblin(s) aliados por 12 segundos.':'Limite de invocações da arena atingido.';
+          }else if(ability==='necromancer_summon'){
+            const count=hasSkill(player,'necromancer_horde')?7:5;
+            for(let i=0;i<count;i++)if(createPvpMonster(room,player,'wraith',{classSummoned:true,summonClass:'skeleton',name:'Esqueleto aliado',color:0xe0dccb,hp:9,damage:2,attackMs:1100,speed:.27,durationMs:hasSkill(player,'necromancer_horde')?24000:18000,maxOwned:8}))n++;
+            text=n?'💀 '+n+' esqueletos por '+(hasSkill(player,'necromancer_horde')?24:18)+' segundos.':'Limite de invocações da arena atingido.';
+          }else{
+            const duration=hasSkill(player,'golem_splitheart')?16000:12000;
+            for(let i=0;i<3;i++)if(createPvpMonster(room,player,'brute',{classSummoned:true,summonClass:'golem_clone',name:'Fragmento de Golem',color:0x8a9096,hp:30,damage:4,attackMs:1150,speed:.21,durationMs:duration,maxOwned:8}))n++;
+            player.invisibleUntil=now+duration;
+            text=n?'🪨 '+n+' fragmentos de golem por '+Math.round(duration/1000)+' segundos.':'Limite de invocações da arena atingido.';
+          }
+        }else if(ability==='ogre_slam'){
+          center={x:player.x,z:player.z};
+          const count=area(center,hasSkill(player,'ogre_aftershock')?6.2:5.2,hasSkill(player,'ogre_berserker')?14:12,1.6);
+          text='💥 Impacto em área: '+count+' rival(is) atingido(s)!';
+        }else if(ability==='ogre_haste'){player.ogreHasteUntil=now+(hasSkill(player,'ogre_longrage')?7000:5000);text='💨 Velocidade aumentada!';}
+        else if(ability==='healer_cure'){const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+(hasSkill(player,'healer_blessing')?70:50));player.shieldUntil=Math.max(player.shieldUntil||0,now+900);text='🌿 Cura: +'+(player.hp-before)+' vida.';}
+        else if(ability==='healer_guardian_spirits'){player.shieldUntil=Math.max(player.shieldUntil||0,now+5200);text='🪽 Os espíritos guardiões criaram uma barreira temporária.';}
+        else if(ability==='monk_impact_palm'){
+          center={x:player.x-Math.sin(Number(player.rot)||0)*1.4,z:player.z-Math.cos(Number(player.rot)||0)*1.4};
+          const count=area(center,4.2,hasSkill(player,'monk_openpalm')?11:9,1.3,hasSkill(player,'monk_zen')?1600:1100);
+          text='👊 Palma de impacto: '+count+' rival(is) atingido(s)!';
+        }
         broadcast(room,{type:'classAbility',id:player.id,ability,x:player.x,z:player.z,center,targets,until:player.shieldUntil||player.invisibleUntil||player.ogreHasteUntil||0,text});
         broadcast(room,state(room));return;
       }
@@ -1236,11 +1294,11 @@ wss.on('connection', ws => {
             x: player.x + Math.cos(angle) * 1.1, z: player.z + Math.sin(angle) * 1.1,
             rot: player.rot || 0, hp: 1, maxHp: 1, damage: 0, attackMs: 5000,
             spiritIndex: i, expiresAt: player.guardianSpiritsUntil,
-            nextHealAt: now + (hasSkill(player, 'healer_pulse') ? 4500 : 6000) + i * 500,
-            nextDamageAt: now + (hasSkill(player, 'healer_pulse') ? 4000 : 5000) + i * 400
+            nextHealAt: now + 4000 + i * 250,
+            nextDamageAt: now + 5000 + i * 350
           });
         }
-        text = '🪽 Três espíritos guardiões voam por 20 segundos: curam aliados em 5 a cada 6 s ou causam 6 de dano a inimigos a cada 5 s.';
+        text = '🪽 Três espíritos guardiões voam por 20 segundos: curam aliados em 5 a cada 4 s ou causam 9 de dano a inimigos a cada 5 s.';
       } else if (ability === 'necromancer_summon') {
         let created = 0;
         const skeletonCount = hasSkill(player, 'necromancer_horde') ? 7 : 5;
@@ -1560,6 +1618,10 @@ setInterval(() => {
       continue;
     }
     if (!room.started || players.length === 0) continue;
+    if (room.gameMode === 'pvp_rpg') {
+      // Summons temporários expiram e não acumulam na lista enviada a cada tick.
+      room.monsters = room.monsters.filter(monster => !monster.classSummoned || !monster.expiresAt || now < monster.expiresAt);
+    }
     if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0||now<(p.invisibleUntil||0))continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;if(now<(t.dodgeUntil||0)){t.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você evitou o golpe.'}));}else{takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}}
     if (room.safeZoneUntil && now >= room.safeZoneUntil) {
       room.safeZoneUntil = 0;
@@ -1580,6 +1642,16 @@ setInterval(() => {
       }
 if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextRegenAt || 0)) {
         p.hp = Math.min(p.maxHp, p.hp + 2); p.nextRegenAt = now + 3000;
+      }
+      if (p.burnUntil && now >= (p.burnNextAt || 0)) {
+        if (now > p.burnUntil) { p.burnUntil = 0; p.burnOwnerId = null; }
+        else if (room.gameMode === 'pvp_rpg' && p.hp > 0) {
+          const burner = room.players.get(String(p.burnOwnerId || '')) || null;
+          if (burner && burner.id !== p.id) applyPvpPlayerDamage(room, burner, p, 1);
+          else takeDamage(room, p, 1);
+          p.burnNextAt = now + 1000;
+          if (p.hp <= 0 && p.ws?.readyState === WebSocket.OPEN) p.ws.send(JSON.stringify({type:'notice',text:'🔥 A queimadura derrotou você.'}));
+        }
       }
       if (hasSkill(p, 'healing_aura') && p.hp > 0 && now >= (p.nextAuraAt || 0)) {
         p.nextAuraAt = now + 2200;
@@ -1626,12 +1698,12 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
           summon.z = Math.max(-169.5, Math.min(6.5, summon.z + dz / distance * speed));
         } else if (targetEntry.isAlly) {
           if (now >= (summon.nextHealAt || 0)) {
-            summon.nextHealAt = now + 6000;
+            summon.nextHealAt = now + 4000;
             target.hp = Math.min(target.maxHp, target.hp + (room.players.get(summon.ownerId)?.skills?.includes('healer_pulse') ? 7 : 5));
           }
         } else if (now >= (summon.nextDamageAt || 0)) {
           summon.nextDamageAt = now + 5000;
-          target.hp = Math.max(0, (target.hp || 1) - (room.players.get(summon.ownerId)?.skills?.includes('healer_pulse') ? 8 : 6));
+          target.hp = Math.max(0, (target.hp || 1) - (room.players.get(summon.ownerId)?.skills?.includes('healer_pulse') ? 11 : 9));
           if (target.hp <= 0 && target.alive) handleSummonDefeat(room, summon, target);
         }
         summon.rot = Math.atan2(dx, dz);
