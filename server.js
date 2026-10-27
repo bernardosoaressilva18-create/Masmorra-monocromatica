@@ -711,7 +711,7 @@ wss.on('connection', ws => {
       let room=rooms.get(code);
       if(!room)room=newRoom(code,player.id,!!msg.public,msg.gameMode);
       const requestedGameMode=msg.gameMode==='pvp_rpg'?'pvp_rpg':'coop';
-      if(room.gameMode!==requestedGameMode&&!msg.resumeToken){
+      if(room.gameMode!==requestedGameMode){
         ws.send(JSON.stringify({type:'error',message:'Esse código pertence ao modo '+(room.gameMode==='pvp_rpg'?'PvP RPG':'Cooperativo')+'. Escolha esse modo antes de entrar.'}));
         return;
       }
@@ -1777,7 +1777,7 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
           }
           if (!target.isSummon && target.hp <= 0) {
             target.hp = 0;
-            if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
+            if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: room.gameMode === 'pvp_rpg' ? 'Você foi derrotado. Retorno em 4 segundos.' : 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
           }
         }
       } else if (!target || nearest > 2.5) {
