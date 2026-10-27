@@ -1747,7 +1747,7 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         }
       }
       const monsterNow = Date.now();
-      if (target && nearest <= 2.0) {
+      if (target && nearest <= 2.55) {
         if (room.gameMode === 'pvp_rpg' && monsterNow < (monster.nextAttackAt || 0)) {
           monster.attackWarnAt = 0;
           monster.attackTargetId = null;
