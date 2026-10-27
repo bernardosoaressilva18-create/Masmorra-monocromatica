@@ -3290,9 +3290,12 @@ function updateState(m) {
   }
   $('killText').textContent=isPvpRpg?(selfScore?.pvpKills||0):phase===5&&bossData?phaseTotal-bossData.hp:phaseTotal-alive;
 
-  $('playersList').innerHTML = m.players.map(p =>
+  const leaderboardPlayers = isPvpRpg
+    ? [...m.players].sort((a,b)=>(b.pvpKills||0)-(a.pvpKills||0)||((b.hp||0)-(a.hp||0)))
+    : m.players;
+  $('playersList').innerHTML = leaderboardPlayers.map((p,index) =>
     isPvpRpg
-      ? `<div class="player-chip pvp-player-chip">${p.id===playerId?'◆':'●'} ${escapeHTML(p.name)} · K ${p.pvpKills||0} · ♥ ${Math.round(p.hp)}/${Math.round(p.maxHp||100)}</div>`
+      ? `<div class="player-chip pvp-player-chip" data-rank="${index+1}">${index===0?'♛':index===1?'◆':'●'} ${escapeHTML(p.name)} · K ${p.pvpKills||0} · ♥ ${Math.round(p.hp)}/${Math.round(p.maxHp||100)}</div>`
       : `<div class="player-chip">● ${escapeHTML(p.name)}${p.id === playerId ? ' (você)' : ''}</div>`
   ).join('');
 }
