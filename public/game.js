@@ -2042,19 +2042,32 @@ function renderSkillTrees() {
       '<button type="button" class="skill-filter ' + (activeSkillFilter===id?'active':'') +
       '" data-skill-filter="' + id + '" aria-pressed="' + (activeSkillFilter===id?'true':'false') + '">' + label + '</button>'
     ).join('') + '</div></div>';
+  // Five non-overlapping paths fan out from the center like the reference image.
+  // Nodes stay circular; names/descriptions remain available through the tooltip
+  // and search box rather than oversized cards covering neighboring branches.
   const positions = {
-    attack:[[50,10],[40,19],[31,30],[24,42],[20,55]],
-    defense:[[19,47],[16,60],[20,72],[28,82],[39,88]],
-    arcane:[[50,49],[50,39],[50,29],[50,19],[50,9]],
-    mobility:[[81,47],[84,60],[80,72],[72,82],[61,88]],
-    support:[[50,10],[60,19],[69,30],[76,42],[80,55]]
+    attack:[[41,40],[32,31],[23,24],[15,18],[9,12]],
+    defense:[[41,60],[32,69],[23,76],[15,82],[9,88]],
+    arcane:[[50,40],[50,30],[50,20],[50,11],[50,5]],
+    mobility:[[59,60],[68,69],[77,76],[85,82],[91,88]],
+    support:[[59,40],[68,31],[77,24],[85,18],[91,12]]
   };
   const connectorParts = [];
   const nodesMarkup = [];
-  branches.forEach((branch, branchIndex) => {
+  const branchLegend = '<div class="skill-orbit-legend">' + branches.map(branch => {
+    const unlockedCount = branch.skills.filter(skill => unlockedSkills.has(skill.id)).length;
+    return '<div class="skill-orbit-legend-item branch-' + branch.id + '"><span>' + branch.title + '</span><small>' +
+      unlockedCount + '/' + branch.skills.length + '</small></div>';
+  }).join('') + '</div>';
+  branches.forEach(branch => {
     const coords = positions[branch.id] || [[50,10],[50,25],[50,40],[50,55],[50,70]];
     const branchSkills = branch.skills;
-    const unlockedInBranch = branchSkills.filter(skill => unlockedSkills.has(skill.id)).length;
+    const first = coords[0] || [50,50];
+    connectorParts.push('<line class="skill-root-link" x1="50" y1="50" x2="'+first[0]+'" y2="'+first[1]+'"/>');
+    for(let i=1;i<coords.length;i++) {
+      const a=coords[i-1],b=coords[i];
+      connectorParts.push('<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'"/>');
+    }
     const query = activeSkillSearch.trim().toLocaleLowerCase('pt-BR');
     const visible = branchSkills.map((skill,index)=>({...skill,branch:branch.id,originalIndex:index})).filter(skill => {
       const matchesFilter = activeSkillFilter==='all' ||
@@ -2062,17 +2075,8 @@ function renderSkillTrees() {
         (activeSkillFilter==='available' && canUnlock(skill));
       return matchesFilter && (!query || (skill.name+' '+skill.desc+' '+branch.title).toLocaleLowerCase('pt-BR').includes(query));
     });
-    const points = visible.map(skill => {
+    visible.forEach(skill => {
       const [x,y] = coords[skill.originalIndex] || [50,50];
-      return {skill,x,y};
-    });
-    const first = coords[0] || [50,50];
-    connectorParts.push('<line class="skill-root-link" x1="50" y1="52" x2="'+first[0]+'" y2="'+first[1]+'"/>');
-    for(let i=1;i<coords.length;i++) {
-      const a=coords[i-1],b=coords[i];
-      connectorParts.push('<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'"/>');
-    }
-    points.forEach(({skill,x,y}) => {
       const unlocked=unlockedSkills.has(skill.id);
       const canBuy=canUnlock(skill);
       const required=skill.req ? allSkills.find(item=>item.id===skill.req)?.name : '';
@@ -2087,12 +2091,8 @@ function renderSkillTrees() {
       nodesMarkup.push('<button type="button" class="skill-orbit-node '+(unlocked?'unlocked':canBuy?'available':'locked')+
         '" style="left:'+x+'%;top:'+y+'%" data-skill="'+skill.id+'" data-branch="'+branch.id+'" data-order="'+(skill.originalIndex+1)+
         '" aria-label="'+skill.name+'. '+skill.desc+'. '+state+'" title="'+skill.name+' — '+skill.desc+' · '+statusTitle+'"'+
-        (canBuy?'':' disabled')+'><span class="skill-orbit-icon">'+skill.icon+'</span><strong>'+skill.name+'</strong>'+
-        '<small>'+skill.desc+'</small><em>'+state+'</em></button>');
+        (canBuy?'':' disabled')+'><span class="skill-orbit-icon">'+skill.icon+'</span></button>');
     });
-    const labelCoords = ({attack:[7,27],defense:[7,77],arcane:[50,2],mobility:[93,77],support:[93,27]})[branch.id] || [50,2];
-    nodesMarkup.push('<div class="skill-orbit-branch-label" style="left:'+labelCoords[0]+'%;top:'+labelCoords[1]+'%">'+
-      '<strong>'+branch.title+'</strong><small>'+unlockedInBranch+'/'+branchSkills.length+'</small></div>');
   });
   const overallPct=Math.min(100,Math.round(activeCount/15*100));
   const core='<div class="skill-tree-core"><span class="skill-tree-core-icon">'+classGlyph+'</span><span><strong>'+
@@ -2100,9 +2100,9 @@ function renderSkillTrees() {
     activeCount+'/15 DESBLOQUEADOS</small><span class="skill-tree-overall-progress" role="progressbar" aria-label="Progresso total de talentos" aria-valuemin="0" aria-valuemax="15" aria-valuenow="'+activeCount+'"><span style="width:'+overallPct+'%"></span></span></span></div>';
   const graph='<div class="skill-orbit-scroll"><div class="skill-orbit-canvas"><svg class="skill-orbit-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'+
     '<path class="skill-orbit-arc" d="M 8 65 Q 50 7 92 65"/><path class="skill-orbit-arc" d="M 8 65 Q 50 98 92 65"/>'+
-    connectorParts.join('')+'<circle cx="50" cy="52" r="3.1" class="skill-orbit-hub-ring"/><circle cx="50" cy="52" r="1.2" class="skill-orbit-hub"/>'+
+    connectorParts.join('')+'<circle cx="50" cy="50" r="3.2" class="skill-orbit-hub-ring"/><circle cx="50" cy="50" r="1.3" class="skill-orbit-hub"/>'+
     '</svg>'+nodesMarkup.join('')+'<div class="skill-orbit-point-counter"><strong>'+skillPoints+'</strong><small>PONTOS DISPONÍVEIS</small></div></div></div>';
-  const html=core+filterBar+graph;
+  const html=core+filterBar+branchLegend+graph+'<p class="skill-orbit-help">Toque em um círculo disponível para desbloquear. Pesquise pelo nome da habilidade para localizar seu nó.</p>';
   const lobbyTree=$('skillTreeLobby'),hudTree=$('skillTreeHud');
   if(lobbyTree) lobbyTree.innerHTML=html;
   if(hudTree) hudTree.innerHTML=html;
