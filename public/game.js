@@ -2935,6 +2935,12 @@ function updateState(m) {
   const isPvpRpg = activeGameMode === 'pvp_rpg';
   const pvpSummonControls = $('pvpSummonControls');
   if (pvpSummonControls) pvpSummonControls.classList.toggle('hidden', !isPvpRpg || !m.started);
+  $('hud')?.classList.toggle('pvp-rpg-active', isPvpRpg && !!m.started);
+  $('progress')?.classList.toggle('hidden', isPvpRpg);
+  const objectiveProgress = document.querySelector('.objective .progress');
+  if (objectiveProgress) objectiveProgress.classList.toggle('hidden', isPvpRpg);
+  const objectiveMonsterText = $('monsterText');
+  if (objectiveMonsterText) objectiveMonsterText.classList.toggle('hidden', isPvpRpg);
   const lobbyModeLabel = $('lobbyModeLabel');
   if (lobbyModeLabel) lobbyModeLabel.textContent = isPvpRpg ? 'ARENA PvP RPG' : 'SALA COOPERATIVA';
   if (!m.started) {
@@ -3181,7 +3187,7 @@ function updateState(m) {
     else if(phase===5)phaseObjective.textContent=realm===2?'Derrote o Guardião Astral':'Derrote o Guardião Supremo';
     else phaseObjective.textContent=realm===2?'Derrote os inimigos astrais e avance':'Derrote os monstros e atravesse o portão da região';
   }
-  if(phaseLabel)phaseLabel.textContent=isPvpRpg?'ARENA PvP RPG':realm===2?'VALE ASTRAL · FASE '+phase+' / 5':'MUNDO MONOCROMÁTICO · FASE '+phase+' / 5';
+  if(phaseLabel)phaseLabel.textContent=isPvpRpg?'⚔ ARENA LIVRE · PRIMEIRO A 10 KOs':realm===2?'VALE ASTRAL · FASE '+phase+' / 5':'MUNDO MONOCROMÁTICO · FASE '+phase+' / 5';
   const bossPanel = $('bossPanel');
   if (bossPanel) bossPanel.classList.toggle('hidden', isPvpRpg || phase !== 5 || !m.boss || !m.boss.alive);
   bossData = m.boss || null;
@@ -3268,11 +3274,20 @@ function updateState(m) {
 
   const selfScore=(m.players||[]).find(p=>p.id===playerId);
   $('monsterText').textContent=isPvpRpg
-    ? alive+' monstros na arena · KOs de jogador: '+(selfScore?.pvpKills||0)
+    ? 'KOs: '+(selfScore?.pvpKills||0)+' / 10 · Monstros invocados: '+(selfScore?.pvpMonsterKills||0)
     : phase===5?(bossData&&bossData.alive?(realm===2?'Guardião Astral':'Guardião Supremo'):(realm===2?'Vale Astral concluído':'Masmorra concluída')):alive+' inimigos restantes';
   const phaseTotal=phase===5&&bossData?Math.max(1,Number(bossData.maxHp)||95):(phase===1?5:phase===2?8:phase===3?9:phase===4?10:95);
   const phaseProgress=isPvpRpg?Math.min(100,((selfScore?.pvpKills||0)/10)*100):phase===5&&bossData?(phaseTotal-bossData.hp)/phaseTotal*100:(phaseTotal-alive)/phaseTotal*100;
   $('progressFill').style.width=Math.max(0,Math.min(100,phaseProgress))+'%';
+  const summonHint=$('pvpSummonHint');
+  const summonType=$('pvpMonsterType');
+  const summonButton=$('pvpSummonBtn');
+  if(isPvpRpg&&selfScore){
+    const costs={stalker:25,thorn:30,wraith:35,brute:40,assassin:45};
+    const cost=costs[summonType?.value||'stalker']||25;
+    if(summonHint)summonHint.textContent='Mana '+Math.round(selfScore.mana??100)+'/'+Math.round(selfScore.maxMana??100)+' · Custo '+cost+' · Máx. 3 invocações';
+    if(summonButton){summonButton.disabled=(selfScore.mana??100)<cost;summonButton.title=summonButton.disabled?'Mana insuficiente':'Invocar monstro aliado';}
+  }
   $('killText').textContent=isPvpRpg?(selfScore?.pvpKills||0):phase===5&&bossData?phaseTotal-bossData.hp:phaseTotal-alive;
 
   $('playersList').innerHTML = m.players.map(p =>
