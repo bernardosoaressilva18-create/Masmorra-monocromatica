@@ -951,7 +951,9 @@ wss.on('connection', ws => {
       };
       const damageEnemy = (enemy, amount, burnMs = 0, pushFrom = null, pushDistance = 0) => {
         if (!enemy || !enemy.alive) return;
+        const enemyHpBefore = enemy.hp;
         enemy.hp = Math.max(0, (enemy.hp || 1) - amount);
+        recordMonsterThreat(enemy, player, Math.max(0, enemyHpBefore - enemy.hp), now);
         if (burnMs > 0 && enemy.hp > 0) {
           enemy.burnUntil = Math.max(enemy.burnUntil || 0, now + burnMs);
           enemy.burnNextAt = Math.min(enemy.burnNextAt || now + 1000, now + 1000);
@@ -1178,7 +1180,9 @@ wss.on('connection', ws => {
         const emberBonus = spell === 'fire' && hasSkill(player, 'mage_ember') ? 1.5 : 0;
         const bossBonus = enemy === room.boss && hasSkill(player, 'boss_hunter') ? 1.5 : 1;
         const executeBonus = enemy.hp / (enemy.maxHp || 1) <= .35 && hasSkill(player, 'executioner') ? 1.5 : 1;
+        const enemyHpBefore = enemy.hp;
         enemy.hp = Math.max(0, (enemy.hp || 1) - amount * classPower * bossBonus * executeBonus - emberBonus);
+        recordMonsterThreat(enemy, player, Math.max(0, enemyHpBefore - enemy.hp), Date.now());
         if (spell === 'fire' && enemy.hp > 0) {
           enemy.burnUntil = Date.now() + (hasSkill(player, 'ember_core') ? 5000 : 3000);
           enemy.burnNextAt = Date.now() + 1000;
