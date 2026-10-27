@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#090c12">
 <meta name="application-name" content="O Último Legado — Update 3 v1">
-<meta name="description" content="O Último Legado: RPG 3D cooperativo com classes, habilidades, monstros e chefes.">
+<meta name="description" content="O Último Legado: RPG 3D com classes, invocações e arena PvP multiplayer.">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icon.svg">
-<title>O Último Legado — RPG Cooperativo</title>
-<link rel="stylesheet" href="style.css?v=20261026-update3-v1">
+<title>O Último Legado — RPG Multiplayer</title>
+<link rel="stylesheet" href="style.css?v=20261027-pvp-rpg-v1">
 </head>
 <body>
 <div id="game"></div>
@@ -37,6 +37,11 @@
   <div class="panel">
     <label for="playerName">NOME DO AVENTUREIRO</label>
     <input id="playerName" maxlength="16" placeholder="Digite seu nome" autocomplete="nickname" value="Aventureiro">
+    <label for="gameModeSelect" class="game-mode-label">MODO DE JOGO</label>
+    <select id="gameModeSelect" class="game-mode-select">
+      <option value="coop">🛡️ Cooperativo · masmorra e chefes</option>
+      <option value="pvp_rpg">⚔️ PvP RPG · classes e monstros invocados</option>
+    </select>
     <button id="playBtn" class="primary">⚔ JOGAR ONLINE</button>
     <button id="quickMatchBtn" class="public-rooms-btn" type="button">⚡ PARTIDA RÁPIDA</button>
     <button id="publicRoomsBtn" class="public-rooms-btn" type="button">🌐 ENTRAR EM SALA PÚBLICA</button>
@@ -48,7 +53,7 @@
     </div>
     <p id="menuStatus" class="status">Conecte-se à internet para jogar online.</p>
   </div>
-  <div class="footnote">MODO COOPERATIVO · ATÉ 4 JOGADORES</div>
+  <div class="footnote" id="modeFootnote">COOPERATIVO OU PvP RPG · ATÉ 4 JOGADORES</div>
 </div>
 
 <div id="lobby" class="screen hidden lobby-screen">
@@ -68,7 +73,7 @@
 
   <main class="lobby-layout">
     <section class="lobby-stage" aria-label="Arena e jogadores">
-      <div class="lobby-stage-top"><span class="lobby-online-dot"></span> SALA COOPERATIVA <span class="lobby-stage-divider">/</span> ATÉ 4 AVENTUREIROS</div>
+      <div class="lobby-stage-top"><span class="lobby-online-dot"></span> <span id="lobbyModeLabel">SALA COOPERATIVA</span> <span class="lobby-stage-divider">/</span> ATÉ 4 JOGADORES</div>
       <div class="hero-showcase">
         <div id="heroPreviewAvatar" class="hero-preview-avatar skin-default"><span id="heroPreviewGlyph">🛡️</span></div>
         <div class="hero-showcase-info">
@@ -223,6 +228,18 @@
     <small id="monsterText">7 monstros restantes</small>
   </div>
   <div id="playersList" class="players"></div>
+  <div id="pvpSummonControls" class="pvp-summon-controls hidden" aria-label="Invocar monstro no PvP">
+    <label for="pvpMonsterType">INVOCAR</label>
+    <select id="pvpMonsterType" aria-label="Escolher monstro">
+      <option value="stalker">Rastreador · 25 mana</option>
+      <option value="thorn">Espinheiro · 30 mana</option>
+      <option value="wraith">Espectro · 35 mana</option>
+      <option value="brute">Brutamonte · 40 mana</option>
+      <option value="assassin">Assassino · 45 mana</option>
+    </select>
+    <button id="pvpSummonBtn" type="button">✦ INVOCAR</button>
+    <small id="pvpSummonHint">Até 3 aliados invocados por jogador.</small>
+  </div>
   <div id="bossPanel" class="boss-panel hidden">
     <div class="boss-title">GUARDIÃO DO ABISMO</div>
     <div class="boss-health"><i id="bossHealthFill"></i></div>
@@ -276,7 +293,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 </script>
-<script type="module" src="game.js?v=20261026-skilltree"></script>
+<script type="module" src="game.js?v=20261027-pvp-rpg-v1"></script>
 </body>
     </html>
     
