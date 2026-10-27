@@ -78,6 +78,33 @@ const tacticalAiStats = { requests: 0, decisions: 0, timeoutsOrErrors: 0, reject
 const TACTICAL_AI_MAX_IN_FLIGHT = 256;
 const TACTICAL_AI_CACHE_TTL_MS = 2600;
 
+function recordMonsterThreat(monster, player, damage, now = Date.now()) {
+  if (!monster || !player || !Number.isFinite(damage) || damage <= 0) return;
+  if (!monster.threatByPlayer) monster.threatByPlayer = Object.create(null);
+  if (!monster.threatUpdatedAt) monster.threatUpdatedAt = Object.create(null);
+  const playerKey = String(player.id);
+  const previous = Number(monster.threatByPlayer[playerKey]) || 0;
+  monster.threatByPlayer[playerKey] = Math.min(100, previous * 0.78 + Math.min(40, damage) * 1.65 + 1);
+  monster.threatUpdatedAt[playerKey] = now;
+  // Keep the per-creature threat table small even if a match contains many reconnects.
+  const keys = Object.keys(monster.threatByPlayer);
+  if (keys.length > 24) {
+    keys.sort((a, b) => (monster.threatUpdatedAt[a] || 0) - (monster.threatUpdatedAt[b] || 0));
+    for (const staleKey of keys.slice(0, keys.length - 24)) {
+      delete monster.threatByPlayer[staleKey];
+      delete monster.threatUpdatedAt[staleKey];
+    }
+  }
+}
+
+function getMonsterThreat(monster, player, now) {
+  const id = String(player.id);
+  const threat = Number(monster?.threatByPlayer?.[id]) || 0;
+  const updated = Number(monster?.threatUpdatedAt?.[id]) || now;
+  const age = Math.max(0, now - updated);
+  return Math.max(0, Math.min(100, threat * Math.exp(-age / 25000)));
+}
+
 function requestTacticalTarget(room, monster, players, now) {
   if (!TACTICAL_AI_URL || typeof fetch !== 'function') return;
   if (!room.tacticalAiCache) room.tacticalAiCache = new Map();
@@ -99,7 +126,7 @@ function requestTacticalTarget(room, monster, players, now) {
       id: 'player:' + String(player.id), x: player.x, z: player.z,
       health: player.hp, maxHealth: player.maxHp || player.hp || 100,
       playerClass: player.playerClass || 'knight', role: player.playerClass || 'knight',
-      threat: Number.isFinite(player.threat) ? player.threat : 0, isSummon: false, alive: true
+      threat: getMonsterThreat(monster, player, now), isSummon: false, alive: true
     });
   }
   for (const summon of (room.summons || [])) {
@@ -1209,6 +1236,7 @@ wss.on('connection', ws => {
           if (isMonk && player.damageBuffHits > 0) damage += player.damageBuff;
           if (target.hp / (target.maxHp || 1) <= .35 && hasSkill(player, 'executioner')) damage += 2;
           target.hp = Math.max(0, (target.hp || 1) - damage);
+          recordMonsterThreat(target, player, damage, now);
           if (isMonk && target.hp > 0 && monkCombo >= 2) {
             target.stunnedUntil = now + (monkCombo === 2 ? 550 : 950);
             target.attackWarnAt = 0; target.attackTargetId = null;
@@ -1253,6 +1281,7 @@ wss.on('connection', ws => {
         if (hasSkill(player, 'boss_hunter')) damage = Math.round(damage * 1.5);
         if (boss.hp / boss.maxHp <= .35 && hasSkill(player, 'executioner')) damage += 2;
         boss.hp = Math.max(0, boss.hp - damage);
+        recordMonsterThreat(boss, player, damage, now);
         if (player.damageBuffHits > 0) { player.damageBuffHits--; if (player.damageBuffHits === 0) player.damageBuff = 0; }
         player.ws.send(JSON.stringify({ type: 'notice', text: 'Você causou ' + damage + ' de dano no Guardião!' }));
         const oldLifePhase = boss.lifePhase; boss.lifePhase = boss.hp / boss.maxHp > .66 ? 1 : boss.hp / boss.maxHp > .33 ? 2 : 3;
