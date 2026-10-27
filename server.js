@@ -77,6 +77,10 @@ const tacticalAiInFlight = new Set();
 const tacticalAiStats = { requests: 0, decisions: 0, timeoutsOrErrors: 0, rejectedResponses: 0, fallbackUses: 0 };
 const TACTICAL_AI_MAX_IN_FLIGHT = 256;
 const TACTICAL_AI_CACHE_TTL_MS = 2600;
+const TACTICAL_AI_CIRCUIT_FAILURE_LIMIT = 5;
+const TACTICAL_AI_CIRCUIT_COOLDOWN_MS = 12000;
+let tacticalAiConsecutiveFailures = 0;
+let tacticalAiCircuitOpenUntil = 0;
 
 function recordMonsterThreat(monster, player, damage, now = Date.now()) {
   if (!monster || !player || !Number.isFinite(damage) || damage <= 0) return;
@@ -107,6 +111,11 @@ function getMonsterThreat(monster, player, now) {
 
 function requestTacticalTarget(room, monster, players, now) {
   if (!TACTICAL_AI_URL || typeof fetch !== 'function') return;
+  if (now < tacticalAiCircuitOpenUntil) { tacticalAiStats.fallbackUses++; return; }
+  if (tacticalAiCircuitOpenUntil && now >= tacticalAiCircuitOpenUntil) {
+    tacticalAiCircuitOpenUntil = 0;
+    tacticalAiConsecutiveFailures = 0;
+  }
   if (!room.tacticalAiCache) room.tacticalAiCache = new Map();
   if (!room.tacticalAiNextRequest) room.tacticalAiNextRequest = new Map();
   const key = String(monster.id);
@@ -168,6 +177,7 @@ function requestTacticalTarget(room, monster, players, now) {
     if (result && typeof result.targetId === 'string' && validTargets.has(result.targetId)) {
       room.tacticalAiCache.set(key, { targetId: result.targetId, at: Date.now(), version: result.version || 'unknown', confidence: Number.isFinite(result.decisionConfidence) ? result.decisionConfidence : null, profile: result.tacticalProfile || monsterKind });
       tacticalAiStats.decisions++;
+      tacticalAiConsecutiveFailures = 0;
       // Bound cache growth in rooms with many waves or long play sessions.
       if (room.tacticalAiCache.size > 256) {
         for (const cacheKey of room.tacticalAiCache.keys()) {
@@ -181,6 +191,11 @@ function requestTacticalTarget(room, monster, players, now) {
   }).catch(() => {
     tacticalAiStats.timeoutsOrErrors++;
     tacticalAiStats.fallbackUses++;
+    tacticalAiConsecutiveFailures++;
+    if (tacticalAiConsecutiveFailures >= TACTICAL_AI_CIRCUIT_FAILURE_LIMIT) {
+      tacticalAiCircuitOpenUntil = Date.now() + TACTICAL_AI_CIRCUIT_COOLDOWN_MS;
+      tacticalAiStats.circuitBreaks = (tacticalAiStats.circuitBreaks || 0) + 1;
+    }
     // Python is advisory; native selection remains authoritative when it fails.
   }).finally(() => {
     clearTimeout(timeout);
