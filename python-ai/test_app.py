@@ -301,17 +301,31 @@ class TacticalAITests(unittest.TestCase):
         self.assertEqual(response.get_json()["targetId"], "visible")
         self.assertEqual(response.get_json()["skippedCandidateCount"], 1)
 
-    def test_future_expiration_timestamp_is_respected(self):
+    def test_future_expiration_timestamp_keeps_candidate_valid(self):
         now_ms = 1_800_000_000_000
         response = self.client.post("/target", json={
             "monster": self.base_monster,
             "nowMs": now_ms,
             "candidates": [
-                {"id": "temporary-expired-later", "x": 1, "z": 0, "expiresAt": now_ms + 5000},
+                {"id": "still-active", "x": 1, "z": 0, "expiresAt": now_ms + 5000},
+                {"id": "persistent", "x": 3, "z": 0},
+            ],
+        })
+        self.assertEqual(response.get_json()["targetId"], "still-active")
+        self.assertEqual(response.get_json()["candidateCount"], 2)
+
+    def test_past_expiration_timestamp_is_rejected(self):
+        now_ms = 1_800_000_000_000
+        response = self.client.post("/target", json={
+            "monster": self.base_monster,
+            "nowMs": now_ms,
+            "candidates": [
+                {"id": "expired", "x": 1, "z": 0, "expiresAt": now_ms - 5000},
                 {"id": "persistent", "x": 3, "z": 0},
             ],
         })
         self.assertEqual(response.get_json()["targetId"], "persistent")
+        self.assertEqual(response.get_json()["skippedCandidateCount"], 1)
 
     def test_seconds_timestamps_are_accepted(self):
         now_seconds = 1_800_000_000
