@@ -932,7 +932,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const trim = new THREE.MeshStandardMaterial({color:p.trim,roughness:.3,metalness:.62});
   const glow = new THREE.MeshStandardMaterial({color:p.glow,emissive:p.glow,emissiveIntensity:1.45,roughness:.24,metalness:.22});
   const cloth = new THREE.MeshStandardMaterial({color:p.cloth,roughness:.88,metalness:.02});
-  const skin = new THREE.MeshStandardMaterial({color:base.skin,roughness:.79});
+  const skinMat = new THREE.MeshStandardMaterial({color:base.skin,roughness:.79});
   const steel = new THREE.MeshStandardMaterial({color:heroClass==='golem'?0x69757c:0xbecbd6,roughness:.28,metalness:.72});
   const accent = new THREE.MeshStandardMaterial({color:base.glow,emissive:base.glow,emissiveIntensity:.48,roughness:.3,metalness:.35});
   const add = (geo, material, x,y,z,sx=1,sy=1,sz=1,parent=g) => {
@@ -976,7 +976,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       add(new THREE.DodecahedronGeometry(.21,0),armor,side*.53,.98,-.04,1.1,1.15,.95);
     }
   }else{
-    torso=add(heroClass==='ogre'?new THREE.CapsuleGeometry(.43,.53,7,12):heroClass==='monk'?new THREE.CapsuleGeometry(.31,.48,7,12):new THREE.CapsuleGeometry(.32,.48,7,12),heroClass==='ogre'?skin:armor,0,1.14,0,heroClass==='ogre'?1.28:1.0,heroClass==='ogre'?1.1:1,heroClass==='ogre'?1.02:.9);
+    torso=add(heroClass==='ogre'?new THREE.CapsuleGeometry(.43,.53,7,12):heroClass==='monk'?new THREE.CapsuleGeometry(.31,.48,7,12):new THREE.CapsuleGeometry(.32,.48,7,12),heroClass==='ogre'?skinMat:armor,0,1.14,0,heroClass==='ogre'?1.28:1.0,heroClass==='ogre'?1.1:1,heroClass==='ogre'?1.02:.9);
     if(clothClasses.includes(heroClass)){
       add(new THREE.ConeGeometry(heroClass==='healer'?.42:.39,.78,8),cloth,0,.77,.02,1,1,.9);
       add(new THREE.BoxGeometry(.055,.51,.035),trim,0,.91,-.36);
@@ -991,7 +991,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   // Arms use shoulder pivots, forearm guards and simplified gloves.
   for(const side of [-1,1]){
     const pivot=new THREE.Group();pivot.position.set(side*(bulky?.53:.43),1.40,0);g.add(pivot);
-    const armMaterial=heroClass==='ogre'||heroClass==='monk'||heroClass==='goblin'?skin:(heroClass==='golem'||heroClass==='golem_clone'?armor:armor);
+    const armMaterial=heroClass==='ogre'||heroClass==='monk'||heroClass==='goblin'?skinMat:(heroClass==='golem'||heroClass==='golem_clone'?armor:armor);
     if(heroClass==='golem'||heroClass==='golem_clone'){
       add(new THREE.DodecahedronGeometry(.25,1),armMaterial,0,-.18,0,1.0,1.12,.95,pivot);
       const fist=add(new THREE.DodecahedronGeometry(.23,1),armor,0,-.49,-.03,1.18,.95,1.12,pivot);
@@ -1001,7 +1001,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       const upper=add(new THREE.CapsuleGeometry(heroClass==='ogre'?.16:.105,.32,5,9),armMaterial,0,-.15,0,1,1,1,pivot);
       upper.rotation.z=side*-.08;
       add(new THREE.SphereGeometry(.13,10,8),steel,0,-.36,-.02,1,.9,.85,pivot);
-      add(new THREE.CapsuleGeometry(.10,.22,4,8),heroClass==='monk'?skin:dark,0,-.48,-.02,1,1,1,pivot);
+      add(new THREE.CapsuleGeometry(.10,.22,4,8),heroClass==='monk'?skinMat:dark,0,-.48,-.02,1,1,1,pivot);
     }
     arms.push({mesh:pivot,side});
     add(new THREE.SphereGeometry(.16,10,8),armor,side*(bulky?.53:.43),1.42,0,1.15,.82,.9);
@@ -1022,7 +1022,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     addHead(new THREE.ConeGeometry(.07,.25,5),trim,0,2.20,.01);
     addHead(new THREE.BoxGeometry(.24,.04,.05),trim,0,1.82,-.19);
   }else if(heroClass==='mage'||heroClass==='archer'||heroClass==='healer'||heroClass==='necromancer'){
-    head=addHead(new THREE.SphereGeometry(.225,16,12),skin,0,1.88,-.005);
+    head=addHead(new THREE.SphereGeometry(.225,16,12),skinMat,0,1.88,-.005);
     const hoodColor=heroClass==='healer'?trim:cloth;
     addHead(new THREE.SphereGeometry(.26,14,10,0,Math.PI*2,0,Math.PI*.72),hoodColor,0,2.02,.02,1.08,.92,1);
     if(heroClass==='mage'||heroClass==='archer') addHead(new THREE.ConeGeometry(.22,.35,7),cloth,0,2.25,.03);
@@ -1034,14 +1034,14 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       for(const side of [-1,1]) addHead(new THREE.SphereGeometry(.035,10,8),glow,side*.085,1.92,-.24);
     }
   }else if(heroClass==='goblin'){
-    head=addHead(new THREE.SphereGeometry(.23,14,10),skin,0,1.86,0,1.05,.95,.94);
+    head=addHead(new THREE.SphereGeometry(.23,14,10),skinMat,0,1.86,0,1.05,.95,.94);
     for(const side of [-1,1]){
-      const ear=addHead(new THREE.ConeGeometry(.095,.36,5),skin,side*.27,2.04,.02,1,.9,.65);ear.rotation.z=side*-.75;
+      const ear=addHead(new THREE.ConeGeometry(.095,.36,5),skinMat,side*.27,2.04,.02,1,.9,.65);ear.rotation.z=side*-.75;
       addHead(new THREE.SphereGeometry(.036,10,8),glow,side*.085,1.88,-.21,.8,1,.5);
     }
     addHead(new THREE.BoxGeometry(.20,.075,.06),dark,0,1.77,-.22);
   }else if(heroClass==='ogre'){
-    head=addHead(new THREE.SphereGeometry(.31,14,10),skin,0,1.91,-.01,1.18,1,.94);
+    head=addHead(new THREE.SphereGeometry(.31,14,10),skinMat,0,1.91,-.01,1.18,1,.94);
     for(const side of [-1,1]){
       const tusk=addHead(new THREE.ConeGeometry(.06,.19,5),steel,side*.15,1.77,-.22);tusk.rotation.x=Math.PI;
       addHead(new THREE.SphereGeometry(.045,10,8),glow,side*.11,1.94,-.24);
@@ -1049,12 +1049,12 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     }
     addHead(new THREE.BoxGeometry(.24,.08,.06),dark,0,1.79,-.23);
   }else if(heroClass==='monk'){
-    head=addHead(new THREE.SphereGeometry(.23,16,12),skin,0,1.88,0);
+    head=addHead(new THREE.SphereGeometry(.23,16,12),skinMat,0,1.88,0);
     addHead(new THREE.BoxGeometry(.44,.09,.31),cloth,0,2.02,.005);
     addHead(new THREE.BoxGeometry(.28,.035,.025),trim,0,2.01,-.18);
     for(const side of [-1,1]) addHead(new THREE.SphereGeometry(.035,10,8),dark,side*.08,1.90,-.22);
   }else{
-    head=addHead(new THREE.SphereGeometry(.22,14,10),skin,0,1.88,0);
+    head=addHead(new THREE.SphereGeometry(.22,14,10),skinMat,0,1.88,0);
   }
   // Simple class gear that reads clearly at gameplay scale.
   if(heroClass==='knight'){
