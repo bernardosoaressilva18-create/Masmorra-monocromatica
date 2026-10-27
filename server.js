@@ -38,7 +38,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Allow': 'GET, HEAD' });
     return res.end(JSON.stringify({ ok: false, error: 'method not allowed' }));
   }
-  const filename = pathname === '/' ? 'index.html' : pathname.replace(/^\\/+/, '');
+  const filename = pathname === '/' ? 'index.html' : pathname.split('/').filter(Boolean).join('/');
   const filePath = path.resolve(PUBLIC, filename);
 
   if (!filePath.startsWith(PUBLIC + path.sep) && filePath !== path.join(PUBLIC, 'index.html')) {
