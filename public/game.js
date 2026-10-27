@@ -2759,7 +2759,11 @@ function updateState(m) {
 
     let obj = monsterMeshes.get(mtr.id);
     if (!obj) {
-      obj = makeMonster(mtr.kind || 'stalker', mtr.phase || phase);
+      const summonClass = mtr.pvpSummoned && ['goblin','skeleton','golem_clone'].includes(mtr.summonClass) ? mtr.summonClass : null;
+      obj = summonClass
+        ? makeHero(mtr.color || null, summonClass, mtr.skin || 'default')
+        : makeMonster(mtr.kind || 'stalker', mtr.phase || phase);
+      if (summonClass) obj.userData.pvpSummonHero = true;
       scene.add(obj);
       monsterMeshes.set(mtr.id, obj);
     }
@@ -2769,13 +2773,20 @@ function updateState(m) {
     obj.userData.kind = mtr.kind || 'stalker';
     obj.userData.serverHp = mtr.hp ?? 100;
     setHealthBar(obj, mtr.hp ?? 100, mtr.maxHp ?? mtr.maxHP ?? 100);
-    // Calcula a direção do rosto/corpo para o jogador local.
+    // Monstros normais encaram o jogador local; invocações do PvP encaram o rival
+    // mais próximo, em vez de parecerem atacar o próprio dono.
     if (myPlayer) {
-      const faceX = myPlayer.position.x - mtr.x;
-      const faceZ = myPlayer.position.z - mtr.z;
-      if (Math.hypot(faceX, faceZ) > 0.05) {
-        obj.userData.targetRot = Math.atan2(faceX, faceZ) + Math.PI;
+      let faceX, faceZ;
+      if (mtr.pvpSummoned && Array.isArray(m.players)) {
+        const rival = m.players.filter(p => p.hp > 0 && String(p.id) !== String(mtr.ownerId))
+          .sort((a,b) => Math.hypot(a.x-mtr.x,a.z-mtr.z)-Math.hypot(b.x-mtr.x,b.z-mtr.z))[0];
+        faceX = (rival ? rival.x : myPlayer.position.x) - mtr.x;
+        faceZ = (rival ? rival.z : myPlayer.position.z) - mtr.z;
+      } else {
+        faceX = myPlayer.position.x - mtr.x;
+        faceZ = myPlayer.position.z - mtr.z;
       }
+      if (Math.hypot(faceX, faceZ) > 0.05) obj.userData.targetRot = Math.atan2(faceX, faceZ) + Math.PI;
     }
     obj.userData.alive = mtr.alive;
     obj.visible = mtr.alive;
@@ -3029,7 +3040,7 @@ const CLASS_ABILITY_CONFIG = {
   ],
   healer: [
     { ability: 'healer_cure', icon: '💚', label: 'CURA', description: 'Cura você e aliados vivos em até 50 de vida.', cooldown: 23 },
-    { ability: 'healer_guardian_spirits', icon: '🪽', label: 'ESPÍRITOS', description: 'Invoca 3 espíritos voadores por 20 s. Cada um cura aliados em 5 a cada 6 s ou causa 6 de dano a inimigos a cada 5 s.', cooldown: 40 }
+    { ability: 'healer_guardian_spirits', icon: '🪽', label: 'ESPÍRITOS', description: 'Invoca 3 espíritos por 20 s: curam aliados em 5 a cada 4 s ou causam 9 de dano a inimigos a cada 5 s.', cooldown: 40 }
   ],
   necromancer: [
     { ability: 'necromancer_summon', icon: '💀', label: 'HORDA', description: 'Invoca até cinco esqueletos aliados por 18 segundos.', cooldown: 30 },
@@ -3608,7 +3619,7 @@ function updatePerformanceMonitor() {
   perfFrames = 0;
   perfWindowStart = now;
 
-  if (lastFps < 34) {
+  if (lastFps < 43) {
     slowFpsSamples++;
     fastFpsSamples = 0;
   } else if (lastFps > 57) {
@@ -3621,8 +3632,12 @@ function updatePerformanceMonitor() {
 
   let nextRatio = adaptivePixelRatio;
   if (slowFpsSamples >= 2) {
-    nextRatio = Math.max(getMinimumRenderPixelRatio(), adaptivePixelRatio - .04);
+    // Baixa a resolução dos pixels mais agressivamente sem remover detalhes dos modelos.
+    const adaptiveFloor = isMobileDevice ? (gameSettings.graphicsQuality === 'low' ? .55 : .68) : .65;
+    const stepDown = lastFps < 25 ? .12 : lastFps < 34 ? .09 : .06;
+    nextRatio = Math.max(adaptiveFloor, adaptivePixelRatio - stepDown);
     slowFpsSamples = 0;
+    fastFpsSamples = 0;
   } else if (fastFpsSamples >= 4) {
     nextRatio = Math.min(Math.min(devicePixelRatio, renderPixelRatioCap), adaptivePixelRatio + .05);
     fastFpsSamples = 0;
