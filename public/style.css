@@ -3011,3 +3011,28 @@ html, body { width:100%; min-width:0; }
 .skill-filter-empty{padding:14px 6px;color:#95a8c0;font-size:10px;line-height:1.4;text-align:center}
 .skill-tree-core{position:relative}
 .skill-tree-core:after{content:"UPDATE 3 · V1";position:absolute;right:8px;top:-7px;padding:3px 6px;border:1px solid rgba(233,196,119,.45);border-radius:6px;background:#151a24;color:#e9c477;font-size:8px;font-weight:900;letter-spacing:.5px}
+
+
+/* Update 3 v4 — árvore de talentos inspirada na referência circular/ramificada. */
+.skill-tree-branches{position:relative;gap:12px;align-items:stretch;padding:8px 4px 14px}
+.skill-branch{position:relative;overflow:visible;border:1px solid rgba(207,222,235,.2);border-radius:10px;background:radial-gradient(ellipse at 50% 0%,rgba(172,190,210,.13),rgba(7,12,20,.94) 72%);box-shadow:inset 0 1px rgba(255,255,255,.025)}
+.skill-branch-title{justify-content:center;text-align:center;color:#dce5ec;letter-spacing:1.2px}
+.skill-branch-meta{color:#9baabb}
+.skill-branch-list{position:relative;gap:9px;padding:9px 2px 3px}
+.skill-branch-list:before{content:"";position:absolute;top:0;bottom:14px;left:50%;width:1px;transform:translateX(-50%);background:linear-gradient(#d9e2ea99,#aebdcd32);pointer-events:none}
+.skill-node{position:relative;z-index:1;align-items:center;gap:5px;padding:8px 5px 9px;text-align:center;border:0;border-radius:8px;background:transparent;box-shadow:none;overflow:visible}
+.skill-node .skill-node-top{flex-direction:column;gap:5px;align-items:center;justify-content:center;width:100%;font-size:9px}
+.skill-node .skill-node-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1.5px solid #d7e0e8;background:radial-gradient(circle at 35% 25%,#f7f9fb,#b8c4cf 75%,#667483);color:#19222c;font-size:17px;box-shadow:0 0 0 4px #0b111b,0 0 9px #dce7f020}
+.skill-node .skill-node-name{max-width:100%;color:#e3eaf0;line-height:1.25}
+.skill-node small{max-width:100%;font-size:8px;line-height:1.35;color:#9eafbf}
+.skill-node .skill-node-state{font-size:7px;line-height:1.25;letter-spacing:.25px;color:#aebdcb}
+.skill-node.available .skill-node-icon{border-color:#f0d28e;box-shadow:0 0 0 4px #0b111b,0 0 14px #e9c4774d}
+.skill-node.available .skill-node-state{color:#f0d28e}
+.skill-node.unlocked .skill-node-icon{border-color:#a4e7ce;background:radial-gradient(circle at 35% 25%,#effff9,#a4e7ce 75%,#4e9b87);box-shadow:0 0 0 4px #0b111b,0 0 13px #74dcb35c}
+.skill-node.unlocked .skill-node-state{color:#8ee4bd}
+.skill-node.locked{opacity:.72}
+.skill-node.locked .skill-node-icon{border-color:#536273;background:radial-gradient(circle at 35% 25%,#364353,#111a26 75%);color:#9caaba;box-shadow:0 0 0 4px #0b111b}
+.skill-node:disabled{cursor:not-allowed}
+.skill-node:not(:disabled){cursor:pointer}
+.skill-node:not(:disabled):active .skill-node-icon{transform:scale(.94)}
+@media(max-width:760px){.skill-tree-branches{grid-template-columns:repeat(5,minmax(126px,1fr));gap:8px;padding:5px 2px 12px}.skill-branch{padding:8px 5px 10px}.skill-branch-list{gap:7px}.skill-node{padding:7px 3px}.skill-node .skill-node-icon{width:31px;height:31px;font-size:15px}.skill-node .skill-node-name{font-size:8px}.skill-node small{font-size:7px}.skill-node .skill-node-state{font-size:6px}}
