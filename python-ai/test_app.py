@@ -1,4 +1,5 @@
 import json
+import math
 import unittest
 
 from app import AI_VERSION, MAX_CANDIDATES, app
@@ -159,6 +160,27 @@ class TacticalAITests(unittest.TestCase):
         })
         self.assertEqual(response.get_json()["targetId"], "archer")
         self.assertIn("flanker_prefers_backline", response.get_json()["reasons"])
+
+    def test_assassin_prefers_healer_backline(self):
+        response = self.client.post("/target", json={
+            "monster": {**self.base_monster, "kind": "assassin", "aggression": 1.4},
+            "candidates": [
+                {"id": "knight", "x": 3, "z": 0, "role": "knight"},
+                {"id": "healer", "x": 3, "z": 0, "role": "healer"},
+            ],
+        })
+        body = response.get_json()
+        self.assertEqual(body["targetId"], "healer")
+        self.assertIn("flanker_prefers_backline", body["reasons"])
+
+    def test_recent_damage_decays_but_stays_finite(self):
+        response = self.post_target([
+            {"id": "attacker", "x": 2, "z": 0, "recentDamage": 24},
+        ])
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(math.isfinite(body["score"]))
+        self.assertIn("recent_attacker", body["reasons"])
 
     def test_alternatives_are_limited_to_three(self):
         response = self.post_target([
