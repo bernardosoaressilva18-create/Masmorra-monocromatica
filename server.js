@@ -375,6 +375,10 @@ function applyPvpPlayerDamage(room,attacker,target,amount){
    killer.pvpKills=(killer.pvpKills||0)+1;
    if(killer.pvpKills%3===0){killer.talentPoints=Math.min(99,(killer.talentPoints||0)+1);
     if(killer.ws?.readyState===WebSocket.OPEN)killer.ws.send(JSON.stringify({type:'notice',text:'✦ 3 eliminações PvP! +1 ponto de talento.'}));}
+   if(killer&&killer.pvpKills>=10&&!room.pvpRoundEndAt){
+    room.pvpRoundEndAt=Date.now()+5000;
+    broadcast(room,{type:'notice',text:'🏆 '+killer.name+' venceu a rodada com 10 eliminações! Nova rodada em 5 segundos.'});
+   }
   }
   broadcast(room,{type:'notice',text:(killer?killer.name:'Um monstro')+' derrotou '+target.name+'! Retorno em 4 segundos.'});
  }
@@ -706,6 +710,11 @@ wss.on('connection', ws => {
 
       let room=rooms.get(code);
       if(!room)room=newRoom(code,player.id,!!msg.public,msg.gameMode);
+      const requestedGameMode=msg.gameMode==='pvp_rpg'?'pvp_rpg':'coop';
+      if(room.gameMode!==requestedGameMode&&!msg.resumeToken){
+        ws.send(JSON.stringify({type:'error',message:'Esse código pertence ao modo '+(room.gameMode==='pvp_rpg'?'PvP RPG':'Cooperativo')+'. Escolha esse modo antes de entrar.'}));
+        return;
+      }
       if(msg.public){room.isPublic=true;room.code=code;}
 
       // Um token aleatório permite recuperar o mesmo personagem após uma queda breve.
@@ -842,7 +851,7 @@ wss.on('connection', ws => {
       }
       room.started=true;
       if(room.gameMode==='pvp_rpg'){
-        room.phase=1;room.realm=1;room.monsters=[];room.summons=[];room.boss=null;room.cursedBoss=null;room.chests=[];room.safeZoneUntil=0;
+        room.phase=1;room.realm=1;room.monsters=[];room.summons=[];room.boss=null;room.cursedBoss=null;room.chests=[];room.safeZoneUntil=0;room.pvpRoundEndAt=0;
         [...room.players.values()].filter(p=>p.connected!==false).forEach((p,i)=>{
           const spawn=PVP_SPAWNS[i%4];p.x=spawn.x;p.z=spawn.z;p.rot=i%2===0?0:Math.PI;
           p.hp=p.maxHp;p.mana=p.maxMana||100;p.pvpKills=0;p.pvpMonsterKills=0;p.pvpRespawnAt=0;p.pvpMonsterCooldownAt=0;p.deathLocked=false;
@@ -1509,6 +1518,14 @@ setInterval(() => {
       }
     }
     const players=[...room.players.values()].filter(p=>p.connected!==false);
+    if(room.gameMode==='pvp_rpg'&&room.started&&room.pvpRoundEndAt&&now>=room.pvpRoundEndAt){
+      room.pvpRoundEndAt=0;room.monsters=[];room.summons=[];
+      players.forEach((p,i)=>{const spawn=PVP_SPAWNS[i%4];p.hp=p.maxHp||100;p.mana=p.maxMana||100;p.x=spawn.x;p.z=spawn.z;p.rot=i%2===0?0:Math.PI;
+        p.pvpKills=0;p.pvpMonsterKills=0;p.pvpRespawnAt=0;p.pvpMonsterCooldownAt=0;p.deathLocked=false;p.dodgeUntil=0;p.invisibleUntil=0;p.shieldUntil=now+1200;
+        if(p.ws?.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'⚔ Nova rodada! Monstros removidos; vida, mana e pontuação reiniciadas.'}));
+      });
+      broadcast(room,state(room));
+    }
     if(room.gameMode==='pvp_rpg'&&room.started){
       players.forEach((p,i)=>{if(p.hp>0||!p.pvpRespawnAt||now<p.pvpRespawnAt)return;
         const spawn=PVP_SPAWNS[i%4];p.hp=p.maxHp||100;p.mana=p.maxMana||100;p.x=spawn.x;p.z=spawn.z;p.rot=i%2===0?0:Math.PI;
