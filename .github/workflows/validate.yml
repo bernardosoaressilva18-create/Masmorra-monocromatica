@@ -30,9 +30,20 @@ jobs:
           const fs = require('fs');
           const client = fs.readFileSync('public/game.js', 'utf8');
           const server = fs.readFileSync('server.js', 'utf8');
-          const block = client.slice(client.indexOf('const SKILL_BRANCHES = ['), client.indexOf('function renderSkillTrees()'));
-          const ids = [...block.matchAll(/\{id:'([^']+)'/g)].map(m => m[1]);
-          if (ids.length !== 25 || new Set(ids).size !== 25) throw new Error('Client skill tree must contain 25 unique talents');
+          const sharedStart = client.indexOf('const SKILL_BRANCHES = [');
+          const sharedEnd = client.indexOf('function getCurrentSkillBranches()', sharedStart);
+          const sharedBlock = client.slice(sharedStart, sharedEnd);
+          const sharedIds = [...sharedBlock.matchAll(/\\{id:'([^']+)'/g)].map(m => m[1]);
+          if (sharedIds.length !== 20 || new Set(sharedIds).size !== 20) throw new Error('Shared skill tree must contain 20 unique talents');
+
+          const personalStart = client.indexOf('const CLASS_PERSONAL_SKILLS_UI = ') + 'const CLASS_PERSONAL_SKILLS_UI = '.length;
+          const personalEnd = client.indexOf(';', personalStart);
+          const personal = JSON.parse(client.slice(personalStart, personalEnd));
+          for (const [className, skills] of Object.entries(personal)) {
+            if (!Array.isArray(skills) || skills.length !== 5) throw new Error('Class must have 5 exclusive talents: ' + className);
+            if (new Set(skills.map(skill => skill.id)).size !== 5) throw new Error('Duplicate class talent: ' + className);
+          }
+          console.log('OK: 20 shared talents and 5 unique talents per class.');
           if (!server.includes('player.skills.length >= 15') || !server.includes('usedBranches.size < 3')) throw new Error('Server must enforce 15 talents and max 3 branches');
           for (const id of ['knight','mage','archer','goblin','ogre']) if (!server.includes(id + ': { hp:')) throw new Error('Missing class stats: ' + id);
           console.log('OK: 25 unique talents, 5 classes, limits verified.');
