@@ -2977,3 +2977,22 @@ html, body { width:100%; min-width:0; }
 @media(prefers-reduced-motion:reduce){.skill-node,.skill-node.unlocked .skill-node-icon{animation:none;transition:none}}
 @media(max-width:760px){.skill-tree{max-width:100%;padding:8px 4px 14px}.skill-tree-branches{grid-template-columns:repeat(5,minmax(146px,146px));min-width:max-content;gap:8px}.skill-tree-core{justify-content:flex-start;min-width:100%;width:max-content;max-width:none}.skill-branch{padding:9px 6px}.skill-node{min-height:112px;padding:10px 7px}.skill-node .skill-node-icon{width:40px;height:40px;flex-basis:40px}.skill-node .skill-node-state{font-size:8px}}
 @media(max-width:560px){#lobby .skill-tree{max-width:calc(100vw - 34px)}#hud .skill-panel .skill-tree{max-width:calc(100vw - 48px)}.skill-tree-branches{grid-template-columns:repeat(5,minmax(152px,152px));gap:8px}.skill-tree-core{padding:10px 12px}.skill-tree-core small{font-size:8px}}
+
+
+/* Próximas melhorias da árvore — filtros, progresso e feedback */
+.skill-tree-filters{display:flex;justify-content:center;gap:6px;width:max-content;min-width:100%;margin:0 auto 12px;padding:4px;border:1px solid rgba(150,175,210,.2);border-radius:12px;background:rgba(6,11,19,.7)}
+.skill-filter{padding:8px 11px;border:1px solid transparent;border-radius:8px;background:transparent;color:#aebbd0;font-size:9px;font-weight:900;letter-spacing:.45px;touch-action:manipulation;white-space:nowrap}
+.skill-filter.active{border-color:rgba(233,196,119,.52);background:linear-gradient(135deg,rgba(233,196,119,.2),rgba(118,231,242,.08));color:#ffe5a5;box-shadow:inset 0 0 0 1px rgba(233,196,119,.08)}
+.skill-filter:focus-visible{outline:2px solid #8fdcf4;outline-offset:2px}
+.skill-branch-progress,.skill-tree-overall-progress{display:block;overflow:hidden;height:4px;border-radius:99px;background:rgba(155,178,205,.16)}
+.skill-branch-progress{margin:0 6px 11px}
+.skill-branch-progress span,.skill-tree-overall-progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#77d8e5,#e9c477);transition:width .22s ease}
+.skill-tree-overall-progress{width:min(250px,52vw);margin-top:7px}
+.skill-filter-empty{padding:14px 7px;border:1px dashed rgba(160,190,210,.18);border-radius:10px;color:#889bb4;text-align:center;font-size:9px;line-height:1.4}
+.skill-tree-core{scroll-snap-align:start}
+.skill-tree-core>span:last-child{display:block;min-width:0}
+.skill-tree-core small{line-height:1.4}
+.skill-node:focus-visible{outline:3px solid #8fdcf4;outline-offset:3px;z-index:2}
+.skill-node .skill-node-state{overflow-wrap:anywhere}
+@media(max-width:560px){.skill-tree-filters{justify-content:flex-start;min-width:100%;width:max-content}.skill-filter{padding:9px 10px;font-size:8px}.skill-tree-overall-progress{width:190px}}
+@media(prefers-reduced-motion:reduce){.skill-branch-progress span,.skill-tree-overall-progress span{transition:none}}
