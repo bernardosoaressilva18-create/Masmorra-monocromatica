@@ -90,13 +90,22 @@ function recordMonsterThreat(monster, player, damage, now = Date.now()) {
   const previous = Number(monster.threatByPlayer[playerKey]) || 0;
   monster.threatByPlayer[playerKey] = Math.min(100, previous * 0.78 + Math.min(40, damage) * 1.65 + 1);
   monster.threatUpdatedAt[playerKey] = now;
-  // Keep the per-creature threat table small even if a match contains many reconnects.
+  if (!monster.recentDamageByPlayer) monster.recentDamageByPlayer = Object.create(null);
+  if (!monster.recentDamageUpdatedAt) monster.recentDamageUpdatedAt = Object.create(null);
+  monster.recentDamageByPlayer[playerKey] = Math.min(
+    100,
+    (Number(monster.recentDamageByPlayer[playerKey]) || 0) + Math.min(40, damage)
+  );
+  monster.recentDamageUpdatedAt[playerKey] = now;
+  // Keep per-creature history small even if a match contains many reconnects.
   const keys = Object.keys(monster.threatByPlayer);
   if (keys.length > 24) {
     keys.sort((a, b) => (monster.threatUpdatedAt[a] || 0) - (monster.threatUpdatedAt[b] || 0));
     for (const staleKey of keys.slice(0, keys.length - 24)) {
       delete monster.threatByPlayer[staleKey];
       delete monster.threatUpdatedAt[staleKey];
+      delete monster.recentDamageByPlayer[staleKey];
+      delete monster.recentDamageUpdatedAt[staleKey];
     }
   }
 }
@@ -107,6 +116,13 @@ function getMonsterThreat(monster, player, now) {
   const updated = Number(monster?.threatUpdatedAt?.[id]) || now;
   const age = Math.max(0, now - updated);
   return Math.max(0, Math.min(100, threat * Math.exp(-age / 25000)));
+}
+
+function getRecentMonsterDamage(monster, player, now) {
+  const id = String(player.id);
+  const damage = Number(monster?.recentDamageByPlayer?.[id]) || 0;
+  const updated = Number(monster?.recentDamageUpdatedAt?.[id]) || now;
+  return Math.max(0, Math.min(100, damage * Math.exp(-Math.max(0, now - updated) / 6500)));
 }
 
 function requestTacticalTarget(room, monster, players, now) {
@@ -136,7 +152,7 @@ function requestTacticalTarget(room, monster, players, now) {
       id: 'player:' + String(player.id), x: player.x, z: player.z,
       health: player.hp, maxHealth: player.maxHp || player.hp || 100,
       playerClass: player.playerClass || 'knight', role: player.playerClass || 'knight',
-      threat, recentDamage: threat, isSummon: false, alive: true,
+      threat, recentDamage: getRecentMonsterDamage(monster, player, now), isSummon: false, alive: true,
       shielded: Number(player.shieldUntil || 0) > now || Number(player.guardUntil || 0) > now
     });
   }
@@ -1507,6 +1523,17 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         } else continue;
       }
 
+      // Espinhos atuam como suporte: regeneram um pouco os aliados próximos, sem
+      // ressuscitar criaturas derrotadas nem superar a vida máxima.
+      if (monster.kind === 'thorn' && now >= (monster.guardPulseAt || 0)) {
+        monster.guardPulseAt = now + 3800;
+        for (const ally of room.monsters) {
+          if (ally === monster || !ally.alive || ally.spawned === false || ally.hp >= (ally.maxHp || ally.hp)) continue;
+          if (Math.hypot(ally.x - monster.x, ally.z - monster.z) > 5.2) continue;
+          ally.hp = Math.min(ally.maxHp || ally.hp, ally.hp + Math.max(1, Math.min(3, Math.ceil((ally.maxHp || 10) * 0.025))));
+        }
+      }
+
       let target = null;
       let nearest = Infinity;
       let targetPriority = Infinity;
@@ -1562,13 +1589,42 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         const distance = Math.hypot(dx, dz);
 
         if (distance > 0) {
-          const speed = (monster.kind === 'brute' ? 0.25 : monster.kind === 'wraith' ? 0.32 : 0.29) * (room.phase >= 4 ? 1.08 : 1);
+          const kind = String(monster.kind || 'stalker');
+          const healthRatio = (monster.maxHp || monster.hp || 1) > 0
+            ? monster.hp / (monster.maxHp || monster.hp || 1) : 1;
+          const canRetreat = ['stalker', 'wraith', 'assassin'].includes(kind);
+          if (canRetreat && healthRatio <= 0.22
+              && now - (monster.lastRetreatAt || 0) >= 10000
+              && now >= (monster.retreatUntil || 0)) {
+            monster.retreatUntil = now + 2400;
+            monster.lastRetreatAt = now;
+          }
+          const retreating = now < (monster.retreatUntil || 0);
+          let moveX = dx / distance;
+          let moveZ = dz / distance;
 
-          monster.x += (dx / distance) * speed;
-          monster.z += (dz / distance) * speed;
+          if (retreating) {
+            // Predadores feridos tentam ganhar distância por um instante, em vez
+            // de perseguir cegamente até morrerem.
+            const side = String(monster.id).length % 2 ? 1 : -1;
+            moveX = (-dx / distance) * 0.92 + (-dz / distance) * 0.30 * side;
+            moveZ = (-dz / distance) * 0.92 + (dx / distance) * 0.30 * side;
+          } else if (['wraith', 'assassin'].includes(kind) && distance > 3.1 && distance < 13) {
+            // Flanqueadores avançam em diagonal para procurar um ângulo lateral.
+            const side = String(monster.id).length % 2 ? 1 : -1;
+            moveX = (dx / distance) * 0.84 + (-dz / distance) * 0.54 * side;
+            moveZ = (dz / distance) * 0.84 + (dx / distance) * 0.54 * side;
+          }
 
-          monster.x = Math.max(-13, Math.min(13, monster.x));
-          monster.z = Math.max(-170, Math.min(8, monster.z));
+          const speed = (kind === 'brute' ? 0.25
+            : kind === 'wraith' ? 0.32
+            : kind === 'assassin' ? 0.36
+            : kind === 'thorn' ? 0.25
+            : kind === 'abyss' ? 0.33
+            : 0.29) * (retreating ? 1.18 : 1) * (room.phase >= 4 ? 1.08 : 1);
+
+          monster.x = Math.max(-13, Math.min(13, monster.x + moveX * speed));
+          monster.z = Math.max(-170, Math.min(8, monster.z + moveZ * speed));
         }
       }
       const monsterNow = Date.now();
