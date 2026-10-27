@@ -3314,3 +3314,13 @@ html, body { width:100%; min-width:0; }
 }
 #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-orbit-help{display:block!important;width:100%!important;margin:0!important;text-align:left!important}
 #lobby .lobby-editor-section[data-lobby-editor-panel="skills"] .skill-path-node{grid-template-columns:22px 30px minmax(0,1fr)!important}
+
+
+/* Camera zoom controls: thumb-friendly buttons, pinching and mouse wheel. */
+.camera-zoom-controls{pointer-events:auto;position:absolute;z-index:19;right:max(12px,env(safe-area-inset-right));top:48%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px;border:1px solid #8edff277;border-radius:13px;background:rgba(5,14,25,.88);box-shadow:0 6px 22px #0008;backdrop-filter:blur(8px);touch-action:manipulation}
+.camera-zoom-controls button{width:38px;height:38px;border:1px solid #a8ecff66;border-radius:9px;background:linear-gradient(145deg,#244d60,#0a1a28);color:#e4fbff;font-size:27px;font-weight:700;line-height:1;touch-action:manipulation}
+.camera-zoom-controls button:active{transform:scale(.92);background:#286176}
+.camera-zoom-controls span{font-size:8px;font-weight:900;letter-spacing:.3px;color:#bcefff;font-variant-numeric:tabular-nums}
+@media(max-width:700px){.camera-zoom-controls{right:max(8px,env(safe-area-inset-right));top:46%;padding:4px;gap:3px}.camera-zoom-controls button{width:35px;height:35px;font-size:25px}}
+@media(orientation:landscape) and (max-height:500px){.camera-zoom-controls{top:48%;right:8px;flex-direction:row}.camera-zoom-controls button{width:31px;height:31px}}
+#hud.hud-edit-mode .camera-zoom-controls{display:none!important}
