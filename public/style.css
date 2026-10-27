@@ -3068,3 +3068,30 @@ html, body { width:100%; min-width:0; }
 .skill-orbit-point-counter strong{font-size:15px}
 .skill-orbit-point-counter small{font-size:7px;letter-spacing:.8px;color:#bdcadd;white-space:nowrap}
 @media(max-width:600px){.skill-orbit-canvas{min-width:680px;height:500px}.skill-orbit-node{width:100px}.skill-orbit-node strong{font-size:8px}.skill-orbit-node small{font-size:7px}.skill-orbit-node em{font-size:6px}.skill-orbit-branch-label strong{font-size:7px}}
+
+
+/* Final mobile layout correction: the skill map uses clean circular nodes,
+   a separate legend, and a scrollable diagram instead of overlapping text cards. */
+.lobby-modal-card:has(.skill-orbit-canvas){width:min(860px,100%);max-width:860px;max-height:92dvh;overflow:auto;padding:16px 12px}
+.skill-orbit-legend{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin:8px 0 10px}
+.skill-orbit-legend-item{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;padding:6px 4px;border:1px solid #a9bed01c;border-radius:7px;background:#0a131e;color:#cbd7e1}
+.skill-orbit-legend-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7px;font-weight:800;letter-spacing:.25px}
+.skill-orbit-legend-item small{flex:none;font-size:7px;color:#e7c77e}
+.skill-orbit-scroll{width:100%;max-width:100%;max-height:min(68dvh,620px);overflow:auto;overscroll-behavior:contain;border:1px solid rgba(174,199,219,.16);border-radius:10px;background:radial-gradient(ellipse at 50% 48%,#172536 0%,#0a111c 70%,#070c13 100%);touch-action:pan-x pan-y;scrollbar-width:thin}
+.skill-orbit-canvas{position:relative;width:100%;min-width:600px;height:580px;min-height:580px;isolation:isolate}
+.skill-orbit-links{position:absolute;inset:0;width:100%;height:100%;z-index:0;overflow:visible;pointer-events:none}
+.skill-orbit-links line{stroke:#d7e2e9;stroke-width:.4;opacity:.82;vector-effect:non-scaling-stroke}
+.skill-orbit-links .skill-root-link{stroke:#f0d49a;stroke-width:.55;opacity:.96}
+.skill-orbit-links .skill-orbit-arc{fill:none;stroke:#9caebf;stroke-width:.4;opacity:.22;vector-effect:non-scaling-stroke}
+.skill-orbit-node{position:absolute;z-index:2;transform:translate(-50%,-50%);display:grid;place-items:center;width:42px;height:42px;min-height:42px;max-width:none;padding:0;margin:0;gap:0;border:0;border-radius:50%;background:transparent;color:#f4f7fa;text-align:center;box-shadow:none;overflow:visible;touch-action:manipulation}
+.skill-orbit-icon{display:grid;place-items:center;width:38px;height:38px;flex:none;border:1.5px solid #d7e0e8;border-radius:50%;background:radial-gradient(circle at 35% 25%,#f8fafc,#bdc8d1 75%,#657382);color:#1a2530;font-size:19px;line-height:1;box-shadow:0 0 0 3px #0b111b,0 0 10px #dce7f020}
+.skill-orbit-node.available .skill-orbit-icon{border:2px solid #f0d28e;box-shadow:0 0 0 3px #0b111b,0 0 15px #e9c47780}
+.skill-orbit-node.unlocked .skill-orbit-icon{border:2px solid #a4e7ce;background:radial-gradient(circle at 35% 25%,#effff9,#a4e7ce 75%,#4e9b87);box-shadow:0 0 0 3px #0b111b,0 0 15px #74dcb378}
+.skill-orbit-node.locked .skill-orbit-icon{border-color:#58697a;background:radial-gradient(circle at 35% 25%,#364353,#111a26 75%);color:#9caaba;box-shadow:0 0 0 3px #0b111b;opacity:.8}
+.skill-orbit-node:disabled{cursor:not-allowed}
+.skill-orbit-node:not(:disabled){cursor:pointer}
+.skill-orbit-node:not(:disabled):active .skill-orbit-icon{transform:scale(.9)}
+.skill-orbit-point-counter{bottom:8px}
+.skill-orbit-help{margin:8px 1px 0;color:#91a5b7;font-size:9px;line-height:1.5;text-align:center}
+@media(max-width:600px){.lobby-modal-card:has(.skill-orbit-canvas){padding:14px 9px;max-height:94dvh}.skill-orbit-legend{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.skill-orbit-legend-item{justify-content:space-between;padding:5px 4px}.skill-orbit-canvas{min-width:600px;height:580px}.skill-orbit-scroll{max-height:64dvh}.skill-orbit-node{width:42px;height:42px}.skill-orbit-icon{width:37px;height:37px;font-size:18px}}
+@media(max-width:380px){.skill-orbit-legend-item span{font-size:6px}.skill-orbit-canvas{min-width:580px}}
