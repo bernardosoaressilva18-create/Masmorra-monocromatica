@@ -2843,6 +2843,12 @@ function updateState(m) {
         setHeroInvisible(myPlayer, !!p.invisible);
         setHeroShielded(myPlayer, !!p.shielded);
         $('hpText').textContent = String(Math.round(myPlayer.userData.serverHp));
+        const currentMana = Math.max(0, Number(p.mana ?? 100));
+        const maximumMana = Math.max(1, Number(p.maxMana ?? 100));
+        const manaFill = $('manaFill');
+        const manaText = $('manaText');
+        if (manaFill) { manaFill.style.width = (Math.max(0, Math.min(1, currentMana / maximumMana)) * 100) + '%'; manaFill.classList.toggle('low-mana', currentMana <= maximumMana * .2); }
+        if (manaText) manaText.textContent = Math.round(currentMana) + ' / ' + Math.round(maximumMana);
         $('deathScreen').classList.toggle('hidden', myPlayer.userData.serverHp > 0);
         // Ao entrar/reconectar, alinhar uma vez com a posição de spawn do servidor.
         // Depois disso, corrigimos só pequenos desvios para evitar teletransportes.
