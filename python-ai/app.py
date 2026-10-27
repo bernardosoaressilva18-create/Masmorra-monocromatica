@@ -235,19 +235,24 @@ def choose_target():
         return jsonify({"error": "monster position must contain finite x/z coordinates", "requestId": g.request_id}), 400
 
     previous_target_id = _safe_id(payload.get("previousTargetId"))
-    ranked = []
-    seen_ids = set()
+    ranked_by_id = {}
     skipped = 0
     for candidate in candidates:
         if not isinstance(candidate, dict):
             skipped += 1
             continue
         result = _candidate_score(monster, candidate, previous_target_id)
-        if result is None or result["id"] in seen_ids:
+        if result is None:
             skipped += 1
             continue
-        seen_ids.add(result["id"])
-        ranked.append(result)
+        existing = ranked_by_id.get(result["id"])
+        if existing is not None:
+            skipped += 1
+            if (result["score"], result["distance"]) < (existing["score"], existing["distance"]):
+                ranked_by_id[result["id"]] = result
+            continue
+        ranked_by_id[result["id"]] = result
+    ranked = list(ranked_by_id.values())
 
     _record("candidate_records_seen", len(candidates))
     _record("candidate_records_skipped", skipped)
