@@ -607,15 +607,25 @@ wss.on('connection', ws => {
       const wantedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
       const wantedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(msg.skin) ? msg.skin : player.skin;
       if (room.started && (wantedClass !== player.playerClass || wantedSkin !== player.skin)) return;
-      if (!room.started && wantedClass !== player.playerClass) player.skills = player.skills.filter(id => !CLASS_PERSONAL_SKILL_CLASS[id]);
-      const proposed = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id) && (!CLASS_PERSONAL_SKILL_CLASS[id] || CLASS_PERSONAL_SKILL_CLASS[id] === wantedClass)) : [];
+      if (!room.started && wantedClass !== player.playerClass) {
+        const previousSkillCount = player.skills.length;
+        player.skills = player.skills.filter(id => !CLASS_PERSONAL_SKILL_CLASS[id]);
+        const refundedPersonalPoints = previousSkillCount - player.skills.length;
+        if (refundedPersonalPoints > 0) player.talentPoints = Math.min(99, (player.talentPoints || 0) + refundedPersonalPoints);
+      }
+      // Validar talentos exclusivos com a classe para a qual a pessoa está trocando.
+      player.playerClass = wantedClass;
+      const proposed = Array.isArray(msg.skills)
+        ? [...new Set(msg.skills)].filter(id => VALID_SKILLS.has(id) && (!CLASS_PERSONAL_SKILL_CLASS[id] || CLASS_PERSONAL_SKILL_CLASS[id] === wantedClass))
+        : [];
       for (const id of proposed) {
         if (player.skills.includes(id)) continue;
         if (player.talentPoints <= 0) break;
         if (!canUnlockSkill(player, id)) continue;
-        player.skills.push(id); player.talentPoints--;
+        player.skills.push(id);
+        player.talentPoints--;
       }
-      player.playerClass = wantedClass; player.skin = wantedSkin;
+      player.skin = wantedSkin;
       refreshPlayerStats(player, !room.started);
       broadcast(room, state(room));
     } else if (msg.type === 'move') {
