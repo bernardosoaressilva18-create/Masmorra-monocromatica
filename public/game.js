@@ -1027,6 +1027,22 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const capeCrest=add(new THREE.OctahedronGeometry(.105,1),classAccentMaterial,0,1.34,.39,.8,1.1,.42);
   capeCrest.rotation.z=Math.PI/4;
   add(new THREE.ConeGeometry(.34,.35,5), armor,0,.83,.34,1,.75,.55);
+  // Placas de antebraço, rebites e costuras no peitoral deixam as classes menos lisas.
+  for (const side of [-1, 1]) {
+    const bracer = add(new THREE.BoxGeometry(.20,.23,.13), steel, side*.49,1.17,-.105,.92,1,.82);
+    bracer.rotation.z = side * -.13;
+    add(new THREE.SphereGeometry(.038,12,8), gold, side*.49,1.18,-.184);
+    add(new THREE.BoxGeometry(.12,.025,.025), gold, side*.49,1.07,-.175);
+  }
+  for (const y of [1.06,1.13,1.20]) {
+    add(new THREE.BoxGeometry(.28,.018,.018), gold,0,y,-.374);
+  }
+  // Cintos laterais e pequenas bolsas para reforçar a silhueta de aventureiro.
+  for (const side of [-1,1]) {
+    const pouch = add(new THREE.BoxGeometry(.13,.16,.12), clothMaterial, side*.31,.91,-.08);
+    pouch.rotation.z = side * -.12;
+    add(new THREE.BoxGeometry(.10,.025,.025), gold, side*.31,.94,-.15);
+  }
   // Cabeça, cabelo curto, sobrancelhas e olhos luminosos
   headMesh = addHead(new THREE.SphereGeometry(.27,32,24), skinMaterial,0,1.94,-.015,
     heroClass === 'ogre' ? 1.28 : heroClass === 'goblin' ? .93 : 1,
@@ -1846,6 +1862,35 @@ function makeMonster(kind = 'stalker', phase = 1) {
       claw.rotation.x=Math.PI;
       addMesh(new THREE.ConeGeometry(.11,.38,5),bone,side*.2,1.13,.35);
       addMesh(new THREE.CapsuleGeometry(.13,.36,8,16),dark,side*.22,.35,.03);
+    }
+  }
+  // Detalhes adicionais de silhueta: caneleiras, garras segmentadas e placas dorsais.
+  if (kind !== 'wraith' && kind !== 'abyss') {
+    const legArmor = matBody(kind === 'thorn' ? 0x476b3d : kind === 'inferno' ? 0x4d2923 : kind === 'brute' ? 0x626c7b : 0x343d4c, .55, .28);
+    for (const side of [-1, 1]) {
+      addMesh(new THREE.SphereGeometry(kind === 'brute' ? .19 : .13, 14, 10), legArmor, side * (kind === 'brute' ? .31 : .22), .39, -.04, 1, .72, .8);
+      addMesh(new THREE.BoxGeometry(.055, .22, .055), bone, side * (kind === 'brute' ? .69 : .52), .58, -.16, 1, 1, .8);
+      const clawRidge = addMesh(new THREE.ConeGeometry(.045, .18, 5), bone, side * (kind === 'brute' ? .71 : .55), .42, -.22);
+      clawRidge.rotation.x = Math.PI;
+    }
+  }
+  if (['stalker', 'thorn', 'brute', 'inferno'].includes(kind)) {
+    const dorsalMat = matBody(kind === 'thorn' ? 0x628f49 : kind === 'inferno' ? 0x6e3324 : kind === 'brute' ? 0x778295 : 0x65546e, .62, .18);
+    for (let spine = 0; spine < 4; spine++) {
+      const y = .88 + spine * .19;
+      const z = kind === 'brute' ? .39 : .30;
+      const size = kind === 'brute' ? .18 : .13;
+      const ridge = addMesh(new THREE.ConeGeometry(size, size * 1.8, 5), dorsalMat, (spine % 2 ? -.07 : .07), y, z);
+      ridge.rotation.x = -.22;
+      ridge.rotation.z = (spine % 2 ? -.12 : .12);
+    }
+  }
+  // Pequenos detalhes de rosto ajudam a diferenciar expressões e leitura à distância.
+  if (kind !== 'wraith' && kind !== 'abyss') {
+    const browMat = matBody(kind === 'inferno' ? 0x1e1517 : kind === 'thorn' ? 0x243e2b : 0x211f2a, .78, .08);
+    for (const side of [-1, 1]) {
+      const brow = addMesh(new THREE.CapsuleGeometry(.035, .13, 3, 6), browMat, side * .13, kind === 'brute' ? 1.98 : 1.57, -.36);
+      brow.rotation.z = side * -.18;
     }
   }
   // Placas de ombro facetadas e rebites: dão volume sem mudar a hitbox.
