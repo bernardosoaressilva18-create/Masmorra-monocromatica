@@ -621,7 +621,13 @@ function state(room) {
       pvpKills:p.pvpKills||0,pvpMonsterKills:p.pvpMonsterKills||0,pvpRespawnAt:p.pvpRespawnAt||0,
       invisible:Date.now()<(p.invisibleUntil||0),shielded:Date.now()<(p.shieldUntil||0),ogreHasteUntil:p.ogreHasteUntil||0
     })),
-    summons: (room.summons || []).filter(s => s.hp > 0 && (!s.expiresAt || s.expiresAt > Date.now())).map(s => ({ id: 'summon:' + s.id, name: s.name || (s.summonType === 'skeleton' ? 'Esqueleto aliado' : s.summonType === 'stone_golem_clone' ? 'Fragmento de Golem' : s.summonType === 'guardian_spirit' ? 'Espírito Guardião' : 'Goblin aliado'), x: s.x, z: s.z, rot: s.rot || 0, color: s.color || 0x80c86b, hp: s.hp, maxHp: s.maxHp, playerClass: s.playerClass || (s.summonType === 'skeleton' ? 'skeleton' : s.summonType === 'stone_golem_clone' ? 'golem_clone' : s.summonType === 'guardian_spirit' ? 'guardian_spirit' : 'goblin'), skin: s.skin || 'default', summon: true, summonType: s.summonType || (s.playerClass === 'golem_clone' ? 'stone_golem_clone' : 'goblin') })),
+    summons: (room.summons || []).filter(s => s.hp > 0 && (!s.expiresAt || s.expiresAt > Date.now())).map(s => {
+       const summonType = String(s.summonType || '').toLowerCase().replace(/-/g, '_');
+       const playerClass = s.playerClass || (summonType === 'skeleton' ? 'skeleton' : ['stone_golem_clone','golem_clone','golem_fragment'].includes(summonType) ? 'golem_clone' : summonType === 'guardian_spirit' ? 'guardian_spirit' : 'goblin');
+       const normalizedType = summonType || (playerClass === 'golem_clone' ? 'stone_golem_clone' : playerClass);
+       const fallbackName = playerClass === 'skeleton' ? 'Esqueleto aliado' : playerClass === 'golem_clone' ? 'Fragmento de Golem' : playerClass === 'guardian_spirit' ? 'Espírito Guardião' : 'Goblin aliado';
+       return { id: 'summon:' + s.id, ownerId: s.ownerId, name: s.name || fallbackName, x: s.x, z: s.z, rot: s.rot || 0, color: s.color || (playerClass === 'golem_clone' ? 0x8a9096 : 0x80c86b), hp: s.hp, maxHp: s.maxHp, playerClass, skin: s.skin || 'default', summon: true, summonType: normalizedType };
+     }),
     phase: room.phase,
     realm: room.realm || 1,
     safeZoneUntil: room.safeZoneUntil || 0,
