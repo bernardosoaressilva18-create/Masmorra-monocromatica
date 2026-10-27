@@ -29,6 +29,7 @@ let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=n
 let realmIntroTimer=0;
 const astralFloaters=[];
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
+let shiftLockEnabled = false;
 let cameraDistance = (() => { try { const saved = Number(localStorage.getItem('ultimoLegadoCameraDistance')); if (Number.isFinite(saved) && saved >= 6.5 && saved <= 15.5) return saved; } catch {} return 9.5; })();
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
@@ -3592,6 +3593,20 @@ function rendererPointerSetup() {
     try { localStorage.setItem('ultimoLegadoCameraDistance', String(cameraDistance)); } catch {}
   };
   const zoomInButton = $('cameraZoomIn'), zoomOutButton = $('cameraZoomOut'), zoomResetButton = $('cameraZoomReset');
+  const shiftLockButton = $('shiftLockToggle');
+  const setShiftLock = enabled => {
+    shiftLockEnabled = !!enabled;
+    document.body.classList.toggle('shift-lock-active', shiftLockEnabled);
+    if (shiftLockButton) {
+      shiftLockButton.classList.toggle('active', shiftLockEnabled);
+      shiftLockButton.setAttribute('aria-pressed', String(shiftLockEnabled));
+      shiftLockButton.textContent = shiftLockEnabled ? '◎' : '⊙';
+      shiftLockButton.title = shiftLockEnabled ? 'Desativar Shift Lock' : 'Ativar Shift Lock';
+      shiftLockButton.setAttribute('aria-label', shiftLockButton.title);
+    }
+    showNotice(shiftLockEnabled ? 'Shift Lock ativado · câmera no ombro' : 'Shift Lock desativado');
+  };
+  shiftLockButton?.addEventListener('click', () => setShiftLock(!shiftLockEnabled));
   zoomInButton?.addEventListener('click', () => setCameraDistance(cameraDistance - .75));
   zoomOutButton?.addEventListener('click', () => setCameraDistance(cameraDistance + .75));
   zoomResetButton?.addEventListener('click', () => setCameraDistance(8.5));
@@ -4261,10 +4276,11 @@ const right = new THREE.Vector3(
     const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
     const dist=cameraDistance+introBlend*2.8;
+    const shoulder = shiftLockEnabled ? .78 : 0;
     const cameraTarget=cameraPositionScratch.set(
-      target.x+Math.sin(yaw)*dist,
+      target.x+Math.sin(yaw)*dist+Math.cos(yaw)*shoulder,
       target.y+3.0+pitch*2+introBlend*.65,
-      target.z + Math.cos(yaw) * dist
+      target.z+Math.cos(yaw)*dist-Math.sin(yaw)*shoulder
     );
     camera.position.lerp(cameraTarget, cameraSmooth);
     camera.lookAt(target.x, target.y + 0.15, target.z);

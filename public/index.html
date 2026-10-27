@@ -220,12 +220,14 @@
     </section>
     <p class="settings-note">As configurações ficam salvas neste dispositivo. Trilha: “Medieval: The Old Tower Inn”, de RandomMind (CC0, OpenGameArt).</p>
   </div>
-  <div class="camera-zoom-controls" aria-label="Zoom da câmera">
+  <div class="camera-zoom-controls" aria-label="Câmera e zoom">
+    <button id="shiftLockToggle" class="shift-lock-toggle" type="button" aria-label="Ativar Shift Lock" aria-pressed="false" title="Ativar Shift Lock">⊙</button>
     <button id="cameraZoomIn" type="button" aria-label="Aproximar câmera" title="Aproximar">+</button>
     <span id="cameraZoomValue">ZOOM 8.5×</span>
     <button id="cameraZoomOut" type="button" aria-label="Afastar câmera" title="Afastar">−</button>
     <button id="cameraZoomReset" type="button" aria-label="Restaurar zoom" title="Restaurar zoom">↺</button>
   </div>
+  <div class="shift-lock-crosshair" aria-hidden="true"></div>
   <div id="notice" class="notice"></div>
   <div class="objective">
     <small id="phaseLabel">MUNDO 1 / 5</small>
@@ -299,7 +301,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 </script>
-<script type="module" src="game.js?v=20261027-mega-update-10"></script>
+<script type="module" src="game.js?v=20261027-mega-update-11"></script>
 </body>
     </html>
     

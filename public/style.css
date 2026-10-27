@@ -3360,3 +3360,32 @@ html, body { width:100%; min-width:0; }
 }
 #hud.hud-edit-mode .camera-zoom-controls{display:none!important}
 @media(prefers-reduced-motion:reduce){.camera-zoom-controls button{transition:none!important}}
+
+
+/* Mega update 11: mobile Shift Lock and a more visible character-first lobby. */
+.camera-zoom-controls .shift-lock-toggle{font-size:22px!important;font-weight:900;border-color:#b8e8f788;background:linear-gradient(145deg,#273e50,#0b1722);color:#d9f7ff}
+.camera-zoom-controls .shift-lock-toggle.active{background:linear-gradient(145deg,#d7b66c,#75522b);border-color:#ffe7a2;color:#17130a;box-shadow:0 0 0 2px #f3d48b35,0 0 18px #e9c47775}
+.shift-lock-crosshair{display:none;position:fixed;z-index:18;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 1px 3px #000)}
+.shift-lock-crosshair:before,.shift-lock-crosshair:after{content:"";position:absolute;background:#e7faff;border-radius:2px;box-shadow:0 0 5px #75dfff}
+.shift-lock-crosshair:before{left:8px;top:1px;width:2px;height:16px}
+.shift-lock-crosshair:after{left:1px;top:8px;width:16px;height:2px}
+body.shift-lock-active .shift-lock-crosshair{display:block}
+#lobby .lobby-stage{position:relative;isolation:isolate;border:1px solid rgba(115,218,255,.35);border-radius:22px;background:radial-gradient(ellipse at 50% 42%,rgba(37,109,146,.23),transparent 55%),linear-gradient(145deg,rgba(9,19,31,.78),rgba(5,9,16,.92));box-shadow:0 20px 70px #0008,inset 0 0 38px #4ecbff0a}
+#lobby .hero-showcase{display:grid;grid-template-columns:minmax(76px,104px) minmax(0,1fr);align-items:center;gap:14px;min-height:154px;margin:18px 12px;padding:16px;border:1px solid rgba(120,221,255,.38);border-radius:18px;background:linear-gradient(135deg,rgba(24,53,74,.82),rgba(7,14,24,.76));box-shadow:0 12px 30px #0005}
+#lobby .hero-preview-avatar{width:96px;height:112px;border-radius:18px;border:1px solid rgba(125,228,255,.55);background:radial-gradient(ellipse at 50% 35%,rgba(115,222,255,.24),transparent 70%),linear-gradient(145deg,#1b3447,#0b131e);font-size:52px;display:grid;place-items:center;box-shadow:inset 0 0 20px #5bd7ff14,0 8px 22px #0005}
+#lobby .hero-showcase-info>small{font-size:9px;letter-spacing:2px;color:#7fe8ff}
+#lobby .hero-showcase-info>strong{font-size:clamp(20px,4vw,29px);letter-spacing:.4px;color:#fff0c3;text-shadow:0 3px 18px #000}
+#lobby .hero-showcase-info>p{font-size:11px;line-height:1.45;color:#c2d5e2}
+#lobby .hero-showcase-tags span{border:1px solid #7bdffb55;background:#0a1b2b;padding:6px 8px;border-radius:999px;font-size:8px;letter-spacing:.7px}
+#lobby .lobby-team-box{margin:12px;padding:14px;border:1px solid #8fcce52b;border-radius:16px;background:rgba(4,10,17,.72)}
+#lobby .lobby-players{gap:9px}
+#lobby .lobby-player-card,#lobby .lobby-player{border-radius:12px!important;border:1px solid #83dffb35!important;background:linear-gradient(140deg,#162b3a,#09121d)!important;box-shadow:0 6px 18px #0004}
+@media(max-width:600px){
+ #lobby .hero-showcase{grid-template-columns:76px minmax(0,1fr);gap:10px;min-height:124px;margin:12px 8px;padding:10px}
+ #lobby .hero-preview-avatar{width:72px;height:88px;font-size:40px}
+ #lobby .hero-showcase-info>strong{font-size:19px}
+ #lobby .hero-showcase-info>p{font-size:9px;margin:5px 0}
+ #lobby .hero-showcase-tags{gap:4px;flex-wrap:wrap}
+ #lobby .hero-showcase-tags span{font-size:7px;padding:4px 6px}
+ #lobby .lobby-team-box{margin:8px;padding:9px}
+}
