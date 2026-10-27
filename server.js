@@ -68,7 +68,7 @@ function requestTacticalTarget(room, monster, players, now) {
   fetch(TACTICAL_AI_URL + '/target', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ monster: { id: monster.id, kind: monster.kind, x: monster.x, z: monster.z, hp: monster.hp }, candidates }),
+    body: JSON.stringify({ monster: { id: monster.id, kind: monster.kind, x: monster.x, z: monster.z, hp: monster.hp }, candidates, previousTargetId: room.tacticalAiCache?.get(key)?.targetId || null }),
     signal: AbortSignal.timeout ? AbortSignal.timeout(700) : undefined
   }).then(response => response.ok ? response.json() : null).then(result => {
     if (result && typeof result.targetId === 'string') {
