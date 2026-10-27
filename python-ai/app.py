@@ -263,6 +263,7 @@ def choose_target():
             "reason": "no_valid_candidates",
             "candidateCount": 0,
             "inputCandidateCount": len(candidates),
+            "skippedCandidateCount": skipped,
             "version": AI_VERSION,
             "requestId": g.request_id,
         })
