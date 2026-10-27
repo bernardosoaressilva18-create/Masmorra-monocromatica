@@ -1669,6 +1669,7 @@ function syncBossTelegraphs(telegraphs) {
       edge.rotation.x=-Math.PI/2; edge.position.y=.075; edge.renderOrder=902; mesh.add(edge);
       scene.add(mesh); bossTelegraphMeshes.set(id,mesh);
     }
+    mesh.userData.attackId = String(t.attackId || '');
     mesh.position.x=Number(t.x); mesh.position.z=Number(t.z);
     const remaining=Math.max(0,Number(t.impactAt||0)-Date.now());
     mesh.material.opacity=.18+.18*(1-Math.min(1,remaining/1500));
@@ -2695,7 +2696,7 @@ function handleMessage(m) {
     if (m.targetId === playerId) showNotice('⚠ Golpe inimigo chegando — ESQUIVE!');
     return;
   }
-  if (m.type === 'bossPatternEnd') { return; }
+  if (m.type === 'bossPatternEnd') { for (const [id,mesh] of bossTelegraphMeshes) { if (mesh.userData.attackId === String(m.id)) { scene.remove(mesh); disposeObject3D(mesh); bossTelegraphMeshes.delete(id); } } return; }
   if (m.type === 'bossPattern') { showNotice('⚠ ' + (m.label || 'Ataque do Guardião') + ' — saia das áreas vermelhas!'); if (m.circles) syncBossTelegraphs(m.circles); return; }
   if (m.type === 'bossWindup') {
     $('bossPanel').classList.add('warning');
