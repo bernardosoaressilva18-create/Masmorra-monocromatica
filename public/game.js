@@ -2156,7 +2156,7 @@ function renderSkillTrees() {
         const state=unlocked?'DESBLOQUEADA ✓':skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):canBuy?'DISPONÍVEL · 1 PONTO':skillPoints<1?'SEM PONTOS':'BLOQUEADA';
         return '<article class="skill-description-card '+(unlocked?'unlocked':canBuy?'available':'locked')+'"><span class="skill-description-icon">'+esc(skill.icon)+'</span><div class="skill-description-copy"><strong>'+esc(skill.name)+'</strong><p>'+esc(skill.desc)+'</p><small>'+esc(state)+'</small></div></article>';
       }).join('')+'</div></section>').join('')+'</section>';
-  const html=core+filterBar+tree+'<p class="skill-orbit-help">Toque em um talento dourado disponível para desbloquear. O próximo talento exige o anterior do mesmo ramo.</p>'+catalog;
+  const html=core+filterBar+tree+'<p class="skill-orbit-help">Toque em um talento dourado disponível para desbloquear. O próximo talento exige o anterior do mesmo ramo.</p>';
   const lobbyTree=$('skillTreeLobby'),hudTree=$('skillTreeHud');
   if(lobbyTree) lobbyTree.innerHTML=html;
   if(hudTree) hudTree.innerHTML=html;
@@ -2514,11 +2514,12 @@ function handleSkillClick(event) {
   // Keep the selected branch in view on narrow screens after the tree re-renders.
   const matchingNodes = document.querySelectorAll('[data-skill="' + skill.id + '"]');
   matchingNodes.forEach(node => {
-    const scroller = node.closest('.skill-tree');
-    if (scroller && scroller.scrollWidth > scroller.clientWidth) {
-      const branchNode = node.closest('.skill-branch');
-      if (branchNode) scroller.scrollTo({left:Math.max(0,branchNode.offsetLeft - scroller.offsetLeft - 8),behavior:'smooth'});
+    const branchNode = node.closest('.skill-path-branch');
+    const board = node.closest('.skill-path-board');
+    if (branchNode && board && board.scrollWidth > board.clientWidth) {
+      board.scrollTo({left:Math.max(0,branchNode.offsetLeft - board.offsetLeft - 8),behavior:'smooth'});
     }
+    node.focus({preventScroll:true});
   });
 }
 $('skillTreeLobby')?.addEventListener('click', handleSkillClick);
