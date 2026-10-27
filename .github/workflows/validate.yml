@@ -33,7 +33,7 @@ jobs:
           const sharedStart = client.indexOf('const SKILL_BRANCHES = [');
           const sharedEnd = client.indexOf('function getCurrentSkillBranches()', sharedStart);
           const sharedBlock = client.slice(sharedStart, sharedEnd);
-          const sharedIds = [...sharedBlock.matchAll(/\\{id:'([^']+)'/g)].map(m => m[1]);
+          const sharedIds = [...sharedBlock.matchAll(/\{id:'([^']+)'/g)].map(m => m[1]);
           if (sharedIds.length !== 20 || new Set(sharedIds).size !== 20) throw new Error('Shared skill tree must contain 20 unique talents');
 
           const personalStart = client.indexOf('const CLASS_PERSONAL_SKILLS_UI = ') + 'const CLASS_PERSONAL_SKILLS_UI = '.length;
