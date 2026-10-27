@@ -14,7 +14,7 @@ from flask import Flask, g, jsonify, request
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
-AI_VERSION = "2.0.0"
+AI_VERSION = "2.1.0"
 SERVICE_NAME = "masmorra-tactical-ai"
 MAX_COORDINATE = 10000.0
 try:
@@ -95,14 +95,22 @@ def _candidate_score(monster, candidate, previous_target_id=None):
     kind = str(monster.get("kind") or "stalker").strip().lower()
     role = _normalize_role(candidate)
     threat = _clamp(_number(candidate.get("threat"), 0.0), 0.0, 100.0)
+    recent_damage = _clamp(_number(candidate.get("recentDamage"), 0.0), 0.0, 100.0)
     is_summon = bool(candidate.get("isSummon")) or role == "summon"
+    is_shielded = bool(candidate.get("shielded")) or bool(candidate.get("hasShield"))
+    attack_range = _clamp(_number(monster.get("attackRange"), 2.5), 0.5, 25.0)
+    aggression = _clamp(_number(monster.get("aggression"), 1.0), 0.25, 2.0)
 
-    # Smaller scores are better. Distance is the main factor to avoid silly chases.
+    # Smaller scores are better. Distance stays dominant to avoid implausible long chases.
     score = distance + health_ratio * 1.55
     reasons = ["distance"]
-
-    # Low-health targets can be finished off, but this never overrides a huge distance.
     score += health_ratio * 0.6
+    if distance <= attack_range:
+        score -= 0.22
+        reasons.append("in_attack_range")
+    elif distance > attack_range * 3.5:
+        score += min(1.25, (distance - attack_range * 3.5) * 0.08)
+        reasons.append("far_target")
     if health_ratio <= 0.30:
         score -= 0.35
         reasons.append("low_health")
@@ -115,21 +123,23 @@ def _candidate_score(monster, candidate, previous_target_id=None):
     elif role in {"mage", "archer", "necromancer"}:
         score -= 0.12
         reasons.append("ranged_target")
-
     if is_summon:
-        # Summons can distract enemies, but never become more attractive than a nearby player solely due to their type.
         score -= 0.10
         reasons.append("summon_distraction")
-
+    if is_shielded:
+        score += 0.24
+        reasons.append("shielded_target")
     score -= threat * 0.018
     if threat >= 10:
         reasons.append("high_threat")
-
+    score -= recent_damage * 0.012
+    if recent_damage >= 8:
+        reasons.append("recent_attacker")
     if previous_target_id is not None and candidate_id == str(previous_target_id):
         score -= 0.72
         reasons.append("target_stability")
 
-    # Creature personalities: each archetype gets a modest, bounded preference.
+    # Creature personalities influence priorities without overriding physical distance.
     if kind in {"wraith", "assassin"} and role in {"healer", "support", "mage", "archer"}:
         score -= 0.55
         reasons.append("flanker_prefers_backline")
@@ -142,8 +152,11 @@ def _candidate_score(monster, candidate, previous_target_id=None):
     elif kind in {"inferno", "abyss"} and role in {"healer", "support"}:
         score -= 0.32
         reasons.append("elite_targets_support")
+    # Aggressive monsters more readily switch toward urgent, threatening targets.
+    score -= min(0.35, max(0.0, aggression - 1.0) * 0.35) * min(1.0, threat / 40.0)
+    if aggression > 1.25 and threat >= 20:
+        reasons.append("aggressive_response")
 
-    # Keep the score in sane bounds, and return only simple JSON-safe values.
     score = _clamp(score, -1000.0, 20000.0)
     return {
         "id": candidate_id,
@@ -286,6 +299,8 @@ def choose_target():
         "reasons": winner["reasons"],
         "targetRole": winner["role"],
         "targetHealthRatio": round(winner["healthRatio"], 3),
+        "decisionConfidence": round(_clamp((ranked[1]["score"] - winner["score"]) / max(1.0, abs(winner["score"]) + 1.0), 0.0, 1.0), 3) if len(ranked) > 1 else 1.0,
+        "tacticalProfile": str(monster.get("kind") or "stalker").strip().lower(),
         "candidateCount": len(ranked),
         "inputCandidateCount": len(candidates),
         "skippedCandidateCount": skipped,
