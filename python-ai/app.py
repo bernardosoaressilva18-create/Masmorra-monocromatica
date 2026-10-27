@@ -6,6 +6,7 @@ back to native targeting whenever this service is unavailable.
 import math
 import os
 import time
+import unicodedata
 import uuid
 from collections import Counter, deque
 from threading import Lock
@@ -14,7 +15,7 @@ from flask import Flask, g, jsonify, request
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
-AI_VERSION = "2.1.0"
+AI_VERSION = "2.2.0"
 SERVICE_NAME = "masmorra-tactical-ai"
 MAX_COORDINATE = 10000.0
 try:
@@ -43,61 +44,128 @@ def _clamp(value, low, high):
     return max(low, min(high, value))
 
 
+def _text_key(value, default=""):
+    """Normalize labels, including Portuguese accents, for comparisons."""
+    text = str(value if value is not None else default).strip().casefold()
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def _flag(value, default=False):
+    """Parse JSON and legacy boolean representations safely."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return math.isfinite(float(value)) and value != 0
+    if isinstance(value, str):
+        normalized = value.strip().casefold()
+        if normalized in {"", "0", "false", "no", "off", "nao", "não", "null"}:
+            return False
+        if normalized in {"1", "true", "yes", "on", "sim"}:
+            return True
+    return default
+
+
+def _timestamp_ms(value):
+    """Accept Unix timestamps in seconds or milliseconds; reject invalid values."""
+    stamp = _number(value)
+    if stamp is None or stamp <= 0:
+        return None
+    return stamp * 1000 if stamp < 100_000_000_000 else stamp
+
+
+def _timestamp_is_future(value, now_ms):
+    stamp = _timestamp_ms(value)
+    return stamp is not None and stamp > now_ms
+
+
+def _percentile(sorted_samples, fraction):
+    if not sorted_samples:
+        return 0.0
+    fraction = _clamp(_number(fraction, 0.95), 0.0, 1.0)
+    index = max(0, min(len(sorted_samples) - 1, math.ceil(fraction * len(sorted_samples)) - 1))
+    return sorted_samples[index]
+
+
 def _safe_id(value):
     if value is None:
         return None
     text = str(value).strip()
-    if not text or len(text) > 100:
+    if not text or len(text) > 100 or any(ord(char) < 32 or ord(char) == 127 for char in text):
         return None
     return text
 
 
 def _normalize_role(candidate):
-    role = str(candidate.get("role") or candidate.get("playerClass") or "").strip().lower()
+    role = _text_key(candidate.get("role") or candidate.get("playerClass") or "")
     aliases = {
-        "curandeiro": "healer", "heal": "healer", "support": "support",
-        "cavaleiro": "knight", "soldado": "knight", "guerreiro": "knight",
-        "arqueiro": "archer", "mago": "mage", "necromante": "necromancer",
-        "ogro": "ogre", "golem de pedra": "golem",
+        "curandeiro": "healer", "healer": "healer", "heal": "healer", "cura": "healer",
+        "support": "support", "suporte": "support", "cavaleiro": "knight",
+        "soldado": "knight", "guerreiro": "knight", "knight": "knight",
+        "arqueiro": "archer", "archer": "archer", "mago": "mage", "mage": "mage",
+        "necromante": "necromancer", "necromancer": "necromancer", "ogro": "ogre",
+        "ogre": "ogre", "golem de pedra": "golem", "golem": "golem",
+        "stone golem": "golem", "stone_golem": "golem", "monge": "monk",
+        "monk": "monk", "goblin": "goblin", "invocacao": "summon",
+        "invocacao aliada": "summon", "summon": "summon",
+        "fragmento de golem": "golem", "esqueleto": "skeleton",
+        "skeleton": "skeleton", "golem_clone": "golem", "brute": "brute", "tank": "tank",
     }
     role = aliases.get(role, role)
     if role in {"healer", "support", "knight", "tank", "brute", "mage", "archer",
-                "goblin", "ogre", "necromancer", "monk", "golem", "summon"}:
+                "goblin", "ogre", "necromancer", "monk", "golem", "summon", "skeleton"}:
         return role
-    if candidate.get("isSummon"):
+    if _flag(candidate.get("isSummon")):
         return "summon"
     return role or "player"
 
 
-def _candidate_score(monster, candidate, previous_target_id=None):
+def _candidate_score(monster, candidate, previous_target_id=None, now_ms=None):
     """Return a deterministic tactical ranking record, or None for bad input."""
     candidate_id = _safe_id(candidate.get("id"))
     x = _number(candidate.get("x"))
     z = _number(candidate.get("z"))
-    health = _number(candidate.get("health", candidate.get("hp")), 100.0)
-    max_health = _number(candidate.get("maxHealth", candidate.get("maxHp")), 100.0)
+    health = _number(candidate.get("health", candidate.get("hp", candidate.get("currentHealth"))), 100.0)
+    max_health = _number(candidate.get("maxHealth", candidate.get("maxHp", candidate.get("healthMax"))), 100.0)
     mx = _number(monster.get("x"))
     mz = _number(monster.get("z"))
+    if now_ms is None:
+        now_ms = time.time() * 1000
 
     if candidate_id is None or None in (x, z, mx, mz, health, max_health):
         return None
     if any(abs(value) > MAX_COORDINATE for value in (x, z, mx, mz)):
         return None
-    if candidate.get("alive") is False or candidate.get("visible") is False:
+    if any(_flag(candidate.get(flag)) for flag in ("dead", "isDead", "deathLocked", "eliminated", "expired")):
         return None
-    if candidate.get("invisible") is True or candidate.get("expired") is True:
+    if "alive" in candidate and not _flag(candidate.get("alive"), default=True):
+        return None
+    if "isAlive" in candidate and not _flag(candidate.get("isAlive"), default=True):
+        return None
+    if "connected" in candidate and not _flag(candidate.get("connected"), default=True):
+        return None
+    if "visible" in candidate and not _flag(candidate.get("visible"), default=True):
+        return None
+    if _flag(candidate.get("invisible")) or _timestamp_is_future(candidate.get("invisibleUntil"), now_ms):
+        return None
+    if _timestamp_is_future(candidate.get("expiresAt"), now_ms):
         return None
     if health <= 0 or max_health <= 0:
         return None
 
     distance = math.hypot(x - mx, z - mz)
     health_ratio = _clamp(health / max_health, 0.0, 1.0)
-    kind = str(monster.get("kind") or "stalker").strip().lower()
+    kind = _text_key(monster.get("kind") or "stalker")
     role = _normalize_role(candidate)
-    threat = _clamp(_number(candidate.get("threat"), 0.0), 0.0, 100.0)
-    recent_damage = _clamp(_number(candidate.get("recentDamage"), 0.0), 0.0, 100.0)
-    is_summon = bool(candidate.get("isSummon")) or role == "summon"
-    is_shielded = bool(candidate.get("shielded")) or bool(candidate.get("hasShield"))
+    threat = _clamp(_number(candidate.get("threat", candidate.get("aggroThreat")), 0.0), 0.0, 100.0)
+    recent_damage = _clamp(_number(candidate.get("recentDamage", candidate.get("recentAttackerDamage")), 0.0), 0.0, 100.0)
+    is_summon = _flag(candidate.get("isSummon")) or role in {"summon", "skeleton"}
+    shield_until_active = _timestamp_is_future(candidate.get("shieldUntil"), now_ms)
+    guard_until_active = _timestamp_is_future(candidate.get("guardUntil"), now_ms)
+    is_shielded = (_flag(candidate.get("shielded")) or _flag(candidate.get("hasShield"))
+                   or shield_until_active or guard_until_active)
     attack_range = _clamp(_number(monster.get("attackRange"), 2.5), 0.5, 25.0)
     aggression = _clamp(_number(monster.get("aggression"), 1.0), 0.25, 2.0)
 
@@ -114,6 +182,9 @@ def _candidate_score(monster, candidate, previous_target_id=None):
     if health_ratio <= 0.30:
         score -= 0.35
         reasons.append("low_health")
+    if health_ratio <= 0.15:
+        score -= 0.25
+        reasons.append("critical_health")
     if role in {"healer", "support"}:
         score -= 1.05
         reasons.append("support_priority")
@@ -176,7 +247,9 @@ def _record(name, amount=1):
 
 @app.before_request
 def _start_request():
-    g.request_id = request.headers.get("X-Request-ID", "")[:80] or uuid.uuid4().hex[:16]
+    supplied_request_id = request.headers.get("X-Request-ID", "")
+    safe_request_id = "".join(char for char in supplied_request_id if ord(char) >= 32 and ord(char) != 127)[:80]
+    g.request_id = safe_request_id or uuid.uuid4().hex[:16]
     g.request_started = time.perf_counter()
     _record("requests_total")
 
@@ -186,6 +259,7 @@ def _finish_request(response):
     elapsed_ms = max(0.0, (time.perf_counter() - getattr(g, "request_started", time.perf_counter())) * 1000)
     with _stats_lock:
         _latency_samples.append(elapsed_ms)
+        _stats[f"status_{response.status_code}"] += 1
         if response.status_code >= 400:
             _stats["responses_4xx_5xx"] += 1
     response.headers["X-Request-ID"] = getattr(g, "request_id", "")
@@ -216,13 +290,19 @@ def metrics():
     with _stats_lock:
         counters = dict(_stats)
         samples = sorted(_latency_samples)
-    p95 = samples[min(len(samples) - 1, int(len(samples) * 0.95))] if samples else 0.0
     return jsonify({
         "service": SERVICE_NAME,
         "version": AI_VERSION,
         "uptimeSeconds": round(time.time() - _service_started_at, 1),
         "counters": counters,
-        "latencyMs": {"samples": len(samples), "p95": round(p95, 2)},
+        "latencyMs": {
+            "samples": len(samples),
+            "p50": round(_percentile(samples, 0.50), 2),
+            "p90": round(_percentile(samples, 0.90), 2),
+            "p95": round(_percentile(samples, 0.95), 2),
+            "min": round(samples[0], 2) if samples else 0.0,
+            "max": round(samples[-1], 2) if samples else 0.0,
+        },
     })
 
 
@@ -248,13 +328,14 @@ def choose_target():
         return jsonify({"error": "monster position must contain finite x/z coordinates", "requestId": g.request_id}), 400
 
     previous_target_id = _safe_id(payload.get("previousTargetId"))
+    now_ms = _number(payload.get("nowMs"), time.time() * 1000)
     ranked_by_id = {}
     skipped = 0
     for candidate in candidates:
         if not isinstance(candidate, dict):
             skipped += 1
             continue
-        result = _candidate_score(monster, candidate, previous_target_id)
+        result = _candidate_score(monster, candidate, previous_target_id, now_ms)
         if result is None:
             skipped += 1
             continue
@@ -300,7 +381,7 @@ def choose_target():
         "targetRole": winner["role"],
         "targetHealthRatio": round(winner["healthRatio"], 3),
         "decisionConfidence": round(_clamp((ranked[1]["score"] - winner["score"]) / max(1.0, abs(winner["score"]) + 1.0), 0.0, 1.0), 3) if len(ranked) > 1 else 1.0,
-        "tacticalProfile": str(monster.get("kind") or "stalker").strip().lower(),
+        "tacticalProfile": _text_key(monster.get("kind") or "stalker"),
         "candidateCount": len(ranked),
         "inputCandidateCount": len(candidates),
         "skippedCandidateCount": skipped,
