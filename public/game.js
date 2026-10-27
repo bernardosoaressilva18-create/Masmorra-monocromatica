@@ -25,6 +25,7 @@ const cameraPositionScratch = new THREE.Vector3();
 const lobbyCameraPositionScratch = new THREE.Vector3();
 let bossMesh = null, bossData = null;
 const bossPortalMeshes = new Map();
+const bossTelegraphMeshes = new Map();
 let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false;
 let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
 const world = { width: 30, depth: 190 };
@@ -1653,6 +1654,31 @@ function syncBossPortals(portals) {
   }
 }
 
+function syncBossTelegraphs(telegraphs) {
+  const incoming = new Set();
+  for (const t of (Array.isArray(telegraphs) ? telegraphs : [])) {
+    if (!t || !t.id || !Number.isFinite(Number(t.x)) || !Number.isFinite(Number(t.z))) continue;
+    const id = String(t.id); incoming.add(id);
+    let mesh = bossTelegraphMeshes.get(id);
+    if (!mesh) {
+      const radius = Math.max(.5, Math.min(8, Number(t.radius) || 1.5));
+      const material = new THREE.MeshBasicMaterial({color:0xff254f,transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false});
+      mesh = new THREE.Mesh(new THREE.CircleGeometry(radius,32),material);
+      mesh.rotation.x = -Math.PI/2; mesh.position.y=.07; mesh.renderOrder=901;
+      const edge = new THREE.Mesh(new THREE.RingGeometry(Math.max(.15,radius-.12),radius,32),new THREE.MeshBasicMaterial({color:0xff6b82,transparent:true,opacity:.95,side:THREE.DoubleSide,depthWrite:false}));
+      edge.rotation.x=-Math.PI/2; edge.position.y=.075; edge.renderOrder=902; mesh.add(edge);
+      scene.add(mesh); bossTelegraphMeshes.set(id,mesh);
+    }
+    mesh.position.x=Number(t.x); mesh.position.z=Number(t.z);
+    const remaining=Math.max(0,Number(t.impactAt||0)-Date.now());
+    mesh.material.opacity=.18+.18*(1-Math.min(1,remaining/1500));
+    mesh.visible=remaining>0;
+  }
+  for (const [id,mesh] of bossTelegraphMeshes) {
+    if (!incoming.has(id)) { scene.remove(mesh); disposeObject3D(mesh); bossTelegraphMeshes.delete(id); }
+  }
+}
+
 function renderInventory() {
   const el = $('inventoryList');
   if (!el) return;
@@ -2669,6 +2695,8 @@ function handleMessage(m) {
     if (m.targetId === playerId) showNotice('⚠ Golpe inimigo chegando — ESQUIVE!');
     return;
   }
+  if (m.type === 'bossPatternEnd') { return; }
+  if (m.type === 'bossPattern') { showNotice('⚠ ' + (m.label || 'Ataque do Guardião') + ' — saia das áreas vermelhas!'); if (m.circles) syncBossTelegraphs(m.circles); return; }
   if (m.type === 'bossWindup') {
     $('bossPanel').classList.add('warning');
     setTimeout(() => $('bossPanel')?.classList.remove('warning'), Math.max(300, Number(m.duration) || 560));
@@ -2981,6 +3009,7 @@ function updateState(m) {
   if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 5 || !m.boss || !m.boss.alive);
   bossData = m.boss || null;
   syncBossPortals(bossData && bossData.alive ? bossData.portals : []);
+  syncBossTelegraphs(bossData && bossData.alive ? bossData.telegraphs : []);
   if (bossData && bossData.alive) {
     const bossTitle=document.querySelector('.boss-title');
     if(bossTitle)bossTitle.textContent=realm===2?'GUARDIÃO ASTRAL':'GUARDIÃO DO ABISMO';
