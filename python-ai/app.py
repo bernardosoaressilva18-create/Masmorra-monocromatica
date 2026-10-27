@@ -136,7 +136,7 @@ def _candidate_score(monster, candidate, previous_target_id=None):
     if recent_damage >= 8:
         reasons.append("recent_attacker")
     if previous_target_id is not None and candidate_id == str(previous_target_id):
-        score -= 0.72
+        score -= 0.90
         reasons.append("target_stability")
 
     # Creature personalities influence priorities without overriding physical distance.
