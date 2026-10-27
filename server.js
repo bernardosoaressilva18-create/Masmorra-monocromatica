@@ -1904,7 +1904,18 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
       if (boss.pendingPattern || now < (boss.stunnedUntil || 0)) { boss.attackWarnAt = 0; }
       else {
       let target = null, nearest = Infinity;
-      for (const p of players) { if (p.hp <= 0 || now < (p.invisibleUntil || 0)) continue; const d = Math.hypot(p.x - boss.x, p.z - boss.z); if (d < nearest) { nearest = d; target = p; } }
+      // O Guardião também caça invocações aliadas; isso permite que o jogador use
+      // esqueletos e fragmentos de golem para distrair o chefe durante a luta.
+      const bossTargets = [
+        ...players.filter(p => p.hp > 0 && now >= (p.invisibleUntil || 0)).map(p => ({ ...p, isSummon: false })),
+        ...(room.summons || [])
+          .filter(s => s.summonType !== 'guardian_spirit' && s.hp > 0 && (!s.expiresAt || s.expiresAt > now))
+          .map(s => ({ ...s, id: 'summon:' + s.id, isSummon: true, sourceSummon: s }))
+      ];
+      for (const candidate of bossTargets) {
+        const d = Math.hypot(candidate.x - boss.x, candidate.z - boss.z);
+        if (d < nearest) { nearest = d; target = candidate; }
+      }
       if (target && nearest > 2.35 && nearest < 80) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
         const speed = boss.lifePhase === 1 ? 0.23 : boss.lifePhase === 2 ? 0.31 : 0.39;
@@ -1918,19 +1929,24 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         if (!boss.attackWarnAt && bossNow - (boss.attackAt || 0) > attackInterval) {
           boss.attackWarnAt = bossNow;
           broadcast(room, { type: 'bossWindup', id: boss.id, targetId: target.id, duration: windupDuration, lifePhase: boss.lifePhase });
-          target.ws.send(JSON.stringify({ type: 'notice', text: '☠ O GUARDIÃO CARREGA UM GOLPE! ESQUIVE!' }));
+          if (!target.isSummon && target.ws?.readyState === WebSocket.OPEN) target.ws.send(JSON.stringify({ type: 'notice', text: '☠ O GUARDIÃO CARREGA UM GOLPE! ESQUIVE!' }));
+          else broadcast(room, { type: 'notice', text: 'O Guardião voltou sua atenção para uma invocação aliada!' });
         } else if (boss.attackWarnAt && bossNow - boss.attackWarnAt >= windupDuration) {
           boss.attackAt = bossNow;
           boss.attackWarnAt = 0;
-          if (Date.now() < (target.dodgeUntil || 0)) {
-            target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você escapou do golpe do Guardião.' }));
+          const damage = boss.lifePhase === 3 ? 22 : 14;
+          if (target.isSummon && target.sourceSummon) {
+            target.sourceSummon.hp = Math.max(0, target.sourceSummon.hp - damage);
+            if (target.sourceSummon.hp <= 0) broadcast(room, { type: 'notice', text: 'Uma invocação aliada foi destruída pelo Guardião!' });
+          } else if (Date.now() < (target.dodgeUntil || 0)) {
+            target.ws?.readyState === WebSocket.OPEN && target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você escapou do golpe do Guardião.' }));
           } else {
-            takeDamage(room, target, boss.lifePhase === 3 ? 22 : 14);
-            target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + (boss.lifePhase === 3 ? 22 : 14) + ' de vida.' }));
+            takeDamage(room, target, damage);
+            target.ws?.readyState === WebSocket.OPEN && target.ws.send(JSON.stringify({ type: 'notice', text: 'O Guardião acertou você! -' + damage + ' de vida.' }));
           }
-          if (target.hp <= 0) {
+          if (!target.isSummon && target.hp <= 0) {
             target.hp = 0;
-            target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
+            target.ws?.readyState === WebSocket.OPEN && target.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
           }
         }
       } else {
