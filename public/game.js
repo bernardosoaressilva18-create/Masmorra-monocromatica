@@ -5,6 +5,22 @@ const $ = id => document.getElementById(id);
 const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('menuStatus');
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
+let selectedGameMode = 'coop', activeGameMode = 'coop';
+try { selectedGameMode = localStorage.getItem('mmGameMode') === 'pvp_rpg' ? 'pvp_rpg' : 'coop'; } catch {}
+const gameModeSelect = $('gameModeSelect');
+function syncGameModeChoice() {
+  if (gameModeSelect) gameModeSelect.value = selectedGameMode;
+  const footnote = $('modeFootnote');
+  if (footnote) footnote.textContent = selectedGameMode === 'pvp_rpg'
+    ? 'ARENA PvP RPG · CLASSES, MONSTROS E ELIMINAÇÕES'
+    : 'MODO COOPERATIVO · ATÉ 4 JOGADORES';
+}
+gameModeSelect?.addEventListener('change', () => {
+  selectedGameMode = gameModeSelect.value === 'pvp_rpg' ? 'pvp_rpg' : 'coop';
+  try { localStorage.setItem('mmGameMode', selectedGameMode); } catch {}
+  syncGameModeChoice();
+});
+syncGameModeChoice();
 let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null, lobbyPreviewRing = null, lobbyPreviewParticles = null, lobbyPreviewRunes = null, lobbyPreviewCrystals = null;
 let activeEnvironmentGroup=null;
 const environmentGroups=Object.create(null);
@@ -2002,7 +2018,7 @@ function connect(code = '', automaticRetry = false) {
     if (ws !== socket) return;
     if (listPublicRoomsOnConnect) {
       listPublicRoomsOnConnect = false;
-      send({ type: 'listPublicRooms' });
+      send({ type: 'listPublicRooms', gameMode: selectedGameMode });
     } else {
       sendJoin(activeConnectCode || code);
     }
@@ -2544,6 +2560,7 @@ function sendJoin(code) {
     skills: Array.from(unlockedSkills),
     talentPoints: skillPoints,
     code,
+    gameMode: selectedGameMode,
     public: joiningPublicRoom
   });
   joiningPublicRoom = false;
@@ -2674,7 +2691,7 @@ function handleMessage(m) {
       create.addEventListener('click', () => {
         joiningPublicRoom = true;
         quickMatchRequested = true;
-        send({ type: 'joinPublic', resumeToken, name: $('playerName').value.trim() || 'Aventureiro', class: selectedClass, skin: selectedSkin, skills: Array.from(unlockedSkills), talentPoints: skillPoints });
+        send({ type: 'joinPublic', resumeToken, name: $('playerName').value.trim() || 'Aventureiro', class: selectedClass, skin: selectedSkin, skills: Array.from(unlockedSkills), talentPoints: skillPoints, gameMode: selectedGameMode });
       });
       list.appendChild(create);
     } else {
@@ -2913,11 +2930,18 @@ function setHeroShielded(hero, shielded) {
   }
 }
 function updateState(m) {
+  activeGameMode = m.gameMode === 'pvp_rpg' ? 'pvp_rpg' : 'coop';
+  const isPvpRpg = activeGameMode === 'pvp_rpg';
+  const pvpSummonControls = $('pvpSummonControls');
+  if (pvpSummonControls) pvpSummonControls.classList.toggle('hidden', !isPvpRpg || !m.started);
+  const lobbyModeLabel = $('lobbyModeLabel');
+  if (lobbyModeLabel) lobbyModeLabel.textContent = isPvpRpg ? 'ARENA PvP RPG' : 'SALA COOPERATIVA';
   if (!m.started) {
     started = false;
     $('lobby').classList.remove('hidden');
     hud.classList.add('hidden');
     $('lobbyRoomCode').textContent = roomCode;
+    if (pvpSummonControls) pvpSummonControls.classList.add('hidden');
     const self = (m.players || []).find(p => p.id === playerId);
     $('readyBtn').textContent = self && self.ready ? 'CANCELAR PRONTO' : 'ESTOU PRONTO';
     const startButton = $('startMatchBtn');
@@ -3026,7 +3050,7 @@ function updateState(m) {
         const manaText = $('manaText');
         if (manaFill) { manaFill.style.width = (Math.max(0, Math.min(1, currentMana / maximumMana)) * 100) + '%'; manaFill.classList.toggle('low-mana', currentMana <= maximumMana * .2); }
         if (manaText) manaText.textContent = Math.round(currentMana) + ' / ' + Math.round(maximumMana);
-        $('deathScreen').classList.toggle('hidden', myPlayer.userData.serverHp > 0);
+        $('deathScreen').classList.toggle('hidden', isPvpRpg || myPlayer.userData.serverHp > 0);
         // Ao entrar/reconectar, alinhar uma vez com a posição de spawn do servidor.
         // Depois disso, corrigimos só pequenos desvios para evitar teletransportes.
         if (!appliedInitialServerPosition) {
@@ -3133,7 +3157,7 @@ function updateState(m) {
     scene.background.setHex(palette.bg);
     if (scene.fog) scene.fog.color.setHex(palette.fog);
   }
-  const safeUntil = Number(m.safeZoneUntil) || 0;
+  const safeUntil = isPvpRpg ? 0 : Number(m.safeZoneUntil) || 0;
   const safeRemaining = Math.max(0, Math.ceil((safeUntil - Date.now()) / 1000));
   if (safeRemaining > 0 && safeUntil !== lastSafeZoneTimestamp) {
     lastSafeZoneTimestamp = safeUntil;
@@ -3145,19 +3169,20 @@ function updateState(m) {
     safeNotice.textContent = safeRemaining > 0 ? 'ZONA SEGURA · ' + safeRemaining + 's · MELHORE SUAS SKILLS' : '';
   }
   const aliveMonsters=m.monsters.filter(monster=>monster.alive).length;
-  gateMeshes.forEach((gate,index)=>{const n=index+1;gate.userData.open=phase>n||(phase===n&&aliveMonsters===0);});
-  if(realmPortal){realmPortal.visible=realm===1;realmPortal.userData.open=realm===1&&(!!m.portalOpen||(phase===5&&!!m.boss&&!m.boss.alive));}
-  if(eclipsePortal){eclipsePortal.visible=realm===2;eclipsePortal.userData.open=realm===2&&(!!m.portalOpen||(phase===5&&!!m.boss&&!m.boss.alive));}
+  gateMeshes.forEach((gate,index)=>{const n=index+1;gate.visible=!isPvpRpg;gate.userData.open=phase>n||(phase===n&&aliveMonsters===0);});
+  if(realmPortal){realmPortal.visible=!isPvpRpg&&realm===1;realmPortal.userData.open=!isPvpRpg&&realm===1&&(!!m.portalOpen||(phase===5&&!!m.boss&&!m.boss.alive));}
+  if(eclipsePortal){eclipsePortal.visible=!isPvpRpg&&realm===2;eclipsePortal.userData.open=!isPvpRpg&&realm===2&&(!!m.portalOpen||(phase===5&&!!m.boss&&!m.boss.alive));}
   const phaseObjective=document.querySelector('.objective strong');
   if(phaseObjective){
-    if(phase===5&&m.boss&&!m.boss.alive&&realm===1){const nearGate=myPlayer&&Math.hypot(myPlayer.position.x, myPlayer.position.z+168)<16;phaseObjective.textContent=nearGate?'PORTÃO ABERTO! Atravesse para o Vale Astral':'Siga pelo Abismo até o portão do Vale Astral';}
+    if(isPvpRpg) phaseObjective.textContent='PvP RPG · Derrote rivais e invoque monstros aliados';
+    else if(phase===5&&m.boss&&!m.boss.alive&&realm===1){const nearGate=myPlayer&&Math.hypot(myPlayer.position.x,myPlayer.position.z+168)<16;phaseObjective.textContent=nearGate?'PORTÃO ABERTO! Atravesse para o Vale Astral':'Siga pelo Abismo até o portão do Vale Astral';}
     else if(phase===5&&m.boss&&!m.boss.alive&&realm===2)phaseObjective.textContent='Guardião Astral derrotado! Vale conquistado';
     else if(phase===5)phaseObjective.textContent=realm===2?'Derrote o Guardião Astral':'Derrote o Guardião Supremo';
     else phaseObjective.textContent=realm===2?'Derrote os inimigos astrais e avance':'Derrote os monstros e atravesse o portão da região';
   }
-  if(phaseLabel)phaseLabel.textContent=realm===2?'VALE ASTRAL · FASE '+phase+' / 5':'MUNDO MONOCROMÁTICO · FASE '+phase+' / 5';
+  if(phaseLabel)phaseLabel.textContent=isPvpRpg?'ARENA PvP RPG':realm===2?'VALE ASTRAL · FASE '+phase+' / 5':'MUNDO MONOCROMÁTICO · FASE '+phase+' / 5';
   const bossPanel = $('bossPanel');
-  if (bossPanel) bossPanel.classList.toggle('hidden', phase !== 5 || !m.boss || !m.boss.alive);
+  if (bossPanel) bossPanel.classList.toggle('hidden', isPvpRpg || phase !== 5 || !m.boss || !m.boss.alive);
   bossData = m.boss || null;
   syncBossPortals(bossData && bossData.alive ? bossData.portals : []);
   syncBossTelegraphs(bossData && bossData.alive ? bossData.telegraphs : []);
@@ -3182,13 +3207,15 @@ function updateState(m) {
       $('bossHealthFill').style.width = '0%'; $('bossHealthText').textContent = '0 / ' + (bossData.maxHp || 95);
     }
   }
-  latestChests = m.chests || [];
+  latestChests = isPvpRpg ? [] : (m.chests || []);
   const nearbyChest = latestChests.find(chest => !chest.opened && myPlayer && Math.hypot(chest.x - myPlayer.position.x, chest.z - myPlayer.position.z) <= 3.4);
   const chestButton = $('chestBtn');
   if (chestButton) {
     chestButton.classList.toggle('hidden', !nearbyChest);
     chestButton.dataset.chestId = nearbyChest ? nearbyChest.id : '';
   }
+  const visibleChestIds = new Set(latestChests.map(chest => chest.id));
+  for (const [id, chestObj] of chestMeshes) if (!visibleChestIds.has(id)) chestObj.visible = false;
   for (const chest of latestChests) {
     let obj = chestMeshes.get(chest.id);
     if (!obj) {
@@ -3198,6 +3225,7 @@ function updateState(m) {
       chestMeshes.set(chest.id, obj);
     }
     obj.userData.chestId = chest.id;
+    obj.visible = !chest.opened;
   }
 
   let alive = 0;
@@ -3237,20 +3265,19 @@ function updateState(m) {
     }
   }
 
-  $('monsterText').textContent = phase===5
-    ? (bossData&&bossData.alive?(realm===2?'Guardião Astral':'Guardião Supremo'):(realm===2?'Vale Astral concluído':'Masmorra concluída'))
-    : alive+' inimigos restantes';
+  const selfScore=(m.players||[]).find(p=>p.id===playerId);
+  $('monsterText').textContent=isPvpRpg
+    ? alive+' monstros na arena · KOs de jogador: '+(selfScore?.pvpKills||0)
+    : phase===5?(bossData&&bossData.alive?(realm===2?'Guardião Astral':'Guardião Supremo'):(realm===2?'Vale Astral concluído':'Masmorra concluída')):alive+' inimigos restantes';
   const phaseTotal=phase===5&&bossData?Math.max(1,Number(bossData.maxHp)||95):(phase===1?5:phase===2?8:phase===3?9:phase===4?10:95);
-  const phaseProgress = phase === 5 && bossData
-    ? (phaseTotal - bossData.hp) / phaseTotal * 100
-    : (phaseTotal - alive) / phaseTotal * 100;
-  $('progressFill').style.width = Math.max(0, Math.min(100, phaseProgress)) + '%';
-  $('killText').textContent = phase === 5 && bossData
-    ? phaseTotal - bossData.hp
-    : phaseTotal - alive;
+  const phaseProgress=isPvpRpg?Math.min(100,((selfScore?.pvpKills||0)/10)*100):phase===5&&bossData?(phaseTotal-bossData.hp)/phaseTotal*100:(phaseTotal-alive)/phaseTotal*100;
+  $('progressFill').style.width=Math.max(0,Math.min(100,phaseProgress))+'%';
+  $('killText').textContent=isPvpRpg?(selfScore?.pvpKills||0):phase===5&&bossData?phaseTotal-bossData.hp:phaseTotal-alive;
 
   $('playersList').innerHTML = m.players.map(p =>
-    `<div class="player-chip">● ${escapeHTML(p.name)}${p.id === playerId ? ' (você)' : ''}</div>`
+    isPvpRpg
+      ? `<div class="player-chip pvp-player-chip">${p.id===playerId?'◆':'●'} ${escapeHTML(p.name)} · K ${p.pvpKills||0} · ♥ ${Math.round(p.hp)}/${Math.round(p.maxHp||100)}</div>`
+      : `<div class="player-chip">● ${escapeHTML(p.name)}${p.id === playerId ? ' (você)' : ''}</div>`
   ).join('');
 }
 
@@ -3351,7 +3378,7 @@ $('quickMatchBtn')?.addEventListener('click', () => {
   quickMatchRequested = true;
   joiningPublicRoom = true;
   if (ws && ws.readyState === WebSocket.OPEN) {
-    send({ type: 'joinPublic', resumeToken, name: $('playerName').value.trim() || 'Aventureiro', class: selectedClass, skin: selectedSkin, skills: Array.from(unlockedSkills), talentPoints: skillPoints });
+    send({ type: 'joinPublic', resumeToken, name: $('playerName').value.trim() || 'Aventureiro', class: selectedClass, skin: selectedSkin, skills: Array.from(unlockedSkills), talentPoints: skillPoints, gameMode: selectedGameMode });
     quickMatchRequested = false;
     joiningPublicRoom = false;
   } else {
@@ -3362,7 +3389,7 @@ function requestPublicRooms() {
   $('publicRoomsPanel')?.classList.remove('hidden');
   $('publicRoomsList').textContent = 'Buscando salas disponíveis…';
   if (ws && ws.readyState === WebSocket.OPEN) {
-    send({ type: 'listPublicRooms' });
+    send({ type: 'listPublicRooms', gameMode: selectedGameMode });
     return;
   }
   listPublicRoomsOnConnect = true;
@@ -3426,6 +3453,12 @@ $('roomCode').addEventListener('input', e => {
 $('leaveBtn').addEventListener('click', leaveRoomToMenu);
 
 $('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (!$('chestBtn').classList.contains('hidden')) interactChest(); });
+$('pvpSummonBtn')?.addEventListener('click', () => {
+  if (activeGameMode !== 'pvp_rpg' || !started) return;
+  const kind = $('pvpMonsterType')?.value || 'stalker';
+  send({ type: 'spawnMonster', kind });
+  playSfx('ui');
+});
 $('lootFilter')?.addEventListener('change', renderInventory);
 $('lootSort')?.addEventListener('change', renderInventory);
 $('recentLoot').addEventListener('click', e => {
