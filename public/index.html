@@ -260,6 +260,7 @@
   <button id="attackBtn" class="attack"><span>⚔</span><small>ATACAR</small></button>
   <button id="fireBtn" class="spell-btn fire-btn" aria-label="Magia de fogo"><span>🔥</span><small>FOGO <b id="fireCooldown">OK</b></small></button>
   <button id="lightningBtn" class="spell-btn lightning-btn" aria-label="Magia de raio"><span>ϟ</span><small>RAIO <b id="lightningCooldown">OK</b></small></button>
+  <div id="cameraZoomControls" class="camera-zoom-controls" aria-label="Zoom da câmera"><button id="cameraZoomIn" type="button" aria-label="Aproximar câmera">+</button><span id="cameraZoomValue">100%</span><button id="cameraZoomOut" type="button" aria-label="Afastar câmera">−</button></div>
   <div id="hitFlash"></div>
 </div>
 
@@ -293,7 +294,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 </script>
-<script type="module" src="game.js?v=20261027-stylized-models-v2"></script>
+<script type="module" src="game.js?v=20261027-camera-zoom-v1"></script>
 </body>
     </html>
     
