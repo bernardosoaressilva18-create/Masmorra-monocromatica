@@ -97,15 +97,15 @@ function getRenderPixelRatioCap(width = window.innerWidth, height = window.inner
   const landscapeMobile = isMobileDevice && width > height;
   const quality = gameSettings.graphicsQuality;
   if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 1.0 : 0.85) : 1.0;
-  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 2.15 : 1.75) : 2.0;
-  return isMobileDevice ? (landscapeMobile ? 1.85 : 1.25) : 1.5;
+  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 2.15 : 1.9) : 2.0;
+  return isMobileDevice ? (landscapeMobile ? 1.9 : 1.5) : 1.65;
 }
 function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.innerHeight) {
   if (!isMobileDevice) return 0.8;
   const landscape = width > height;
   if (gameSettings.graphicsQuality === 'low') return landscape ? 0.85 : 0.75;
-  if (gameSettings.graphicsQuality === 'high') return landscape ? 1.2 : 0.95;
-  return landscape ? 1.0 : 0.8;
+  if (gameSettings.graphicsQuality === 'high') return landscape ? 1.25 : 1.05;
+  return landscape ? 1.05 : 0.92;
 }
 function applyGraphicsQuality() {
   const quality = gameSettings.graphicsQuality;
@@ -251,12 +251,12 @@ let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .007 : .0055);
+  scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .0052 : .0048);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: false });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.24;
   renderer.setPixelRatio(adaptivePixelRatio);
   syncRendererSize(innerWidth, innerHeight);
   // Sombras suaves no PC; no celular ficam desligadas para preservar FPS.
@@ -281,11 +281,16 @@ function init3D() {
   document.body.appendChild(perfBadge);
 
   clock = new THREE.Clock();
-  scene.add(new THREE.HemisphereLight(0xb7d8f5, 0x21152b, 2.45));
-  // Luzes de preenchimento para dar mais volume às armaduras e às pedras.
-  const fillLight = new THREE.DirectionalLight(0x8daeff, 0.72);
+  scene.add(new THREE.HemisphereLight(0xc8e2ff, 0x302339, 2.72));
+  // Luz principal e luzes de recorte deixam os materiais legíveis inclusive no celular.
+  const fillLight = new THREE.DirectionalLight(0x9dc5ff, 0.92);
   fillLight.position.set(8, 7, -18);
   scene.add(fillLight);
+  const warmRimLight = new THREE.DirectionalLight(0xffd7a1, 0.78);
+  warmRimLight.position.set(-3, 6, 10);
+  scene.add(warmRimLight);
+  const ambientFill = new THREE.AmbientLight(0x7994c7, 0.24);
+  scene.add(ambientFill);
   const cryptLight = new THREE.PointLight(0x62cfff, 10, 20, 2);
   cryptLight.position.set(-8, 2.6, 1);
   if (!isMobileDevice) scene.add(cryptLight);
@@ -317,6 +322,33 @@ function init3D() {
   animate();
 }
 
+let softContactShadowTexture = null;
+function getSoftContactShadowTexture() {
+  if (softContactShadowTexture) return softContactShadowTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(64,64,4,64,64,62);
+  gradient.addColorStop(0,'rgba(0,0,0,0.56)');
+  gradient.addColorStop(.35,'rgba(0,0,0,0.30)');
+  gradient.addColorStop(.72,'rgba(0,0,0,0.09)');
+  gradient.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient; ctx.fillRect(0,0,128,128);
+  softContactShadowTexture = new THREE.CanvasTexture(canvas);
+  softContactShadowTexture.colorSpace = THREE.SRGBColorSpace;
+  return softContactShadowTexture;
+}
+function addSoftContactShadow(group, radius = .58, opacity = .64) {
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(radius * 2.6, radius * 2.6),
+    new THREE.MeshBasicMaterial({map:getSoftContactShadowTexture(),transparent:true,opacity,depthWrite:false,toneMapped:false})
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = .035;
+  shadow.renderOrder = 1;
+  group.add(shadow);
+  return shadow;
+}
 function mat(color, rough = .9, metal = 0) {
   return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
 }
@@ -911,6 +943,8 @@ function makeGuardianSpirit(color = 0x8cffe8) {
 function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   // Rebuild visual: fewer overlapping decorations, clearer silhouettes and stronger class identity.
   const g = new THREE.Group();
+  const contactShadow = addSoftContactShadow(g, heroClass === 'ogre' || heroClass === 'golem' ? .78 : .58, .58);
+  contactShadow.position.y = .03;
   const palettes = {
     knight:{armor:0x3269c4,dark:0x17283e,trim:0xf1c75b,glow:0x79e7ff,cloth:0x173b71,skin:0xd2a27f},
     mage:{armor:0x5f59cf,dark:0x271b58,trim:0xe9ca77,glow:0xd18bff,cloth:0x34246e,skin:0xd5a986},
@@ -1317,6 +1351,8 @@ function interactChest() {
 function makeMonster(kind = 'stalker', phase = 1) {
   // Distinct monster silhouettes: predator, plant, specter, brute, inferno, abyss and assassin.
   const g=new THREE.Group();
+  const contactShadow = addSoftContactShadow(g, kind === 'brute' ? .85 : kind === 'wraith' || kind === 'abyss' ? .50 : .62, .55);
+  contactShadow.position.y = .032;
   const eyeColor=kind==='brute'?0xffa342:kind==='wraith'?0x72f4ff:kind==='thorn'?0x9dff69:kind==='inferno'?0xff592d:kind==='abyss'?0xc49bff:kind==='assassin'?0xff5c86:phase===2?0xff5e76:0xff4269;
   const bodyColor=kind==='thorn'?0x3e6a40:kind==='inferno'?0x3a2425:kind==='abyss'?0x251936:kind==='wraith'?0x223c59:kind==='brute'?0x4c5669:kind==='assassin'?0x292d42:phase===2?0x3c5262:0x4c4359;
   const bodyMat=new THREE.MeshStandardMaterial({color:bodyColor,roughness:kind==='wraith'?.4:.78,metalness:kind==='brute'?.28:.08,emissive:kind==='abyss'?0x29143e:0x000000,emissiveIntensity:.35});
