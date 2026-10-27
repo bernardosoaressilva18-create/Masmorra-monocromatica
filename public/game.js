@@ -1821,9 +1821,10 @@ function initLobby3DPreview() {
   rimLight.position.set(0, 2.5, -1.3); lobbyPreviewScene.add(rimLight);
   buildLobbyStageBackdrop();
   const baseMaterial = new THREE.MeshStandardMaterial({color:0x132638,metalness:0.55,roughness:0.35,emissive:0x10384a,emissiveIntensity:0.55});
-  lobbyPreviewPlatform = new THREE.Mesh(new THREE.CylinderGeometry(0.78,0.88,0.13,36),baseMaterial);
+  // Plataforma mais larga para acomodar o herói central e dois aliados no lobby.
+  lobbyPreviewPlatform = new THREE.Mesh(new THREE.CylinderGeometry(1.18,1.28,0.13,44),baseMaterial);
   lobbyPreviewPlatform.position.y = -0.105; lobbyPreviewScene.add(lobbyPreviewPlatform);
-  lobbyPreviewRing = new THREE.Mesh(new THREE.TorusGeometry(0.82,0.025,7,48),new THREE.MeshBasicMaterial({color:0x80eaff,transparent:true,opacity:.9}));
+  lobbyPreviewRing = new THREE.Mesh(new THREE.TorusGeometry(1.21,0.025,7,56),new THREE.MeshBasicMaterial({color:0x80eaff,transparent:true,opacity:.9}));
   lobbyPreviewRing.position.y = -0.025; lobbyPreviewScene.add(lobbyPreviewRing);
   // Efeito de classe leve: partículas reaproveitadas e runas orbitais, sem criar objetos por frame.
   lobbyPreviewParticles = new THREE.Group();
@@ -1870,10 +1871,10 @@ function refreshLobby3DCompanions(players) {
   }
   if (!companions.length) return;
   lobbyPreviewCompanions = new THREE.Group();
-  const slots = [{x:-1.08,z:-.22,rot:-.12},{x:1.08,z:-.22,rot:.12}];
+  const slots = [{x:-.92,z:-.10,rot:-.12},{x:.92,z:-.10,rot:.12}];
   companions.forEach((p,index) => {
     const avatar = makeHero(p.color || null, p.playerClass || 'knight', p.skin || 'default');
-    avatar.scale.setScalar(.52);
+    avatar.scale.setScalar(.42);
     avatar.position.set(slots[index].x,0,slots[index].z);
     avatar.rotation.y = Math.PI + slots[index].rot;
     if (avatar.userData.healthBar) avatar.userData.healthBar.visible = false;
