@@ -95,11 +95,11 @@ function getRenderPixelRatioCap(width = window.innerWidth, height = window.inner
   return isMobileDevice ? (landscapeMobile ? 1.9 : 1.5) : 1.65;
 }
 function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.innerHeight) {
-  if (!isMobileDevice) return 0.8;
-  const landscape = width > height;
-  if (gameSettings.graphicsQuality === 'low') return landscape ? 0.85 : 0.75;
-  if (gameSettings.graphicsQuality === 'high') return landscape ? 1.25 : 1.05;
-  return landscape ? 1.05 : 0.92;
+  // Never upscale beyond the device's own DPR: it costs GPU time without adding detail.
+  // Keep the same lower bounds as the adaptive scaler so a resize cannot undo FPS recovery.
+  const hardwareDpr = Math.max(0.5, Number(devicePixelRatio) || 1);
+  const floor = !isMobileDevice ? 0.65 : gameSettings.graphicsQuality === 'low' ? 0.55 : 0.68;
+  return Math.min(hardwareDpr, floor);
 }
 function applyGraphicsQuality() {
   const quality = gameSettings.graphicsQuality;
@@ -3655,7 +3655,7 @@ function updatePerformanceMonitor() {
   let nextRatio = adaptivePixelRatio;
   if (slowFpsSamples >= 2) {
     // Baixa a resolução dos pixels mais agressivamente sem remover detalhes dos modelos.
-    const adaptiveFloor = isMobileDevice ? (gameSettings.graphicsQuality === 'low' ? .55 : .68) : .65;
+    const adaptiveFloor = getMinimumRenderPixelRatio(innerWidth, innerHeight);
     const stepDown = lastFps < 25 ? .12 : lastFps < 34 ? .09 : .06;
     nextRatio = Math.max(adaptiveFloor, adaptivePixelRatio - stepDown);
     slowFpsSamples = 0;
