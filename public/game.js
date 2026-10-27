@@ -2046,11 +2046,11 @@ function renderSkillTrees() {
   // Nodes stay circular; names/descriptions remain available through the tooltip
   // and search box rather than oversized cards covering neighboring branches.
   const positions = {
-    attack:[[41,40],[32,31],[23,24],[15,18],[9,12]],
-    defense:[[41,60],[32,69],[23,76],[15,82],[9,88]],
-    arcane:[[50,40],[50,30],[50,20],[50,11],[50,5]],
-    mobility:[[59,60],[68,69],[77,76],[85,82],[91,88]],
-    support:[[59,40],[68,31],[77,24],[85,18],[91,12]]
+    attack:[[41,41],[32,33],[23,25],[15,17],[8,9]],
+    defense:[[41,59],[32,67],[23,75],[15,83],[8,91]],
+    arcane:[[50,41],[50,32],[50,23],[50,14],[50,5]],
+    mobility:[[59,59],[68,67],[77,75],[85,83],[92,91]],
+    support:[[59,41],[68,33],[77,25],[85,17],[92,9]]
   };
   const connectorParts = [];
   const nodesMarkup = [];
