@@ -3095,3 +3095,23 @@ html, body { width:100%; min-width:0; }
 .skill-orbit-help{margin:8px 1px 0;color:#91a5b7;font-size:9px;line-height:1.5;text-align:center}
 @media(max-width:600px){.lobby-modal-card:has(.skill-orbit-canvas){padding:14px 9px;max-height:94dvh}.skill-orbit-legend{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.skill-orbit-legend-item{justify-content:space-between;padding:5px 4px}.skill-orbit-canvas{min-width:600px;height:580px}.skill-orbit-scroll{max-height:64dvh}.skill-orbit-node{width:42px;height:42px}.skill-orbit-icon{width:37px;height:37px;font-size:18px}}
 @media(max-width:380px){.skill-orbit-legend-item span{font-size:6px}.skill-orbit-canvas{min-width:580px}}
+
+
+/* Readable talent descriptions and state labels, optimized for mobile. */
+.skill-description-catalog{margin:14px 0 4px;padding:12px;border:1px solid #9bb3c52b;border-radius:10px;background:linear-gradient(160deg,#101d2b,#09111b)}
+.skill-description-catalog>h3{margin:0;color:#e8cb8c;font-size:13px;letter-spacing:1px}
+.skill-description-catalog>p{margin:5px 0 12px;color:#9fb0c0;font-size:11px;line-height:1.45}
+.skill-description-branch{margin-top:12px}
+.skill-description-branch h4{margin:0 0 7px;padding-bottom:5px;border-bottom:1px solid #c1d1df24;color:#c9d7e2;font-size:10px;letter-spacing:1px}
+.skill-description-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.skill-description-card{display:flex;align-items:flex-start;gap:9px;min-width:0;padding:9px;border:1px solid #a7bac51e;border-radius:8px;background:#0a1420}
+.skill-description-card.available{border-color:#d9b96c75}
+.skill-description-card.unlocked{border-color:#82d8b875;background:#0c211f}
+.skill-description-icon{display:grid;place-items:center;flex:0 0 31px;width:31px;height:31px;border-radius:50%;border:1px solid #aab9c54d;background:#172536;font-size:16px}
+.skill-description-copy{min-width:0;flex:1}
+.skill-description-copy strong{display:block;color:#e4edf4;font-size:11px;line-height:1.3}
+.skill-description-copy p{margin:4px 0;color:#aebdca;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.skill-description-copy small{display:block;color:#a6b8c7;font-size:8px;line-height:1.35;font-weight:800}
+.skill-description-card.available .skill-description-copy small{color:#efd08a}
+.skill-description-card.unlocked .skill-description-copy small{color:#8ee4bd}
+@media(max-width:520px){.skill-description-catalog{padding:9px}.skill-description-list{grid-template-columns:minmax(0,1fr)}.skill-description-card{padding:8px}.skill-description-copy strong{font-size:12px}.skill-description-copy p{font-size:11px}.skill-description-copy small{font-size:9px}}
