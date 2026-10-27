@@ -4363,12 +4363,17 @@ const right = new THREE.Vector3(
     const recovery = obj.userData.attackAnim > 0 ? Math.sin(Math.max(0, (attackT - .68) / .32) * Math.PI * .5) : 0;
     const attackPulse = obj.userData.attackAnim > 0 ? Math.sin(attackT * Math.PI) : 0;
 
-    const idleBob = kind === 'wraith' ? .045
-      : moving ? .018 : .007;
-    obj.position.y = Math.abs(Math.sin(phase * 2)) * idleBob + attackPulse * .09;
+    const idleBob = kind === 'wraith' ? .052
+      : kind === 'abyss' ? .035 : moving ? .022 : .009;
+    const footfall = moving ? Math.pow(Math.max(0, Math.sin(phase * 2)), 2) : 0;
+    const attackLift = attackPulse * (kind === 'brute' ? .12 : .075);
+    obj.position.y = Math.abs(Math.sin(phase * (kind === 'wraith' ? 1.15 : 2))) * idleBob
+      + footfall * (kind === 'brute' ? .012 : .022) + attackLift;
 
-    const rollTarget = moving ? Math.sin(phase) * (kind === 'brute' ? .008 : .015) : 0;
-    obj.rotation.z = THREE.MathUtils.lerp(obj.rotation.z, rollTarget, 1 - Math.exp(-6 * dt));
+    // A passada ganha peso e balanço lateral próprio para cada família de criatura.
+    const rollAmplitude = kind === 'brute' ? .025 : kind === 'wraith' || kind === 'abyss' ? .035 : .022;
+    const rollTarget = moving ? Math.sin(phase) * rollAmplitude : Math.sin(phase * .45) * .006;
+    obj.rotation.z = THREE.MathUtils.lerp(obj.rotation.z, rollTarget, 1 - Math.exp(-7.5 * dt));
 
     if (obj.userData.targetRot !== undefined) {
       const angleDiff = Math.atan2(
@@ -4388,13 +4393,15 @@ const right = new THREE.Vector3(
     for (const limb of obj.userData.animatedLimbs || []) {
       const limbPhase = phase * gait + (limb.side > 0 ? Math.PI : 0);
       const swing = Math.sin(limbPhase);
-      const walkAmount = moving ? (kind === 'brute' ? .21 : kind === 'wraith' ? .095 : .18) : .008;
-      const attackPower = kind === 'brute' ? .88 : kind === 'wraith' ? .42 : .62;
-      const windupPower = kind === 'brute' ? .24 : .16;
+      const walkAmount = moving ? (kind === 'brute' ? .28 : kind === 'wraith' || kind === 'abyss' ? .13 : kind === 'thorn' ? .24 : .22) : .012;
+      const attackPower = kind === 'brute' ? 1.02 : kind === 'wraith' || kind === 'abyss' ? .5 : .72;
+      const windupPower = kind === 'brute' ? .30 : .20;
       const sideBias = limb.side < 0 ? 1 : .25;
-      limb.mesh.rotation.x = swing * walkAmount + windup * windupPower * sideBias - strike * attackPower * sideBias + recovery * .12 * sideBias;
+      const limbSwing = swing * walkAmount;
+      limb.mesh.rotation.x = limbSwing + windup * windupPower * sideBias - strike * attackPower * sideBias + recovery * .16 * sideBias;
       limb.mesh.rotation.z = limb.baseRotationZ
-        + Math.sin(phase * .65 * gait + limb.side) * (moving ? .022 : .006);
+        + Math.sin(phase * .65 * gait + limb.side) * (moving ? .035 : .012)
+        + (kind === 'wraith' || kind === 'abyss' ? Math.sin(phase * .7 + limb.side) * .04 : 0);
     }
 
     // Os olhos destacam o instante do impacto sem criar luzes dinâmicas adicionais.
@@ -4456,8 +4463,10 @@ const right = new THREE.Vector3(
     const offset=obj.userData.eyePulseOffset||0;
     if (obj.userData.eyeMaterial) obj.userData.eyeMaterial.emissiveIntensity=1.1+(Math.sin(worldTime*2.6+offset)+1)*.42;
     if (obj.userData.coreMesh) {
-      obj.userData.coreMesh.rotation.y+=dt*.42;
-      obj.userData.coreMesh.rotation.x=Math.sin(worldTime*1.2+offset)*.12;
+      obj.userData.coreMesh.rotation.y += dt * (obj.userData.kind === 'brute' ? .24 : .42);
+      obj.userData.coreMesh.rotation.x = Math.sin(worldTime * 1.2 + offset) * .12;
+      const pulse = 1 + Math.sin(worldTime * (obj.userData.kind === 'inferno' ? 4.2 : 2.4) + offset) * (obj.userData.kind === 'inferno' ? .12 : .055);
+      obj.userData.coreMesh.scale.set(pulse, pulse * (obj.userData.kind === 'wraith' ? 1.12 : 1), pulse);
     }
   }
   if (bossMesh && bossMesh.userData.coreMesh) {
