@@ -21,7 +21,8 @@ gameModeSelect?.addEventListener('change', () => {
   syncGameModeChoice();
 });
 syncGameModeChoice();
-let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null, lobbyPreviewRing = null, lobbyPreviewParticles = null, lobbyPreviewRunes = null, lobbyPreviewCrystals = null;
+let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null, lobbyPreviewRing = null, lobbyPreviewParticles = null, lobbyPreviewRunes = null, lobbyPreviewCrystals = null, lobbyPreviewCompanions = null;
+let lobbyPreviewRosterSignature = '';
 let activeEnvironmentGroup=null;
 const environmentGroups=Object.create(null);
 let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=null,astralStarField=null;
@@ -1854,6 +1855,33 @@ function refreshLobby3DPreview() {
   if (lobbyPreviewHero.userData.healthBar) lobbyPreviewHero.userData.healthBar.visible = false;
   lobbyPreviewScene.add(lobbyPreviewHero);
 }
+function refreshLobby3DCompanions(players) {
+  if (!lobbyPreviewScene) return;
+  const companions = (Array.isArray(players) ? players : [])
+    .filter(p => String(p.id) !== String(playerId))
+    .slice(0, 2);
+  const signature = companions.map(p => [p.id,p.playerClass||'knight',p.skin||'default',p.color||0].join(':')).join('|');
+  if (signature === lobbyPreviewRosterSignature) return;
+  lobbyPreviewRosterSignature = signature;
+  if (lobbyPreviewCompanions) {
+    lobbyPreviewScene.remove(lobbyPreviewCompanions);
+    disposeObject3D(lobbyPreviewCompanions);
+    lobbyPreviewCompanions = null;
+  }
+  if (!companions.length) return;
+  lobbyPreviewCompanions = new THREE.Group();
+  const slots = [{x:-1.08,z:-.22,rot:-.12},{x:1.08,z:-.22,rot:.12}];
+  companions.forEach((p,index) => {
+    const avatar = makeHero(p.color || null, p.playerClass || 'knight', p.skin || 'default');
+    avatar.scale.setScalar(.52);
+    avatar.position.set(slots[index].x,0,slots[index].z);
+    avatar.rotation.y = Math.PI + slots[index].rot;
+    if (avatar.userData.healthBar) avatar.userData.healthBar.visible = false;
+    avatar.userData.lobbyCompanionIndex = index;
+    lobbyPreviewCompanions.add(avatar);
+  });
+  lobbyPreviewScene.add(lobbyPreviewCompanions);
+}
 function renderLobby3DPreview() {
   if (!renderer || !lobbyPreviewScene || !lobbyPreviewCamera || !lobbyPreviewHero) return;
   const lobbyVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
@@ -1871,6 +1899,10 @@ function renderLobby3DPreview() {
   const bottom = height-top-previewHeight;
   const time = clock ? clock.elapsedTime : 0;
   lobbyPreviewHero.rotation.y = Math.PI + Math.sin(time*0.32)*0.12;
+  if (lobbyPreviewCompanions) lobbyPreviewCompanions.children.forEach((avatar,index) => {
+    avatar.rotation.y = Math.PI + (index===0 ? -.12 : .12) + Math.sin(time*.28+index)*.045;
+    avatar.position.y = Math.sin(time*1.05+index*2.1)*.018;
+  });
   const heroClass = lobbyPreviewHero.userData.heroClass || selectedClass || 'knight';
   const idle = time * (heroClass === 'mage' ? 1.35 : heroClass === 'archer' ? 1.7 : 1.05);
   const breath = Math.sin(idle) * 0.018;
@@ -2470,6 +2502,7 @@ function updateState(m) {
       ? (m.players.some(p => !p.ready) ? 'Você é o anfitrião. Espere todos marcarem PRONTO.' : 'Todos prontos! Toque em INICIAR PARTIDA.')
       : (self && self.ready ? 'Você está pronto. O anfitrião iniciará quando todos estiverem prontos.' : 'Marque PRONTO e aguarde o anfitrião iniciar a partida.');
     const lobbyPlayers = m.players || [];
+    refreshLobby3DCompanions(lobbyPlayers);
     const onlineCount = lobbyPlayers.length;
     const onlineLabel = $('lobbyOnlineCount');
     if (onlineLabel) onlineLabel.textContent = onlineCount + '/4 CONECTADOS · ' + lobbyPlayers.filter(p => p.ready).length + ' PRONTOS';
