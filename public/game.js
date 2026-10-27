@@ -3103,14 +3103,19 @@ function saveHudLayout() {
 }
 function applySavedHudPositions() {
   if (!hud) return;
-  // Posicionamento antigo do analógico pode ter sido salvo no topo por um toque perdido.
+  // O analógico não é customizável por coordenadas antigas: isso podia deixá-lo no topo
+  // depois de uma mudança de tamanho/orientação. Limpa a posição salva e volta ao rodapé.
   let resetJoystickPosition = false;
   for (const orientation of ['portrait', 'landscape']) {
-    const savedJoystick = hudLayout[orientation]?.joystick;
-    if (savedJoystick && (!Number.isFinite(savedJoystick.y) || savedJoystick.y < .50)) {
+    if (hudLayout[orientation]?.joystick) {
       delete hudLayout[orientation].joystick;
       resetJoystickPosition = true;
     }
+  }
+  const joystick = $('joystick');
+  if (joystick) {
+    for (const property of ['left','right','top','bottom','position','transform','width','height']) joystick.style.removeProperty(property);
+    delete joystick.dataset.hudCustomPosition;
   }
   if (resetJoystickPosition) saveHudLayout();
   const group = hudLayout[hudOrientationKey()] || {};
