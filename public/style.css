@@ -3328,7 +3328,7 @@ html, body { width:100%; min-width:0; }
 
 /* Bugfix: keep joystick at the bottom when old saved HUD coordinates were corrupt. */
 @media (pointer:coarse) {
-  #hud #joystick:not([data-hud-custom-position="true"]) { top:auto!important; left:max(9px,env(safe-area-inset-left))!important; right:auto!important; bottom:max(12px,env(safe-area-inset-bottom))!important; }
+  #hud #joystick { position:fixed!important; top:auto!important; left:max(9px,env(safe-area-inset-left))!important; right:auto!important; bottom:max(12px,env(safe-area-inset-bottom))!important; transform:none!important; z-index:8!important; }
 }
 /* Legacy zoom controls disabled; camera drag remains the only look gesture. */
 .camera-zoom-controls{display:none!important}
