@@ -51,12 +51,16 @@ const CLASS_STATS = {
   ogre: { hp: 180, damage: 4, range: 3.5, attackMs: 760, spellPower: .7, reduction: .20 },
   healer: { hp: 100, damage: 2, range: 8.2, attackMs: 620, spellPower: 1.1, reduction: .02 },
   necromancer: { hp: 90, damage: 2, range: 7.6, attackMs: 650, spellPower: 1.2, reduction: 0 },
-  monk: { hp: 110, damage: 2, range: 2.8, attackMs: 530, spellPower: 1, reduction: .07 }
+  monk: { hp: 110, damage: 2, range: 2.8, attackMs: 530, spellPower: 1, reduction: .07 },
+  golem: { hp: 220, damage: 3, range: 3.35, attackMs: 720, spellPower: .65, reduction: .28 }
 };
+const CLASS_PERSONAL_SKILLS = {"knight":["knight_fortress","knight_aegis","knight_charge","knight_vanguard","knight_royal_oath"],"mage":["mage_focus","mage_ember","mage_chain","mage_mana","mage_starseer"],"archer":["archer_hawkeye","archer_volley","archer_firetip","archer_quiver","archer_hunter"],"goblin":["goblin_agility","goblin_shadow","goblin_pack","goblin_poison","goblin_trickster"],"ogre":["ogre_blood","ogre_aftershock","ogre_berserker","ogre_longrage","ogre_crusher"],"healer":["healer_mercy","healer_blessing","healer_longspirits","healer_pulse","healer_sanctuary"],"necromancer":["necromancer_soul","necromancer_bone","necromancer_horde","necromancer_shadowstep","necromancer_reaper"],"monk":["monk_focus","monk_openpalm","monk_flow","monk_ironbody","monk_zen"],"golem":["golem_granite","golem_shatter","golem_quake","golem_splitheart","golem_mountaincore"]};
+const CLASS_PERSONAL_SKILL_IDS = Object.values(CLASS_PERSONAL_SKILLS).flat();
+const CLASS_PERSONAL_SKILL_CLASS = Object.fromEntries(Object.entries(CLASS_PERSONAL_SKILLS).flatMap(([playerClass, ids]) => ids.map(id => [id, playerClass])));
 const SKILL_BRANCHES = {
   attack: ['mighty_blows','swift_hands','executioner','boss_hunter','longshot'],
   defense: ['vitality','iron_skin','regeneration','second_wind','party_guard'],
-  arcane: ['arcane_mastery','ember_core','storm_bond','treasure_luck','swift_step'],
+  arcane: [...CLASS_PERSONAL_SKILL_IDS],
   mobility: ['dodge_mastery','quick_recovery','hunter_instinct','battle_focus','phantom_step'],
   support: ['healing_aura','loot_sense','mana_surge','team_resolve','final_blessing']
 };
@@ -65,13 +69,14 @@ const VALID_SKILLS = new Set(Object.values(SKILL_BRANCHES).flat());
 const SKILL_REQUIREMENTS = {
   swift_hands:'mighty_blows', executioner:'swift_hands', boss_hunter:'executioner', longshot:'boss_hunter',
   iron_skin:'vitality', regeneration:'iron_skin', second_wind:'regeneration', party_guard:'second_wind',
-  ember_core:'arcane_mastery', storm_bond:'ember_core', treasure_luck:'storm_bond', swift_step:'treasure_luck',
   quick_recovery:'dodge_mastery', hunter_instinct:'quick_recovery', battle_focus:'hunter_instinct', phantom_step:'battle_focus',
   loot_sense:'healing_aura', mana_surge:'loot_sense', team_resolve:'mana_surge', final_blessing:'team_resolve'
 };
+for (const ids of Object.values(CLASS_PERSONAL_SKILLS)) for (let i = 1; i < ids.length; i++) SKILL_REQUIREMENTS[ids[i]] = ids[i - 1];
 function hasSkill(player, id) { return !!player.skills && player.skills.includes(id); }
 function canUnlockSkill(player, id) {
   if (!VALID_SKILLS.has(id) || !Array.isArray(player.skills) || player.skills.includes(id) || player.skills.length >= 15) return false;
+  if (CLASS_PERSONAL_SKILL_CLASS[id] && CLASS_PERSONAL_SKILL_CLASS[id] !== player.playerClass) return false;
   const req = SKILL_REQUIREMENTS[id];
   if (req && !player.skills.includes(req)) return false;
   const usedBranches = new Set(player.skills.map(skill => SKILL_BRANCH_BY_ID[skill]).filter(Boolean));
@@ -115,11 +120,23 @@ function handleSummonDefeat(room, summon, target) {
   } else if (Math.random() < dropChance(owner, .2)) grantLoot(owner, 'monster');
 }
 
-function statsFor(player) { return CLASS_STATS[player.playerClass] || CLASS_STATS.knight; }
-function maxHealthFor(player) { return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0) + (hasSkill(player, 'final_blessing') ? 15 : 0); }
+function statsFor(player) {
+  const base = CLASS_STATS[player.playerClass] || CLASS_STATS.knight;
+  return player.playerClass === 'archer' && hasSkill(player, 'archer_hawkeye') ? { ...base, range: base.range + 1.15 } : base;
+}
+function maxHealthFor(player) {
+  return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0) + (hasSkill(player, 'final_blessing') ? 15 : 0)
+    + (hasSkill(player, 'knight_fortress') ? 15 : 0) + (hasSkill(player, 'archer_hawkeye') ? 5 : 0)
+    + (hasSkill(player, 'goblin_agility') ? 5 : 0) + (hasSkill(player, 'ogre_blood') ? 20 : 0)
+    + (hasSkill(player, 'healer_mercy') ? 10 : 0) + (hasSkill(player, 'necromancer_soul') ? 10 : 0)
+    + (hasSkill(player, 'monk_ironbody') ? 12 : 0) + (hasSkill(player, 'golem_granite') ? 20 : 0)
+    + (hasSkill(player, 'golem_mountaincore') ? 25 : 0);
+}
 function refreshPlayerStats(player, restoreHealth = false) {
   const oldMax = player.maxHp || 100; player.maxHp = maxHealthFor(player);
-  player.baseDamage = statsFor(player).damage + (hasSkill(player, 'mighty_blows') ? 1 : 0) + (hasSkill(player, 'hunter_instinct') ? 1 : 0) + (player.equipmentDamage || 0);
+  player.baseDamage = statsFor(player).damage + (hasSkill(player, 'mighty_blows') ? 1 : 0) + (hasSkill(player, 'hunter_instinct') ? 1 : 0)
+    + (['knight_royal_oath','mage_starseer','archer_hunter','goblin_poison','ogre_crusher','healer_sanctuary','necromancer_reaper','monk_zen','golem_mountaincore'].some(id => hasSkill(player, id)) ? 1 : 0)
+    + (player.equipmentDamage || 0);
   if (restoreHealth) player.hp = player.maxHp;
   else player.hp = Math.min(player.maxHp, Math.max(0, (player.hp || 0) + Math.max(0, player.maxHp - oldMax)));
 }
@@ -131,6 +148,10 @@ function takeDamage(room, player, amount) {
   if (Date.now() < (player.dodgeUntil || 0)) return 0;
   let damage = amount * (1 - (statsFor(player).reduction || 0));
   if (hasSkill(player, 'iron_skin')) damage *= .8;
+  if (hasSkill(player, 'knight_fortress')) damage *= .96;
+  if (hasSkill(player, 'ogre_blood')) damage *= .96;
+  if (hasSkill(player, 'monk_ironbody')) damage *= .95;
+  if (hasSkill(player, 'golem_granite')) damage *= .92;
   if (Date.now() < (player.shieldUntil || 0)) damage *= .35;
   const nearbyAlly = [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7);
   if (hasSkill(player, 'party_guard') && nearbyAlly) damage *= .9;
@@ -474,7 +495,7 @@ wss.on('connection', ws => {
         player.connected = true;
         player.disconnectedAt = 0;
         player.name = String(msg.name || 'Aventureiro').slice(0, 18);
-        player.playerClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
+        player.playerClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(msg.playerClass || msg.class) ? (msg.playerClass || msg.class) : 'knight';
         player.skin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(msg.skin) ? msg.skin : 'default';
         // Habilidades e pontos iniciais são autoritativos no servidor; não confiar no loadout enviado pelo navegador.
         player.skills = [];
@@ -575,10 +596,11 @@ wss.on('connection', ws => {
       broadcast(room, { type: 'notice', text: 'A partida começou! Boa sorte, aventureiros.' });
       broadcast(room, state(room));
     } else if (msg.type === 'loadout') {
-      const wantedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
+      const wantedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
       const wantedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(msg.skin) ? msg.skin : player.skin;
       if (room.started && (wantedClass !== player.playerClass || wantedSkin !== player.skin)) return;
-      const proposed = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id)) : [];
+      if (!room.started && wantedClass !== player.playerClass) player.skills = player.skills.filter(id => !CLASS_PERSONAL_SKILL_CLASS[id]);
+      const proposed = Array.isArray(msg.skills) ? msg.skills.filter(id => VALID_SKILLS.has(id) && (!CLASS_PERSONAL_SKILL_CLASS[id] || CLASS_PERSONAL_SKILL_CLASS[id] === wantedClass)) : [];
       for (const id of proposed) {
         if (player.skills.includes(id)) continue;
         if (player.talentPoints <= 0) break;
@@ -707,7 +729,8 @@ wss.on('connection', ws => {
         ogre_slam: 'ogre', ogre_haste: 'ogre',
         healer_cure: 'healer', healer_guardian_spirits: 'healer',
         necromancer_summon: 'necromancer', necromancer_dive: 'necromancer',
-        monk_impact_palm: 'monk', monk_winged_steps: 'monk'
+        monk_impact_palm: 'monk', monk_winged_steps: 'monk',
+        golem_split: 'golem', golem_rock_toss: 'golem'
       };
       const cooldownMs = {
         knight_shield: 12000, knight_dash: 9000,
@@ -716,7 +739,8 @@ wss.on('connection', ws => {
         ogre_slam: 10000, ogre_haste: 15000,
         healer_cure: 23000, healer_guardian_spirits: 40000,
         necromancer_summon: 30000, necromancer_dive: 15000,
-        monk_impact_palm: 18000, monk_winged_steps: 15000
+        monk_impact_palm: 18000, monk_winged_steps: 15000,
+        golem_split: 26000, golem_rock_toss: 14500
       };
       if (abilityClass[ability] !== player.playerClass) return;
       const now = Date.now();
@@ -726,7 +750,11 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'notice', text: 'Habilidade recarregando: ' + Math.ceil(remaining / 1000) + 's.' }));
         return;
       }
-      player.abilityCooldowns[ability] = now + cooldownMs[ability];
+      const cooldownReduction = (ability === 'arrow_rain' && hasSkill(player, 'archer_quiver') ? 1500 : 0)
+        + (ability.startsWith('goblin_') && hasSkill(player, 'goblin_trickster') ? 2500 : 0)
+        + (ability === 'necromancer_dive' && hasSkill(player, 'necromancer_shadowstep') ? 2500 : 0)
+        + (ability === 'golem_rock_toss' && hasSkill(player, 'golem_mountaincore') ? 2000 : 0);
+      player.abilityCooldowns[ability] = now + Math.max(4500, cooldownMs[ability] - cooldownReduction);
       const enemies = () => [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss && room.boss.alive ? [room.boss] : [])]
         .filter(enemy => enemy && enemy.alive && enemy.spawned !== false);
       const findCenter = (range) => {
@@ -773,8 +801,53 @@ wss.on('connection', ws => {
       let center = { x: player.x, z: player.z };
       let text = '';
       let until = 0;
-      if (ability === 'knight_shield') {
-        player.shieldUntil = now + 4200;
+      let rockFall = null;
+      if (ability === 'golem_split') {
+        const duration = hasSkill(player, 'golem_splitheart') ? 16000 : 12000;
+        player.invisibleUntil = now + duration;
+        room.summons = room.summons || [];
+        const cloneHp = (hasSkill(player, 'golem_shatter') ? 62 : 50) + (hasSkill(player, 'golem_splitheart') ? 15 : 0);
+        const cloneDamage = Math.max(1, Math.round((player.baseDamage || 3) * .5) + (hasSkill(player, 'golem_shatter') ? 1 : 0));
+        for (let i = 0; i < 3; i++) {
+          const angle = Math.PI * 2 * i / 3;
+          room.summons.push({
+            id: 'stone-golem-' + player.id + '-' + now + '-' + i,
+            ownerId: player.id, summonType: 'stone_golem_clone', name: 'Fragmento de Golem',
+            playerClass: 'golem_clone', skin: 'default', color: 0x8a9096,
+            x: Math.max(-12.5, Math.min(12.5, player.x + Math.cos(angle) * 1.55)),
+            z: Math.max(-169, Math.min(7, player.z + Math.sin(angle) * 1.55)),
+            rot: player.rot || 0, hp: cloneHp, maxHp: cloneHp, damage: cloneDamage,
+            attackMs: 900, expiresAt: now + duration, nextAttackAt: now + 700
+          });
+        }
+        center = { x: player.x, z: player.z };
+        until = player.invisibleUntil;
+        text = '🪨 Você se desmanchou em três golens menores! Eles atacam por ' + Math.round(duration / 1000) + ' segundos.';
+      } else if (ability === 'golem_rock_toss') {
+        const aimX = Number(msg.x), aimZ = Number(msg.z);
+        if (!Number.isFinite(aimX) || !Number.isFinite(aimZ)) {
+          player.abilityCooldowns[ability] = now;
+          ws.send(JSON.stringify({ type: 'notice', text: 'Mire no chão para arremessar a pedra.' }));
+          return;
+        }
+        center = { x: Math.max(-12, Math.min(12, aimX)), z: Math.max(-170, Math.min(7.5, aimZ)) };
+        const radius = hasSkill(player, 'golem_mountaincore') ? 6.1 : 5.0;
+        const baseDamage = hasSkill(player, 'golem_quake') ? 18 : 15;
+        for (const enemy of enemies()) if (Math.hypot(enemy.x - center.x, enemy.z - center.z) <= radius) damageEnemy(enemy, baseDamage);
+        const rockCount = hasSkill(player, 'golem_mountaincore') ? 8 : 6;
+        const stones = [];
+        for (let i = 0; i < rockCount; i++) {
+          const angle = (Math.PI * 2 * i / rockCount) + .2;
+          const distance = 2.25 + (i % 2) * .85;
+          const stone = { x: Math.max(-12.5, Math.min(12.5, center.x + Math.cos(angle) * distance)), z: Math.max(-170, Math.min(7.5, center.z + Math.sin(angle) * distance)) };
+          stones.push(stone);
+          for (const enemy of enemies()) if (Math.hypot(enemy.x - stone.x, enemy.z - stone.z) <= 1.3) damageEnemy(enemy, hasSkill(player, 'golem_quake') ? 6 : 4);
+        }
+        targets.push(...stones);
+        rockFall = { x: center.x, z: center.z, stones, radius };
+        text = '☄ PEDRA TITÂNICA! Impacto em área e estilhaços caem ao redor do ponto escolhido.';
+      } else if (ability === 'knight_shield') {
+        player.shieldUntil = now + (hasSkill(player, 'knight_aegis') ? 6200 : 4200);
         until = player.shieldUntil;
         text = '🛡️ Escudo temporário! Dano recebido reduzido por 4,2 segundos.';
       } else if (ability === 'knight_dash') {
@@ -787,7 +860,7 @@ wss.on('connection', ws => {
         center = { x: player.x, z: player.z };
         for (const enemy of enemies()) {
           if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > 5.4) continue;
-          damageEnemy(enemy, 5);
+          damageEnemy(enemy, hasSkill(player, 'knight_charge') ? 8 : 5);
           if (enemy.alive) {
             const dx = enemy.x - center.x, dz = enemy.z - center.z, dist = Math.hypot(dx, dz) || 1;
             const pulledDistance = Math.max(.72, dist - 2.0);
@@ -800,26 +873,28 @@ wss.on('connection', ws => {
         text = '⚔️ Avanço do cavaleiro! Você avançou, atraiu inimigos próximos e causou dano.';
       } else if (ability === 'arrow_rain' || ability === 'incendiary_arrows') {
         center = findCenter(14);
-        const radius = ability === 'arrow_rain' ? 4.6 : 4.1;
+        const radius = ability === 'arrow_rain' ? (hasSkill(player, 'archer_volley') ? 5.2 : 4.6) : 4.1;
         for (const enemy of enemies()) {
           if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > radius) continue;
-          damageEnemy(enemy, ability === 'arrow_rain' ? 5 : 3.5, ability === 'incendiary_arrows' ? 5500 : 0);
+          damageEnemy(enemy, ability === 'arrow_rain' ? (hasSkill(player, 'archer_volley') ? 7 : 5) : 3.5, ability === 'incendiary_arrows' ? (hasSkill(player, 'archer_firetip') ? 7500 : 5500) : 0);
         }
         text = ability === 'arrow_rain'
           ? '🏹 Chuva de flechas! Dano em área.'
           : '🔥 Flechas incendiárias! A área queima os inimigos atingidos.';
       } else if (ability === 'goblin_invis') {
-        player.invisibleUntil = now + 5000;
+        player.invisibleUntil = now + (hasSkill(player, 'goblin_shadow') ? 7000 : 5000);
         until = player.invisibleUntil;
         text = '👻 Invisibilidade por 5 segundos! Os monstros vão ignorar você.';
       } else if (ability === 'goblin_summon') {
         room.summons = room.summons || [];
-        for (let i = 0; i < 2; i++) {
+        const goblinCount = hasSkill(player, 'goblin_pack') ? 3 : 2;
+        for (let i = 0; i < goblinCount; i++) {
           room.summons.push({
             id: 'goblin-' + player.id + '-' + now + '-' + i,
-            ownerId: player.id, x: Math.max(-12.5, Math.min(12.5, player.x + (i === 0 ? -1.1 : 1.1))),
-            z: player.z + .5, rot: player.rot || 0, hp: 72, maxHp: 72,
-            color: i === 0 ? 0x8be070 : 0x65b95f, expiresAt: now + 12000, nextAttackAt: now + 700
+            ownerId: player.id, x: Math.max(-12.5, Math.min(12.5, player.x + Math.cos(i * Math.PI * 2 / goblinCount) * 1.1)),
+            z: player.z + Math.sin(i * Math.PI * 2 / goblinCount) * 1.1, rot: player.rot || 0,
+            hp: 72, maxHp: 72, damage: hasSkill(player, 'goblin_poison') ? 4 : 3,
+            expiresAt: now + (hasSkill(player, 'goblin_pack') ? 16000 : 12000), nextAttackAt: now + 700
           });
         }
         center = { x: player.x, z: player.z };
@@ -829,7 +904,7 @@ wss.on('connection', ws => {
         for (const ally of room.players.values()) {
           if (ally.connected === false || ally.hp <= 0 || ally.hp >= ally.maxHp) continue;
           const before = ally.hp;
-          ally.hp = Math.min(ally.maxHp, ally.hp + 50);
+          ally.hp = Math.min(ally.maxHp, ally.hp + (hasSkill(player, 'healer_blessing') ? 70 : 50));
           if (ally.hp > before) {
             healedTargets++;
             if (ally.ws && ally.ws.readyState === WebSocket.OPEN) ally.ws.send(JSON.stringify({ type: 'notice', text: '✨ Cura recebida: +' + (ally.hp - before) + ' de vida!' }));
@@ -837,7 +912,7 @@ wss.on('connection', ws => {
         }
         text = healedTargets ? '✨ Cura! Você e seus aliados recuperam até 50 de vida.' : '✨ Cura lançada, mas todos já estão com a vida cheia.';
       } else if (ability === 'healer_guardian_spirits') {
-        player.guardianSpiritsUntil = now + 20000;
+        player.guardianSpiritsUntil = now + (hasSkill(player, 'healer_longspirits') ? 26000 : 20000);
         until = player.guardianSpiritsUntil;
         room.summons = room.summons || [];
         for (let i = 0; i < 3; i++) {
@@ -848,18 +923,20 @@ wss.on('connection', ws => {
             playerClass: 'guardian_spirit', skin: player.skin || 'celestial', color: 0x8cffe8,
             x: player.x + Math.cos(angle) * 1.1, z: player.z + Math.sin(angle) * 1.1,
             rot: player.rot || 0, hp: 1, maxHp: 1, damage: 0, attackMs: 5000,
-            spiritIndex: i, expiresAt: now + 20000,
-            nextHealAt: now + 6000 + i * 500, nextDamageAt: now + 5000 + i * 400
+            spiritIndex: i, expiresAt: player.guardianSpiritsUntil,
+            nextHealAt: now + (hasSkill(player, 'healer_pulse') ? 4500 : 6000) + i * 500,
+            nextDamageAt: now + (hasSkill(player, 'healer_pulse') ? 4000 : 5000) + i * 400
           });
         }
         text = '🪽 Três espíritos guardiões voam por 20 segundos: curam aliados em 5 a cada 6 s ou causam 6 de dano a inimigos a cada 5 s.';
       } else if (ability === 'necromancer_summon') {
         let created = 0;
-        for (let i = 0; i < 5; i++) {
-          const angle = (Math.PI * 2 * i) / 5;
-          const summon = spawnNecromancerSkeleton(room, player, 8,
+        const skeletonCount = hasSkill(player, 'necromancer_horde') ? 7 : 5;
+        for (let i = 0; i < skeletonCount; i++) {
+          const angle = (Math.PI * 2 * i) / skeletonCount;
+          const summon = spawnNecromancerSkeleton(room, player, hasSkill(player, 'necromancer_bone') ? 12 : 8,
             player.x + Math.cos(angle) * 1.3, player.z + Math.sin(angle) * 1.3,
-            now + 18000, 10, 2, 1100);
+            now + (hasSkill(player, 'necromancer_horde') ? 24000 : 18000), 10 + (hasSkill(player, 'necromancer_reaper') ? 4 : 0), hasSkill(player, 'necromancer_bone') ? 3 : 2, 1100);
           if (summon) created++;
         }
         text = created ? '💀 Horda invocada! ' + created + ' esqueletos lutam por 18 segundos.' : 'Você já controla o limite de esqueletos.';
@@ -877,9 +954,9 @@ wss.on('connection', ws => {
         for (const enemy of enemies()) {
           const dx = enemy.x - center.x, dz = enemy.z - center.z;
           if (Math.hypot(dx, dz) > 4.2) continue;
-          damageEnemy(enemy, 8, 0, center, 2.7);
+          damageEnemy(enemy, hasSkill(player, 'monk_openpalm') ? 11 : 8, 0, center, 2.7);
           if (enemy.alive) {
-            enemy.stunnedUntil = now + 1100;
+            enemy.stunnedUntil = now + (hasSkill(player, 'monk_zen') ? 1600 : 1100);
             enemy.attackWarnAt = 0; enemy.attackTargetId = null;
           }
         }
@@ -888,7 +965,7 @@ wss.on('connection', ws => {
         const heading = Number(player.rot) || 0;
         const landing = resolveServerMovement(room, player, player.x - Math.sin(heading) * 3.1, player.z - Math.cos(heading) * 3.1);
         player.x = landing.x; player.z = landing.z;
-        player.monkSpeedUntil = now + 5000;
+        player.monkSpeedUntil = now + (hasSkill(player, 'monk_flow') ? 7500 : 5000);
         player.dodgeUntil = now + 900;
         until = player.monkSpeedUntil;
         center = { x: player.x, z: player.z };
@@ -896,16 +973,16 @@ wss.on('connection', ws => {
       } else if (ability === 'ogre_slam') {
         center = { x: player.x, z: player.z };
         for (const enemy of enemies()) {
-          if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > 5.2) continue;
-          damageEnemy(enemy, 8, 0, center, 2.4);
+          if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > (hasSkill(player, 'ogre_aftershock') ? 6.2 : 5.2)) continue;
+          damageEnemy(enemy, hasSkill(player, 'ogre_berserker') ? 11 : 8, 0, center, 2.4);
         }
         text = '💥 Soco no chão! Dano em área e inimigos repelidos.';
       } else if (ability === 'ogre_haste') {
-        player.ogreHasteUntil = now + 5000;
+        player.ogreHasteUntil = now + (hasSkill(player, 'ogre_longrage') ? 7000 : 5000);
         until = player.ogreHasteUntil;
         text = '💨 Fúria do ogro! Velocidade aumentada por 5 segundos.';
       }
-      broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text });
+      broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text, rockFall });
       broadcast(room, state(room));
     } else if (msg.type === 'spell') {
       if (!room.started || player.hp <= 0 || player.playerClass !== 'mage') return;
@@ -925,8 +1002,8 @@ wss.on('connection', ws => {
       const hitTargets = [];
       const applyDamage = (enemy, amount) => {
         if (!enemy || !enemy.alive) return;
-        const classPower = statsFor(player).spellPower * (hasSkill(player, 'arcane_mastery') ? 1.5 : 1) * (hasSkill(player, 'mana_surge') ? 1.25 : 1);
-        const emberBonus = spell === 'fire' && hasSkill(player, 'ember_core') ? 1 : 0;
+        const classPower = statsFor(player).spellPower * (hasSkill(player, 'mage_focus') ? 1.18 : 1) * (hasSkill(player, 'mage_mana') ? 1.15 : 1) * (hasSkill(player, 'mana_surge') ? 1.25 : 1);
+        const emberBonus = spell === 'fire' && hasSkill(player, 'mage_ember') ? 1.5 : 0;
         const bossBonus = enemy === room.boss && hasSkill(player, 'boss_hunter') ? 1.5 : 1;
         const executeBonus = enemy.hp / (enemy.maxHp || 1) <= .35 && hasSkill(player, 'executioner') ? 1.5 : 1;
         enemy.hp = Math.max(0, (enemy.hp || 1) - amount * classPower * bossBonus * executeBonus - emberBonus);
@@ -947,13 +1024,14 @@ wss.on('connection', ws => {
       };
 
       if (spell === 'fire') {
-        applyDamage(target, 2);
-        player.ws.send(JSON.stringify({ type: 'notice', text: '🔥 Bola de fogo! Queimadura por 3 segundos.' }));
+        applyDamage(target, hasSkill(player, 'mage_starseer') ? 3 : 2);
+        if (target && target.alive) target.burnUntil = Date.now() + (hasSkill(player, 'mage_ember') ? 6500 : 3500);
+        player.ws.send(JSON.stringify({ type: 'notice', text: '🔥 Bola de fogo! Queimadura por ' + (hasSkill(player, 'mage_ember') ? '6' : '3') + ' segundos.' }));
       } else {
         applyDamage(target, 1.5);
         // O raio perde força a cada salto: 0.9 no primeiro e 0.6 no segundo.
         let previous = target;
-        const maxHops = hasSkill(player, 'storm_bond') ? 4 : 2;
+        const maxHops = hasSkill(player, 'mage_chain') ? 5 : 2;
         for (let hop = 0; hop < maxHops; hop++) {
           const next = room.monsters
             .filter(m => m.alive && m.spawned && m !== previous && !hitTargets.some(t => t.x === m.x && t.z === m.z)
@@ -974,7 +1052,8 @@ wss.on('connection', ws => {
       const isMonk = player.playerClass === 'monk';
       const monkCombo = isMonk ? ((player.monkComboIndex || 0) % 3) + 1 : 0;
       if (isMonk) player.monkComboIndex = monkCombo;
-      const attackInterval = Math.max(180, statsFor(player).attackMs - (hasSkill(player, 'swift_hands') ? 90 : 0) - (hasSkill(player, 'battle_focus') ? 55 : 0));
+      const attackInterval = Math.max(180, statsFor(player).attackMs - (hasSkill(player, 'swift_hands') ? 90 : 0) - (hasSkill(player, 'battle_focus') ? 55 : 0)
+        - (hasSkill(player, 'knight_vanguard') ? 45 : 0) - (hasSkill(player, 'goblin_agility') ? 50 : 0) - (hasSkill(player, 'monk_focus') ? 40 : 0));
       if (now < (player.nextAttackAt || 0)) return;
       player.nextAttackAt = now + attackInterval;
       if (room.phase < 5) {
@@ -1189,11 +1268,11 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
         } else if (targetEntry.isAlly) {
           if (now >= (summon.nextHealAt || 0)) {
             summon.nextHealAt = now + 6000;
-            target.hp = Math.min(target.maxHp, target.hp + 5);
+            target.hp = Math.min(target.maxHp, target.hp + (room.players.get(summon.ownerId)?.skills?.includes('healer_pulse') ? 7 : 5));
           }
         } else if (now >= (summon.nextDamageAt || 0)) {
           summon.nextDamageAt = now + 5000;
-          target.hp = Math.max(0, (target.hp || 1) - 6);
+          target.hp = Math.max(0, (target.hp || 1) - (room.players.get(summon.ownerId)?.skills?.includes('healer_pulse') ? 8 : 6));
           if (target.hp <= 0 && target.alive) handleSummonDefeat(room, summon, target);
         }
         summon.rot = Math.atan2(dx, dz);
