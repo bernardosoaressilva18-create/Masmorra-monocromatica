@@ -1731,13 +1731,17 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
       }
       const monsterNow = Date.now();
       if (target && nearest <= 2.0) {
-        if (!monster.attackWarnAt || monster.attackTargetId !== target.id) {
+        if (room.gameMode === 'pvp_rpg' && monsterNow < (monster.nextAttackAt || 0)) {
+          monster.attackWarnAt = 0;
+          monster.attackTargetId = null;
+        } else if (!monster.attackWarnAt || monster.attackTargetId !== target.id) {
           monster.attackWarnAt = monsterNow;
           monster.attackTargetId = target.id;
           broadcast(room, { type: 'monsterWindup', id: monster.id, targetId: target.id, duration: 460 });
           if (!target.isSummon && target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
         } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460) {
           monster.attackAt = monsterNow;
+          if (room.gameMode === 'pvp_rpg') monster.nextAttackAt = monsterNow + (monster.attackMs || 1200);
           monster.attackWarnAt = 0;
           monster.attackTargetId = null;
           broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
