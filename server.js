@@ -2025,9 +2025,11 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
       if (target) nearest = Math.hypot(target.x - boss.x, target.z - boss.z);
       if (target && nearest > 2.35 && nearest < 80) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
-        const speed = boss.lifePhase === 1 ? 0.23 : boss.lifePhase === 2 ? 0.31 : 0.39;
+        // A arena do chefe inclui a entrada da fase. O limite antigo (-156..-144)
+        // deixava o Guardião preso no centro enquanto os jogadores chegavam perto do portão.
+        const speed = boss.lifePhase === 1 ? 0.28 : boss.lifePhase === 2 ? 0.36 : 0.44;
         boss.x = Math.max(-12, Math.min(12, boss.x + dx / distance * speed));
-        boss.z = Math.max(-156, Math.min(-144, boss.z + dz / distance * speed));
+        boss.z = Math.max(-168, Math.min(-128, boss.z + dz / distance * speed));
       }
       const bossNow = Date.now();
       if (target && nearest <= 2.8) {
