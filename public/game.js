@@ -3052,21 +3052,23 @@ function updateState(m) {
     incoming.add(id);
     let obj = remotePlayers.get(id);
     const isGuardianSpirit = summon.summonType === 'guardian_spirit';
+    const isGolemClone = summon.summonType === 'stone_golem_clone' || summon.playerClass === 'golem_clone' || String(summon.name || '').toLowerCase().includes('fragmento de golem');
     const isSkeleton = summon.summonType === 'skeleton' || summon.playerClass === 'skeleton' || String(summon.name || '').toLowerCase().includes('esqueleto');
-    if (!obj || (!!obj.userData.isGuardianSpirit !== isGuardianSpirit)) {
+    const summonClass = isGolemClone ? 'golem_clone' : isSkeleton ? 'skeleton' : 'goblin';
+    if (!obj || (!!obj.userData.isGuardianSpirit !== isGuardianSpirit) || (!isGuardianSpirit && obj.userData.playerClass !== summonClass)) {
       if (obj) { scene.remove(obj); disposeObject3D(obj); }
       obj = isGuardianSpirit
         ? makeGuardianSpirit(summon.color || 0x8cffe8)
-        : makeHero(summon.color || (isSkeleton ? 0xe0dccb : 0x80c86b), isSkeleton ? 'skeleton' : 'goblin', isSkeleton ? 'shadow' : 'default');
+        : makeHero(summon.color || (isSkeleton ? 0xe0dccb : isGolemClone ? 0x8a9096 : 0x80c86b), summonClass, isSkeleton ? 'shadow' : 'default');
       obj.userData.isGuardianSpirit = isGuardianSpirit;
-      obj.userData.playerClass = isGuardianSpirit ? 'guardian_spirit' : (isSkeleton ? 'skeleton' : 'goblin');
+      obj.userData.playerClass = isGuardianSpirit ? 'guardian_spirit' : summonClass;
       obj.userData.skin = summon.skin || (isSkeleton ? 'shadow' : 'default');
       scene.add(obj); remotePlayers.set(id, obj);
     }
     obj.userData.targetX = summon.x;
     obj.userData.targetZ = summon.z;
     obj.userData.targetRot = summon.rot || 0;
-    obj.userData.name = summon.name || (isGuardianSpirit ? 'Espírito Guardião' : summon.summonType === 'skeleton' ? 'Esqueleto aliado' : 'Goblin aliado');
+    obj.userData.name = summon.name || (isGuardianSpirit ? 'Espírito Guardião' : isGolemClone ? 'Fragmento de Golem' : isSkeleton ? 'Esqueleto aliado' : 'Goblin aliado');
     obj.userData.serverHp = summon.hp ?? 72;
     if (!isGuardianSpirit) setHealthBar(obj, summon.hp ?? 60, summon.maxHp ?? 72);
   }
