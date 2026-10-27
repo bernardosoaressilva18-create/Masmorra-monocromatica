@@ -252,5 +252,148 @@ class TacticalAITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(math.isfinite(response.get_json()["score"]))
 
+
+    def test_accented_portuguese_role_aliases(self):
+        response = self.post_target([
+            {"id": "knight", "x": 4, "z": 0, "role": "CAVALEIRO"},
+            {"id": "healer", "x": 4, "z": 0, "role": "Curandeiro"},
+        ])
+        self.assertEqual(response.get_json()["targetId"], "healer")
+        self.assertEqual(response.get_json()["targetRole"], "healer")
+
+    def test_monge_role_is_normalized(self):
+        response = self.post_target([{"id": "monk", "x": 1, "z": 0, "playerClass": "Monge"}])
+        self.assertEqual(response.get_json()["targetRole"], "monk")
+
+    def test_dead_disconnected_and_eliminated_candidates_are_ignored(self):
+        response = self.post_target([
+            {"id": "dead", "x": 1, "z": 0, "dead": True},
+            {"id": "disconnected", "x": 1, "z": 0, "connected": False},
+            {"id": "locked", "x": 1, "z": 0, "deathLocked": True},
+            {"id": "eliminated", "x": 1, "z": 0, "eliminated": True},
+            {"id": "alive", "x": 4, "z": 0, "alive": True},
+        ])
+        body = response.get_json()
+        self.assertEqual(body["targetId"], "alive")
+        self.assertEqual(body["candidateCount"], 1)
+        self.assertEqual(body["skippedCandidateCount"], 4)
+
+    def test_string_false_is_not_treated_as_true(self):
+        response = self.post_target([{
+            "id": "ordinary", "x": 1, "z": 0, "isSummon": "false",
+            "shielded": "false", "visible": "true", "alive": "true",
+        }])
+        body = response.get_json()
+        self.assertEqual(body["targetId"], "ordinary")
+        self.assertNotIn("summon_distraction", body["reasons"])
+        self.assertNotIn("shielded_target", body["reasons"])
+
+    def test_invisible_until_timestamp_is_respected(self):
+        now_ms = 1_800_000_000_000
+        response = self.client.post("/target", json={
+            "monster": self.base_monster,
+            "nowMs": now_ms,
+            "candidates": [
+                {"id": "hidden", "x": 1, "z": 0, "invisibleUntil": now_ms + 5000},
+                {"id": "visible", "x": 4, "z": 0},
+            ],
+        })
+        self.assertEqual(response.get_json()["targetId"], "visible")
+        self.assertEqual(response.get_json()["skippedCandidateCount"], 1)
+
+    def test_future_expiration_timestamp_is_respected(self):
+        now_ms = 1_800_000_000_000
+        response = self.client.post("/target", json={
+            "monster": self.base_monster,
+            "nowMs": now_ms,
+            "candidates": [
+                {"id": "temporary-expired-later", "x": 1, "z": 0, "expiresAt": now_ms + 5000},
+                {"id": "persistent", "x": 3, "z": 0},
+            ],
+        })
+        self.assertEqual(response.get_json()["targetId"], "persistent")
+
+    def test_seconds_timestamps_are_accepted(self):
+        now_seconds = 1_800_000_000
+        response = self.client.post("/target", json={
+            "monster": self.base_monster,
+            "nowMs": now_seconds * 1000,
+            "candidates": [
+                {"id": "invisible", "x": 1, "z": 0, "invisibleUntil": now_seconds + 20},
+                {"id": "visible", "x": 3, "z": 0},
+            ],
+        })
+        self.assertEqual(response.get_json()["targetId"], "visible")
+
+    def test_alternate_health_fields_are_supported(self):
+        response = self.post_target([{
+            "id": "legacy-health", "x": 1, "z": 0,
+            "currentHealth": 25, "healthMax": 100,
+        }])
+        body = response.get_json()
+        self.assertEqual(body["targetId"], "legacy-health")
+        self.assertEqual(body["targetHealthRatio"], 0.25)
+
+    def test_aggro_threat_alias_affects_target_choice(self):
+        response = self.post_target([
+            {"id": "quiet", "x": 4, "z": 0, "aggroThreat": 0},
+            {"id": "threatening", "x": 4.2, "z": 0, "aggroThreat": 100},
+        ])
+        self.assertEqual(response.get_json()["targetId"], "threatening")
+
+    def test_recent_attacker_damage_alias_affects_target_choice(self):
+        response = self.post_target([
+            {"id": "quiet", "x": 3, "z": 0},
+            {"id": "attacker", "x": 3.4, "z": 0, "recentAttackerDamage": 40},
+        ])
+        self.assertEqual(response.get_json()["targetId"], "attacker")
+        self.assertIn("recent_attacker", response.get_json()["reasons"])
+
+    def test_active_shield_timestamp_penalizes_but_does_not_invalidate(self):
+        now_ms = 1_800_000_000_000
+        response = self.client.post("/target", json={
+            "monster": self.base_monster,
+            "nowMs": now_ms,
+            "candidates": [
+                {"id": "shielded", "x": 2, "z": 0, "shieldUntil": now_ms + 5000},
+                {"id": "open", "x": 2, "z": 0},
+            ],
+        })
+        body = response.get_json()
+        self.assertEqual(body["targetId"], "open")
+        self.assertEqual(body["candidateCount"], 2)
+
+    def test_critical_health_has_explicit_reason(self):
+        response = self.post_target([{
+            "id": "critical", "x": 1, "z": 0, "health": 10, "maxHealth": 100,
+        }])
+        self.assertIn("low_health", response.get_json()["reasons"])
+        self.assertIn("critical_health", response.get_json()["reasons"])
+
+    def test_control_characters_in_candidate_id_are_rejected(self):
+        response = self.post_target([
+            {"id": "bad\nidentifier", "x": 1, "z": 0},
+            {"id": "valid", "x": 3, "z": 0},
+        ])
+        self.assertEqual(response.get_json()["targetId"], "valid")
+        self.assertEqual(response.get_json()["skippedCandidateCount"], 1)
+
+    def test_metrics_include_latency_percentiles_and_status_counters(self):
+        self.client.get("/health")
+        self.client.get("/ready")
+        body = self.client.get("/metrics").get_json()
+        self.assertEqual(body["version"], AI_VERSION)
+        for key in ("p50", "p90", "p95", "min", "max", "samples"):
+            self.assertIn(key, body["latencyMs"])
+        self.assertGreaterEqual(body["latencyMs"]["samples"], 3)
+        self.assertGreaterEqual(body["counters"].get("status_200", 0), 2)
+
+    def test_monster_profile_is_normalized(self):
+        response = self.client.post("/target", json={
+            "monster": {**self.base_monster, "kind": " STALKER "},
+            "candidates": [{"id": "target", "x": 2, "z": 0}],
+        })
+        self.assertEqual(response.get_json()["tacticalProfile"], "stalker")
+
 if __name__ == "__main__":
     unittest.main()
