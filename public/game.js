@@ -2030,88 +2030,53 @@ const CLASS_PERSONAL_SKILLS_UI = {"knight":[{"id":"knight_fortress","icon":"🛡
 const CLASS_NAMES_UI = {knight:'CAVALEIRO',mage:'MAGO',archer:'ARQUEIRO',goblin:'GOBLIN',ogre:'OGRO',healer:'CURANDEIRO',necromancer:'NECROMANTE',monk:'MONGE',golem:'GOLEM DE PEDRA'};
 function renderSkillTrees() {
   const branches = getCurrentSkillBranches();
-  const allSkills = branches.flatMap(branch => branch.skills.map(skill => ({...skill, branch:branch.id})));
+  const allSkills = branches.flatMap(branch => branch.skills.map((skill, index) => ({...skill, branch:branch.id, branchTitle:branch.title, originalIndex:index})));
   const activeBranches = new Set(allSkills.filter(skill => unlockedSkills.has(skill.id)).map(skill => skill.branch));
   const activeCount = unlockedSkills.size;
   const classGlyph = {knight:'🛡️',mage:'🔮',archer:'🏹',goblin:'👺',ogre:'👹',healer:'🌿',necromancer:'💀',monk:'🥋',golem:'🪨'}[selectedClass] || '✦';
   const canUnlock = skill => !unlockedSkills.has(skill.id) && (!skill.req || unlockedSkills.has(skill.req)) &&
     (activeBranches.has(skill.branch) || activeBranches.size < 3) && skillPoints > 0 && activeCount < 15;
-  const filterBar = '<div class="skill-tree-tools"><label class="skill-search-label">⌕ <input class="skill-search" data-skill-search type="search" maxlength="40" placeholder="Buscar talento..." aria-label="Buscar talento" value="' + activeSkillSearch.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;') + '"></label>' +
+  const esc = value => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const query = activeSkillSearch.trim().toLocaleLowerCase('pt-BR');
+  const filterBar = '<div class="skill-tree-tools"><label class="skill-search-label">⌕ <input class="skill-search" data-skill-search type="search" maxlength="40" placeholder="Buscar talento..." aria-label="Buscar talento" value="' + esc(activeSkillSearch) + '"></label>' +
     '<div class="skill-tree-filters" role="group" aria-label="Filtrar talentos">' +
     [['all','TODOS'],['available','DISPONÍVEIS'],['unlocked','DESBLOQUEADOS']].map(([id,label]) =>
-      '<button type="button" class="skill-filter ' + (activeSkillFilter===id?'active':'') +
-      '" data-skill-filter="' + id + '" aria-pressed="' + (activeSkillFilter===id?'true':'false') + '">' + label + '</button>'
+      '<button type="button" class="skill-filter ' + (activeSkillFilter===id?'active':'') + '" data-skill-filter="' + id + '" aria-pressed="' + (activeSkillFilter===id?'true':'false') + '">' + label + '</button>'
     ).join('') + '</div></div>';
-  // Five non-overlapping paths fan out from the center like the reference image.
-  // Nodes stay circular; names/descriptions remain available through the tooltip
-  // and search box rather than oversized cards covering neighboring branches.
-  const positions = {
-    attack:[[41,41],[32,33],[23,25],[15,17],[8,9]],
-    defense:[[41,59],[32,67],[23,75],[15,83],[8,91]],
-    arcane:[[50,41],[50,32],[50,23],[50,14],[50,5]],
-    mobility:[[59,59],[68,67],[77,75],[85,83],[92,91]],
-    support:[[59,41],[68,33],[77,25],[85,17],[92,9]]
-  };
-  const connectorParts = [];
-  const nodesMarkup = [];
-  const branchLegend = '<div class="skill-orbit-legend">' + branches.map(branch => {
-    const unlockedCount = branch.skills.filter(skill => unlockedSkills.has(skill.id)).length;
-    return '<div class="skill-orbit-legend-item branch-' + branch.id + '"><span>' + branch.title + '</span><small>' +
-      unlockedCount + '/' + branch.skills.length + '</small></div>';
-  }).join('') + '</div>';
-  branches.forEach(branch => {
-    const coords = positions[branch.id] || [[50,10],[50,25],[50,40],[50,55],[50,70]];
-    const branchSkills = branch.skills;
-    const first = coords[0] || [50,50];
-    connectorParts.push('<line class="skill-root-link" x1="50" y1="50" x2="'+first[0]+'" y2="'+first[1]+'"/>');
-    for(let i=1;i<coords.length;i++) {
-      const a=coords[i-1],b=coords[i];
-      connectorParts.push('<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'"/>');
-    }
-    const query = activeSkillSearch.trim().toLocaleLowerCase('pt-BR');
-    const visible = branchSkills.map((skill,index)=>({...skill,branch:branch.id,originalIndex:index})).filter(skill => {
-      const matchesFilter = activeSkillFilter==='all' ||
-        (activeSkillFilter==='unlocked' && unlockedSkills.has(skill.id)) ||
-        (activeSkillFilter==='available' && canUnlock(skill));
-      return matchesFilter && (!query || (skill.name+' '+skill.desc+' '+branch.title).toLocaleLowerCase('pt-BR').includes(query));
-    });
-    visible.forEach(skill => {
-      const [x,y] = coords[skill.originalIndex] || [50,50];
-      const unlocked=unlockedSkills.has(skill.id);
-      const canBuy=canUnlock(skill);
-      const required=skill.req ? allSkills.find(item=>item.id===skill.req)?.name : '';
-      const state=unlocked?'DESBLOQUEADA ✓':activeCount>=15?'LIMITE: 15 TALENTOS':
-        (!activeBranches.has(branch.id)&&activeBranches.size>=3)?'LIMITE: 3 RAMOS':
-        skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):
-        skillPoints>0?'DESBLOQUEAR · 1 PONTO':'SEM PONTOS';
-      const statusTitle=unlocked?'Talento desbloqueado':
-        skill.req&&!unlockedSkills.has(skill.req)?'Necessário desbloquear: '+(required||'talento anterior'):
-        (!activeBranches.has(branch.id)&&activeBranches.size>=3)?'Limite de três ramos atingido':
-        skillPoints<1?'Você ainda não tem pontos':activeCount>=15?'Você já desbloqueou 15 talentos':'Toque para desbloquear';
-      nodesMarkup.push('<button type="button" class="skill-orbit-node '+(unlocked?'unlocked':canBuy?'available':'locked')+
-        '" style="left:'+x+'%;top:'+y+'%" data-skill="'+skill.id+'" data-branch="'+branch.id+'" data-order="'+(skill.originalIndex+1)+
-        '" aria-label="'+skill.name+'. '+skill.desc+'. '+state+'" title="'+skill.name+' — '+skill.desc+' · '+statusTitle+'"'+
-        (canBuy?'':' disabled')+'><span class="skill-orbit-icon">'+skill.icon+'</span></button>');
-    });
-  });
+  const branchColumns = branches.map((branch, branchIndex) => {
+    const skills = branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index}));
+    const unlockedCount = skills.filter(skill=>unlockedSkills.has(skill.id)).length;
+    const nodes = skills.map((skill,index) => {
+      const unlocked = unlockedSkills.has(skill.id);
+      const canBuy = canUnlock(skill);
+      const required = skill.req ? allSkills.find(item=>item.id===skill.req)?.name : '';
+      const matchesFilter = activeSkillFilter==='all' || (activeSkillFilter==='unlocked' && unlocked) || (activeSkillFilter==='available' && canBuy);
+      const matchesQuery = !query || (skill.name+' '+skill.desc+' '+branch.title).toLocaleLowerCase('pt-BR').includes(query);
+      const hidden = !matchesFilter || !matchesQuery;
+      const status = unlocked ? 'DESBLOQUEADA ✓' : canBuy ? 'DESBLOQUEAR · 1 PONTO' :
+        skill.req && !unlockedSkills.has(skill.req) ? 'REQUER: '+(required||'talento anterior') :
+        activeCount>=15 ? 'LIMITE DE 15 TALENTOS' : (!activeBranches.has(branch.id)&&activeBranches.size>=3) ? 'LIMITE DE 3 RAMOS' :
+        skillPoints<1 ? 'SEM PONTOS' : 'BLOQUEADA';
+      const stateClass = unlocked ? 'unlocked' : canBuy ? 'available' : 'locked';
+      const reqLine = skill.req ? '<small class="skill-node-requirement">Pré-requisito: '+esc(required||'talento anterior')+'</small>' : '<small class="skill-node-requirement">Talento inicial do ramo</small>';
+      return '<button type="button" class="skill-path-node '+stateClass+(hidden?' skill-filtered-out':'')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" aria-label="'+esc(skill.name+'. '+skill.desc+'. '+status)+'" '+(canBuy?'':'disabled')+'>' +
+        '<span class="skill-path-number">'+(index+1)+'</span><span class="skill-path-icon">'+esc(skill.icon)+'</span><span class="skill-path-copy"><strong>'+esc(skill.name)+'</strong><span class="skill-path-description">'+esc(skill.desc)+'</span>'+reqLine+'<em>'+esc(status)+'</em></span></button>';
+    }).join('<div class="skill-path-connector" aria-hidden="true"></div>');
+    return '<section class="skill-path-branch branch-'+esc(branch.id)+'"><header class="skill-path-header"><span class="skill-path-branch-icon">'+esc(branch.icon||({attack:'⚔️',defense:'🛡️',arcane:'✨',mobility:'💨',support:'✚'}[branch.id]||'✦'))+'</span><div><h3>'+esc(branch.title)+'</h3><small>'+unlockedCount+'/'+skills.length+' talentos · '+(unlockedCount===skills.length?'COMPLETO':unlockedCount?'EM PROGRESSO':'NOVO RAMO')+'</small></div></header><div class="skill-path-progress"><i style="width:'+(skills.length?unlockedCount/skills.length*100:0)+'%"></i></div><div class="skill-path-list">'+nodes+'</div></section>';
+  }).join('');
   const overallPct=Math.min(100,Math.round(activeCount/15*100));
-  const core='<div class="skill-tree-core"><span class="skill-tree-core-icon">'+classGlyph+'</span><span><strong>'+
-    (CLASS_NAMES_UI[selectedClass]||'CLASSE')+'</strong><small>ÁRVORE DE TALENTOS · '+skillPoints+' PONTOS · '+
-    activeCount+'/15 DESBLOQUEADOS</small><span class="skill-tree-overall-progress" role="progressbar" aria-label="Progresso total de talentos" aria-valuemin="0" aria-valuemax="15" aria-valuenow="'+activeCount+'"><span style="width:'+overallPct+'%"></span></span></span></div>';
-  const graph='<div class="skill-orbit-scroll"><div class="skill-orbit-canvas"><svg class="skill-orbit-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'+
-    '<path class="skill-orbit-arc" d="M 8 65 Q 50 7 92 65"/><path class="skill-orbit-arc" d="M 8 65 Q 50 98 92 65"/>'+
-    connectorParts.join('')+'<circle cx="50" cy="50" r="3.2" class="skill-orbit-hub-ring"/><circle cx="50" cy="50" r="1.3" class="skill-orbit-hub"/>'+
-    '</svg>'+nodesMarkup.join('')+'<div class="skill-orbit-point-counter"><strong>'+skillPoints+'</strong><small>PONTOS DISPONÍVEIS</small></div></div></div>';
-  const catalog = '<section class="skill-description-catalog"><h3>O QUE CADA TALENTO FAZ</h3><p>Veja os efeitos e requisitos antes de gastar pontos.</p>' +
-    branches.map(branch => '<section class="skill-description-branch"><h4>'+branch.title+'</h4><div class="skill-description-list">'+
+  const core='<div class="skill-tree-core skill-tree-core-redesign"><span class="skill-tree-core-icon">'+classGlyph+'</span><span><strong>'+esc(CLASS_NAMES_UI[selectedClass]||'CLASSE')+'</strong><small>ÁRVORE DE HABILIDADES · '+skillPoints+' PONTOS · '+activeCount+'/15 DESBLOQUEADOS</small><span class="skill-tree-overall-progress" role="progressbar" aria-label="Progresso total de talentos" aria-valuemin="0" aria-valuemax="15" aria-valuenow="'+activeCount+'"><span style="width:'+overallPct+'%"></span></span></span></div>';
+  const tree = '<div class="skill-path-board"><div class="skill-path-board-heading"><strong>ESCOLHA SEU CAMINHO</strong><span>Desbloqueie do topo para baixo. Cada ramo tem 5 talentos conectados.</span></div><div class="skill-path-columns">'+branchColumns+'</div></div>';
+  const catalog = '<section class="skill-description-catalog"><h3>📖 CATÁLOGO DE HABILIDADES</h3><p>Confira os efeitos e requisitos antes de gastar pontos.</p>' +
+    branches.map(branch => '<section class="skill-description-branch"><h4>'+esc(branch.title)+'</h4><div class="skill-description-list">'+
       branch.skills.map(skill => {
         const unlocked=unlockedSkills.has(skill.id);
         const canBuy=canUnlock({...skill,branch:branch.id});
         const required=skill.req ? allSkills.find(item=>item.id===skill.req)?.name : '';
-        const state=unlocked?'DESBLOQUEADA':skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):canBuy?'DISPONÍVEL · 1 PONTO':skillPoints<1?'SEM PONTOS':'BLOQUEADA';
-        return '<article class="skill-description-card '+(unlocked?'unlocked':canBuy?'available':'locked')+'"><span class="skill-description-icon">'+skill.icon+'</span><div class="skill-description-copy"><strong>'+skill.name+'</strong><p>'+skill.desc+'</p><small>'+state+'</small></div></article>';
+        const state=unlocked?'DESBLOQUEADA ✓':skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):canBuy?'DISPONÍVEL · 1 PONTO':skillPoints<1?'SEM PONTOS':'BLOQUEADA';
+        return '<article class="skill-description-card '+(unlocked?'unlocked':canBuy?'available':'locked')+'"><span class="skill-description-icon">'+esc(skill.icon)+'</span><div class="skill-description-copy"><strong>'+esc(skill.name)+'</strong><p>'+esc(skill.desc)+'</p><small>'+esc(state)+'</small></div></article>';
       }).join('')+'</div></section>').join('')+'</section>';
-  const html=core+filterBar+branchLegend+graph+'<p class="skill-orbit-help">Toque em um círculo disponível para desbloquear. Confira os efeitos e requisitos abaixo.</p>'+catalog;
+  const html=core+filterBar+tree+'<p class="skill-orbit-help">Toque em um talento dourado disponível para desbloquear. O próximo talento exige o anterior do mesmo ramo.</p>'+catalog;
   const lobbyTree=$('skillTreeLobby'),hudTree=$('skillTreeHud');
   if(lobbyTree) lobbyTree.innerHTML=html;
   if(hudTree) hudTree.innerHTML=html;
