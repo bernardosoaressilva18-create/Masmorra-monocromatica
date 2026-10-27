@@ -3248,3 +3248,19 @@ html, body { width:100%; min-width:0; }
   .skill-path-copy strong{font-size:11px}
   .skill-path-description{font-size:10px}
 }
+
+
+/* PvP RPG polish: clear arena objective, compact summon dock above combat controls. */
+#hud.pvp-rpg-active .objective{border-left-color:#ff536b;background:linear-gradient(110deg,rgba(42,9,24,.96),rgba(9,12,22,.94));box-shadow:0 0 24px #ff254022}
+#hud.pvp-rpg-active .objective #phaseLabel{color:#ff8b9c;font-size:9px;letter-spacing:1px}
+#hud.pvp-rpg-active .objective .progress,#hud.pvp-rpg-active #monsterText{display:none!important}
+#hud.pvp-rpg-active .pvp-summon-controls{left:auto;right:16px;bottom:188px;transform:none;width:min(280px,34vw);grid-template-columns:minmax(0,1fr) auto;z-index:15;border-color:#c89bff;background:linear-gradient(145deg,rgba(39,20,66,.97),rgba(8,12,24,.97));box-shadow:0 0 0 1px #9c73d522,0 12px 35px #000b,0 0 24px #a56cff25}
+#hud.pvp-rpg-active .pvp-summon-controls label{font-size:9px;color:#e1caff}
+#hud.pvp-rpg-active .pvp-summon-controls select{height:38px;font-size:10px}
+#hud.pvp-rpg-active .pvp-summon-controls button{height:38px;background:linear-gradient(115deg,#a97aff,#e2c7ff);border-color:#e2c7ff;font-size:9px}
+#hud.pvp-rpg-active .pvp-summon-controls button:disabled{opacity:.42;filter:grayscale(.6)}
+#hud.pvp-rpg-active .pvp-summon-controls small{font-size:9px;color:#d3c1ee}
+#hud.pvp-rpg-active .pvp-player-chip{border-color:#ff607c70;background:linear-gradient(100deg,#35101fef,#0c111def);font-weight:800}
+#hud.pvp-rpg-active .pvp-player-chip:first-child{border-left:2px solid #ff5b76}
+@media(max-width:700px){#hud.pvp-rpg-active .pvp-summon-controls{right:10px;bottom:174px;width:min(250px,66vw);padding:7px;gap:5px}#hud.pvp-rpg-active .pvp-summon-controls select{height:35px;font-size:9px}#hud.pvp-rpg-active .pvp-summon-controls button{height:35px;padding:0 8px;font-size:8px}#hud.pvp-rpg-active .pvp-summon-controls small{font-size:8px}}
+@media(max-height:500px){#hud.pvp-rpg-active .pvp-summon-controls{right:10px;bottom:118px;width:min(270px,36vw)}}
