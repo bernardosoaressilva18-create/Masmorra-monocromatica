@@ -187,5 +187,48 @@ class TacticalAITests(unittest.TestCase):
         self.assertIn("application/json", response.content_type)
 
 
+
+    def test_attack_range_and_far_target_reason_are_reported(self):
+        response = self.client.post("/target", json={
+            "monster": {**self.base_monster, "attackRange": 2},
+            "candidates": [
+                {"id": "near", "x": 1, "z": 0},
+                {"id": "far", "x": 20, "z": 0},
+            ],
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["targetId"], "near")
+        self.assertIn("in_attack_range", response.get_json()["reasons"])
+        self.assertGreaterEqual(response.get_json()["decisionConfidence"], 0)
+
+    def test_recent_attacker_can_be_prioritized(self):
+        response = self.client.post("/target", json={
+            "monster": self.base_monster,
+            "candidates": [
+                {"id": "quiet", "x": 3, "z": 0, "threat": 0},
+                {"id": "attacker", "x": 3.5, "z": 0, "recentDamage": 30, "threat": 20},
+            ],
+        })
+        self.assertEqual(response.get_json()["targetId"], "attacker")
+        self.assertIn("recent_attacker", response.get_json()["reasons"])
+
+    def test_shielded_candidate_is_valid_but_less_preferred(self):
+        response = self.client.post("/target", json={
+            "monster": self.base_monster,
+            "candidates": [
+                {"id": "shielded", "x": 2, "z": 0, "shielded": True},
+                {"id": "open", "x": 2, "z": 0},
+            ],
+        })
+        self.assertEqual(response.get_json()["targetId"], "open")
+
+    def test_aggression_is_bounded_and_never_returns_non_finite_score(self):
+        response = self.client.post("/target", json={
+            "monster": {**self.base_monster, "aggression": 999999},
+            "candidates": [{"id": "target", "x": 1, "z": 0, "threat": 100}],
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(math.isfinite(response.get_json()["score"]))
+
 if __name__ == "__main__":
     unittest.main()
