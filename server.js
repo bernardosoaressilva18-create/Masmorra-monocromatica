@@ -1906,16 +1906,29 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
       let target = null, nearest = Infinity;
       // O Guardião também caça invocações aliadas; isso permite que o jogador use
       // esqueletos e fragmentos de golem para distrair o chefe durante a luta.
+      const bossArena = { minZ: -162, maxZ: -138, minX: -13, maxX: 13 };
       const bossTargets = [
-        ...players.filter(p => p.hp > 0 && now >= (p.invisibleUntil || 0)).map(p => ({ ...p, isSummon: false })),
+        ...players.filter(p => p.hp > 0 && now >= (p.invisibleUntil || 0)
+          && Number.isFinite(p.x) && Number.isFinite(p.z))
+          .map(p => ({ ...p, isSummon: false })),
         ...(room.summons || [])
-          .filter(s => s.summonType !== 'guardian_spirit' && s.hp > 0 && (!s.expiresAt || s.expiresAt > now))
+          .filter(s => s.summonType !== 'guardian_spirit' && s.hp > 0
+            && (!s.expiresAt || s.expiresAt > now)
+            && Number.isFinite(s.x) && Number.isFinite(s.z)
+            // The boss is physically confined to this arena. Don't select a summon
+            // outside it: that made the boss run against its movement boundary.
+            && s.z >= bossArena.minZ && s.z <= bossArena.maxZ
+            && s.x >= bossArena.minX && s.x <= bossArena.maxX)
           .map(s => ({ ...s, id: 'summon:' + s.id, isSummon: true, sourceSummon: s }))
       ];
       for (const candidate of bossTargets) {
         const d = Math.hypot(candidate.x - boss.x, candidate.z - boss.z);
-        if (d < nearest) { nearest = d; target = candidate; }
+        // A nearby summon can draw aggro, but won't make the boss ignore a player
+        // standing directly beside it.
+        const score = d - (candidate.isSummon && d < 12 ? 2.25 : 0);
+        if (score < nearest) { nearest = score; target = candidate; }
       }
+      if (target) nearest = Math.hypot(target.x - boss.x, target.z - boss.z);
       if (target && nearest > 2.35 && nearest < 80) {
         const dx = target.x - boss.x, dz = target.z - boss.z, distance = Math.hypot(dx, dz) || 1;
         const speed = boss.lifePhase === 1 ? 0.23 : boss.lifePhase === 2 ? 0.31 : 0.39;
