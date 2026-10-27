@@ -1994,6 +1994,7 @@ let skillPoints = 5;
 const unlockedSkills = new Set();
 let lastSkillSignature = '';
 let activeSkillFilter = 'all';
+let activeSkillSearch = '';
 const SKILL_BRANCHES = [
   { id:'attack', title:'⚔ ATAQUE', skills:[
     {id:'mighty_blows',icon:'⚔',name:'Golpes poderosos',desc:'+1 dano base.'},
@@ -2039,19 +2040,25 @@ function renderSkillTrees() {
     const branchActive = activeBranches.has(skill.branch) || activeBranches.size < 3;
     return !active && prereqMet && branchActive && skillPoints > 0 && activeCount < 15;
   };
-  const filterBar = '<div class="skill-tree-filters" role="group" aria-label="Filtrar talentos">' +
+  const filterBar = '<div class="skill-tree-tools"><label class="skill-search-label">⌕ <input class="skill-search" data-skill-search type="search" maxlength="40" placeholder="Buscar talento..." aria-label="Buscar talento" value="' + activeSkillSearch.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;') + '"></label>' +
+    '<div class="skill-tree-filters" role="group" aria-label="Filtrar talentos">' +
     [['all','TODOS'],['available','DISPONÍVEIS'],['unlocked','DESBLOQUEADOS']].map(([id,label]) =>
       '<button type="button" class="skill-filter ' + (activeSkillFilter===id?'active':'') +
       '" data-skill-filter="' + id + '" aria-pressed="' + (activeSkillFilter===id?'true':'false') + '">' + label + '</button>'
-    ).join('') + '</div>';
+    ).join('') + '</div></div>';
   const branchHtml = branches.map(branch => {
     const branchSkills = branch.skills;
     const unlockedInBranch = branchSkills.filter(skill => unlockedSkills.has(skill.id)).length;
     const progressPct = branchSkills.length ? Math.round(unlockedInBranch / branchSkills.length * 100) : 0;
     const orderedSkills = branchSkills.map((skill,index)=>({...skill,branch:branch.id,originalIndex:index}));
-    const visibleSkills = orderedSkills.filter(skill => activeSkillFilter==='all' ||
-      (activeSkillFilter==='unlocked' && unlockedSkills.has(skill.id)) ||
-      (activeSkillFilter==='available' && canUnlock(skill)));
+    const visibleSkills = orderedSkills.filter(skill => {
+      const matchesFilter = activeSkillFilter==='all' ||
+        (activeSkillFilter==='unlocked' && unlockedSkills.has(skill.id)) ||
+        (activeSkillFilter==='available' && canUnlock(skill));
+      const query = activeSkillSearch.trim().toLocaleLowerCase('pt-BR');
+      const matchesSearch = !query || (skill.name + ' ' + skill.desc + ' ' + branch.title).toLocaleLowerCase('pt-BR').includes(query);
+      return matchesFilter && matchesSearch;
+    });
     const nodes = visibleSkills.map(skill => {
       const unlocked = unlockedSkills.has(skill.id);
       const available = !skill.req || unlockedSkills.has(skill.req);
@@ -2463,6 +2470,19 @@ function handleSkillClick(event) {
 }
 $('skillTreeLobby')?.addEventListener('click', handleSkillClick);
 $('skillTreeHud')?.addEventListener('click', handleSkillClick);
+function handleSkillSearch(event) {
+  const input = event.target.closest('[data-skill-search]');
+  if (!input) return;
+  const selectionStart = input.selectionStart;
+  activeSkillSearch = input.value.slice(0,40);
+  const focused = document.activeElement;
+  renderSkillTrees();
+  const replacement = focused?.closest?.('[data-skill-search]') ?
+    document.querySelector('#skillTreeLobby [data-skill-search], #skillTreeHud [data-skill-search]') : null;
+  if (replacement) { replacement.focus(); try { replacement.setSelectionRange(selectionStart,selectionStart); } catch {} }
+}
+$('skillTreeLobby')?.addEventListener('input', handleSkillSearch);
+$('skillTreeHud')?.addEventListener('input', handleSkillSearch);
 $('skillToggleBtn')?.addEventListener('click', () => {
   const panel = $('skillPanel');
   if (!panel) return;
