@@ -973,11 +973,15 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     toeCap.position.set(0,-.49,-.235);
     toeCap.scale.set(1.2,.48,.7);
     legPivot.add(toeCap);
-    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.155,16,12), gold);
-    kneePad.position.set(0,0,-.015);
-    kneePad.scale.set(.9,.52,.8);
+    const kneePad = new THREE.Mesh(new THREE.SphereGeometry(.135,16,12), gold);
+    kneePad.position.set(0,-.285,-.035);
+    kneePad.scale.set(.9,.58,.82);
     if (!isMobileDevice) { kneePad.castShadow = true; kneePad.receiveShadow = true; }
     legPivot.add(kneePad);
+    const kneeJoint = new THREE.Mesh(new THREE.SphereGeometry(.105,14,10), dark);
+    kneeJoint.position.set(0,-.285,-.012);
+    kneeJoint.scale.set(.9,.9,.82);
+    legPivot.add(kneeJoint);
     // Ombro: o braço acompanha uma articulação dedicada.
     const armPivot = new THREE.Group();
     armPivot.position.set(side*.48,1.51,0);
@@ -991,6 +995,9 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const elbow = new THREE.Group();
     elbow.position.set(0,-.39,0);
     armPivot.add(elbow);
+    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(.105,14,10), steel);
+    elbowJoint.position.set(0,0,-.008);
+    elbow.add(elbowJoint);
     const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(.095,.24,10,18), dark);
     forearm.position.set(0,-.13,-.005);
     if (!isMobileDevice) { forearm.castShadow = true; forearm.receiveShadow = true; }
