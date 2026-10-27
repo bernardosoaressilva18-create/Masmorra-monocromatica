@@ -1399,14 +1399,44 @@ wss.on('connection', ws => {
       player.mana=Math.max(0,(player.mana??100)-manaCost);
       const now=Date.now();
       if(room.gameMode==='pvp_rpg'){
-        const candidates=[...room.players.values()].filter(p=>p.connected!==false&&String(p.id)!==String(player.id)&&p.hp>0&&now>=(p.invisibleUntil||0))
-          .map(p=>({p,d:Math.hypot(p.x-player.x,p.z-player.z),facing:isTargetInFront(player,p,spell === 'fire' ? 0.08 : 0)}))
+        const rivals=[...room.players.values()].filter(p=>p.connected!==false&&String(p.id)!==String(player.id)&&p.hp>0&&now>=(p.invisibleUntil||0));
+        const candidates=rivals.map(p=>({p,d:Math.hypot(p.x-player.x,p.z-player.z),facing:isTargetInFront(player,p,spell === 'fire' ? 0.08 : 0)}))
           .filter(e=>e.d<=(spell==='fire'?8:10)&&e.facing).sort((a,b)=>a.d-b.d);
-        const t=candidates[0]?.p;if(!t){ws.send(JSON.stringify({type:'notice',text:'Nenhum rival ao alcance da magia.'}));broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:[]});broadcast(room,state(room));return;}
-        const power=statsFor(player).spellPower*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1);
-        const damage=Math.max(1,Math.round((spell==='fire'?10:8)*power));applyPvpPlayerDamage(room,player,t,damage);
-        const hitTargets=[{x:t.x,z:t.z}];if(spell==='lightning'){const t2=candidates.slice(1).find(e=>Math.hypot(e.p.x-t.x,e.p.z-t.z)<=4.6)?.p;if(t2){applyPvpPlayerDamage(room,player,t2,Math.max(1,Math.round(damage*.65)));hitTargets.push({x:t2.x,z:t2.z});}}
-        ws.send(JSON.stringify({type:'notice',text:(spell==='fire'?'🔥 Bola de fogo':'⚡ Raio encadeado')+'! Dano PvP: '+damage+'.'}));
+        const target=candidates[0]?.p;
+        if(!target){ws.send(JSON.stringify({type:'notice',text:'Nenhum rival na direção da magia.'}));broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:[]});broadcast(room,state(room));return;}
+        const power=statsFor(player).spellPower*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1)*(hasSkill(player,'mana_surge')?1.25:1);
+        const damage=Math.max(1,Math.round((spell==='fire'?10:8)*power+(spell==='fire'&&hasSkill(player,'mage_ember')?1.5:0)));
+        const hitTargets=[];
+        if(spell==='fire'){
+          // Fireball explodes on impact; it should punish grouped rivals instead of acting like a basic attack.
+          const blastTargets=rivals.filter(p=>Math.hypot(p.x-target.x,p.z-target.z)<=2.6
+            &&Math.hypot(p.x-player.x,p.z-player.z)<=8.5)
+            .sort((a,b)=>Math.hypot(a.x-target.x,a.z-target.z)-Math.hypot(b.x-target.x,b.z-target.z)).slice(0,5);
+          if(!blastTargets.some(p=>String(p.id)===String(target.id)))blastTargets.unshift(target);
+          for(let i=0;i<blastTargets.length;i++){
+            const victim=blastTargets[i],hitDamage=i===0?damage:Math.max(1,Math.round(damage*.6));
+            applyPvpPlayerDamage(room,player,victim,hitDamage);
+            victim.burnUntil=Math.max(victim.burnUntil||0,now+(hasSkill(player,'mage_ember')?6500:3500));
+            victim.burnNextAt=Math.min(victim.burnNextAt||now+1000,now+1000);
+            victim.burnOwnerId=player.id;
+            hitTargets.push({x:victim.x,z:victim.z});
+          }
+          ws.send(JSON.stringify({type:'notice',text:'🔥 Bola de fogo! '+blastTargets.length+' rival(is) atingido(s), até '+damage+' de dano e queimadura.'}));
+        }else{
+          let previous=target;
+          const hitIds=new Set([String(target.id)]);
+          applyPvpPlayerDamage(room,player,target,damage);hitTargets.push({x:target.x,z:target.z});
+          const maxHops=hasSkill(player,'mage_chain')?5:2;
+          for(let hop=0;hop<maxHops;hop++){
+            const next=rivals.filter(p=>!hitIds.has(String(p.id))&&Math.hypot(p.x-previous.x,p.z-previous.z)<=4.6)
+              .sort((a,b)=>Math.hypot(a.x-previous.x,a.z-previous.z)-Math.hypot(b.x-previous.x,b.z-previous.z))[0];
+            if(!next)break;
+            hitIds.add(String(next.id));
+            applyPvpPlayerDamage(room,player,next,Math.max(1,Math.round(damage*(hop===0?.65:.45))));
+            hitTargets.push({x:next.x,z:next.z});previous=next;
+          }
+          ws.send(JSON.stringify({type:'notice',text:'⚡ Raio em cadeia! '+hitTargets.length+' rival(is) atingido(s), até '+damage+' de dano.'}));
+        }
         broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:hitTargets});broadcast(room,state(room));return;
       }
       const candidates = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])].filter(m => m.alive && m.spawned && Math.hypot(m.x-player.x,m.z-player.z)<7); if(room.phase===5 && room.boss && room.boss.alive && Math.hypot(room.boss.x-player.x,room.boss.z-player.z)<8)candidates.push(room.boss);
@@ -1717,7 +1747,8 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
           .map(ally => ({ entity: ally, distance: Math.hypot(ally.x - summon.x, ally.z - summon.z), isAlly: true }))
           .sort((a, b) => a.distance - b.distance);
         const nearestEnemyEntry = summonEnemies.filter(enemy =>
-          enemy.alive && (!enemy.pvpPlayer || String(enemy.id) !== String(summon.ownerId)))
+          enemy.alive && (room.gameMode !== 'pvp_rpg' || enemy.pvpPlayer)
+          && (!enemy.pvpPlayer || String(enemy.id) !== String(summon.ownerId)))
           .map(enemy => ({ entity: enemy, distance: Math.hypot(enemy.x - summon.x, enemy.z - summon.z), isAlly: false, isPvpPlayer:!!enemy.pvpPlayer }))
           .sort((a, b) => a.distance - b.distance)[0];
         const nearestAllyEntry = woundedAllies[0];
