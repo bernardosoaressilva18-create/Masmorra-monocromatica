@@ -368,7 +368,7 @@ function buildDungeon() {
   // Uma única textura partilhada mantém o detalhe visual sem criar materiais por objeto.
   const dungeonTexture = surfaceTexture.clone();
   dungeonTexture.repeat.set(5, 5);
-  const floor = mat(0x292e38, .82, .08);
+  const floor = mat(0x303744, .82, .08);
   floor.map = dungeonTexture;
   floor.bumpMap = dungeonTexture;
   floor.bumpScale = .012;
@@ -414,10 +414,10 @@ stoneDark.needsUpdate = true;
   }
 
   // Marcas do piso em instâncias: muitos detalhes com uma única chamada de desenho.
-  const tileMat = mat(0x343b45,.98);
+  const tileMat = mat(0x3b4451,.96,.025);
   tileMat.map = dungeonTexture;
   tileMat.needsUpdate = true;
-  const tileGeometry = new THREE.BoxGeometry(2.72,.025,2.72);
+  const tileGeometry = new THREE.BoxGeometry(2.88,.025,2.88);
   const tileInstances = new THREE.InstancedMesh(tileGeometry,tileMat,520);
   const tileDummy = new THREE.Object3D();
   let tileIndex = 0;
@@ -439,7 +439,7 @@ stoneDark.needsUpdate = true;
   activeEnvironmentGroup.add(tileInstances);
 
   // Juntas de pedra e passadiços curtos sobre a transição de cada mundo.
-  const groutMat = mat(0x171c24,1);
+  const groutMat = mat(0x252c36,.98);
   for (const zone of worldZones) {
     for (let z=zone.z-zone.depth/2+2; z<=zone.z+zone.depth/2-2; z+=4) {
       box(29.2,.012,.06,groutMat,0,-.009,z);
