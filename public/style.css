@@ -3264,3 +3264,10 @@ html, body { width:100%; min-width:0; }
 #hud.pvp-rpg-active .pvp-player-chip:first-child{border-left:2px solid #ff5b76}
 @media(max-width:700px){#hud.pvp-rpg-active .pvp-summon-controls{right:10px;bottom:174px;width:min(250px,66vw);padding:7px;gap:5px}#hud.pvp-rpg-active .pvp-summon-controls select{height:35px;font-size:9px}#hud.pvp-rpg-active .pvp-summon-controls button{height:35px;padding:0 8px;font-size:8px}#hud.pvp-rpg-active .pvp-summon-controls small{font-size:8px}}
 @media(max-height:500px){#hud.pvp-rpg-active .pvp-summon-controls{right:10px;bottom:118px;width:min(270px,36vw)}}
+
+#hud.pvp-rpg-active .inventory-panel,#hud.pvp-rpg-active #chestBtn{display:none!important}
+#hud.pvp-rpg-active .players{top:132px;right:12px;max-width:min(220px,40vw)}
+#hud.pvp-rpg-active .pvp-player-chip{display:block;max-width:100%;border-radius:7px;box-shadow:0 4px 16px #0008}
+#hud.pvp-rpg-active .pvp-player-chip[data-rank="1"]{border-color:#ffd66b;background:linear-gradient(100deg,#493414f5,#10131bf5);color:#ffe5a0}
+#hud.pvp-rpg-active .pvp-player-chip[data-rank="2"]{border-color:#b7c9db88}
+@media(max-width:700px){#hud.pvp-rpg-active .players{top:116px;right:8px;max-width:42vw;gap:4px}#hud.pvp-rpg-active .pvp-player-chip{font-size:9px;padding:6px}}
