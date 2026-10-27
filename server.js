@@ -42,6 +42,60 @@ const heartbeat = setInterval(() => {
 }, 25000);
 heartbeat.unref?.();
 const rooms = new Map();
+
+const TACTICAL_AI_URL = (process.env.TACTICAL_AI_URL || '').replace(/\/$/, '');
+const tacticalAiInFlight = new Set();
+
+function requestTacticalTarget(room, monster, players, now) {
+  if (!TACTICAL_AI_URL || typeof fetch !== 'function') return;
+  if (!room.tacticalAiCache) room.tacticalAiCache = new Map();
+  if (!room.tacticalAiNextRequest) room.tacticalAiNextRequest = new Map();
+  const key = String(monster.id);
+  if (now < (room.tacticalAiNextRequest.get(key) || 0) || tacticalAiInFlight.has(room.code + ':' + key)) return;
+  room.tacticalAiNextRequest.set(key, now + 1200);
+  const candidates = [];
+  for (const player of players) {
+    if (player.hp <= 0 || now < (player.invisibleUntil || 0)) continue;
+    candidates.push({ id: 'player:' + String(player.id), x: player.x, z: player.z, health: player.hp, isSummon: false });
+  }
+  for (const summon of (room.summons || [])) {
+    if (summon.summonType === 'guardian_spirit' || summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
+    candidates.push({ id: 'summon:' + String(summon.id), x: summon.x, z: summon.z, health: summon.hp, isSummon: true });
+  }
+  if (!candidates.length) return;
+  const requestKey = room.code + ':' + key;
+  tacticalAiInFlight.add(requestKey);
+  fetch(TACTICAL_AI_URL + '/target', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ monster: { id: monster.id, kind: monster.kind, x: monster.x, z: monster.z, hp: monster.hp }, candidates }),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(700) : undefined
+  }).then(response => response.ok ? response.json() : null).then(result => {
+    if (result && typeof result.targetId === 'string') {
+      room.tacticalAiCache.set(key, { targetId: result.targetId, at: Date.now() });
+    }
+  }).catch(() => {
+    // Python é consultivo: se estiver offline, a IA nativa continua funcionando.
+  }).finally(() => tacticalAiInFlight.delete(requestKey));
+}
+
+function applyTacticalTarget(room, monster, players, now) {
+  if (!TACTICAL_AI_URL || !room.tacticalAiCache) return null;
+  const cached = room.tacticalAiCache.get(String(monster.id));
+  if (!cached || now - cached.at > 2600) return null;
+  if (cached.targetId.startsWith('player:')) {
+    const id = cached.targetId.slice(7);
+    const player = players.find(p => String(p.id) === id && p.hp > 0 && now >= (p.invisibleUntil || 0));
+    return player ? { ...player, id: player.id, isSummon: false, tacticalAi: true } : null;
+  }
+  if (cached.targetId.startsWith('summon:')) {
+    const id = cached.targetId.slice(7);
+    const summon = (room.summons || []).find(s => String(s.id) === id && s.summonType !== 'guardian_spirit' && s.hp > 0 && (!s.expiresAt || s.expiresAt > now));
+    return summon ? { ...summon, id: 'summon:' + summon.id, isSummon: true, sourceSummon: summon, tacticalAi: true } : null;
+  }
+  return null;
+}
+
 let nextId = 1;
 const CLASS_STATS = {
   knight: { hp: 130, damage: 2, range: 3.6, attackMs: 520, spellPower: 1, reduction: .18 },
@@ -1361,6 +1415,14 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
           nearest = distance;
           target = { ...summon, id: 'summon:' + summon.id, isSummon: true, sourceSummon: summon };
         }
+      }
+
+      // A IA Python recomenda o alvo de forma assíncrona; a seleção nativa é o fallback.
+      requestTacticalTarget(room, monster, players, now);
+      const tacticalTarget = applyTacticalTarget(room, monster, players, now);
+      if (tacticalTarget) {
+        target = tacticalTarget;
+        nearest = Math.hypot((tacticalTarget.x || 0) - monster.x, (tacticalTarget.z || 0) - monster.z);
       }
 
       if (target && nearest > 1.8 && nearest < 70) {
