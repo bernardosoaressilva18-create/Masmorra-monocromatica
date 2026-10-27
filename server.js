@@ -85,6 +85,12 @@ function requestTacticalTarget(room, monster, players, now) {
   const key = String(monster.id);
   if (now < (room.tacticalAiNextRequest.get(key) || 0) || tacticalAiInFlight.has(room.code + ':' + key)) return;
   room.tacticalAiNextRequest.set(key, now + 1200);
+  if (room.tacticalAiNextRequest.size > 512) {
+    for (const requestKey of room.tacticalAiNextRequest.keys()) {
+      if (room.tacticalAiNextRequest.size <= 384) break;
+      room.tacticalAiNextRequest.delete(requestKey);
+    }
+  }
   if (tacticalAiInFlight.size >= TACTICAL_AI_MAX_IN_FLIGHT) return;
   const candidates = [];
   for (const player of players) {
