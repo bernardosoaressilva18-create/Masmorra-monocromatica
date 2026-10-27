@@ -897,6 +897,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     healer: { armor:0xffffff, dark:0x2e8b57, trim:0xc9a46a, glow:0x7fffd4, accent:0x6bcdb2, cloth:0x2e8b57 },
     necromancer: { armor:0x1a1a1a, dark:0x2a1a33, trim:0xa58d6a, glow:0xc77dff, accent:0x6a3fbf, cloth:0x3b1f55 },
     monk: { armor:0xf57c00, dark:0xb22222, trim:0xd7b56d, glow:0xffd86b, accent:0xb22222, cloth:0xd7b56d },
+    golem: { armor:0x777f83,dark:0x343b40,trim:0xd7bb84,glow:0xe1dfc9,accent:0x8d999e,cloth:0x303940 },
+    golem_clone: { armor:0x858b8e,dark:0x42484c,trim:0xb7ad95,glow:0xd2d0c3,accent:0x69777d,cloth:0x3d4449 },
     skeleton: { armor:0xbeb5a4, dark:0x29242b, trim:0xa98d60, glow:0xb6a4d8, accent:0xa89cba, cloth:0x514453 }
   };
   const classPalette = classBasePalette[heroClass] || classBasePalette.knight;
@@ -1938,11 +1940,12 @@ const classDescriptions = {
   ogre: 'Ogro: enorme, resistente e lento, com golpes devastadores.',
   healer: 'Curandeiro: 100 de vida, cajado à distância, cura e espíritos guardiões.',
   necromancer: 'Necromante: 90 de vida, cajado sombrio e esqueletos aliados.',
-  monk: 'Monge: 110 de vida, combo de três golpes, atordoamento e mobilidade.'
+  monk: 'Monge: 110 de vida, combo de três golpes, atordoamento e mobilidade.',
+  golem: 'Golem de Pedra: 220 de vida, divisão em três e arremesso de pedras em área.'
 };
 let savedCharacterChoice = {};
 try { savedCharacterChoice = JSON.parse(localStorage.getItem('mmCharacterChoice') || '{}') || {}; } catch {}
-let selectedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk'].includes(savedCharacterChoice.playerClass) ? savedCharacterChoice.playerClass : 'knight';
+let selectedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(savedCharacterChoice.playerClass) ? savedCharacterChoice.playerClass : 'knight';
 let selectedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(savedCharacterChoice.skin) ? savedCharacterChoice.skin : 'default';
 let skillPoints = 5;
 const unlockedSkills = new Set();
@@ -1962,13 +1965,7 @@ const SKILL_BRANCHES = [
     {id:'second_wind',icon:'🌟',name:'Última resistência',desc:'Recebe 20% menos dano quando está com 30% da vida ou menos.',req:'regeneration'},
     {id:'party_guard',icon:'🤝',name:'Guarda em grupo',desc:'Recebe menos dano perto de aliado.',req:'second_wind'}
   ]},
-  { id:'arcane', title:'✦ MAGIA & TESOUROS', skills:[
-    {id:'arcane_mastery',icon:'🔮',name:'Maestria arcana',desc:'+50% de poder mágico.'},
-    {id:'ember_core',icon:'🔥',name:'Núcleo de brasa',desc:'Fogo mais forte e queimadura maior.',req:'arcane_mastery'},
-    {id:'storm_bond',icon:'⚡',name:'Vínculo da tempestade',desc:'Raio salta para mais inimigos.',req:'ember_core'},
-    {id:'treasure_luck',icon:'💎',name:'Sorte do tesouro',desc:'Maior chance de loot.',req:'storm_bond'},
-    {id:'swift_step',icon:'👟',name:'Passo veloz',desc:'Movimento mais rápido.',req:'treasure_luck'}
-  ]},
+  { id:'arcane', title:'✦ MELHORIAS EXCLUSIVAS', skills:[] },
   { id:'mobility', title:'💨 MOBILIDADE', skills:[
     {id:'dodge_mastery',icon:'↗',name:'Esquiva treinada',desc:'Esquiva mais longa e segura.'},
     {id:'quick_recovery',icon:'⏱',name:'Recuperação rápida',desc:'Reduz a recarga da esquiva.',req:'dodge_mastery'},
@@ -1984,11 +1981,14 @@ const SKILL_BRANCHES = [
     {id:'final_blessing',icon:'🌠',name:'Bênção final',desc:'+15 de vida máxima.',req:'team_resolve'}
   ]}
 ];
+const CLASS_PERSONAL_SKILLS_UI = {"knight":[{"id":"knight_fortress","icon":"🛡","name":"Coração de fortaleza","desc":"+15 vida e 4% menos dano."},{"id":"knight_aegis","icon":"✨","name":"Égide duradoura","desc":"Escudo +2 s.","req":"knight_fortress"},{"id":"knight_charge","icon":"⚔","name":"Carga destruidora","desc":"Avanço +3 dano.","req":"knight_aegis"},{"id":"knight_vanguard","icon":"💨","name":"Vanguarda","desc":"Ataques mais rápidos.","req":"knight_charge"},{"id":"knight_royal_oath","icon":"👑","name":"Juramento real","desc":"+1 dano base.","req":"knight_vanguard"}],"mage":[{"id":"mage_focus","icon":"🔮","name":"Foco arcano","desc":"+18% poder mágico."},{"id":"mage_ember","icon":"🔥","name":"Brasa persistente","desc":"Fogo e queimadura fortalecidos.","req":"mage_focus"},{"id":"mage_chain","icon":"⚡","name":"Tempestade encadeada","desc":"Raio atinge até 5 alvos.","req":"mage_ember"},{"id":"mage_mana","icon":"💠","name":"Reserva arcana","desc":"+15% poder mágico.","req":"mage_chain"},{"id":"mage_starseer","icon":"🌌","name":"Vidente estelar","desc":"Bola de fogo +1 dano.","req":"mage_mana"}],"archer":[{"id":"archer_hawkeye","icon":"🎯","name":"Olho de falcão","desc":"+1,15 alcance e +5 vida."},{"id":"archer_volley","icon":"🏹","name":"Chuva concentrada","desc":"Chuva maior e +2 dano.","req":"archer_hawkeye"},{"id":"archer_firetip","icon":"🔥","name":"Pontas incendiárias","desc":"Flechas queimam +2 s.","req":"archer_volley"},{"id":"archer_quiver","icon":"🪶","name":"Aljava veloz","desc":"Recarga -1,5 s.","req":"archer_firetip"},{"id":"archer_hunter","icon":"🐺","name":"Caçador de elite","desc":"+1 dano base.","req":"archer_quiver"}],"goblin":[{"id":"goblin_agility","icon":"💨","name":"Reflexos goblins","desc":"+5 vida e ataques rápidos."},{"id":"goblin_shadow","icon":"👻","name":"Manto das sombras","desc":"Invisibilidade +2 s.","req":"goblin_agility"},{"id":"goblin_pack","icon":"👺","name":"Matilha surpresa","desc":"3 goblins por 16 s.","req":"goblin_shadow"},{"id":"goblin_poison","icon":"☠","name":"Lâminas venenosas","desc":"+1 dano base.","req":"goblin_pack"},{"id":"goblin_trickster","icon":"🌀","name":"Mestre da trapaça","desc":"Recargas -2,5 s.","req":"goblin_poison"}],"ogre":[{"id":"ogre_blood","icon":"🩸","name":"Sangue titânico","desc":"+20 vida e resistência."},{"id":"ogre_aftershock","icon":"🌋","name":"Abalo sísmico","desc":"Soco em área maior.","req":"ogre_blood"},{"id":"ogre_berserker","icon":"💥","name":"Fúria esmagadora","desc":"Soco +3 dano.","req":"ogre_aftershock"},{"id":"ogre_longrage","icon":"💨","name":"Fúria prolongada","desc":"Velocidade +2 s.","req":"ogre_berserker"},{"id":"ogre_crusher","icon":"🪨","name":"Esmagador","desc":"+1 dano base.","req":"ogre_longrage"}],"healer":[{"id":"healer_mercy","icon":"🌿","name":"Misericórdia","desc":"+10 vida."},{"id":"healer_blessing","icon":"💚","name":"Bênção maior","desc":"Cura até 70 vida.","req":"healer_mercy"},{"id":"healer_longspirits","icon":"🪽","name":"Espíritos persistentes","desc":"Espíritos +6 s.","req":"healer_blessing"},{"id":"healer_pulse","icon":"✨","name":"Pulso restaurador","desc":"Espíritos mais fortes.","req":"healer_longspirits"},{"id":"healer_sanctuary","icon":"🌟","name":"Santuário vivo","desc":"+1 dano base.","req":"healer_pulse"}],"necromancer":[{"id":"necromancer_soul","icon":"💀","name":"Alma resistente","desc":"+10 vida."},{"id":"necromancer_bone","icon":"🦴","name":"Ossos reforçados","desc":"Esqueletos mais fortes.","req":"necromancer_soul"},{"id":"necromancer_horde","icon":"☠","name":"Horda ampliada","desc":"7 esqueletos por 24 s.","req":"necromancer_bone"},{"id":"necromancer_shadowstep","icon":"🕳️","name":"Passo sombrio","desc":"Mergulho recarrega mais rápido.","req":"necromancer_horde"},{"id":"necromancer_reaper","icon":"⚰️","name":"Ceifador","desc":"+1 dano e mais esqueletos.","req":"necromancer_shadowstep"}],"monk":[{"id":"monk_focus","icon":"🥋","name":"Postura focada","desc":"Ataques mais rápidos."},{"id":"monk_openpalm","icon":"👊","name":"Palma aberta","desc":"Palma +3 dano.","req":"monk_focus"},{"id":"monk_flow","icon":"🪽","name":"Fluxo contínuo","desc":"Passos Alados +2,5 s.","req":"monk_openpalm"},{"id":"monk_ironbody","icon":"🪨","name":"Corpo de ferro","desc":"+12 vida e resistência.","req":"monk_flow"},{"id":"monk_zen","icon":"☯️","name":"Zen perfeito","desc":"+1 dano e atordoamento.","req":"monk_ironbody"}],"golem":[{"id":"golem_granite","icon":"🪨","name":"Pele de granito","desc":"+20 vida e resistência."},{"id":"golem_shatter","icon":"💠","name":"Fragmentos resistentes","desc":"Golens menores mais fortes.","req":"golem_granite"},{"id":"golem_quake","icon":"🌋","name":"Tremor colossal","desc":"Pedra e estilhaços mais fortes.","req":"golem_shatter"},{"id":"golem_splitheart","icon":"🔱","name":"Coração dividido","desc":"Divisão +4 s e clones mais resistentes.","req":"golem_quake"},{"id":"golem_mountaincore","icon":"⛰️","name":"Núcleo da montanha","desc":"+25 vida, +1 dano, área maior.","req":"golem_splitheart"}]};
+const CLASS_NAMES_UI = {knight:'CAVALEIRO',mage:'MAGO',archer:'ARQUEIRO',goblin:'GOBLIN',ogre:'OGRO',healer:'CURANDEIRO',necromancer:'NECROMANTE',monk:'MONGE',golem:'GOLEM DE PEDRA'};
 function renderSkillTrees() {
-  const allSkills = SKILL_BRANCHES.flatMap(branch => branch.skills.map(skill => ({...skill, branch:branch.id})));
+  const branches = SKILL_BRANCHES.map(branch => branch.id === 'arcane' ? {...branch,title:'✦ MELHORIAS EXCLUSIVAS · '+(CLASS_NAMES_UI[selectedClass]||'CLASSE'),skills:CLASS_PERSONAL_SKILLS_UI[selectedClass]||CLASS_PERSONAL_SKILLS_UI.knight} : branch);
+  const allSkills = branches.flatMap(branch => branch.skills.map(skill => ({...skill, branch:branch.id})));
   const activeBranches = new Set(allSkills.filter(skill => unlockedSkills.has(skill.id)).map(skill => skill.branch));
   const activeCount = unlockedSkills.size;
-  const html = SKILL_BRANCHES.map(branch =>
+  const html = branches.map(branch =>
     '<section class="skill-branch"><div class="skill-branch-title">' + branch.title + '</div><div class="skill-branch-list">' +
     branch.skills.map(skill => {
       const unlocked = unlockedSkills.has(skill.id);
@@ -2070,7 +2070,8 @@ function updateHeroShowcase() {
     ogre:{name:'Ogro',glyph:'👹',desc:'Tanque · clava pesada · dano alto'},
     healer:{name:'Curandeiro',glyph:'🌿',desc:'Cajado à distância · cura e espíritos guardiões'},
     necromancer:{name:'Necromante',glyph:'💀',desc:'Cajado sombrio · horda de esqueletos'},
-    monk:{name:'Monge',glyph:'🥋',desc:'Combo de três golpes · impacto e mobilidade'}
+    monk:{name:'Monge',glyph:'🥋',desc:'Combo de três golpes · impacto e mobilidade'},
+    golem:{name:'Golem de Pedra',glyph:'🪨',desc:'220 de vida · divisão em três · pedra em área'}
   }[selectedClass] || {name:'Cavaleiro',glyph:'🛡️',desc:'Defesa elevada'};
   const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'},rune:{label:'SKIN RUNAS',cls:'skin-rune'},celestial:{label:'SKIN CELESTIAL',cls:'skin-celestial'},bloodmoon:{label:'SKIN LUA SANGRENTA',cls:'skin-bloodmoon'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
   const avatar=$('heroPreviewAvatar');
@@ -3258,6 +3259,10 @@ const CLASS_ABILITY_CONFIG = {
   monk: [
     { ability: 'monk_impact_palm', icon: '👊', label: 'PALMA', description: 'Onda de choque: 8 de dano, empurra e atordoa inimigos.', cooldown: 18 },
     { ability: 'monk_winged_steps', icon: '🪽', label: 'PASSOS', description: 'Avanço veloz com esquiva breve e velocidade extra.', cooldown: 15 }
+  ],
+  golem: [
+    { ability: 'golem_split', icon: '🪨', label: 'DESMANCHAR', description: 'Divide-se em três golens menores por 12 segundos.', cooldown: 26 },
+    { ability: 'golem_rock_toss', icon: '☄️', label: 'PEDRA TITÂNICA', description: 'Toque no chão para escolher o ponto do impacto em área.', cooldown: 14.5, targeted: true }
   ]
 };
 let ogreHasteUntil = 0;
@@ -3277,6 +3282,7 @@ function updateClassAbilityButtons() {
   });
 }
 let fireCooldown = 0, lightningCooldown = 0;
+let golemRockTargeting = false, golemRockTargetTimer = null;
 updateClassAbilityButtons();
 function placeSpellButtons() {
   const fire = $('fireBtn'), lightning = $('lightningBtn');
@@ -3652,6 +3658,7 @@ function activateClassAbility(slot) {
   }
   const remaining = slot === 0 ? fireCooldown : lightningCooldown;
   if (remaining > 0) return;
+  if (spec.targeted) { golemRockTargeting=true; clearTimeout(golemRockTargetTimer); golemRockTargetTimer=setTimeout(()=>{golemRockTargeting=false;showNotice('Mira da pedra cancelada.');},9000); showNotice('☄ Toque no chão para escolher onde a pedra vai cair.'); return; }
   send({ type: 'classAbility', ability: spec.ability });
 }
 $('fireBtn').addEventListener('pointerdown', e => { e.preventDefault(); activateClassAbility(0); });
@@ -3740,6 +3747,7 @@ function rendererPointerSetup() {
   el.style.touchAction = 'none';
 
   el.addEventListener('pointerdown', e => {
+    if (started && golemRockTargeting) { const rect=el.getBoundingClientRect(),p=new THREE.Vector2(((e.clientX-rect.left)/Math.max(1,rect.width))*2-1,-((e.clientY-rect.top)/Math.max(1,rect.height))*2+1); const r=new THREE.Raycaster();r.setFromCamera(p,camera);const plane=new THREE.Plane(new THREE.Vector3(0,1,0),0),aim=new THREE.Vector3();if(r.ray.intersectPlane(plane,aim)){send({type:'classAbility',ability:'golem_rock_toss',x:aim.x,z:aim.z});golemRockTargeting=false;clearTimeout(golemRockTargetTimer);lookPointer=null;}else showNotice('Toque em uma área visível do chão.');e.preventDefault();e.stopPropagation();return; }
     if (started && necromancerDivePendingClient) {
       const rect = el.getBoundingClientRect();
       const pointer = new THREE.Vector2(
