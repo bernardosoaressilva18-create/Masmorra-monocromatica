@@ -270,7 +270,7 @@ function advancePhase(room) {
     const bossBaseHp = room.realm === 3 ? 1000 : room.realm === 2 ? 700 : 450;
     const bossExtraPlayerHp = room.realm === 3 ? 220 : room.realm === 2 ? 150 : 100;
     const bossHp = bossBaseHp + (bossPartySize - 1) * bossExtraPlayerHp;
-    room.boss={id:'realm-'+(room.realm||1)+'-final-boss',x:0,z:-150,alive:true,hp:bossHp,maxHp:bossHp,lifePhase:1,attackAt:0,portals:[],nextPortalAt:Date.now()+4000,portalSequence:0};
+    room.boss={id:'realm-'+(room.realm||1)+'-final-boss',x:0,z:-150,alive:true,hp:bossHp,maxHp:bossHp,lifePhase:1,attackAt:0,portals:[],telegraphs:[],nextPatternAt:Date.now()+3200,nextPortalAt:Date.now()+4000,portalSequence:0,patternSequence:0};
     broadcast(room, { type: 'notice', text: 'FASE 5: ' + names[5] + '! O Guardião Supremo despertou com carapaça reforçada e ' + bossHp + ' de vida!' });
   } else {
     broadcast(room, { type: 'notice', text: 'MUNDO ' + room.phase + ' / 5: ' + names[room.phase] + '. Nova região descoberta!' });
@@ -1456,6 +1456,58 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
             if (victim.hp <= 0) victim.ws.send(JSON.stringify({ type: 'notice', text: 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
           }
         }
+      }
+      // Ataques especiais telegrafados: o cliente recebe círculos antes do impacto.
+      if (!Array.isArray(boss.telegraphs)) boss.telegraphs = [];
+      if (boss.pendingPattern && now >= boss.pendingPattern.impactAt) {
+        const pattern = boss.pendingPattern;
+        for (const victim of portalTargets) {
+          const hit = pattern.circles.some(c => Math.hypot(victim.x - c.x, victim.z - c.z) <= c.radius);
+          if (!hit) continue;
+          const dodgeSucceeded = now < (victim.dodgeUntil || 0);
+          if (dodgeSucceeded) {
+            if (victim.ws && victim.ws.readyState === WebSocket.OPEN) victim.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você escapou do ataque especial!'}));
+            continue;
+          }
+          const before = victim.hp;
+          takeDamage(room, victim, pattern.damage);
+          if (victim.ws && victim.ws.readyState === WebSocket.OPEN && victim.hp < before) {
+            victim.ws.send(JSON.stringify({type:'notice',text:'☠ ' + pattern.label + '! -' + (before-victim.hp) + ' de vida.'}));
+          }
+        }
+        boss.telegraphs = [];
+        boss.pendingPattern = null;
+        broadcast(room, {type:'bossPatternEnd', id:pattern.id});
+      }
+      if (!boss.pendingPattern && now >= (boss.nextPatternAt || 0) && portalTargets.length) {
+        const phase = boss.lifePhase || 1;
+        const sequence = boss.patternSequence || 0;
+        const target = portalTargets[sequence % portalTargets.length];
+        const circles = [];
+        let kind, label, windup;
+        if (sequence % 3 === 0) {
+          kind = 'slam'; label = 'IMPACTO SÍSMICO'; windup = phase === 3 ? 850 : 1250;
+          circles.push({x:boss.x,z:boss.z,radius:phase===3?5.2:4.2});
+        } else if (sequence % 3 === 1) {
+          kind = 'meteor'; label = 'CHUVA DE RUPTURA'; windup = phase === 3 ? 1000 : 1450;
+          const spread = phase === 3 ? 2.1 : 2.8;
+          for (const [dx,dz] of [[0,0],[spread,0],[-spread,0],[0,spread],[0,-spread]]) {
+            circles.push({x:Math.max(-12,Math.min(12,target.x+dx)),z:Math.max(-169,Math.min(-132,target.z+dz)),radius:1.75});
+          }
+        } else {
+          kind = 'charge'; label = 'AVANÇO DEVASTADOR'; windup = phase === 3 ? 750 : 1100;
+          const dx=target.x-boss.x,dz=target.z-boss.z,len=Math.hypot(dx,dz)||1;
+          const steps=phase===3?6:5;
+          for(let j=1;j<=steps;j++) circles.push({x:boss.x+dx/len*(j*2.0),z:boss.z+dz/len*(j*2.0),radius:1.45});
+        }
+        const id='boss-pattern-'+now+'-'+sequence;
+        const damage = kind === 'slam' ? (phase===3?28:phase===2?21:16) : kind === 'meteor' ? (phase===3?22:16) : (phase===3?26:phase===2?20:15);
+        boss.pendingPattern={id,kind,label,damage,circles,impactAt:now+windup};
+        boss.telegraphs=circles.map((c,index)=>({...c,id:id+'-'+index,attackId:id,kind,impactAt:now+windup}));
+        boss.patternSequence=sequence+1;
+        boss.nextPatternAt=now+(phase===3?3300:phase===2?4400:5500);
+        broadcast(room,{type:'bossPattern',id,kind,label,damage,impactAt:now+windup,circles:boss.telegraphs});
+        broadcast(room,{type:'notice',text:'⚠ O Guardião prepara ' + label + '! Saia dos círculos vermelhos!'});
       }
       if (now < (boss.stunnedUntil || 0)) { boss.attackWarnAt = 0; }
       else {
