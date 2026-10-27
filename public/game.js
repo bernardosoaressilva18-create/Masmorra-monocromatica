@@ -29,7 +29,7 @@ let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=n
 let realmIntroTimer=0;
 const astralFloaters=[];
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-let cameraDistance = (() => { try { const saved = Number(localStorage.getItem('ultimoLegadoCameraDistance')); if (Number.isFinite(saved) && saved >= 5 && saved <= 13.5) return saved; } catch {} return 8.5; })();
+let cameraDistance = (() => { try { const saved = Number(localStorage.getItem('ultimoLegadoCameraDistance')); if (Number.isFinite(saved) && saved >= 6.5 && saved <= 15.5) return saved; } catch {} return 9.5; })();
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
 const activeBurnEffects = [];
@@ -1001,15 +1001,15 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }
   // Core torso: robe silhouettes for casters, hard angular masses for tanks.
   if(heroClass==='golem'||heroClass==='golem_clone'){
-    torso=add(new THREE.DodecahedronGeometry(.52,1),armor,0,1.12,0,1.22,1.05,.88);
+    torso=add(new THREE.DodecahedronGeometry(.52,0),armor,0,1.12,0,1.22,1.05,.88);
     torso.rotation.z=.03;
-    add(new THREE.DodecahedronGeometry(.36,1),dark,0,1.12,-.41,1.0,.9,.42);
-    waistSigil=add(new THREE.OctahedronGeometry(.17,1),glow,0,1.17,-.61,.8,1.18,.5);
+    add(new THREE.BoxGeometry(.54,.42,.20),dark,0,1.12,-.42,1,1,.75);
+    waistSigil=add(new THREE.OctahedronGeometry(.17,0),glow,0,1.17,-.61,.8,1.18,.5);
     for(const side of [-1,1]){
-      const shoulder=add(new THREE.DodecahedronGeometry(.32,1),armor,side*.57,1.48,0,1.1,1,.95);
+      const shoulder=add(new THREE.DodecahedronGeometry(.32,0),armor,side*.57,1.48,0,1.1,1,.95);
       shoulder.rotation.z=side*-.18;
       add(new THREE.ConeGeometry(.10,.28,5),dark,side*.63,1.76,.02).rotation.z=side*-.38;
-      add(new THREE.DodecahedronGeometry(.21,0),armor,side*.53,.98,-.04,1.1,1.15,.95);
+      add(new THREE.BoxGeometry(.34,.28,.31),armor,side*.53,.98,-.04,1,1,1);
     }
   }else{
     torso=add(heroClass==='ogre'?new THREE.CapsuleGeometry(.43,.53,7,12):heroClass==='monk'?new THREE.CapsuleGeometry(.31,.48,7,12):new THREE.CapsuleGeometry(.32,.48,7,12),heroClass==='ogre'?skinMat:armor,0,1.14,0,heroClass==='ogre'?1.28:1.0,heroClass==='ogre'?1.1:1,heroClass==='ogre'?1.02:.9);
@@ -1029,8 +1029,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const pivot=new THREE.Group();pivot.position.set(side*(bulky?.53:.43),1.40,0);g.add(pivot);
     const armMaterial=heroClass==='ogre'||heroClass==='monk'||heroClass==='goblin'?skinMat:(heroClass==='golem'||heroClass==='golem_clone'?armor:armor);
     if(heroClass==='golem'||heroClass==='golem_clone'){
-      add(new THREE.DodecahedronGeometry(.25,1),armMaterial,0,-.18,0,1.0,1.12,.95,pivot);
-      const fist=add(new THREE.DodecahedronGeometry(.23,1),armor,0,-.49,-.03,1.18,.95,1.12,pivot);
+      add(new THREE.DodecahedronGeometry(.25,0),armMaterial,0,-.18,0,1.0,1.12,.95,pivot);
+      const fist=add(new THREE.DodecahedronGeometry(.23,0),armor,0,-.49,-.03,1.18,.95,1.12,pivot);
       fist.rotation.z=side*.12;
       add(new THREE.BoxGeometry(.09,.035,.035),glow,0,-.48,-.23,1,1,.5,pivot);
     }else{
@@ -1045,7 +1045,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }
   // A headgroup gives each class a distinct silhouette and visible facial focus.
   if(heroClass==='golem'||heroClass==='golem_clone'){
-    head=addHead(new THREE.DodecahedronGeometry(.30,1),armor,0,1.92,-.01,1.08,1,.9);
+    head=addHead(new THREE.DodecahedronGeometry(.30,0),armor,0,1.92,-.01,1.08,1,.9);
     for(const side of [-1,1]){
       addHead(new THREE.SphereGeometry(.052,10,8),glow,side*.105,1.94,-.27,1,.85,.55);
       addHead(new THREE.ConeGeometry(.09,.18,5),dark,side*.20,2.17,.0).rotation.z=side*-.35;
@@ -3587,7 +3587,7 @@ function rendererPointerSetup() {
   el.style.touchAction = 'none';
   const zoomValue = $('cameraZoomValue');
   const setCameraDistance = value => {
-    cameraDistance = Math.round(Math.max(5, Math.min(13.5, Number(value) || 8.5)) * 10) / 10;
+    cameraDistance = Math.round(Math.max(6.5, Math.min(15.5, Number(value) || 9.5)) * 10) / 10;
     if (zoomValue) zoomValue.textContent = 'ZOOM ' + cameraDistance.toFixed(1) + '×';
     try { localStorage.setItem('ultimoLegadoCameraDistance', String(cameraDistance)); } catch {}
   };
