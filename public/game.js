@@ -27,7 +27,14 @@ const environmentGroups=Object.create(null);
 let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=null,astralStarField=null;
 let realmIntroTimer=0;
 const astralFloaters=[];
-let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
+let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, cameraZoom = 7.2, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
+const CAMERA_ZOOM_MIN = 3.6, CAMERA_ZOOM_MAX = 15.5;
+function setCameraZoom(next) {
+  cameraZoom = THREE.MathUtils.clamp(Number(next) || 7.2, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX);
+  const label = $('cameraZoomValue');
+  if (label) label.textContent = Math.round((7.2 / cameraZoom) * 100) + '%';
+}
+function changeCameraZoom(direction) { setCameraZoom(cameraZoom + (direction < 0 ? 1.1 : -1.1)); }
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
 const activeBurnEffects = [];
@@ -2944,6 +2951,9 @@ $('roomCode').addEventListener('input', e => {
 });
 
 $('leaveBtn').addEventListener('click', leaveRoomToMenu);
+$('cameraZoomIn')?.addEventListener('click', () => changeCameraZoom(1));
+$('cameraZoomOut')?.addEventListener('click', () => changeCameraZoom(-1));
+setCameraZoom(cameraZoom);
 
 $('chestBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (!$('chestBtn').classList.contains('hidden')) interactChest(); });
 $('pvpSummonBtn')?.addEventListener('click', () => {
@@ -3480,6 +3490,35 @@ function rendererPointerSetup() {
   // por elementos HUD/overlay; o retângulo usado no raycast é o do próprio canvas.
   const el = renderer.domElement;
   el.style.touchAction = 'none';
+  const zoomTouches = new Map();
+  let pinchStartDistance = 0, pinchStartZoom = cameraZoom;
+  const pinchDistance = () => {
+    const pts = [...zoomTouches.values()];
+    return pts.length < 2 ? 0 : Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+  };
+  // Pinça de dois dedos ajusta a distância da câmera sem girá-la.
+  el.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch') return;
+    zoomTouches.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    if (zoomTouches.size === 2) { lookPointer = null; pinchStartDistance = Math.max(1, pinchDistance()); pinchStartZoom = cameraZoom; }
+  }, {capture:true});
+  el.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'touch' || !zoomTouches.has(e.pointerId)) return;
+    zoomTouches.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    if (zoomTouches.size >= 2) {
+      const distance = Math.max(1, pinchDistance());
+      setCameraZoom(pinchStartZoom * pinchStartDistance / distance);
+      e.preventDefault();
+    }
+  }, {capture:true,passive:false});
+  const clearZoomTouch = e => { zoomTouches.delete(e.pointerId); if (zoomTouches.size < 2) pinchStartDistance = 0; };
+  el.addEventListener('pointerup', clearZoomTouch, {capture:true});
+  el.addEventListener('pointercancel', clearZoomTouch, {capture:true});
+  el.addEventListener('wheel', e => {
+    if (!started) return;
+    setCameraZoom(cameraZoom + Math.sign(e.deltaY) * Math.min(1.25, Math.abs(e.deltaY) * .008));
+    e.preventDefault();
+  }, {passive:false});
 
   el.addEventListener('pointerdown', e => {
     if (started && golemRockTargeting) { const rect=el.getBoundingClientRect(),p=new THREE.Vector2(((e.clientX-rect.left)/Math.max(1,rect.width))*2-1,-((e.clientY-rect.top)/Math.max(1,rect.height))*2+1); const r=new THREE.Raycaster();r.setFromCamera(p,camera);const plane=new THREE.Plane(new THREE.Vector3(0,1,0),0),aim=new THREE.Vector3();if(r.ray.intersectPlane(plane,aim)){send({type:'classAbility',ability:'golem_rock_toss',x:aim.x,z:aim.z});golemRockTargeting=false;clearTimeout(golemRockTargetTimer);lookPointer=null;}else showNotice('Toque em uma área visível do chão.');e.preventDefault();e.stopPropagation();return; }
@@ -3507,6 +3546,7 @@ function rendererPointerSetup() {
       e.stopPropagation();
       return;
     }
+    if (e.pointerType === 'touch' && zoomTouches.size > 1) { lookPointer = null; e.preventDefault(); return; }
     if (!started ||
         (e.clientX < 155 && e.clientY > innerHeight - 190) ||
         (e.clientX > innerWidth - 135 && e.clientY > innerHeight - 155)) return;
@@ -4129,7 +4169,7 @@ const right = new THREE.Vector3(
   } else if (myPlayer) {
     const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
-    const dist=8.5+introBlend*2.8;
+    const dist=cameraZoom+introBlend*2.8;
     const cameraTarget=cameraPositionScratch.set(
       target.x+Math.sin(yaw)*dist,
       target.y+3.0+pitch*2+introBlend*.65,
