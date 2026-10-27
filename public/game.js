@@ -2621,10 +2621,18 @@ function updateState(m) {
     const id = summon.id;
     incoming.add(id);
     let obj = remotePlayers.get(id);
-    const isGuardianSpirit = summon.summonType === 'guardian_spirit';
-    const isGolemClone = summon.summonType === 'stone_golem_clone' || summon.playerClass === 'golem_clone' || String(summon.name || '').toLowerCase().includes('fragmento de golem');
-    const isSkeleton = summon.summonType === 'skeleton' || summon.playerClass === 'skeleton' || String(summon.name || '').toLowerCase().includes('esqueleto');
-    const summonClass = isGolemClone ? 'golem_clone' : isSkeleton ? 'skeleton' : 'goblin';
+    const summonType = String(summon.summonType || '').toLowerCase().replace(/-/g, '_');
+    const summonClassHint = String(summon.playerClass || '').toLowerCase();
+    const summonName = String(summon.name || '').toLowerCase();
+    const isGuardianSpirit = summonType === 'guardian_spirit' || summonClassHint === 'guardian_spirit' || summonName.includes('espírito guardião');
+    const isGolemClone = ['stone_golem_clone','golem_clone','golem_fragment'].includes(summonType) ||
+      ['golem_clone','stone_golem_clone'].includes(summonClassHint) ||
+      summonName.includes('fragmento de golem') || summonName.includes('golem clone');
+    const isSkeleton = summonType === 'skeleton' || summonClassHint === 'skeleton' ||
+      summonName.includes('esqueleto') || summonName.includes('skeleton');
+    // Never render a known summon as a goblin just because its type alias is unfamiliar.
+    const summonClass = isGolemClone ? 'golem_clone' : isSkeleton ? 'skeleton' :
+      (['goblin','golem_clone','skeleton'].includes(summonClassHint) ? summonClassHint : 'goblin');
     if (!obj || (!!obj.userData.isGuardianSpirit !== isGuardianSpirit) || (!isGuardianSpirit && obj.userData.playerClass !== summonClass)) {
       if (obj) { scene.remove(obj); disposeObject3D(obj); }
       obj = isGuardianSpirit
