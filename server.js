@@ -6,10 +6,39 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const PORT = process.env.PORT || 3000;
+const GAME_STARTED_AT = Date.now();
 const PUBLIC = path.join(__dirname, 'public');
 const server = http.createServer((req, res) => {
-  const pathname = decodeURIComponent((req.url || '/').split('?')[0]);
-  const filename = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  let pathname;
+  try {
+    pathname = decodeURIComponent((req.url || '/').split('?')[0]);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ ok: false, error: 'invalid path encoding' }));
+  }
+  if (req.method === 'GET' && pathname === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({
+      ok: true, service: 'o-ultimo-legado', uptimeSeconds: Math.round((Date.now() - GAME_STARTED_AT) / 1000),
+      rooms: typeof rooms === 'undefined' ? 0 : rooms.size,
+      tacticalAiConfigured: Boolean(typeof TACTICAL_AI_URL !== 'undefined' && TACTICAL_AI_URL)
+    }));
+  }
+  if (req.method === 'GET' && pathname === '/metrics') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({
+      service: 'o-ultimo-legado',
+      rooms: typeof rooms === 'undefined' ? 0 : rooms.size,
+      tacticalAiConfigured: Boolean(typeof TACTICAL_AI_URL !== 'undefined' && TACTICAL_AI_URL),
+      tacticalAi: typeof tacticalAiStats === 'undefined' ? {} : { ...tacticalAiStats },
+      uptimeSeconds: Math.round((Date.now() - GAME_STARTED_AT) / 1000)
+    }));
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Allow': 'GET, HEAD' });
+    return res.end(JSON.stringify({ ok: false, error: 'method not allowed' }));
+  }
+  const filename = pathname === '/' ? 'index.html' : pathname.replace(/^\\/+/, '');
   const filePath = path.resolve(PUBLIC, filename);
 
   if (!filePath.startsWith(PUBLIC + path.sep) && filePath !== path.join(PUBLIC, 'index.html')) {
@@ -45,6 +74,9 @@ const rooms = new Map();
 
 const TACTICAL_AI_URL = (process.env.TACTICAL_AI_URL || '').replace(/\/$/, '');
 const tacticalAiInFlight = new Set();
+const tacticalAiStats = { requests: 0, decisions: 0, timeoutsOrErrors: 0, rejectedResponses: 0, fallbackUses: 0 };
+const TACTICAL_AI_MAX_IN_FLIGHT = 256;
+const TACTICAL_AI_CACHE_TTL_MS = 2600;
 
 function requestTacticalTarget(room, monster, players, now) {
   if (!TACTICAL_AI_URL || typeof fetch !== 'function') return;
@@ -53,36 +85,68 @@ function requestTacticalTarget(room, monster, players, now) {
   const key = String(monster.id);
   if (now < (room.tacticalAiNextRequest.get(key) || 0) || tacticalAiInFlight.has(room.code + ':' + key)) return;
   room.tacticalAiNextRequest.set(key, now + 1200);
+  if (tacticalAiInFlight.size >= TACTICAL_AI_MAX_IN_FLIGHT) return;
   const candidates = [];
   for (const player of players) {
     if (player.hp <= 0 || now < (player.invisibleUntil || 0)) continue;
-    candidates.push({ id: 'player:' + String(player.id), x: player.x, z: player.z, health: player.hp, isSummon: false });
+    candidates.push({
+      id: 'player:' + String(player.id), x: player.x, z: player.z,
+      health: player.hp, maxHealth: player.maxHp || player.hp || 100,
+      playerClass: player.playerClass || 'knight', role: player.playerClass || 'knight',
+      threat: Number.isFinite(player.threat) ? player.threat : 0, isSummon: false, alive: true
+    });
   }
   for (const summon of (room.summons || [])) {
     if (summon.summonType === 'guardian_spirit' || summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
-    candidates.push({ id: 'summon:' + String(summon.id), x: summon.x, z: summon.z, health: summon.hp, isSummon: true });
+    candidates.push({
+      id: 'summon:' + String(summon.id), x: summon.x, z: summon.z,
+      health: summon.hp, maxHealth: summon.maxHp || summon.hp || 100,
+      role: 'summon', isSummon: true, alive: true
+    });
   }
   if (!candidates.length) return;
+  // Limit input size and focus the AI on the candidates with the highest immediate relevance.
+  candidates.sort((a, b) => Math.hypot(a.x - monster.x, a.z - monster.z) - Math.hypot(b.x - monster.x, b.z - monster.z));
+  candidates.length = Math.min(candidates.length, 64);
   const requestKey = room.code + ':' + key;
   tacticalAiInFlight.add(requestKey);
+  tacticalAiStats.requests++;
+  const requestController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeout = setTimeout(() => requestController?.abort(), 700);
   fetch(TACTICAL_AI_URL + '/target', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-request-id': 'game-' + String(room.code).slice(0, 20) + '-' + key.slice(0, 40) },
     body: JSON.stringify({ monster: { id: monster.id, kind: monster.kind, x: monster.x, z: monster.z, hp: monster.hp }, candidates, previousTargetId: room.tacticalAiCache?.get(key)?.targetId || null }),
-    signal: AbortSignal.timeout ? AbortSignal.timeout(700) : undefined
+    signal: requestController?.signal
   }).then(response => response.ok ? response.json() : null).then(result => {
-    if (result && typeof result.targetId === 'string') {
-      room.tacticalAiCache.set(key, { targetId: result.targetId, at: Date.now() });
+    const validTargets = new Set(candidates.map(candidate => candidate.id));
+    if (result && typeof result.targetId === 'string' && validTargets.has(result.targetId)) {
+      room.tacticalAiCache.set(key, { targetId: result.targetId, at: Date.now(), version: result.version || 'unknown' });
+      tacticalAiStats.decisions++;
+      // Bound cache growth in rooms with many waves or long play sessions.
+      if (room.tacticalAiCache.size > 256) {
+        for (const cacheKey of room.tacticalAiCache.keys()) {
+          if (room.tacticalAiCache.size <= 192) break;
+          room.tacticalAiCache.delete(cacheKey);
+        }
+      }
+    } else {
+      tacticalAiStats.rejectedResponses++;
     }
   }).catch(() => {
-    // Python é consultivo: se estiver offline, a IA nativa continua funcionando.
-  }).finally(() => tacticalAiInFlight.delete(requestKey));
+    tacticalAiStats.timeoutsOrErrors++;
+    tacticalAiStats.fallbackUses++;
+    // Python is advisory; native selection remains authoritative when it fails.
+  }).finally(() => {
+    clearTimeout(timeout);
+    tacticalAiInFlight.delete(requestKey);
+  });
 }
 
 function applyTacticalTarget(room, monster, players, now) {
   if (!TACTICAL_AI_URL || !room.tacticalAiCache) return null;
   const cached = room.tacticalAiCache.get(String(monster.id));
-  if (!cached || now - cached.at > 2600) return null;
+  if (!cached || now - cached.at > TACTICAL_AI_CACHE_TTL_MS) return null;
   if (cached.targetId.startsWith('player:')) {
     const id = cached.targetId.slice(7);
     const player = players.find(p => String(p.id) === id && p.hp > 0 && now >= (p.invisibleUntil || 0));
