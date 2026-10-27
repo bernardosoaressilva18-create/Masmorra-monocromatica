@@ -1108,13 +1108,16 @@ wss.on('connection', ws => {
         else if(['goblin_summon','necromancer_summon','golem_split'].includes(ability)){
           let n=0;
           if(ability==='goblin_summon'){
-            const count=hasSkill(player,'goblin_pack')?3:2;
-            for(let i=0;i<count;i++)if(createPvpMonster(room,player,'stalker',{classSummoned:true,summonClass:'goblin',name:'Goblin aliado',color:0x80c86b,hp:24,damage:3,attackMs:950,speed:.33,durationMs:12000,maxOwned:7}))n++;
-            text=n?'👺 '+n+' goblin(s) aliados por 12 segundos.':'Limite de invocações da arena atingido.';
+            const enhanced=hasSkill(player,'goblin_pack');
+            const count=enhanced?3:2, duration=enhanced?16000:12000;
+            for(let i=0;i<count;i++)if(createPvpMonster(room,player,'stalker',{classSummoned:true,summonClass:'goblin',name:'Goblin aliado',color:0x80c86b,hp:24,damage:hasSkill(player,'goblin_poison')?4:3,attackMs:950,speed:.33,durationMs:duration,maxOwned:7}))n++;
+            text=n?'👺 '+n+' goblin(s) aliados por '+Math.round(duration/1000)+' segundos.':'Limite de invocações da arena atingido.';
           }else if(ability==='necromancer_summon'){
-            const count=hasSkill(player,'necromancer_horde')?7:5;
-            for(let i=0;i<count;i++)if(createPvpMonster(room,player,'wraith',{classSummoned:true,summonClass:'skeleton',name:'Esqueleto aliado',color:0xe0dccb,hp:9,damage:2,attackMs:1100,speed:.27,durationMs:hasSkill(player,'necromancer_horde')?24000:18000,maxOwned:8}))n++;
-            text=n?'💀 '+n+' esqueletos por '+(hasSkill(player,'necromancer_horde')?24:18)+' segundos.':'Limite de invocações da arena atingido.';
+            const horde=hasSkill(player,'necromancer_horde'), reaper=hasSkill(player,'necromancer_reaper'), bones=hasSkill(player,'necromancer_bone');
+            const count=(horde?7:5)+(reaper?1:0), duration=horde?36000:30000;
+            const skeletonHp=bones?12:8, skeletonDamage=(bones?3:2)+(reaper?1:0);
+            for(let i=0;i<count;i++)if(createPvpMonster(room,player,'wraith',{classSummoned:true,summonClass:'skeleton',name:'Esqueleto aliado',color:0xe0dccb,hp:skeletonHp,damage:skeletonDamage,attackMs:bones?1000:1100,speed:.27,durationMs:duration,maxOwned:reaper?10:8}))n++;
+            text=n?'💀 '+n+' esqueletos por '+Math.round(duration/1000)+' segundos.':'Limite de invocações da arena atingido.';
           }else{
             const duration=hasSkill(player,'golem_splitheart')?16000:12000;
             for(let i=0;i<3;i++)if(createPvpMonster(room,player,'brute',{classSummoned:true,summonClass:'golem_clone',name:'Fragmento de Golem',color:0x8a9096,hp:30,damage:4,attackMs:1150,speed:.21,durationMs:duration,maxOwned:8}))n++;
@@ -1127,7 +1130,24 @@ wss.on('connection', ws => {
           text='💥 Impacto em área: '+count+' rival(is) atingido(s)!';
         }else if(ability==='ogre_haste'){player.ogreHasteUntil=now+(hasSkill(player,'ogre_longrage')?7000:5000);text='💨 Velocidade aumentada!';}
         else if(ability==='healer_cure'){const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+(hasSkill(player,'healer_blessing')?70:50));player.shieldUntil=Math.max(player.shieldUntil||0,now+900);text='🌿 Cura: +'+(player.hp-before)+' vida.';}
-        else if(ability==='healer_guardian_spirits'){player.shieldUntil=Math.max(player.shieldUntil||0,now+5200);text='🪽 Os espíritos guardiões criaram uma barreira temporária.';}
+        else if(ability==='healer_guardian_spirits'){
+          const duration=hasSkill(player,'healer_longspirits')?26000:20000;
+          player.guardianSpiritsUntil=now+duration;
+          room.summons=(room.summons||[]).filter(s=>!(s.summonType==='guardian_spirit'&&String(s.ownerId)===String(player.id)));
+          for(let i=0;i<3;i++){
+            const angle=Math.PI*2*i/3;
+            room.summons.push({
+              id:'guardian-pvp-'+player.id+'-'+now+'-'+i,ownerId:player.id,
+              summonType:'guardian_spirit',name:'Espírito Guardião',playerClass:'guardian_spirit',
+              skin:player.skin||'celestial',color:0x8cffe8,
+              x:player.x+Math.cos(angle)*1.1,z:player.z+Math.sin(angle)*1.1,rot:player.rot||0,
+              hp:1,maxHp:1,spiritIndex:i,expiresAt:player.guardianSpiritsUntil,
+              nextHealAt:now+4000+i*250,nextDamageAt:now+5000+i*350
+            });
+          }
+          until=player.guardianSpiritsUntil;
+          text='🪽 Três espíritos por '+Math.round(duration/1000)+' s: curam você em 5 a cada 4 s ou causam 9 de dano a rivais a cada 5 s.';
+        }
         else if(ability==='monk_impact_palm'){
           center={x:player.x-Math.sin(Number(player.rot)||0)*1.4,z:player.z-Math.cos(Number(player.rot)||0)*1.4};
           const count=area(center,4.2,hasSkill(player,'monk_openpalm')?11:9,1.3,hasSkill(player,'monk_zen')?1600:1100);
@@ -1314,15 +1334,16 @@ wss.on('connection', ws => {
         text = '🪽 Três espíritos guardiões voam por 20 segundos: curam aliados em 5 a cada 4 s ou causam 9 de dano a inimigos a cada 5 s.';
       } else if (ability === 'necromancer_summon') {
         let created = 0;
-        const skeletonCount = hasSkill(player, 'necromancer_horde') ? 7 : 5;
+        const horde=hasSkill(player,'necromancer_horde'), reaper=hasSkill(player,'necromancer_reaper'), bones=hasSkill(player,'necromancer_bone');
+        const skeletonCount=(horde?7:5)+(reaper?1:0), duration=horde?36000:30000;
         for (let i = 0; i < skeletonCount; i++) {
           const angle = (Math.PI * 2 * i) / skeletonCount;
-          const summon = spawnNecromancerSkeleton(room, player, hasSkill(player, 'necromancer_bone') ? 12 : 8,
+          const summon = spawnNecromancerSkeleton(room, player, bones ? 12 : 8,
             player.x + Math.cos(angle) * 1.3, player.z + Math.sin(angle) * 1.3,
-            now + (hasSkill(player, 'necromancer_horde') ? 24000 : 18000), 10 + (hasSkill(player, 'necromancer_reaper') ? 4 : 0), hasSkill(player, 'necromancer_bone') ? 3 : 2, 1100);
+            now + duration, 10 + (reaper ? 4 : 0), (bones ? 3 : 2) + (reaper ? 1 : 0), bones ? 1000 : 1100);
           if (summon) created++;
         }
-        text = created ? '💀 Horda invocada! ' + created + ' esqueletos lutam por 18 segundos.' : 'Você já controla o limite de esqueletos.';
+        text = created ? '💀 Horda invocada! ' + created + ' esqueletos lutam por ' + Math.round(duration/1000) + ' segundos.' : 'Você já controla o limite de esqueletos.';
       } else if (ability === 'necromancer_dive') {
         player.necromancerDivePending = true;
         player.necromancerDiveUntil = now + 5000;
@@ -1672,7 +1693,9 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
       if (hasSkill(p, 'healing_aura') && p.hp > 0 && now >= (p.nextAuraAt || 0)) {
         p.nextAuraAt = now + 2200;
         for (const ally of players) {
-          if (ally.hp <= 0 || ally.hp >= ally.maxHp || Math.hypot(ally.x-p.x, ally.z-p.z) > 6) continue;
+          if (ally.hp <= 0 || ally.hp >= ally.maxHp ||
+              (room.gameMode === 'pvp_rpg' && String(ally.id) !== String(p.id)) ||
+              Math.hypot(ally.x-p.x, ally.z-p.z) > 6) continue;
           ally.hp = Math.min(ally.maxHp, ally.hp + 2);
         }
       }
@@ -1680,18 +1703,22 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
 
     // Goblins temporários perseguem o inimigo mais próximo durante 12 segundos.
     room.summons = (room.summons || []).filter(summon => summon.hp > 0 && (!summon.expiresAt || summon.expiresAt > now));
-    const summonEnemies = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss && room.boss.alive ? [room.boss] : [])]
+    const summonEnemies = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss && room.boss.alive ? [room.boss] : []),
+      ...(room.gameMode === 'pvp_rpg' ? players.filter(p=>p.hp>0).map(p=>({...p,alive:true,pvpPlayer:true,sourcePlayer:p})) : [])]
       .filter(enemy => enemy && enemy.alive && enemy.spawned !== false);
     for (const summon of room.summons) {
       if (summon.summonType === 'guardian_spirit') {
         // Espíritos não entram em combate corpo a corpo como esqueletos/goblins.
         // Buscam primeiro aliados feridos; se nenhum aliado ferido estiver mais perto,
         // perseguem o inimigo mais próximo e alternam seus pulsos de cura/dano.
-        const woundedAllies = players.filter(ally => ally.hp > 0 && ally.hp < ally.maxHp)
+        const woundedAllies = players.filter(ally =>
+          (room.gameMode !== 'pvp_rpg' || String(ally.id) === String(summon.ownerId)) &&
+          ally.hp > 0 && ally.hp < ally.maxHp)
           .map(ally => ({ entity: ally, distance: Math.hypot(ally.x - summon.x, ally.z - summon.z), isAlly: true }))
           .sort((a, b) => a.distance - b.distance);
-        const nearestEnemyEntry = summonEnemies.filter(enemy => enemy.alive)
-          .map(enemy => ({ entity: enemy, distance: Math.hypot(enemy.x - summon.x, enemy.z - summon.z), isAlly: false }))
+        const nearestEnemyEntry = summonEnemies.filter(enemy =>
+          enemy.alive && (!enemy.pvpPlayer || String(enemy.id) !== String(summon.ownerId)))
+          .map(enemy => ({ entity: enemy, distance: Math.hypot(enemy.x - summon.x, enemy.z - summon.z), isAlly: false, isPvpPlayer:!!enemy.pvpPlayer }))
           .sort((a, b) => a.distance - b.distance)[0];
         const nearestAllyEntry = woundedAllies[0];
         const targetEntry = nearestAllyEntry && (!nearestEnemyEntry || nearestAllyEntry.distance <= nearestEnemyEntry.distance)
@@ -1719,8 +1746,20 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
           }
         } else if (now >= (summon.nextDamageAt || 0)) {
           summon.nextDamageAt = now + 5000;
-          target.hp = Math.max(0, (target.hp || 1) - (room.players.get(summon.ownerId)?.skills?.includes('healer_pulse') ? 11 : 9));
-          if (target.hp <= 0 && target.alive) handleSummonDefeat(room, summon, target);
+          const damage = room.players.get(summon.ownerId)?.skills?.includes('healer_pulse') ? 11 : 9;
+          if (targetEntry.isPvpPlayer && room.gameMode === 'pvp_rpg') {
+            const owner = room.players.get(String(summon.ownerId));
+            const pvpTarget = target.sourcePlayer || target;
+            if (owner && pvpTarget.hp > 0) {
+              const before = pvpTarget.hp;
+              applyPvpPlayerDamage(room, owner, pvpTarget, damage);
+              if (pvpTarget.hp < before && pvpTarget.ws?.readyState === WebSocket.OPEN)
+                pvpTarget.ws.send(JSON.stringify({type:'notice',text:'🪽 Um espírito guardião acertou você! -'+(before-pvpTarget.hp)+' de vida.'}));
+            }
+          } else {
+            target.hp = Math.max(0, (target.hp || 1) - damage);
+            if (target.hp <= 0 && target.alive) handleSummonDefeat(room, summon, target);
+          }
         }
         summon.rot = Math.atan2(dx, dz);
         continue;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ultimo-legado-mega-update-4';
+const CACHE_NAME = 'ultimo-legado-mega-update-6';
 const SHELL = ['./', './index.html', './style.css', './game.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
