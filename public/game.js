@@ -2409,7 +2409,8 @@ function handleClassAbilityMessage(m) {
     ogre_slam: 0xff9d4a, ogre_haste: 0xffd86e,
     healer_cure: 0x70ffd1, healer_guardian_spirits: 0x8cffe8,
     necromancer_summon: 0xa77bdb, necromancer_dive: 0xb4a0e8, necromancer_dive_arrive: 0xb4a0e8,
-    monk_impact_palm: 0xffcc78, monk_winged_steps: 0xe9c58c
+    monk_impact_palm: 0xffcc78, monk_winged_steps: 0xe9c58c,
+    golem_split: 0x9aa2a6, golem_rock_toss: 0xd0b98b
   };
   const radii = {
     knight_shield: 1.4, knight_dash: 3.8, arrow_rain: 4.6,
@@ -2417,9 +2418,15 @@ function handleClassAbilityMessage(m) {
     ogre_slam: 5.2, ogre_haste: 1.7,
     healer_cure: 3.8, healer_guardian_spirits: 7,
     necromancer_summon: 3.2, necromancer_dive: 1.9, necromancer_dive_arrive: 2.8,
-    monk_impact_palm: 4.2, monk_winged_steps: 2.6
+    monk_impact_palm: 4.2, monk_winged_steps: 2.6, golem_split: 3.2, golem_rock_toss: 5.0
   };
   const center = m.center || { x: m.x, z: m.z };
+  if (m.rockFall && scene) {
+    const points=[{x:m.rockFall.x,z:m.rockFall.z},...(m.rockFall.stones||[])].slice(0,9);
+    for (const p of points) { const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.34,1),new THREE.MeshStandardMaterial({color:0x858b8e,roughness:.96,transparent:true,opacity:1})); rock.position.set(p.x,7.5,p.z); scene.add(rock); activeClassEffects.push({mesh:rock,startedAt:performance.now(),duration:720,kind:'fallingRock'}); }
+    addClassAbilityRing(m.rockFall.x,m.rockFall.z,m.rockFall.radius||5,0xb8a783);
+    for(const p of (m.rockFall.stones||[])) addClassAbilityRing(p.x,p.z,.72,0x9ca4a8);
+  }
   addClassAbilityRing(center.x, center.z, radii[m.ability] || 2.5, colors[m.ability] || 0x76e7f2);
   (m.targets || []).slice(0, isMobileDevice ? 3 : 7).forEach(target => {
     if (m.ability === 'arrow_rain' || m.ability === 'incendiary_arrows' || m.ability === 'ogre_slam' || m.ability === 'knight_dash') {
@@ -3918,8 +3925,7 @@ function animate() {
       scene.remove(effect.mesh); effect.mesh.geometry.dispose(); effect.mesh.material.dispose();
       activeClassEffects.splice(i, 1);
     } else {
-      effect.mesh.scale.setScalar(.72 + progress * .55);
-      effect.mesh.material.opacity = .85 * (1 - progress);
+      if(effect.kind==='fallingRock'){effect.mesh.position.y=Math.max(.22,(1-progress)*7.5);effect.mesh.rotation.x+=dt*1.8;effect.mesh.rotation.z+=dt*2.1;effect.mesh.scale.setScalar(.75+Math.sin(progress*Math.PI)*.35);if(progress>.78)effect.mesh.material.opacity=Math.max(0,(1-progress)/.22);}else{effect.mesh.scale.setScalar(.72+progress*.55);effect.mesh.material.opacity=.85*(1-progress);}
     }
   }
   realmIntroTimer=Math.max(0,realmIntroTimer-dt);
