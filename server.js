@@ -338,11 +338,19 @@ function refreshPlayerStats(player, restoreHealth = false) {
 }
 function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player, 'treasure_luck') ? .2 : 0) + (hasSkill(player, 'loot_sense') ? .1 : 0)); }
 function takeDamage(room, player, amount) {
+  if (!player) return 0;
+  // Recupera estados de vida inválidos para que NaN nunca transforme o jogador em imortal.
+  const maxHp = Number.isFinite(Number(player.maxHp)) && Number(player.maxHp) > 0 ? Number(player.maxHp) : 100;
+  const currentHp = Number(player.hp);
+  player.maxHp = maxHp;
+  player.hp = Number.isFinite(currentHp) ? Math.max(0, Math.min(maxHp, currentHp)) : maxHp;
   // Personagens derrotados não recebem mais dano nem podem ser ressuscitados por efeitos posteriores.
-  if (!player || player.hp <= 0) return 0;
+  if (player.hp <= 0) return 0;
+  const incomingDamage = Number(amount);
+  if (!Number.isFinite(incomingDamage) || incomingDamage <= 0) return 0;
   // A esquiva é validada pelo servidor e concede uma janela curta contra dano.
   if (Date.now() < (player.dodgeUntil || 0)) return 0;
-  let damage = amount * (1 - (statsFor(player).reduction || 0));
+  let damage = incomingDamage * (1 - (statsFor(player).reduction || 0));
   if (hasSkill(player, 'iron_skin')) damage *= .8;
   if (hasSkill(player, 'knight_fortress')) damage *= .96;
   if (hasSkill(player, 'ogre_blood')) damage *= .96;
