@@ -81,6 +81,11 @@ def _timestamp_is_future(value, now_ms):
     return stamp is not None and stamp > now_ms
 
 
+def _timestamp_is_past(value, now_ms):
+    stamp = _timestamp_ms(value)
+    return stamp is not None and stamp <= now_ms
+
+
 def _percentile(sorted_samples, fraction):
     if not sorted_samples:
         return 0.0
@@ -150,7 +155,7 @@ def _candidate_score(monster, candidate, previous_target_id=None, now_ms=None):
         return None
     if _flag(candidate.get("invisible")) or _timestamp_is_future(candidate.get("invisibleUntil"), now_ms):
         return None
-    if _timestamp_is_future(candidate.get("expiresAt"), now_ms):
+    if _timestamp_is_past(candidate.get("expiresAt"), now_ms):
         return None
     if health <= 0 or max_health <= 0:
         return None
