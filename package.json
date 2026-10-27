@@ -1,8 +1,7 @@
-
 {
   "name": "o-ultimo-legado",
-  "version": "1.0.0",
-  "description": "O Último Legado — RPG 3D multiplayer cooperativo",
+  "version": "3.1.0",
+  "description": "O Último Legado — Update 3 versão 1: RPG 3D multiplayer cooperativo",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
