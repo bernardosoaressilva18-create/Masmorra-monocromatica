@@ -359,12 +359,20 @@ function resolveServerMovement(room, player, nextX, nextZ) {
 }
 
 function state(room) {
+  // Regeneração de mana moderada, limitada a uma vez por segundo.
+  const now = Date.now();
+  for (const p of room.players.values()) {
+    if (p.hp > 0 && (p.mana ?? 100) < (p.maxMana ?? 100) && now >= (p.nextManaRegenAt || 0)) {
+      p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + 5);
+      p.nextManaRegenAt = now + 1000;
+    }
+  }
   // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
   ensureRoomHost(room);
   return {
     type: 'state',
     players: [...room.players.values()].filter(p => p.connected !== false).map(p => ({
-      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId,
+      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, mana: p.mana ?? 100, maxMana: p.maxMana ?? 100, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId,
       invisible: Date.now() < (p.invisibleUntil || 0), shielded: Date.now() < (p.shieldUntil || 0), ogreHasteUntil: p.ogreHasteUntil || 0
     })),
     summons: (room.summons || []).filter(s => s.hp > 0 && (!s.expiresAt || s.expiresAt > Date.now())).map(s => ({ id: 'summon:' + s.id, name: s.name || (s.summonType === 'skeleton' ? 'Esqueleto aliado' : 'Goblin aliado'), x: s.x, z: s.z, rot: s.rot || 0, color: s.color || 0x80c86b, hp: s.hp, maxHp: s.maxHp, playerClass: s.playerClass || (s.summonType === 'skeleton' ? 'skeleton' : 'goblin'), skin: s.skin || 'default', summon: true, summonType: s.summonType || 'goblin' })),
@@ -388,7 +396,7 @@ wss.on('connection', ws => {
   shieldUntil: 0, invisibleUntil: 0, ogreHasteUntil: 0, abilityCooldowns: {},
   name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
-  hp: 130, maxHp: 130, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
+  hp: 130, maxHp: 130, mana: 100, maxMana: 100, nextManaRegenAt: Date.now() + 1000, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
   playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, equipmentDamage: 0, nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
   room: null,
   ready: false,
@@ -990,6 +998,9 @@ wss.on('connection', ws => {
       const spell = msg.spell === 'fire' ? 'fire' : msg.spell === 'lightning' ? 'lightning' : null;
       if (!spell) return;
 
+      const manaCost = spell === 'fire' ? 20 : 15;
+      if ((player.mana ?? 100) < manaCost) { ws.send(JSON.stringify({ type: 'notice', text: '✦ Mana insuficiente! Espere regenerar.' })); return; }
+      player.mana = Math.max(0, (player.mana ?? 100) - manaCost);
       const candidates = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])].filter(m => m.alive && m.spawned && Math.hypot(m.x-player.x,m.z-player.z)<7); if(room.phase===5 && room.boss && room.boss.alive && Math.hypot(room.boss.x-player.x,room.boss.z-player.z)<8)candidates.push(room.boss);
       candidates.sort((a, b) => Math.hypot(a.x-player.x, a.z-player.z) - Math.hypot(b.x-player.x, b.z-player.z));
       const target = candidates[0];
