@@ -1993,6 +1993,7 @@ let selectedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].i
 let skillPoints = 5;
 const unlockedSkills = new Set();
 let lastSkillSignature = '';
+let activeSkillFilter = 'all';
 const SKILL_BRANCHES = [
   { id:'attack', title:'⚔ ATAQUE', skills:[
     {id:'mighty_blows',icon:'⚔',name:'Golpes poderosos',desc:'+1 dano base.'},
@@ -2031,14 +2032,31 @@ function renderSkillTrees() {
   const allSkills = branches.flatMap(branch => branch.skills.map(skill => ({...skill, branch:branch.id})));
   const activeBranches = new Set(allSkills.filter(skill => unlockedSkills.has(skill.id)).map(skill => skill.branch));
   const activeCount = unlockedSkills.size;
+  const classGlyph = {knight:'🛡️',mage:'🔮',archer:'🏹',goblin:'👺',ogre:'👹',healer:'🌿',necromancer:'💀',monk:'🥋',golem:'🪨'}[selectedClass] || '✦';
+  const canUnlock = skill => {
+    const active = unlockedSkills.has(skill.id);
+    const prereqMet = !skill.req || unlockedSkills.has(skill.req);
+    const branchActive = activeBranches.has(skill.branch) || activeBranches.size < 3;
+    return !active && prereqMet && branchActive && skillPoints > 0 && activeCount < 15;
+  };
+  const filterBar = '<div class="skill-tree-filters" role="group" aria-label="Filtrar talentos">' +
+    [['all','TODOS'],['available','DISPONÍVEIS'],['unlocked','DESBLOQUEADOS']].map(([id,label]) =>
+      '<button type="button" class="skill-filter ' + (activeSkillFilter===id?'active':'') +
+      '" data-skill-filter="' + id + '" aria-pressed="' + (activeSkillFilter===id?'true':'false') + '">' + label + '</button>'
+    ).join('') + '</div>';
   const branchHtml = branches.map(branch => {
     const branchSkills = branch.skills;
     const unlockedInBranch = branchSkills.filter(skill => unlockedSkills.has(skill.id)).length;
-    const nodes = branchSkills.map((skill, index) => {
+    const progressPct = branchSkills.length ? Math.round(unlockedInBranch / branchSkills.length * 100) : 0;
+    const orderedSkills = branchSkills.map((skill,index)=>({...skill,branch:branch.id,originalIndex:index}));
+    const visibleSkills = orderedSkills.filter(skill => activeSkillFilter==='all' ||
+      (activeSkillFilter==='unlocked' && unlockedSkills.has(skill.id)) ||
+      (activeSkillFilter==='available' && canUnlock(skill)));
+    const nodes = visibleSkills.map(skill => {
       const unlocked = unlockedSkills.has(skill.id);
       const available = !skill.req || unlockedSkills.has(skill.req);
       const branchAllowed = activeBranches.has(branch.id) || activeBranches.size < 3;
-      const canBuy = !unlocked && available && skillPoints > 0 && activeCount < 15 && branchAllowed;
+      const canBuy = canUnlock(skill);
       const required = skill.req ? allSkills.find(item => item.id === skill.req)?.name : '';
       const state = unlocked ? 'DESBLOQUEADA ✓' :
         activeCount >= 15 ? 'LIMITE: 15 TALENTOS' :
@@ -2051,7 +2069,7 @@ function renderSkillTrees() {
         skillPoints < 1 ? 'Você ainda não tem pontos' :
         activeCount >= 15 ? 'Você já desbloqueou 15 talentos' : 'Toque para desbloquear';
       return '<button type="button" class="skill-node ' + (unlocked?'unlocked':canBuy?'available':'locked') +
-        '" data-skill="' + skill.id + '" data-branch="' + branch.id + '" data-order="' + (index + 1) +
+        '" data-skill="' + skill.id + '" data-branch="' + branch.id + '" data-order="' + (skill.originalIndex + 1) +
         '" aria-label="' + skill.name + '. ' + skill.desc + '. ' + state + '"' +
         ' title="' + skill.name + ' — ' + skill.desc + ' · ' + statusTitle + '"' +
         (canBuy?'':' disabled') + '>' +
@@ -2059,16 +2077,26 @@ function renderSkillTrees() {
         '<span class="skill-node-name">' + skill.name + '</span></span>' +
         '<small>' + skill.desc + '</small><span class="skill-node-state">' + state + '</span></button>';
     }).join('');
+    const empty = '<div class="skill-filter-empty">' +
+      (activeSkillFilter==='unlocked'?'Nenhum talento desbloqueado neste ramo.':
+       activeSkillFilter==='available'?'Não há talento disponível neste ramo agora.':'Nenhum talento neste ramo.') +
+      '</div>';
     return '<section class="skill-branch branch-' + branch.id + '" data-branch="' + branch.id + '">' +
       '<div class="skill-branch-title">' + branch.title + '</div>' +
       '<div class="skill-branch-meta">' + unlockedInBranch + '/' + branchSkills.length + ' talentos</div>' +
-      '<div class="skill-branch-list">' + nodes + '</div></section>';
+      '<div class="skill-branch-progress" role="progressbar" aria-label="Progresso de ' + branch.title +
+      '" aria-valuemin="0" aria-valuemax="' + branchSkills.length + '" aria-valuenow="' + unlockedInBranch +
+      '"><span style="width:' + progressPct + '%"></span></div>' +
+      '<div class="skill-branch-list">' + (nodes || empty) + '</div></section>';
   }).join('');
-  const core = '<div class="skill-tree-core"><span class="skill-tree-core-icon">✦</span>' +
+  const overallPct = Math.min(100, Math.round(activeCount / 15 * 100));
+  const core = '<div class="skill-tree-core"><span class="skill-tree-core-icon">' + classGlyph + '</span>' +
     '<span><strong>' + (CLASS_NAMES_UI[selectedClass] || 'CLASSE') + '</strong>' +
-    '<small>ÁRVORE DE TALENTOS · ' + skillPoints + ' PONTOS DISPONÍVEIS · ' +
-    activeCount + '/15 DESBLOQUEADOS</small></span></div>';
-  const html = core + '<div class="skill-tree-branches">' + branchHtml + '</div>';
+    '<small>ÁRVORE DE TALENTOS · ' + skillPoints + ' PONTOS · ' +
+    activeCount + '/15 DESBLOQUEADOS</small>' +
+    '<span class="skill-tree-overall-progress" role="progressbar" aria-label="Progresso total de talentos" aria-valuemin="0" aria-valuemax="15" aria-valuenow="' +
+    activeCount + '"><span style="width:' + overallPct + '%"></span></span></span></div>';
+  const html = core + filterBar + '<div class="skill-tree-branches">' + branchHtml + '</div>';
   const lobbyTree = $('skillTreeLobby'), hudTree = $('skillTreeHud');
   if (lobbyTree) lobbyTree.innerHTML = html;
   if (hudTree) hudTree.innerHTML = html;
@@ -2392,6 +2420,14 @@ function getCurrentSkillBranches() {
     : branch);
 }
 function handleSkillClick(event) {
+  const filterButton = event.target.closest('[data-skill-filter]');
+  if (filterButton) {
+    const nextFilter = filterButton.dataset.skillFilter;
+    if (!['all','available','unlocked'].includes(nextFilter)) return;
+    activeSkillFilter = nextFilter;
+    renderSkillTrees();
+    return;
+  }
   const button = event.target.closest('[data-skill]');
   if (!button) return;
   const branches = getCurrentSkillBranches();
@@ -2413,6 +2449,17 @@ function handleSkillClick(event) {
   lastSkillSignature = '';
   syncLoadoutUI();
   sendLoadout();
+  vibrateGame(18);
+  showNotice('✦ ' + skill.name + ' desbloqueada!');
+  // Keep the selected branch in view on narrow screens after the tree re-renders.
+  const matchingNodes = document.querySelectorAll('[data-skill="' + skill.id + '"]');
+  matchingNodes.forEach(node => {
+    const scroller = node.closest('.skill-tree');
+    if (scroller && scroller.scrollWidth > scroller.clientWidth) {
+      const branchNode = node.closest('.skill-branch');
+      if (branchNode) scroller.scrollTo({left:Math.max(0,branchNode.offsetLeft - scroller.offsetLeft - 8),behavior:'smooth'});
+    }
+  });
 }
 $('skillTreeLobby')?.addEventListener('click', handleSkillClick);
 $('skillTreeHud')?.addEventListener('click', handleSkillClick);
