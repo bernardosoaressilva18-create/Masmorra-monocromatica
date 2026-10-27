@@ -146,7 +146,8 @@ function requestTacticalTarget(room, monster, players, now) {
   if (tacticalAiInFlight.size >= TACTICAL_AI_MAX_IN_FLIGHT) return;
   const candidates = [];
   for (const player of players) {
-    if (player.hp <= 0 || now < (player.invisibleUntil || 0) || !Number.isFinite(player.x) || !Number.isFinite(player.z)) continue;
+    if(player.hp<=0||now<(player.invisibleUntil||0)||!Number.isFinite(player.x)||!Number.isFinite(player.z))continue;
+    if(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(player.id)===String(monster.ownerId))continue;
     const threat = getMonsterThreat(monster, player, now);
     candidates.push({
       id: 'player:' + String(player.id), x: player.x, z: player.z,
@@ -225,7 +226,8 @@ function applyTacticalTarget(room, monster, players, now) {
   if (!cached || now - cached.at > TACTICAL_AI_CACHE_TTL_MS) return null;
   if (cached.targetId.startsWith('player:')) {
     const id = cached.targetId.slice(7);
-    const player = players.find(p => String(p.id) === id && p.hp > 0 && now >= (p.invisibleUntil || 0));
+    const player=players.find(p=>String(p.id)===id&&p.hp>0&&now>=(p.invisibleUntil||0)
+      &&!(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(p.id)===String(monster.ownerId)));
     return player ? { ...player, id: player.id, isSummon: false, tacticalAi: true } : null;
   }
   if (cached.targetId.startsWith('summon:')) {
@@ -361,6 +363,23 @@ function takeDamage(room, player, amount) {
   if (player.hp <= 0) player.deathLocked = true;
   return appliedDamage;
 }
+function applyPvpPlayerDamage(room,attacker,target,amount){
+ if(room.gameMode!=='pvp_rpg'||!target||target.hp<=0)return 0;
+ if(attacker&&attacker.id&&String(attacker.id)===String(target.id))return 0;
+ const applied=takeDamage(room,target,amount);
+ if(target.hp<=0&&!target.pvpRespawnAt){
+  target.pvpRespawnAt=Date.now()+4200;target.deathLocked=true;
+  const killerId=attacker&&(room.players.has(String(attacker.id))?String(attacker.id):String(attacker.ownerId||''));
+  const killer=killerId?room.players.get(killerId):null;
+  if(killer&&killer.id!==target.id&&killer.connected!==false){
+   killer.pvpKills=(killer.pvpKills||0)+1;
+   if(killer.pvpKills%3===0){killer.talentPoints=Math.min(99,(killer.talentPoints||0)+1);
+    if(killer.ws?.readyState===WebSocket.OPEN)killer.ws.send(JSON.stringify({type:'notice',text:'✦ 3 eliminações PvP! +1 ponto de talento.'}));}
+  }
+  broadcast(room,{type:'notice',text:(killer?killer.name:'Um monstro')+' derrotou '+target.name+'! Retorno em 4 segundos.'});
+ }
+ return applied;
+}
 
 const RARITIES = [
   { name: 'comum', chance: 60, value: 1 },
@@ -484,16 +503,35 @@ function enterEclipseRealm(room){
  broadcast(room,state(room));
 }
 
-function newRoom(code, hostId, isPublic = false) {
-  const room = { isPublic, players: new Map(), hostId, started: false, realm: 1, phase: 1, monsters: createWave(1,1), summons: [], boss: null, bossAttackAt: 0, safeZoneUntil: 0, nextSafeBroadcast: 0, emptySince: 0, cursedBoss: null, cursedBossAttackAt: 0,
-    chests: [
-      { id: 'c0', x: -8, z: -12, openedBy: [] },
-      { id: 'c1', x: 8, z: -44, openedBy: [] },
-      { id: 'c2', x: -8, z: -76, openedBy: [] },
-      { id: 'c3', x: 8, z: -108, openedBy: [] },
-      { id: 'c4', x: 8, z: -140, openedBy: [] }
-    ] };
-  room.code = code; rooms.set(code, room); return room;
+const PVP_SPAWNS=[{x:-8,z:-7},{x:8,z:-7},{x:-8,z:-23},{x:8,z:-23}];
+const PVP_MONSTERS={
+ stalker:{name:'Rastreador',mana:25,hp:34,damage:4,attackMs:1200,speed:.29},
+ brute:{name:'Brutamonte',mana:40,hp:68,damage:8,attackMs:1800,speed:.22},
+ wraith:{name:'Espectro',mana:35,hp:30,damage:5,attackMs:1000,speed:.32},
+ thorn:{name:'Espinheiro',mana:30,hp:40,damage:3,attackMs:1250,speed:.24},
+ assassin:{name:'Assassino Sombrio',mana:45,hp:28,damage:7,attackMs:850,speed:.36}
+};
+function createPvpMonster(room,player,kind){
+ const p=PVP_MONSTERS[kind];if(!p||room.gameMode!=='pvp_rpg')return null;
+ const alive=room.monsters.filter(m=>m.alive&&m.hp>0);
+ if(alive.length>=16||alive.filter(m=>m.pvpSummoned&&String(m.ownerId)===String(player.id)).length>=3)return null;
+ const now=Date.now(),rot=Number(player.rot)||0;
+ const m={id:'pvp-'+player.id+'-'+now+'-'+Math.random().toString(36).slice(2,7),kind,name:p.name,ownerId:player.id,
+  ownerName:player.name,pvpSummoned:true,x:Math.max(-12,Math.min(12,player.x-Math.sin(rot)*1.8)),
+  z:Math.max(-27,Math.min(-3,player.z-Math.cos(rot)*1.8)),phase:1,realm:1,spawned:false,spawnAt:now+250,
+  alive:true,hp:p.hp,maxHp:p.hp,damage:p.damage,attackMs:p.attackMs,moveSpeed:p.speed,attackAt:0};
+ room.monsters.push(m);return m;
+}
+function newRoom(code,hostId,isPublic=false,requestedGameMode='coop'){
+ const gameMode=requestedGameMode==='pvp_rpg'?'pvp_rpg':'coop';
+ const room={isPublic,gameMode,players:new Map(),hostId,started:false,realm:1,phase:1,
+  monsters:gameMode==='pvp_rpg'?[]:createWave(1,1),summons:[],boss:null,bossAttackAt:0,
+  safeZoneUntil:0,nextSafeBroadcast:0,emptySince:0,cursedBoss:null,cursedBossAttackAt:0,
+  chests:gameMode==='pvp_rpg'?[]:[
+   {id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},
+   {id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}
+  ]};
+ room.code=code;rooms.set(code,room);return room;
 }
 
 function broadcast(room, message) {
@@ -564,10 +602,12 @@ function state(room) {
   // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
   ensureRoomHost(room);
   return {
-    type: 'state',
-    players: [...room.players.values()].filter(p => p.connected !== false).map(p => ({
-      id: p.id, name: p.name, x: p.x, z: p.z, rot: p.rot, color: p.color, hp: p.hp, maxHp: p.maxHp, mana: p.mana ?? 100, maxMana: p.maxMana ?? 100, playerClass: p.playerClass, skin: p.skin, skills: p.skills, talentPoints: p.talentPoints, ready: !!p.ready, isHost: p.id === room.hostId,
-      invisible: Date.now() < (p.invisibleUntil || 0), shielded: Date.now() < (p.shieldUntil || 0), ogreHasteUntil: p.ogreHasteUntil || 0
+    type:'state',gameMode:room.gameMode||'coop',
+    players:[...room.players.values()].filter(p=>p.connected!==false).map(p=>({
+      id:p.id,name:p.name,x:p.x,z:p.z,rot:p.rot,color:p.color,hp:p.hp,maxHp:p.maxHp,mana:p.mana??100,maxMana:p.maxMana??100,
+      playerClass:p.playerClass,skin:p.skin,skills:p.skills,talentPoints:p.talentPoints,ready:!!p.ready,isHost:p.id===room.hostId,
+      pvpKills:p.pvpKills||0,pvpMonsterKills:p.pvpMonsterKills||0,pvpRespawnAt:p.pvpRespawnAt||0,
+      invisible:Date.now()<(p.invisibleUntil||0),shielded:Date.now()<(p.shieldUntil||0),ogreHasteUntil:p.ogreHasteUntil||0
     })),
     summons: (room.summons || []).filter(s => s.hp > 0 && (!s.expiresAt || s.expiresAt > Date.now())).map(s => ({ id: 'summon:' + s.id, name: s.name || (s.summonType === 'skeleton' ? 'Esqueleto aliado' : s.summonType === 'stone_golem_clone' ? 'Fragmento de Golem' : s.summonType === 'guardian_spirit' ? 'Espírito Guardião' : 'Goblin aliado'), x: s.x, z: s.z, rot: s.rot || 0, color: s.color || 0x80c86b, hp: s.hp, maxHp: s.maxHp, playerClass: s.playerClass || (s.summonType === 'skeleton' ? 'skeleton' : s.summonType === 'stone_golem_clone' ? 'golem_clone' : s.summonType === 'guardian_spirit' ? 'guardian_spirit' : 'goblin'), skin: s.skin || 'default', summon: true, summonType: s.summonType || (s.playerClass === 'golem_clone' ? 'stone_golem_clone' : 'goblin') })),
     phase: room.phase,
@@ -626,28 +666,20 @@ wss.on('connection', ws => {
     }
 
     if (msg.type === 'listPublicRooms') {
-      const list = [...rooms.values()]
-        .filter(r => {
-          if (!r.isPublic || r.started || r.players.size >= 4) return false;
-          const active = [...r.players.values()].filter(p => p.connected !== false).length;
-          return active > 0 && active < 4;
-        })
-        .map(r => ({ code: r.code, players: [...r.players.values()].filter(p => p.connected !== false).length, maxPlayers: 4 }));
+      const requestedMode=msg.gameMode==='pvp_rpg'?'pvp_rpg':'coop';
+      const list=[...rooms.values()].filter(r=>r.isPublic&&!r.started&&r.players.size<4&&r.gameMode===requestedMode
+       &&[...r.players.values()].filter(p=>p.connected!==false).length<4)
+       .map(r=>({code:r.code,gameMode:r.gameMode,players:[...r.players.values()].filter(p=>p.connected!==false).length,maxPlayers:4}));
       ws.send(JSON.stringify({ type: 'publicRooms', rooms: list }));
       return;
     }
 
-    if (msg.type === 'joinPublic') {
-      let room = [...rooms.values()].find(r =>
-        r.isPublic && !r.started && r.players.size < 4 &&
-        [...r.players.values()].filter(p => p.connected !== false).length < 4
-      );
-      if (!room) {
-        let code;
-        do { code = Math.random().toString(36).slice(2, 8).toUpperCase(); } while (rooms.has(code));
-        room = newRoom(code, player.id, true);
-        room.code = code;
-      }
+    if(msg.type==='joinPublic'){
+      const requestedMode=msg.gameMode==='pvp_rpg'?'pvp_rpg':'coop';
+      let room=[...rooms.values()].find(r=>r.isPublic&&r.gameMode===requestedMode&&!r.started&&r.players.size<4
+       &&[...r.players.values()].filter(p=>p.connected!==false).length<4);
+      if(!room){let code;do{code=Math.random().toString(36).slice(2,8).toUpperCase();}while(rooms.has(code));
+       room=newRoom(code,player.id,true,requestedMode);room.code=code;}
       msg.code = room.code;
       msg.public = true;
       msg.type = 'join';
@@ -672,9 +704,9 @@ wss.on('connection', ws => {
         player.room = null;
       }
 
-      let room = rooms.get(code);
-      if (!room) room = newRoom(code, player.id, !!msg.public);
-      if (msg.public) { room.isPublic = true; room.code = code; }
+      let room=rooms.get(code);
+      if(!room)room=newRoom(code,player.id,!!msg.public,msg.gameMode);
+      if(msg.public){room.isPublic=true;room.code=code;}
 
       // Um token aleatório permite recuperar o mesmo personagem após uma queda breve.
       const requestedToken = typeof msg.resumeToken === 'string' ? msg.resumeToken : '';
@@ -686,6 +718,7 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'error', message: 'Esta partida já começou. Um personagem morto não pode voltar com vida; crie uma nova sala para recomeçar.' }));
         return;
       }
+      if(room.players.size>=4&&!resumed){ws.send(JSON.stringify({type:'error',message:'Esta sala já está cheia (4/4 jogadores).'}));return;}
 
       if (resumed) {
         player = savedPlayer;
@@ -708,9 +741,9 @@ wss.on('connection', ws => {
         player.secondWindUsed = false;
         player.x = 0; player.z = room.started ? -((room.phase - 1) * 32 + 1) : 3; player.ready = false;
         player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
-        player.nextDodgeAt = 0; player.dodgeUntil = 0;
-        refreshPlayerStats(player, true);
-        room.players.set(player.id, player);
+        player.nextDodgeAt=0;player.dodgeUntil=0;player.pvpKills=0;player.pvpMonsterKills=0;
+        player.pvpRespawnAt=0;player.pvpMonsterCooldownAt=0;refreshPlayerStats(player,true);room.players.set(player.id,player);
+        if(room.gameMode==='pvp_rpg'&&!room.started){const i=[...room.players.keys()].indexOf(player.id),p=PVP_SPAWNS[Math.max(0,i)%4];player.x=p.x;player.z=p.z;}
       }
 
       // Se o anfitrião anterior saiu ou deixou um ID inválido, promover alguém conectado.
@@ -726,6 +759,19 @@ wss.on('connection', ws => {
 
     const room = player.room && rooms.get(player.room);
     if (!room) return;
+
+    if(msg.type==='spawnMonster'){
+      if(room.gameMode!=='pvp_rpg'||!room.started||player.hp<=0)return;
+      const kind=typeof msg.kind==='string'?msg.kind:'stalker',profile=PVP_MONSTERS[kind],now=Date.now();
+      if(!profile){ws.send(JSON.stringify({type:'notice',text:'Tipo de monstro inválido.'}));return;}
+      if(now<(player.pvpMonsterCooldownAt||0)){ws.send(JSON.stringify({type:'notice',text:'Invocação recarregando: '+Math.ceil((player.pvpMonsterCooldownAt-now)/1000)+'s.'}));return;}
+      if((player.mana??100)<profile.mana){ws.send(JSON.stringify({type:'notice',text:'Mana insuficiente! Custo: '+profile.mana+'.'}));return;}
+      const monster=createPvpMonster(room,player,kind);
+      if(!monster){ws.send(JSON.stringify({type:'notice',text:'Limite de 3 monstros por jogador ou 16 na arena.'}));return;}
+      player.mana=Math.max(0,(player.mana??100)-profile.mana);player.pvpMonsterCooldownAt=now+2800;
+      broadcast(room,{type:'notice',text:'✦ '+profile.name+' invocado! -'+profile.mana+' mana.'});
+      broadcast(room,{type:'monsterSpawn',id:monster.id});broadcast(room,state(room));return;
+    }
 
     if (msg.type === 'necromancerDiveTarget') {
       if (player.playerClass !== 'necromancer' || !player.necromancerDivePending || Date.now() > (player.necromancerDiveUntil || 0) || player.hp <= 0) return;
@@ -794,9 +840,16 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'notice', text: 'Todos os jogadores precisam clicar em PRONTO.' }));
         return;
       }
-      room.started = true;
-      broadcast(room, { type: 'notice', text: 'A partida começou! Boa sorte, aventureiros.' });
-      broadcast(room, state(room));
+      room.started=true;
+      if(room.gameMode==='pvp_rpg'){
+        room.phase=1;room.realm=1;room.monsters=[];room.summons=[];room.boss=null;room.cursedBoss=null;room.chests=[];room.safeZoneUntil=0;
+        [...room.players.values()].filter(p=>p.connected!==false).forEach((p,i)=>{
+          const spawn=PVP_SPAWNS[i%4];p.x=spawn.x;p.z=spawn.z;p.rot=i%2===0?0:Math.PI;
+          p.hp=p.maxHp;p.mana=p.maxMana||100;p.pvpKills=0;p.pvpMonsterKills=0;p.pvpRespawnAt=0;p.pvpMonsterCooldownAt=0;p.deathLocked=false;
+        });
+        broadcast(room,{type:'notice',text:'⚔ ARENA PvP RPG! Derrote rivais, invoque monstros com mana e conquiste eliminações.'});
+      }else broadcast(room,{type:'notice',text:'A partida começou! Boa sorte, aventureiros.'});
+      broadcast(room,state(room));
     } else if (msg.type === 'loadout') {
       const wantedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
       const wantedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(msg.skin) ? msg.skin : player.skin;
@@ -824,10 +877,11 @@ wss.on('connection', ws => {
       broadcast(room, state(room));
     } else if (msg.type === 'move') {
       if (!room.started || player.hp <= 0 || player.necromancerDivePending) return;
-      const requestedX = Math.max(-13, Math.min(13, Number(msg.x) || 0));
-      const requestedZ = Math.max(-174, Math.min(8, Number(msg.z) || 0));
-      const collisionResolved = resolveServerMovement(room, player, requestedX, requestedZ);
-      player.x = collisionResolved.x;
+      if(room.gameMode==='pvp_rpg'&&Date.now()<(player.pvpStunnedUntil||0))return;
+      const requestedX=Math.max(-13,Math.min(13,Number(msg.x)||0));
+      const requestedZ=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,Number(msg.z)||-14)):Math.max(-174,Math.min(8,Number(msg.z)||0));
+      const collisionResolved=resolveServerMovement(room,player,requestedX,requestedZ);player.x=collisionResolved.x;
+      if(room.gameMode==='pvp_rpg'){player.z=Math.max(-28,Math.min(-2,collisionResolved.z));player.rot=Number(msg.rot)||0;return;}
       const gateZ=room.phase<5?-(30+(room.phase-1)*32):-163.2;
       const enemiesAlive=room.phase===5?!!(room.boss&&room.boss.alive):room.monsters.some(m=>m.alive);
       if(room.phase===5&&requestedZ<gateZ&&room.boss&&room.boss.alive){
@@ -862,9 +916,7 @@ wss.on('connection', ws => {
         player.x - Math.sin(heading) * dashDistance,
         player.z - Math.cos(heading) * dashDistance
       );
-      player.x = landing.x;
-      player.z = landing.z;
-      player.rot = heading;
+      player.x=landing.x;player.z=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,landing.z)):landing.z;player.rot=heading;
       player.dodgeUntil = dodgeNow + 420 + (hasSkill(player, 'dodge_mastery') ? 140 : 0) + (hasSkill(player, 'phantom_step') ? 120 : 0);
       player.nextDodgeAt = dodgeNow + Math.max(1500, 2600 - (hasSkill(player, 'quick_recovery') ? 650 : 0));
       if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({
@@ -966,7 +1018,30 @@ wss.on('connection', ws => {
         + (ability.startsWith('goblin_') && hasSkill(player, 'goblin_trickster') ? 2500 : 0)
         + (ability === 'necromancer_dive' && hasSkill(player, 'necromancer_shadowstep') ? 2500 : 0)
         + (ability === 'golem_rock_toss' && hasSkill(player, 'golem_mountaincore') ? 2000 : 0);
-      player.abilityCooldowns[ability] = now + Math.max(4500, cooldownMs[ability] - cooldownReduction);
+      player.abilityCooldowns[ability]=now+Math.max(4500,cooldownMs[ability]-cooldownReduction);
+      if(room.gameMode==='pvp_rpg'){
+        const rivals=()=>[...room.players.values()].filter(p=>p.connected!==false&&p.id!==player.id&&p.hp>0&&now>=(p.invisibleUntil||0));
+        const nearest=(range=12)=>rivals().map(p=>({p,d:Math.hypot(p.x-player.x,p.z-player.z)})).filter(e=>e.d<=range).sort((a,b)=>a.d-b.d)[0]?.p||null;
+        const hit=(t,dmg,push=0,stun=0)=>{if(!t||t.hp<=0)return;applyPvpPlayerDamage(room,player,t,dmg);
+          if(push&&t.hp>0){const dx=t.x-player.x,dz=t.z-player.z,d=Math.hypot(dx,dz)||1;t.x=Math.max(-12,Math.min(12,t.x+dx/d*push));t.z=Math.max(-28,Math.min(-2,t.z+dz/d*push));}
+          if(stun&&t.hp>0)t.pvpStunnedUntil=now+stun;};
+        const targets=[];let text='',center={x:player.x,z:player.z};
+        if(ability==='knight_shield'){player.shieldUntil=now+4200;text='🛡️ Escudo por 4,2 segundos.';}
+        else if(['knight_dash','necromancer_dive','monk_winged_steps'].includes(ability)){
+          const d=ability==='knight_dash'?3.4:ability==='necromancer_dive'?4.2:4.8;player.x=Math.max(-12,Math.min(12,player.x-Math.sin(player.rot||0)*d));player.z=Math.max(-27,Math.min(-3,player.z-Math.cos(player.rot||0)*d));player.dodgeUntil=now+450;
+          const t=nearest(4.2);if(t&&ability==='knight_dash'){hit(t,10,1.2);targets.push({x:t.x,z:t.z});}text='↗ Avanço PvP!';
+        }else if(['arrow_rain','incendiary_arrows','golem_rock_toss'].includes(ability)){
+          const t=nearest(ability==='golem_rock_toss'?11:10);if(t){hit(t,ability==='incendiary_arrows'?11:ability==='golem_rock_toss'?13:8,ability==='golem_rock_toss'?1.8:0);targets.push({x:t.x,z:t.z});center={x:t.x,z:t.z};}text='✦ Habilidade acertou a arena!';
+        }else if(ability==='goblin_invis'){player.invisibleUntil=now+5000;text='👻 Invisibilidade por 5s.';}
+        else if(['goblin_summon','necromancer_summon','golem_split'].includes(ability)){const kind=ability==='golem_split'?'brute':ability==='necromancer_summon'?'wraith':'stalker';let n=0;for(let i=0;i<2;i++)if(createPvpMonster(room,player,kind))n++;text=n?'✦ '+n+' monstros aliados invocados.':'Limite de monstros atingido.';}
+        else if(ability==='ogre_slam'){for(const t of rivals())if(Math.hypot(t.x-player.x,t.z-player.z)<=5.2){hit(t,12,1.6);targets.push({x:t.x,z:t.z});}text='💥 Impacto em área!';}
+        else if(ability==='ogre_haste'){player.ogreHasteUntil=now+5000;text='💨 Velocidade por 5s.';}
+        else if(ability==='healer_cure'){const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+26);player.shieldUntil=Math.max(player.shieldUntil||0,now+900);text='🌿 Cura: +'+(player.hp-before)+' vida.';}
+        else if(ability==='healer_guardian_spirits'){player.shieldUntil=Math.max(player.shieldUntil||0,now+5200);text='✦ Barreira de espíritos ativa.';}
+        else if(ability==='monk_impact_palm'){for(const t of rivals())if(Math.hypot(t.x-player.x,t.z-player.z)<=4.2){hit(t,9,1.3,850);targets.push({x:t.x,z:t.z});}text='👊 Palma de impacto!';}
+        broadcast(room,{type:'classAbility',id:player.id,ability,x:player.x,z:player.z,center,targets,until:player.shieldUntil||player.invisibleUntil||player.ogreHasteUntil||0,text});
+        broadcast(room,state(room));return;
+      }
       const enemies = () => [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : []), ...(room.boss && room.boss.alive ? [room.boss] : [])]
         .filter(enemy => enemy && enemy.alive && enemy.spawned !== false);
       const findCenter = (range) => {
@@ -1206,7 +1281,18 @@ wss.on('connection', ws => {
 
       const manaCost = spell === 'fire' ? 20 : 15;
       if ((player.mana ?? 100) < manaCost) { ws.send(JSON.stringify({ type: 'notice', text: '✦ Mana insuficiente! Espere regenerar.' })); return; }
-      player.mana = Math.max(0, (player.mana ?? 100) - manaCost);
+      player.mana=Math.max(0,(player.mana??100)-manaCost);
+      const now=Date.now();
+      if(room.gameMode==='pvp_rpg'){
+        const candidates=[...room.players.values()].filter(p=>p.connected!==false&&p.id!==player.id&&p.hp>0&&now>=(p.invisibleUntil||0))
+          .map(p=>({p,d:Math.hypot(p.x-player.x,p.z-player.z)})).filter(e=>e.d<=(spell==='fire'?8:10)).sort((a,b)=>a.d-b.d);
+        const t=candidates[0]?.p;if(!t){ws.send(JSON.stringify({type:'notice',text:'Nenhum rival ao alcance da magia.'}));broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:[]});broadcast(room,state(room));return;}
+        const power=statsFor(player).spellPower*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1);
+        const damage=Math.max(1,Math.round((spell==='fire'?10:8)*power));applyPvpPlayerDamage(room,player,t,damage);
+        const hitTargets=[{x:t.x,z:t.z}];if(spell==='lightning'){const t2=candidates.slice(1).find(e=>Math.hypot(e.p.x-t.x,e.p.z-t.z)<=4.6)?.p;if(t2){applyPvpPlayerDamage(room,player,t2,Math.max(1,Math.round(damage*.65)));hitTargets.push({x:t2.x,z:t2.z});}}
+        ws.send(JSON.stringify({type:'notice',text:(spell==='fire'?'🔥 Bola de fogo':'⚡ Raio encadeado')+'! Dano PvP: '+damage+'.'}));
+        broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:hitTargets});broadcast(room,state(room));return;
+      }
       const candidates = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])].filter(m => m.alive && m.spawned && Math.hypot(m.x-player.x,m.z-player.z)<7); if(room.phase===5 && room.boss && room.boss.alive && Math.hypot(room.boss.x-player.x,room.boss.z-player.z)<8)candidates.push(room.boss);
       candidates.sort((a, b) => Math.hypot(a.x-player.x, a.z-player.z) - Math.hypot(b.x-player.x, b.z-player.z));
       const target = candidates[0];
@@ -1274,7 +1360,20 @@ wss.on('connection', ws => {
       const attackInterval = Math.max(180, statsFor(player).attackMs - (hasSkill(player, 'swift_hands') ? 90 : 0) - (hasSkill(player, 'battle_focus') ? 55 : 0)
         - (hasSkill(player, 'knight_vanguard') ? 45 : 0) - (hasSkill(player, 'goblin_agility') ? 50 : 0) - (hasSkill(player, 'monk_focus') ? 40 : 0));
       if (now < (player.nextAttackAt || 0)) return;
-      player.nextAttackAt = now + attackInterval;
+      player.nextAttackAt=now+attackInterval;
+      if(room.gameMode==='pvp_rpg'){
+        const range=statsFor(player).range+(player.playerClass==='archer'&&hasSkill(player,'longshot')?2:0);
+        const candidates=[
+          ...[...room.players.values()].filter(p=>p.connected!==false&&p.id!==player.id&&p.hp>0&&now>=(p.invisibleUntil||0)).map(entity=>({entity,isPlayer:true})),
+          ...room.monsters.filter(m=>m.alive&&m.spawned&&m.pvpSummoned&&String(m.ownerId)!==String(player.id)).map(entity=>({entity,isPlayer:false}))
+        ].map(e=>({...e,d:Math.hypot(e.entity.x-player.x,e.entity.z-player.z)})).filter(e=>e.d<=range).sort((a,b)=>a.d-b.d);
+        const target=candidates[0];let damage=isMonk?[0,2,3,5][monkCombo]:player.baseDamage+(player.damageBuffHits>0?player.damageBuff:0);
+        if(isMonk&&player.damageBuffHits>0)damage+=player.damageBuff;
+        if(target){if(target.isPlayer){if(target.entity.hp/(target.entity.maxHp||1)<=.35&&hasSkill(player,'executioner'))damage+=2;applyPvpPlayerDamage(room,player,target.entity,damage);}
+          else{const m=target.entity;m.hp=Math.max(0,m.hp-damage);recordMonsterThreat(m,player,damage,now);if(m.hp<=0&&m.alive){m.alive=false;player.pvpMonsterKills=(player.pvpMonsterKills||0)+1;const owner=room.players.get(String(m.ownerId));if(owner?.ws?.readyState===WebSocket.OPEN)owner.ws.send(JSON.stringify({type:'notice',text:'Um monstro seu foi derrotado por '+player.name+'.'}));ws.send(JSON.stringify({type:'notice',text:'Monstro rival derrotado!'}));}}
+          if(player.damageBuffHits>0){player.damageBuffHits--;if(player.damageBuffHits===0)player.damageBuff=0;}}
+        broadcast(room,{type:'attack',id:player.id,combo:monkCombo,x:player.x,z:player.z});broadcast(room,state(room));return;
+      }
       if (room.phase < 5) {
         const attackRange = statsFor(player).range + (player.playerClass === 'archer' && hasSkill(player, 'longshot') ? 2 : 0);
         const target = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])].find(m => m.alive && m.spawned && Math.hypot(m.x - player.x, m.z - player.z) < attackRange);
@@ -1409,8 +1508,16 @@ setInterval(() => {
         if (room.hostId === id) room.hostId = [...room.players.values()].find(p => p.connected !== false)?.id || null;
       }
     }
-    const players = [...room.players.values()].filter(p => p.connected !== false);
-    if (room.started && players.length === 0) {
+    const players=[...room.players.values()].filter(p=>p.connected!==false);
+    if(room.gameMode==='pvp_rpg'&&room.started){
+      players.forEach((p,i)=>{if(p.hp>0||!p.pvpRespawnAt||now<p.pvpRespawnAt)return;
+        const spawn=PVP_SPAWNS[i%4];p.hp=p.maxHp||100;p.mana=p.maxMana||100;p.x=spawn.x;p.z=spawn.z;p.rot=i%2===0?0:Math.PI;
+        p.pvpRespawnAt=0;p.deathLocked=false;p.dodgeUntil=0;p.invisibleUntil=0;p.shieldUntil=now+800;
+        if(p.ws?.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'Você voltou à arena! Vida restaurada.'}));
+        broadcast(room,{type:'pvpRespawn',id:p.id,x:p.x,z:p.z});
+      });
+    }
+    if(room.started&&players.length===0){
       if (!room.emptySince) room.emptySince = now;
       if (now - room.emptySince > 120000) { rooms.delete(roomCode); continue; }
     } else if (players.length > 0) {
@@ -1540,9 +1647,10 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
 
       // Goblins invocados provocam os monstros: recebem uma vantagem de aggro
       // para que os inimigos realmente os persigam em vez de focar sempre o jogador.
-      for (const player of players) {
-        if (player.hp <= 0 || now < (player.invisibleUntil || 0)) continue;
-        const distance = Math.hypot(player.x - monster.x, player.z - monster.z);
+      for(const player of players){
+        if(player.hp<=0||now<(player.invisibleUntil||0))continue;
+        if(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(player.id)===String(monster.ownerId))continue;
+        const distance=Math.hypot(player.x-monster.x,player.z-monster.z);
         if (distance < targetPriority) {
           targetPriority = distance;
           nearest = distance;
@@ -1616,15 +1724,9 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
             moveZ = (dz / distance) * 0.84 + (dx / distance) * 0.54 * side;
           }
 
-          const speed = (kind === 'brute' ? 0.25
-            : kind === 'wraith' ? 0.32
-            : kind === 'assassin' ? 0.36
-            : kind === 'thorn' ? 0.25
-            : kind === 'abyss' ? 0.33
-            : 0.29) * (retreating ? 1.18 : 1) * (room.phase >= 4 ? 1.08 : 1);
-
-          monster.x = Math.max(-13, Math.min(13, monster.x + moveX * speed));
-          monster.z = Math.max(-170, Math.min(8, monster.z + moveZ * speed));
+          const speed=(Number(monster.moveSpeed)||(kind==='brute' ? 0.25 : kind==='wraith' ? 0.32 : kind==='assassin' ? 0.36 : kind==='thorn' ? 0.25 : kind==='abyss' ? 0.33 : 0.29))*(retreating?1.18:1)*(room.phase>=4?1.08:1);
+          monster.x=Math.max(-13,Math.min(13,monster.x+moveX*speed));
+          monster.z=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,monster.z+moveZ*speed)):Math.max(-170,Math.min(8,monster.z+moveZ*speed));
         }
       }
       const monsterNow = Date.now();
@@ -1643,8 +1745,11 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
             const summon = target.sourceSummon;
             summon.hp = Math.max(0, summon.hp - 4);
             if (summon.hp <= 0) broadcast(room, { type: 'notice', text: 'Um monstro derrotou um goblin aliado!' });
-          } else if (Date.now() < (target.dodgeUntil || 0)) {
-            if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: 'Esquiva perfeita! Você evitou o golpe.' }));
+          } else if(Date.now()<(target.dodgeUntil||0)){
+            if(target.ws)target.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você evitou o golpe.'}));
+          } else if(room.gameMode==='pvp_rpg'){
+            applyPvpPlayerDamage(room,monster,target,monster.damage||4);
+            if(target.ws)target.ws.send(JSON.stringify({type:'notice',text:monster.name+' acertou você! -'+(monster.damage||4)+' de dano.'}));
           } else {
             takeDamage(room, target, 4);
             if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
