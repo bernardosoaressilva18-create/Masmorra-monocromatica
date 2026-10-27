@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: masmorra-tactical-ai
+    runtime: python
+    plan: free
+    region: ohio
+    rootDir: python-ai
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /health
+    autoDeploy: true
