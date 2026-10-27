@@ -2031,22 +2031,44 @@ function renderSkillTrees() {
   const allSkills = branches.flatMap(branch => branch.skills.map(skill => ({...skill, branch:branch.id})));
   const activeBranches = new Set(allSkills.filter(skill => unlockedSkills.has(skill.id)).map(skill => skill.branch));
   const activeCount = unlockedSkills.size;
-  const html = branches.map(branch =>
-    '<section class="skill-branch"><div class="skill-branch-title">' + branch.title + '</div><div class="skill-branch-list">' +
-    branch.skills.map(skill => {
+  const branchHtml = branches.map(branch => {
+    const branchSkills = branch.skills;
+    const unlockedInBranch = branchSkills.filter(skill => unlockedSkills.has(skill.id)).length;
+    const nodes = branchSkills.map((skill, index) => {
       const unlocked = unlockedSkills.has(skill.id);
       const available = !skill.req || unlockedSkills.has(skill.req);
       const branchAllowed = activeBranches.has(branch.id) || activeBranches.size < 3;
       const canBuy = !unlocked && available && skillPoints > 0 && activeCount < 15 && branchAllowed;
       const required = skill.req ? allSkills.find(item => item.id === skill.req)?.name : '';
       const state = unlocked ? 'DESBLOQUEADA ✓' :
-        activeCount >= 15 ? 'LIMITE: 15 SKILLS' :
+        activeCount >= 15 ? 'LIMITE: 15 TALENTOS' :
         !branchAllowed ? 'LIMITE: 3 RAMOS' :
         !available ? 'REQUER: ' + (required || 'talento anterior') :
         skillPoints > 0 ? 'DESBLOQUEAR · 1 PONTO' : 'SEM PONTOS';
-      return '<button type="button" class="skill-node ' + (unlocked?'unlocked':canBuy?'available':'locked') + '" data-skill="' + skill.id + '"' + (canBuy?'':' disabled') + '><span class="skill-node-top"><span class="skill-node-icon">' + skill.icon + '</span>' + skill.name + '</span><small>' + skill.desc + '</small><span class="skill-node-state">' + state + '</span></button>';
-    }).join('') + '</div></section>'
-  ).join('');
+      const statusTitle = unlocked ? 'Talento desbloqueado' :
+        !available ? 'Necessário desbloquear: ' + (required || 'talento anterior') :
+        !branchAllowed ? 'Limite de três ramos atingido' :
+        skillPoints < 1 ? 'Você ainda não tem pontos' :
+        activeCount >= 15 ? 'Você já desbloqueou 15 talentos' : 'Toque para desbloquear';
+      return '<button type="button" class="skill-node ' + (unlocked?'unlocked':canBuy?'available':'locked') +
+        '" data-skill="' + skill.id + '" data-branch="' + branch.id + '" data-order="' + (index + 1) +
+        '" aria-label="' + skill.name + '. ' + skill.desc + '. ' + state + '"' +
+        ' title="' + skill.name + ' — ' + skill.desc + ' · ' + statusTitle + '"' +
+        (canBuy?'':' disabled') + '>' +
+        '<span class="skill-node-top"><span class="skill-node-icon" aria-hidden="true">' + skill.icon + '</span>' +
+        '<span class="skill-node-name">' + skill.name + '</span></span>' +
+        '<small>' + skill.desc + '</small><span class="skill-node-state">' + state + '</span></button>';
+    }).join('');
+    return '<section class="skill-branch branch-' + branch.id + '" data-branch="' + branch.id + '">' +
+      '<div class="skill-branch-title">' + branch.title + '</div>' +
+      '<div class="skill-branch-meta">' + unlockedInBranch + '/' + branchSkills.length + ' talentos</div>' +
+      '<div class="skill-branch-list">' + nodes + '</div></section>';
+  }).join('');
+  const core = '<div class="skill-tree-core"><span class="skill-tree-core-icon">✦</span>' +
+    '<span><strong>' + (CLASS_NAMES_UI[selectedClass] || 'CLASSE') + '</strong>' +
+    '<small>ÁRVORE DE TALENTOS · ' + skillPoints + ' PONTOS DISPONÍVEIS · ' +
+    activeCount + '/15 DESBLOQUEADOS</small></span></div>';
+  const html = core + '<div class="skill-tree-branches">' + branchHtml + '</div>';
   const lobbyTree = $('skillTreeLobby'), hudTree = $('skillTreeHud');
   if (lobbyTree) lobbyTree.innerHTML = html;
   if (hudTree) hudTree.innerHTML = html;
@@ -2097,9 +2119,11 @@ function chooseClass(className) {
   try { localStorage.setItem('mmCharacterChoice', JSON.stringify({ playerClass: selectedClass, skin: selectedSkin })); } catch {}
   document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
   if ($('classDescription')) $('classDescription').textContent = classDescriptions[selectedClass];
+  updateClassAbilityButtons();
   updateHeroShowcase();
   refreshLocalHeroAppearance();
   sendLoadout();
+  showNotice('Classe alterada para ' + (CLASS_NAMES_UI[selectedClass] || selectedClass.toUpperCase()) + '. A árvore foi atualizada.');
   closeLobbyEditor();
 }
 document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => chooseClass(card.dataset.class)));
@@ -2371,7 +2395,7 @@ function handleSkillClick(event) {
   const button = event.target.closest('[data-skill]');
   if (!button) return;
   const branches = getCurrentSkillBranches();
-  const branch = branches.find(item => item.skills.some(entry => entry.id === button.dataset.skill));
+  const branch = branches.find(item => item.id === button.dataset.branch && item.skills.some(entry => entry.id === button.dataset.skill));
   const skill = branch?.skills.find(item => item.id === button.dataset.skill);
   if (!skill || button.disabled) return;
   const activeBranches = new Set(branches.filter(item => item.skills.some(entry => unlockedSkills.has(entry.id))).map(item => item.id));
