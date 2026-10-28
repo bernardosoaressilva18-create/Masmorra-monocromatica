@@ -3400,3 +3400,20 @@ body.shift-lock-active .shift-lock-crosshair{display:block}
 #hud .inventory-panel.inventory-hidden{pointer-events:auto!important}
 .camera-zoom-controls .shift-lock-toggle{min-width:54px!important;width:54px!important;padding:0 4px!important;font-size:10px!important;letter-spacing:.4px!important;white-space:nowrap!important}
 @media(max-width:600px){#lobby .hero-showcase-info{background:rgba(5,12,22,.72)!important} .camera-zoom-controls .shift-lock-toggle{min-width:48px!important;width:48px!important;font-size:9px!important}}
+
+
+/* Update 13: unmistakable lobby stage and cleaner phone composition. */
+#lobby .lobby-stage{position:relative;isolation:isolate}
+#lobby .hero-showcase{position:relative;min-height:clamp(230px,42vh,420px);overflow:hidden;border:1px solid rgba(233,196,119,.36);border-radius:22px;background:radial-gradient(ellipse at 50% 42%,rgba(66,120,153,.20),rgba(9,12,18,.12) 52%,rgba(9,12,18,.58));box-shadow:inset 0 0 48px rgba(65,155,190,.08),0 12px 32px rgba(0,0,0,.18)}
+#lobby .hero-showcase-info{z-index:2;position:absolute;left:12px;right:12px;bottom:12px;padding:12px 14px;border:1px solid rgba(233,196,119,.24);border-radius:14px;background:linear-gradient(110deg,rgba(7,11,17,.94),rgba(7,11,17,.72));backdrop-filter:blur(8px)}
+#lobby .hero-showcase-tags{display:flex;flex-wrap:wrap;gap:6px}
+#lobby .hero-showcase-tags span{font-size:10px;letter-spacing:.08em}
+@media(max-width:700px){
+ #lobby .lobby-layout{gap:10px}
+ #lobby .lobby-stage{min-width:0}
+ #lobby .hero-showcase{min-height: min(40vh,320px);border-radius:16px}
+ #lobby .hero-showcase-info{left:8px;right:8px;bottom:8px;padding:9px 10px}
+ #lobby .hero-showcase-info p{margin:4px 0;font-size:12px}
+ #lobby .lobby-nav{gap:6px}
+ #lobby .lobby-nav-btn{min-height:38px;padding:7px 9px}
+}

@@ -1,5 +1,14 @@
-const CACHE_NAME = 'ultimo-legado-mega-update-12';
+const CACHE_NAME = 'ultimo-legado-visual-fix-13';
 const SHELL = ['./', './index.html', './style.css', './game.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
+
+// Update 13: remove obsolete offline shells and avoid falling back to an old HTML document.
+self.addEventListener('message', event => {
+  if (event.data === 'CLEAR_OLD_GAME_CACHES') {
+    event.waitUntil(caches.keys().then(keys => Promise.all(
+      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+    )));
+  }
+});
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
