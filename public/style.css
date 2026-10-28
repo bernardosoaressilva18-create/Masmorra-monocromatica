@@ -3417,3 +3417,18 @@ body.shift-lock-active .shift-lock-crosshair{display:block}
  #lobby .lobby-nav{gap:6px}
  #lobby .lobby-nav-btn{min-height:38px;padding:7px 9px}
 }
+
+
+/* Mega Update 14: remove expensive backdrop blurs on touch devices; keep opaque, readable panels. */
+@media (pointer:coarse) and (max-width:700px) {
+  #lobby .hero-showcase-info,
+  .camera-zoom-controls,
+  #hud .settings-panel,
+  #hud .diagnostics-card,
+  #lobby .lobby-stage {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  #lobby .hero-showcase-info { background: rgba(5,12,22,.92) !important; }
+  .camera-zoom-controls { background: rgba(5,14,25,.96) !important; }
+}

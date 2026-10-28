@@ -5,6 +5,8 @@ const $ = id => document.getElementById(id);
 const menu = $('menu'), hud = $('hud'), loading = $('loading'), menuStatus = $('menuStatus');
 
 let renderer, scene, camera, clock, ws, playerId = null, roomCode = '', myPlayer = null, started = false;
+// Evita gastar CPU tentando renderizar enquanto o WebGL está indisponível.
+let webglContextLost = false;
 let selectedGameMode = 'coop', activeGameMode = 'coop';
 try { selectedGameMode = localStorage.getItem('mmGameMode') === 'pvp_rpg' ? 'pvp_rpg' : 'coop'; } catch {}
 const gameModeSelect = $('gameModeSelect');
@@ -120,6 +122,8 @@ document.addEventListener('visibilitychange', () => {
     if (backgroundMusic) backgroundMusic.pause();
     if (audioContext && audioContext.state === 'running') audioContext.suspend().catch(() => {});
   } else {
+    // Retoma um único loop após voltar para a aba, sem manter trabalho em segundo plano.
+    if (renderer && !webglContextLost) requestAnimationFrame(animate);
     if (audioContext && audioContext.state === 'suspended') audioContext.resume().catch(() => {});
     if (backgroundMusic && gameSettings.musicEnabled && gameSettings.musicVolume > 0) {
       backgroundMusic.play().catch(() => {});
@@ -251,7 +255,8 @@ function init3D() {
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
   renderer = new THREE.WebGLRenderer({
-    antialias: !isMobileDevice || gameSettings.graphicsQuality === 'high',
+    // MSAA é caro em GPUs móveis; a escala de render adaptativa preserva detalhes sem esse custo.
+    antialias: !isMobileDevice,
     powerPreference: isMobileDevice && gameSettings.graphicsQuality === 'low' ? 'low-power' : 'high-performance',
     stencil: false
   });
@@ -3799,8 +3804,9 @@ function orientHealthBar(obj) {
 }
 
 function animate() {
+  // Pausa o loop em segundo plano ou quando o contexto gráfico foi perdido.
+  if (!renderer || document.hidden || webglContextLost) return;
   requestAnimationFrame(animate);
-  if (!renderer || document.hidden) return;
 
   const dt = Math.min(clock.getDelta(), 0.05), worldTime = clock.elapsedTime;
   const classFxNow = performance.now();
@@ -4322,16 +4328,12 @@ const right = new THREE.Vector3(
   updatePerformanceMonitor();
   const lobbyOverlayVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
   if (lobbyOverlayVisible) {
-    // The lobby uses the same canvas for its independent hero preview. Hide the
-    // gameplay scene only for this frame so dungeon geometry/camera cannot bleed
-    // through the translucent lobby. Restore each exact previous visibility.
-    const priorVisibility = scene.children.map(child => [child, child.visible]);
-    try {
-      for (const child of scene.children) child.visible = false;
-      renderer.render(scene, camera);
-    } finally {
-      for (const [child, wasVisible] of priorVisibility) child.visible = wasVisible;
-    }
+    // O lobby precisa apenas limpar o canvas antes de desenhar a prévia 3D.
+    // Evita criar arrays e alternar a visibilidade de todos os objetos a cada frame.
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, renderer.domElement.clientWidth || innerWidth, renderer.domElement.clientHeight || innerHeight);
+    renderer.autoClear = true;
+    renderer.clear(true, true, true);
   } else {
     renderer.render(scene, camera);
   }
@@ -4346,14 +4348,17 @@ try {
   if (gameCanvas) {
     gameCanvas.addEventListener('webglcontextlost', event => {
       event.preventDefault();
+      webglContextLost = true;
       const message = 'Os gráficos foram pausados pelo navegador. Tentando recuperar a imagem…';
       if (started) showNotice(message); else setStatus(message);
     });
     gameCanvas.addEventListener('webglcontextrestored', () => {
+      webglContextLost = false;
       adaptivePixelRatio = Math.min(devicePixelRatio || 1, renderPixelRatioCap);
       onResize();
       if (started) showNotice('Gráficos recuperados! Pode continuar a aventura.');
       else setStatus('Gráficos recuperados.');
+      requestAnimationFrame(animate);
     });
   }
 } catch (error) {
