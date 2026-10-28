@@ -29,7 +29,7 @@ let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=n
 let realmIntroTimer=0;
 const astralFloaters=[];
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-let shiftLockEnabled = false;
+let shiftLockEnabled = (() => { try { return localStorage.getItem('ultimoLegadoShiftLock') === '1'; } catch { return false; } })();
 let cameraDistance = (() => { try { const saved = Number(localStorage.getItem('ultimoLegadoCameraDistance')); if (Number.isFinite(saved) && saved >= 6.5 && saved <= 15.5) return saved; } catch {} return 9.5; })();
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
@@ -92,9 +92,9 @@ function vibrateGame(pattern = 12) {
 function getRenderPixelRatioCap(width = window.innerWidth, height = window.innerHeight) {
   const landscapeMobile = isMobileDevice && width > height;
   const quality = gameSettings.graphicsQuality;
-  if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 1.0 : 0.85) : 1.0;
-  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 2.15 : 1.9) : 2.0;
-  return isMobileDevice ? (landscapeMobile ? 1.9 : 1.5) : 1.65;
+  if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 0.95 : 0.78) : 1.0;
+  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 1.8 : 1.65) : 1.85;
+  return isMobileDevice ? (landscapeMobile ? 1.45 : 1.25) : 1.55;
 }
 function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.innerHeight) {
   // Never upscale beyond the device's own DPR: it costs GPU time without adding detail.
@@ -250,7 +250,11 @@ function init3D() {
   scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .0052 : .0048);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: false });
+  renderer = new THREE.WebGLRenderer({
+    antialias: !isMobileDevice || gameSettings.graphicsQuality === 'high',
+    powerPreference: isMobileDevice && gameSettings.graphicsQuality === 'low' ? 'low-power' : 'high-performance',
+    stencil: false
+  });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.24;
   renderer.setPixelRatio(adaptivePixelRatio);
@@ -964,7 +968,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     bloodmoon:{armor:0x8c2948,dark:0x270d20,trim:0xf07a9c,glow:0xff527e,cloth:0x461329}
   };
   const p = skins[skin] || skins.default;
-  const armor = new THREE.MeshPhysicalMaterial({color:p.armor,metalness:heroClass==='monk'||heroClass==='ogre'||heroClass==='goblin'?.22:.48,roughness:heroClass==='golem'?.82:.34,clearcoat:.28,clearcoatRoughness:.34});
+  const isStoneBody = heroClass === 'golem' || heroClass === 'golem_clone';
+  const armor = new THREE.MeshPhysicalMaterial({color:p.armor,metalness:heroClass==='monk'||heroClass==='ogre'||heroClass==='goblin'?.22:.48,roughness:heroClass==='golem'||heroClass==='golem_clone'?.86:.34,flatShading:isStoneBody,clearcoat:.18,clearcoatRoughness:.48});
   const dark = new THREE.MeshStandardMaterial({color:p.dark,roughness:.72,metalness:.12});
   const trim = new THREE.MeshStandardMaterial({color:p.trim,roughness:.3,metalness:.62});
   const glow = new THREE.MeshStandardMaterial({color:p.glow,emissive:p.glow,emissiveIntensity:1.45,roughness:.24,metalness:.22});
@@ -988,9 +993,10 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   for(const side of [-1,1]){
     const pivot=new THREE.Group();pivot.position.set(side*(bulky?.29:.19),.64,0);g.add(pivot);
     if(heroClass==='golem'||heroClass==='golem_clone'){
-      const shin=add(new THREE.DodecahedronGeometry(.22,1),armor,0,-.22,0,1,.95,.9,pivot);
+      const shin=add(new THREE.BoxGeometry(.32,.38,.31),armor,0,-.22,0,1,.95,.9,pivot);
       shin.rotation.z=side*.08;
-      add(new THREE.DodecahedronGeometry(.22,0),dark,0,-.43,-.08,1.2,.55,1.35,pivot);
+      const boot=add(new THREE.BoxGeometry(.34,.16,.38),dark,0,-.43,-.08,1,1,1,pivot);
+      boot.rotation.y=side*.035;
       add(new THREE.BoxGeometry(.11,.035,.04),glow,0,-.25,-.19,1,1,.5,pivot);
     }else{
       const leg=add(new THREE.CapsuleGeometry(tiny?.10:.13,.32,5,9),legMat,0,-.20,0,1,1,1,pivot);
@@ -1002,15 +1008,18 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }
   // Core torso: robe silhouettes for casters, hard angular masses for tanks.
   if(heroClass==='golem'||heroClass==='golem_clone'){
-    torso=add(new THREE.DodecahedronGeometry(.52,0),armor,0,1.12,0,1.22,1.05,.88);
-    torso.rotation.z=.03;
+    torso=add(new THREE.BoxGeometry(.88,.66,.62),armor,0,1.12,0,1.05,1.08,.98);
+    torso.rotation.z=.035;
+    torso.rotation.y=.025;
     add(new THREE.BoxGeometry(.54,.42,.20),dark,0,1.12,-.42,1,1,.75);
     waistSigil=add(new THREE.OctahedronGeometry(.17,0),glow,0,1.17,-.61,.8,1.18,.5);
     for(const side of [-1,1]){
-      const shoulder=add(new THREE.DodecahedronGeometry(.32,0),armor,side*.57,1.48,0,1.1,1,.95);
-      shoulder.rotation.z=side*-.18;
+      const shoulder=add(new THREE.BoxGeometry(.43,.34,.39),armor,side*.57,1.48,0,1,1,1);
+      shoulder.rotation.z=side*-.14; shoulder.rotation.y=side*.08;
+      add(new THREE.DodecahedronGeometry(.13,0),trim,side*.68,1.48,-.205,.8,1.05,.6);
       add(new THREE.ConeGeometry(.10,.28,5),dark,side*.63,1.76,.02).rotation.z=side*-.38;
-      add(new THREE.BoxGeometry(.34,.28,.31),armor,side*.53,.98,-.04,1,1,1);
+      const hipPlate=add(new THREE.BoxGeometry(.34,.28,.31),armor,side*.53,.98,-.04,1,1,1);
+      hipPlate.rotation.z=side*.06;
     }
   }else{
     torso=add(heroClass==='ogre'?new THREE.CapsuleGeometry(.43,.53,7,12):heroClass==='monk'?new THREE.CapsuleGeometry(.31,.48,7,12):new THREE.CapsuleGeometry(.32,.48,7,12),heroClass==='ogre'?skinMat:armor,0,1.14,0,heroClass==='ogre'?1.28:1.0,heroClass==='ogre'?1.1:1,heroClass==='ogre'?1.02:.9);
@@ -1030,9 +1039,10 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const pivot=new THREE.Group();pivot.position.set(side*(bulky?.53:.43),1.40,0);g.add(pivot);
     const armMaterial=heroClass==='ogre'||heroClass==='monk'||heroClass==='goblin'?skinMat:(heroClass==='golem'||heroClass==='golem_clone'?armor:armor);
     if(heroClass==='golem'||heroClass==='golem_clone'){
-      add(new THREE.DodecahedronGeometry(.25,0),armMaterial,0,-.18,0,1.0,1.12,.95,pivot);
-      const fist=add(new THREE.DodecahedronGeometry(.23,0),armor,0,-.49,-.03,1.18,.95,1.12,pivot);
-      fist.rotation.z=side*.12;
+      const forearm=add(new THREE.BoxGeometry(.29,.34,.30),armMaterial,0,-.18,0,1.0,1.0,1.0,pivot);
+      forearm.rotation.z=side*.07;
+      const fist=add(new THREE.BoxGeometry(.34,.35,.32),armor,0,-.49,-.03,1.02,.98,1.04,pivot);
+      fist.rotation.z=side*.12; fist.rotation.y=side*.05;
       add(new THREE.BoxGeometry(.09,.035,.035),glow,0,-.48,-.23,1,1,.5,pivot);
     }else{
       const upper=add(new THREE.CapsuleGeometry(heroClass==='ogre'?.16:.105,.32,5,9),armMaterial,0,-.15,0,1,1,1,pivot);
@@ -1041,7 +1051,12 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       add(new THREE.CapsuleGeometry(.10,.22,4,8),heroClass==='monk'?skinMat:dark,0,-.48,-.02,1,1,1,pivot);
     }
     arms.push({mesh:pivot,side});
-    add(new THREE.SphereGeometry(.16,10,8),armor,side*(bulky?.53:.43),1.42,0,1.15,.82,.9);
+    if (isStoneBody) {
+      const shoulderPlate=add(new THREE.BoxGeometry(.36,.29,.32),armor,side*(bulky?.53:.43),1.42,0,1.08,.92,1);
+      shoulderPlate.rotation.z=side*-.12;
+    } else {
+      add(new THREE.SphereGeometry(.16,10,8),armor,side*(bulky?.53:.43),1.42,0,1.15,.82,.9);
+    }
     if(heroClass!=='mage'&&heroClass!=='healer'&&heroClass!=='necromancer') add(new THREE.OctahedronGeometry(.045,0),trim,side*(bulky?.53:.43),1.45,-.14);
   }
   // A headgroup gives each class a distinct silhouette and visible facial focus.
@@ -1754,7 +1769,7 @@ function updateHeroShowcase() {
   const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'},rune:{label:'SKIN RUNAS',cls:'skin-rune'},celestial:{label:'SKIN CELESTIAL',cls:'skin-celestial'},bloodmoon:{label:'SKIN LUA SANGRENTA',cls:'skin-bloodmoon'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
   const avatar=$('heroPreviewAvatar');
   if(avatar){avatar.className='hero-preview-avatar '+skinInfo.cls+' class-'+selectedClass;}
-  if($('heroPreviewGlyph')) $('heroPreviewGlyph').textContent=classInfo.glyph;
+  if($('heroPreviewGlyph')) { $('heroPreviewGlyph').textContent=classInfo.glyph; $('heroPreviewGlyph').setAttribute('aria-hidden','true'); }
   if($('heroPreviewName')) $('heroPreviewName').textContent=classInfo.name;
   if($('heroPreviewDesc')) $('heroPreviewDesc').textContent=classInfo.desc;
   if($('heroPreviewSkin')) $('heroPreviewSkin').textContent=skinInfo.label;
@@ -1888,17 +1903,20 @@ function renderLobby3DPreview() {
   if (!renderer || !lobbyPreviewScene || !lobbyPreviewCamera || !lobbyPreviewHero) return;
   const lobbyVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
   if (!lobbyVisible) return;
+  const canvasRect = renderer.domElement.getBoundingClientRect();
   const width = renderer.domElement.clientWidth || innerWidth;
   const height = renderer.domElement.clientHeight || innerHeight;
-  if (width < 2 || height < 2) return;
-  const portrait = height >= width;
-  const previewWidth = Math.max(1,Math.floor(portrait ? Math.min(width*0.72,410) : Math.min(width*0.48,640)));
-  const previewHeight = Math.max(1,Math.floor(portrait ? Math.min(height*0.48,760) : Math.min(height*0.70,600)));
-  // Enquadra o avatar um pouco mais abaixo para abrir espaço visual no topo do lobby.
-  const centerTop = Math.floor(height*(portrait ? 0.49 : 0.50));
-  const left = Math.floor((width-previewWidth)/2);
-  const top = Math.max(0,Math.min(height-previewHeight,centerTop-Math.floor(previewHeight/2)));
-  const bottom = height-top-previewHeight;
+  const showcase = document.querySelector('#lobby .hero-showcase');
+  const rect = showcase?.getBoundingClientRect();
+  if (!rect || width < 2 || height < 2 || rect.width < 2 || rect.height < 2) return;
+  const portrait = innerHeight >= innerWidth;
+  // A viewport 3D é alinhada ao cartão real do personagem, sem cobrir o restante do lobby.
+  const left = Math.max(0, Math.floor(rect.left - canvasRect.left));
+  const bottom = Math.max(0, Math.floor(canvasRect.bottom - rect.bottom));
+  const previewWidth = Math.max(1, Math.min(Math.floor(rect.width), width - left));
+  const previewHeight = Math.max(1, Math.min(Math.floor(rect.height), height - bottom));
+  if (previewWidth < 2 || previewHeight < 2) return;
+  const top = height - bottom - previewHeight;
   const time = clock ? clock.elapsedTime : 0;
   lobbyPreviewHero.rotation.y = Math.PI + Math.sin(time*0.32)*0.12;
   if (lobbyPreviewCompanions) lobbyPreviewCompanions.children.forEach((avatar,index) => {
@@ -2006,9 +2024,9 @@ function renderLobby3DPreview() {
     });
   }
   lobbyPreviewCamera.aspect = previewWidth/previewHeight;
-  lobbyPreviewCamera.position.z = portrait ? 5.55 : 5.8;
+  lobbyPreviewCamera.position.z = portrait ? 5.15 : 5.45;
   lobbyPreviewCamera.updateProjectionMatrix();
-  lobbyPreviewCamera.lookAt(0,1.32,0);
+  lobbyPreviewCamera.lookAt(.42,1.28,0);
   renderer.autoClear = false;
   renderer.setScissorTest(true);
   renderer.setViewport(left,bottom,previewWidth,previewHeight);
@@ -2987,8 +3005,18 @@ $('startMatchBtn').addEventListener('click', () => send({ type: 'startMatch' }))
 
 const inventoryPanel = document.querySelector('.inventory-panel');
 const inventoryToggleBtn = $('inventoryToggleBtn');
-let inventoryHidden = false;
-try { inventoryHidden = localStorage.getItem('mmHideInventory') === '1'; } catch {}
+let inventoryHidden = isMobileDevice;
+try {
+  const oldPreference = localStorage.getItem('mmHideInventory');
+  const layoutVersion = localStorage.getItem('mmInventoryLayoutV2');
+  if (layoutVersion !== '1') {
+    inventoryHidden = isMobileDevice;
+    localStorage.setItem('mmInventoryLayoutV2', '1');
+    localStorage.setItem('mmHideInventory', inventoryHidden ? '1' : '0');
+  } else {
+    inventoryHidden = oldPreference === '1';
+  }
+} catch {}
 function applyInventoryVisibility() {
   if (!inventoryPanel || !inventoryToggleBtn) return;
   inventoryPanel.classList.toggle('inventory-hidden', inventoryHidden);
@@ -3594,19 +3622,21 @@ function rendererPointerSetup() {
   };
   const zoomInButton = $('cameraZoomIn'), zoomOutButton = $('cameraZoomOut'), zoomResetButton = $('cameraZoomReset');
   const shiftLockButton = $('shiftLockToggle');
-  const setShiftLock = enabled => {
+  const setShiftLock = (enabled, announce = true) => {
     shiftLockEnabled = !!enabled;
+    try { localStorage.setItem('ultimoLegadoShiftLock', shiftLockEnabled ? '1' : '0'); } catch {}
     document.body.classList.toggle('shift-lock-active', shiftLockEnabled);
     if (shiftLockButton) {
       shiftLockButton.classList.toggle('active', shiftLockEnabled);
       shiftLockButton.setAttribute('aria-pressed', String(shiftLockEnabled));
-      shiftLockButton.textContent = shiftLockEnabled ? '◎' : '⊙';
+      shiftLockButton.textContent = shiftLockEnabled ? 'SHIFT ✓' : 'SHIFT';
       shiftLockButton.title = shiftLockEnabled ? 'Desativar Shift Lock' : 'Ativar Shift Lock';
       shiftLockButton.setAttribute('aria-label', shiftLockButton.title);
     }
-    showNotice(shiftLockEnabled ? 'Shift Lock ativado · câmera no ombro' : 'Shift Lock desativado');
+    if (announce) showNotice(shiftLockEnabled ? 'Shift Lock ativado · câmera no ombro' : 'Shift Lock desativado');
   };
   shiftLockButton?.addEventListener('click', () => setShiftLock(!shiftLockEnabled));
+  setShiftLock(shiftLockEnabled, false);
   zoomInButton?.addEventListener('click', () => setCameraDistance(cameraDistance - .75));
   zoomOutButton?.addEventListener('click', () => setCameraDistance(cameraDistance + .75));
   zoomResetButton?.addEventListener('click', () => setCameraDistance(8.5));

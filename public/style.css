@@ -3389,3 +3389,14 @@ body.shift-lock-active .shift-lock-crosshair{display:block}
  #lobby .hero-showcase-tags span{font-size:7px;padding:4px 6px}
  #lobby .lobby-team-box{margin:8px;padding:9px}
 }
+
+
+/* Mega update 12: show the live 3D hero in the lobby card instead of hiding it behind an opaque emoji tile. */
+#lobby .hero-showcase{background:transparent!important;border-color:transparent!important;box-shadow:none!important;overflow:hidden!important}
+#lobby #heroPreviewAvatar{background:transparent!important;border-color:transparent!important;box-shadow:none!important;filter:none!important}
+#lobby #heroPreviewGlyph{visibility:hidden!important;opacity:0!important}
+#lobby .hero-showcase-info{background:rgba(5,12,22,.48)!important;border:1px solid rgba(123,223,251,.18)!important;border-radius:12px!important;padding:9px 12px!important}
+#lobby .hero-showcase:after{pointer-events:none}
+#hud .inventory-panel.inventory-hidden{pointer-events:auto!important}
+.camera-zoom-controls .shift-lock-toggle{min-width:54px!important;width:54px!important;padding:0 4px!important;font-size:10px!important;letter-spacing:.4px!important;white-space:nowrap!important}
+@media(max-width:600px){#lobby .hero-showcase-info{background:rgba(5,12,22,.72)!important} .camera-zoom-controls .shift-lock-toggle{min-width:48px!important;width:48px!important;font-size:9px!important}}
