@@ -44,6 +44,9 @@ const healthBarParentQuaternion = new THREE.Quaternion();
 const cameraFocusScratch = new THREE.Vector3();
 const cameraPositionScratch = new THREE.Vector3();
 const lobbyCameraPositionScratch = new THREE.Vector3();
+const movementForwardScratch = new THREE.Vector3();
+const movementRightScratch = new THREE.Vector3();
+let healthBarRefreshAccumulator = 0;
 let bossMesh = null, bossData = null;
 const bossPortalMeshes = new Map();
 const bossTelegraphMeshes = new Map();
@@ -94,9 +97,9 @@ function vibrateGame(pattern = 12) {
 function getRenderPixelRatioCap(width = window.innerWidth, height = window.innerHeight) {
   const landscapeMobile = isMobileDevice && width > height;
   const quality = gameSettings.graphicsQuality;
-  if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 0.95 : 0.78) : 1.0;
-  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 1.8 : 1.65) : 1.85;
-  return isMobileDevice ? (landscapeMobile ? 1.45 : 1.25) : 1.55;
+  if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 0.90 : 0.76) : 1.0;
+  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 1.58 : 1.38) : 1.85;
+  return isMobileDevice ? (landscapeMobile ? 1.32 : 1.16) : 1.55;
 }
 function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.innerHeight) {
   // Never upscale beyond the device's own DPR: it costs GPU time without adding detail.
@@ -112,6 +115,7 @@ function applyGraphicsQuality() {
   if (quality === 'low') adaptivePixelRatio = Math.min(adaptivePixelRatio, isMobileDevice ? 0.85 : 1.0);
   if (renderer) {
     renderer.setPixelRatio(adaptivePixelRatio);
+    renderer.toneMappingExposure = quality === 'high' ? 1.30 : quality === 'low' ? 1.14 : 1.22;
     syncRendererSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = !isMobileDevice && quality === 'high';
     renderer.shadowMap.needsUpdate = true;
@@ -248,6 +252,7 @@ let renderPixelRatioCap = getRenderPixelRatioCap();
 let adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(), Math.min(devicePixelRatio || 1, renderPixelRatioCap));
 let perfBadge = null, perfFrames = 0, perfWindowStart = performance.now();
 let lastFps = 0, measuredPing = null, slowFpsSamples = 0, fastFpsSamples = 0;
+let adaptiveDetailTier = 0;
 
 function init3D() {
   scene = new THREE.Scene();
@@ -270,7 +275,7 @@ function init3D() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   if (typeof surfaceTexture !== 'undefined') {
-    surfaceTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    surfaceTexture.anisotropy = Math.min(isMobileDevice ? (gameSettings.graphicsQuality === 'low' ? 2 : 4) : 8, renderer.capabilities.getMaxAnisotropy());
     surfaceTexture.needsUpdate = true;
   }
   $('game').appendChild(renderer.domElement);
@@ -373,16 +378,18 @@ function buildDungeon() {
 
   // Uma única textura partilhada mantém o detalhe visual sem criar materiais por objeto.
   const dungeonTexture = surfaceTexture.clone();
-  dungeonTexture.repeat.set(5, 5);
+  const textureRepeat = gameSettings.graphicsQuality === 'low' ? 3.5 : gameSettings.graphicsQuality === 'high' ? 6 : 5;
+  const surfaceBumpScale = gameSettings.graphicsQuality === 'low' ? .007 : gameSettings.graphicsQuality === 'high' ? .016 : .012;
+  dungeonTexture.repeat.set(textureRepeat, textureRepeat);
   const floor = mat(0x303744, .82, .08);
   floor.map = dungeonTexture;
   floor.bumpMap = dungeonTexture;
-  floor.bumpScale = .012;
+  floor.bumpScale = surfaceBumpScale;
   floor.needsUpdate = true;
 const wall = mat(0x414751, 0.95);
 wall.map = dungeonTexture;
 wall.bumpMap = dungeonTexture;
-wall.bumpScale = .018;
+wall.bumpScale = surfaceBumpScale * 1.35;
 wall.needsUpdate = true;
 const dark = mat(0x171c24, 1);
 const trim = mat(0x8a7150, 0.75, 0.25);
@@ -637,7 +644,10 @@ for (let z = -30; z <= 8; z += 6) {
     threshold.position.set(0, -.035, z); activeEnvironmentGroup.add(threshold);
   }
 
-  const particleCount = 28, particlePositions = new Float32Array(particleCount * 3);
+  const particleCount = isMobileDevice
+    ? (gameSettings.graphicsQuality === 'low' ? 12 : gameSettings.graphicsQuality === 'high' ? 22 : 17)
+    : (gameSettings.graphicsQuality === 'high' ? 44 : 28);
+  const particlePositions = new Float32Array(particleCount * 3);
   for (let i = 0; i < particleCount; i++) { particlePositions[i*3] = (Math.random()-.5)*26; particlePositions[i*3+1] = .3+Math.random()*4; particlePositions[i*3+2] = -174+Math.random()*184; }
   const particleGeo = new THREE.BufferGeometry(); particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
   particleMaterial = new THREE.PointsMaterial({ color: 0x8be9ff, size: .055, transparent: true, opacity: .6, depthWrite: false }); ambientParticles = new THREE.Points(particleGeo, particleMaterial); activeEnvironmentGroup.add(ambientParticles);
@@ -839,7 +849,8 @@ function trimMat() {
 // Textura procedural em resolução maior, com grão, riscos e fissuras finas.
 // É gerada localmente: não acrescenta downloads nem dependências externas.
 function makeSurfaceTexture() {
-  const size = 256;
+  const size = gameSettings.graphicsQuality === 'low' ? 192
+    : gameSettings.graphicsQuality === 'high' ? (isMobileDevice ? 320 : 512) : 256;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d', { alpha: false });
@@ -853,7 +864,7 @@ function makeSurfaceTexture() {
   }
   ctx.putImageData(image, 0, 0);
   ctx.globalAlpha = .22;
-  for (let i = 0; i < 420; i++) {
+  for (let i = 0; i < Math.round(420 * (size / 256) ** 2); i++) {
     const x = Math.random() * size, y = Math.random() * size;
     const w = 2 + Math.random() * 23, h = .5 + Math.random() * 2;
     ctx.fillStyle = Math.random() > .5 ? '#edf3fc' : '#1b222e';
@@ -862,7 +873,7 @@ function makeSurfaceTexture() {
   ctx.globalAlpha = .2;
   ctx.strokeStyle = '#202632';
   ctx.lineWidth = .8;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < Math.round(20 * (size / 256) ** 2); i++) {
     const x = Math.random() * size, y = Math.random() * size;
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -872,7 +883,7 @@ function makeSurfaceTexture() {
     ctx.stroke();
   }
   ctx.globalAlpha = .12;
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < Math.round(90 * (size / 256) ** 2); i++) {
     const x = Math.random() * size, y = Math.random() * size;
     ctx.fillStyle = Math.random() > .5 ? '#cbd5e1' : '#111827';
     ctx.beginPath();
@@ -975,7 +986,10 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   };
   const p = skins[skin] || skins.default;
   const isStoneBody = heroClass === 'golem' || heroClass === 'golem_clone';
-  const armor = new THREE.MeshPhysicalMaterial({color:p.armor,metalness:heroClass==='monk'||heroClass==='ogre'||heroClass==='goblin'?.22:.48,roughness:heroClass==='golem'||heroClass==='golem_clone'?.86:.34,flatShading:isStoneBody,clearcoat:.18,clearcoatRoughness:.48});
+  const armorOptions = {color:p.armor,metalness:heroClass==='monk'||heroClass==='ogre'||heroClass==='goblin'?.22:.48,roughness:heroClass==='golem'||heroClass==='golem_clone'?.86:.34,flatShading:isStoneBody};
+  const armor = isMobileDevice
+    ? new THREE.MeshStandardMaterial(armorOptions)
+    : new THREE.MeshPhysicalMaterial({...armorOptions,clearcoat:.18,clearcoatRoughness:.48});
   const dark = new THREE.MeshStandardMaterial({color:p.dark,roughness:.72,metalness:.12});
   const trim = new THREE.MeshStandardMaterial({color:p.trim,roughness:.3,metalness:.62});
   const glow = new THREE.MeshStandardMaterial({color:p.glow,emissive:p.glow,emissiveIntensity:1.45,roughness:.24,metalness:.22});
@@ -1005,9 +1019,11 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       boot.rotation.y=side*.035;
       add(new THREE.BoxGeometry(.11,.035,.04),glow,0,-.25,-.19,1,1,.5,pivot);
     }else{
-      const leg=add(new THREE.CapsuleGeometry(tiny?.10:.13,.32,5,9),legMat,0,-.20,0,1,1,1,pivot);
-      const boot=add(new THREE.BoxGeometry(tiny?.20:.27,.14,.38),steel,0,-.43,-.055,1,.82,1,pivot);
-      add(new THREE.BoxGeometry(.20,.035,.04),trim,0,-.36,-.24,1,1,1,pivot);
+      const leg=add(new THREE.CylinderGeometry(tiny?.075:.105,tiny?.11:.145,.38,isMobileDevice?7:10),legMat,0,-.20,0,1,1,1,pivot);
+      const knee=add(new THREE.DodecahedronGeometry(tiny?.085:.125,0),armor,0,-.08,-.125,1.1,.78,.48,pivot);
+      knee.rotation.x=-.10;
+      const boot=add(new THREE.BoxGeometry(tiny?.20:.27,.16,.40),steel,0,-.43,-.065,1,.86,1,pivot);
+      add(new THREE.BoxGeometry(.20,.04,.045),trim,0,-.36,-.255,1,1,1,pivot);
       legs.push({mesh:pivot,side});
     }
     if(heroClass==='golem'||heroClass==='golem_clone') legs.push({mesh:pivot,side});
@@ -1028,7 +1044,10 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       hipPlate.rotation.z=side*.06;
     }
   }else{
-    torso=add(heroClass==='ogre'?new THREE.CapsuleGeometry(.43,.53,7,12):heroClass==='monk'?new THREE.CapsuleGeometry(.31,.48,7,12):new THREE.CapsuleGeometry(.32,.48,7,12),heroClass==='ogre'?skinMat:armor,0,1.14,0,heroClass==='ogre'?1.28:1.0,heroClass==='ogre'?1.1:1,heroClass==='ogre'?1.02:.9);
+    const torsoGeometry = heroClass === 'ogre'
+      ? new THREE.CapsuleGeometry(.43,.53,7,12)
+      : new THREE.CylinderGeometry(heroClass === 'monk' ? .31 : .35, heroClass === 'monk' ? .25 : .245, .62, isMobileDevice ? 8 : 12, 1);
+    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.14,0,heroClass==='ogre'?1.28:1.0,heroClass==='ogre'?1.1:1,heroClass==='ogre'?1.02:.9);
     if(clothClasses.includes(heroClass)){
       add(new THREE.ConeGeometry(heroClass==='healer'?.42:.39,.78,8),cloth,0,.77,.02,1,1,.9);
       add(new THREE.BoxGeometry(.055,.51,.035),trim,0,.91,-.36);
@@ -1040,7 +1059,15 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       add(new THREE.TorusGeometry(.16,.018,5,18),trim,0,1.22,-.36).rotation.x=Math.PI/2;
     }
   }
-  // Arms use shoulder pivots, forearm guards and simplified gloves.
+  // Neck and collar connect the head to the torso instead of leaving a floating round head.
+  if (!isStoneBody) {
+    add(new THREE.CylinderGeometry(.085,.11,.18,8),skinMat,0,1.52,-.005);
+    const collar = add(new THREE.TorusGeometry(.125,.025,5,16),trim,0,1.58,-.01);
+    collar.rotation.x = Math.PI / 2;
+  }
+  const chestEmblem = add(new THREE.OctahedronGeometry(.085,0),accent,0,1.22,-.365,.9,1.18,.55);
+  chestEmblem.rotation.set(.18,.12,.08);
+  // Arms use shoulder pivots, tapered forearms, articulated elbows and visible gloves.
   for(const side of [-1,1]){
     const pivot=new THREE.Group();pivot.position.set(side*(bulky?.53:.43),1.40,0);g.add(pivot);
     const armMaterial=heroClass==='ogre'||heroClass==='monk'||heroClass==='goblin'?skinMat:(heroClass==='golem'||heroClass==='golem_clone'?armor:armor);
@@ -1051,17 +1078,23 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       fist.rotation.z=side*.12; fist.rotation.y=side*.05;
       add(new THREE.BoxGeometry(.09,.035,.035),glow,0,-.48,-.23,1,1,.5,pivot);
     }else{
-      const upper=add(new THREE.CapsuleGeometry(heroClass==='ogre'?.16:.105,.32,5,9),armMaterial,0,-.15,0,1,1,1,pivot);
+      const upper=add(new THREE.CylinderGeometry(heroClass==='ogre'?.13:.09,heroClass==='ogre'?.17:.125,.34,isMobileDevice?7:10),armMaterial,0,-.15,0,1,1,1,pivot);
       upper.rotation.z=side*-.08;
-      add(new THREE.SphereGeometry(.13,10,8),steel,0,-.36,-.02,1,.9,.85,pivot);
-      add(new THREE.CapsuleGeometry(.10,.22,4,8),heroClass==='monk'?skinMat:dark,0,-.48,-.02,1,1,1,pivot);
+      const elbow = new THREE.Group(); elbow.position.set(0,-.31,-.02); pivot.add(elbow);
+      add(new THREE.DodecahedronGeometry(.075,0),steel,0,0,-.005,1,.92,.9,elbow);
+      add(new THREE.CylinderGeometry(.075,.105,.25,isMobileDevice?7:9),heroClass==='monk'?skinMat:dark,0,-.14,0,1,1,1,elbow);
+      add(new THREE.BoxGeometry(.17,.13,.15),steel,0,-.29,-.025,1,1,1,elbow);
+      add(new THREE.BoxGeometry(.15,.13,.14),dark,0,-.39,-.01,.9,.9,.9,elbow);
+      pivot.userData.elbow = elbow;
     }
     arms.push({mesh:pivot,side});
     if (isStoneBody) {
       const shoulderPlate=add(new THREE.BoxGeometry(.36,.29,.32),armor,side*(bulky?.53:.43),1.42,0,1.08,.92,1);
       shoulderPlate.rotation.z=side*-.12;
     } else {
-      add(new THREE.SphereGeometry(.16,10,8),armor,side*(bulky?.53:.43),1.42,0,1.15,.82,.9);
+      const shoulderPlate = add(new THREE.DodecahedronGeometry(.17,0),armor,side*(bulky?.53:.43),1.42,0,1.18,.86,.94);
+      shoulderPlate.rotation.z = side * -.12;
+      add(new THREE.BoxGeometry(.20,.045,.035),trim,side*(bulky?.53:.43),1.42,-.155,1,1,1);
     }
     if(heroClass!=='mage'&&heroClass!=='healer'&&heroClass!=='necromancer') add(new THREE.OctahedronGeometry(.045,0),trim,side*(bulky?.53:.43),1.45,-.14);
   }
@@ -1074,7 +1107,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     }
     addHead(new THREE.BoxGeometry(.27,.045,.045),dark,0,1.82,-.265);
   }else if(heroClass==='knight'){
-    head=addHead(new THREE.SphereGeometry(.245,16,12),steel,0,1.91,0,1,1.08,.94);
+    head=addHead(new THREE.DodecahedronGeometry(.245,0),steel,0,1.91,0,1,1.08,.94);
     addHead(new THREE.BoxGeometry(.34,.20,.13),armor,0,1.91,-.11);
     addHead(new THREE.BoxGeometry(.24,.045,.035),glow,0,1.94,-.19);
     addHead(new THREE.ConeGeometry(.07,.25,5),trim,0,2.20,.01);
@@ -1169,7 +1202,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     }
   }
   const ringColor=heroClass==='healer'?0x74ffd8:heroClass==='mage'||heroClass==='necromancer'?0xb697ff:heroClass==='golem'||heroClass==='golem_clone'?0xc4d0cf:heroClass==='ogre'?0xff9862:heroClass==='goblin'?0xc8f06b:heroClass==='archer'?0x88ffb4:0x75dfff;
-  const ring=new THREE.Mesh(new THREE.RingGeometry(.43,.49,32),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.48,side:THREE.DoubleSide}));
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.43,.50,36),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.62,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2;ring.position.y=.025;g.add(ring);
   waistSigil=waistSigil||add(new THREE.OctahedronGeometry(.07,1),accent,0,.90,-.30,.9,1.1,.6);
   if(heroClass==='golem'||heroClass==='golem_clone'){
@@ -1179,7 +1212,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       crack.rotation.z=(i-1)*-.32;decorativeParts.push(crack);
     }
   }
-  const scale=heroClass==='goblin'?.82:heroClass==='ogre'?1.14:heroClass==='golem'?1.16:heroClass==='golem_clone'?.78:heroClass==='monk'?.96:1;
+  const scale=heroClass==='goblin'?.82:heroClass==='ogre'?1.14:heroClass==='golem'?1.16:heroClass==='golem_clone'?.78:heroClass==='monk'?.99:1.06;
   g.scale.setScalar(scale);
   g.userData.heroClass=heroClass;g.userData.heroSkin=skin;g.userData.idleSeed=Math.random()*Math.PI*2;
   g.userData.sword=classWeapon;g.userData.weaponRest={x:classWeapon.rotation.x,z:classWeapon.rotation.z,y:classWeapon.position.y};
@@ -1188,6 +1221,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.classCharm=classCharm;g.userData.classShield=classShield;g.userData.decorativeParts=decorativeParts;
   g.userData.baseRing=ring;g.userData.waistSigil=waistSigil;g.userData.walkPhase=Math.random()*Math.PI*2;g.userData.baseY=0;
   g.userData.silhouetteProfile={heroClass};
+  g.userData.visualModelRevision = 'humanoid-silhouette-v2';
   attachHealthBar(g);
   return g;
 }
@@ -3725,7 +3759,18 @@ function updatePerformanceMonitor() {
   lastFps = perfFrames * 1000 / elapsed;
   perfFrames = 0;
   perfWindowStart = now;
-
+  
+  const nextDetailTier = lastFps > 54 ? 0 : lastFps < 28 ? 2 : lastFps < 40 ? 1 : adaptiveDetailTier;
+  if (nextDetailTier !== adaptiveDetailTier) {
+    adaptiveDetailTier = nextDetailTier;
+    if (ambientParticles) ambientParticles.visible = adaptiveDetailTier === 0;
+    if (particleMaterial) {
+      particleMaterial.opacity = adaptiveDetailTier === 2 ? .22 : adaptiveDetailTier === 1 ? .38 : .6;
+      particleMaterial.size = adaptiveDetailTier === 2 ? .032 : adaptiveDetailTier === 1 ? .043 : .055;
+    }
+    if (astralStarField) astralStarField.visible = adaptiveDetailTier === 0;
+  }
+  
   if (lastFps < 43) {
     slowFpsSamples++;
     fastFpsSamples = 0;
@@ -3750,6 +3795,10 @@ function updatePerformanceMonitor() {
     fastFpsSamples = 0;
   }
 
+  if (adaptiveDetailTier > 0) {
+    const dynamicCap = isMobileDevice ? (adaptiveDetailTier === 2 ? .78 : .94) : (adaptiveDetailTier === 2 ? .95 : 1.15);
+    nextRatio = Math.min(nextRatio, dynamicCap);
+  }
   if (renderer && Math.abs(nextRatio - adaptivePixelRatio) >= .01) {
     adaptivePixelRatio = Math.round(nextRatio * 100) / 100;
     renderer.setPixelRatio(adaptivePixelRatio);
@@ -3876,12 +3925,8 @@ function animate() {
     const v = moveInput();
 
     if (Math.hypot(v.x, v.y) > 0.04) {
-      const forward = new THREE.Vector3(
-  -Math.sin(yaw), 0, -Math.cos(yaw)
-);
-const right = new THREE.Vector3(
-  Math.cos(yaw), 0, -Math.sin(yaw)
-);
+      const forward = movementForwardScratch.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+      const right = movementRightScratch.set(Math.cos(yaw), 0, -Math.sin(yaw));
 
       const dir = forward
         .multiplyScalar(-v.y)
@@ -4039,6 +4084,8 @@ const right = new THREE.Vector3(
       }
       continue;
     }
+    const farRemote = adaptiveDetailTier > 0 && obj.position.distanceToSquared(camera.position) > 625;
+    if (farRemote) continue;
     const remoteMoving = Math.hypot((obj.userData.targetX ?? obj.position.x) - obj.position.x, (obj.userData.targetZ ?? obj.position.z) - obj.position.z) > .035;
     obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (remoteMoving ? 7.2 : 1.4);
     const rp = obj.userData.walkPhase;
@@ -4299,10 +4346,14 @@ const right = new THREE.Vector3(
   // Partículas ambientais estáticas: sem oscilação que possa parecer pulsação.
 
 
-  // Barras acompanham a câmera para ficarem legíveis acima de aliados e monstros.
-  if (myPlayer) orientHealthBar(myPlayer);
-  for (const obj of remotePlayers.values()) orientHealthBar(obj);
-  for (const obj of monsterMeshes.values()) orientHealthBar(obj);
+  // Barras acompanham a câmera a 30 Hz para reduzir trabalho em cada quadro.
+  healthBarRefreshAccumulator += dt;
+  if (healthBarRefreshAccumulator >= 1 / 30) {
+    healthBarRefreshAccumulator = 0;
+    if (myPlayer) orientHealthBar(myPlayer);
+    for (const obj of remotePlayers.values()) orientHealthBar(obj);
+    for (const obj of monsterMeshes.values()) orientHealthBar(obj);
+  }
 
   // Enquadramento panorâmico do lobby, adaptado à largura da tela.
   if (!started) {
