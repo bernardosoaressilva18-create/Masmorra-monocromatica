@@ -31,8 +31,8 @@ let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=n
 let realmIntroTimer=0;
 const astralFloaters=[];
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-let shiftLockEnabled = (() => { try { return localStorage.getItem('ultimoLegadoShiftLock') === '1'; } catch { return false; } })();
-let cameraDistance = (() => { try { const saved = Number(localStorage.getItem('ultimoLegadoCameraDistance')); if (Number.isFinite(saved) && saved >= 6.5 && saved <= 15.5) return saved; } catch {} return 9.5; })();
+const shiftLockEnabled = false;
+const cameraDistance = 9.5;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
 const activeBurnEffects = [];
@@ -3654,43 +3654,7 @@ function rendererPointerSetup() {
   // por elementos HUD/overlay; o retângulo usado no raycast é o do próprio canvas.
   const el = renderer.domElement;
   el.style.touchAction = 'none';
-  const zoomValue = $('cameraZoomValue');
-  const setCameraDistance = value => {
-    cameraDistance = Math.round(Math.max(6.5, Math.min(15.5, Number(value) || 9.5)) * 10) / 10;
-    if (zoomValue) zoomValue.textContent = 'ZOOM ' + cameraDistance.toFixed(1) + '×';
-    try { localStorage.setItem('ultimoLegadoCameraDistance', String(cameraDistance)); } catch {}
-  };
-  const zoomInButton = $('cameraZoomIn'), zoomOutButton = $('cameraZoomOut'), zoomResetButton = $('cameraZoomReset');
-  const shiftLockButton = $('shiftLockToggle');
-  const setShiftLock = (enabled, announce = true) => {
-    shiftLockEnabled = !!enabled;
-    try { localStorage.setItem('ultimoLegadoShiftLock', shiftLockEnabled ? '1' : '0'); } catch {}
-    document.body.classList.toggle('shift-lock-active', shiftLockEnabled);
-    if (shiftLockButton) {
-      shiftLockButton.classList.toggle('active', shiftLockEnabled);
-      shiftLockButton.setAttribute('aria-pressed', String(shiftLockEnabled));
-      shiftLockButton.textContent = shiftLockEnabled ? 'SHIFT ✓' : 'SHIFT';
-      shiftLockButton.title = shiftLockEnabled ? 'Desativar Shift Lock' : 'Ativar Shift Lock';
-      shiftLockButton.setAttribute('aria-label', shiftLockButton.title);
-    }
-    if (announce) showNotice(shiftLockEnabled ? 'Shift Lock ativado · câmera no ombro' : 'Shift Lock desativado');
-  };
-  shiftLockButton?.addEventListener('click', () => setShiftLock(!shiftLockEnabled));
-  setShiftLock(shiftLockEnabled, false);
-  zoomInButton?.addEventListener('click', () => setCameraDistance(cameraDistance - .75));
-  zoomOutButton?.addEventListener('click', () => setCameraDistance(cameraDistance + .75));
-  zoomResetButton?.addEventListener('click', () => setCameraDistance(8.5));
-  setCameraDistance(cameraDistance);
-  // Roda do mouse controla a distância da câmera sem alterar a sensibilidade de giro.
-  el.addEventListener('wheel', e => {
-    if (!started || e.ctrlKey) return;
-    setCameraDistance(cameraDistance + (e.deltaY > 0 ? .65 : -.65));
-  }, { passive: true });
-  addEventListener('keydown', e => {
-    if (!started || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
-    if (e.key === '+' || e.key === '=') setCameraDistance(cameraDistance - .5);
-    if (e.key === '-' || e.key === '_') setCameraDistance(cameraDistance + .5);
-  });
+  // Câmera em distância fixa: controles de zoom e Shift Lock foram removidos.
   el.addEventListener('pointerdown', e => {
     if (started && golemRockTargeting) { const rect=el.getBoundingClientRect(),p=new THREE.Vector2(((e.clientX-rect.left)/Math.max(1,rect.width))*2-1,-((e.clientY-rect.top)/Math.max(1,rect.height))*2+1); const r=new THREE.Raycaster();r.setFromCamera(p,camera);const plane=new THREE.Plane(new THREE.Vector3(0,1,0),0),aim=new THREE.Vector3();if(r.ray.intersectPlane(plane,aim)){send({type:'classAbility',ability:'golem_rock_toss',x:aim.x,z:aim.z});golemRockTargeting=false;clearTimeout(golemRockTargetTimer);lookPointer=null;}else showNotice('Toque em uma área visível do chão.');e.preventDefault();e.stopPropagation();return; }
     if (started && necromancerDivePendingClient) {
@@ -4373,7 +4337,7 @@ function animate() {
     const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
     const dist=cameraDistance+introBlend*2.8;
-    const shoulder = shiftLockEnabled ? .78 : 0;
+    const shoulder = 0;
     const cameraTarget=cameraPositionScratch.set(
       target.x+Math.sin(yaw)*dist+Math.cos(yaw)*shoulder,
       target.y+3.0+pitch*2+introBlend*.65,
