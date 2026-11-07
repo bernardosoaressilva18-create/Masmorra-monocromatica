@@ -1068,7 +1068,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   const chestEmblem = add(new THREE.OctahedronGeometry(.085,0),accent,0,1.22,-.365,.9,1.18,.55);
   chestEmblem.rotation.set(.18,.12,.08);
   // Arms use shoulder pivots, tapered forearms, articulated elbows and visible gloves.
-  for(const side of [-1,1){
+  for(const side of [-1,1]){
     const pivot=new THREE.Group();pivot.position.set(side*(bulky?.53:.43),1.40,0);g.add(pivot);
     const armMaterial=heroClass==='ogre'||heroClass==='monk'||heroClass==='goblin'?skinMat:(heroClass==='golem'||heroClass==='golem_clone'?armor:armor);
     if(heroClass==='golem'||heroClass==='golem_clone'){
