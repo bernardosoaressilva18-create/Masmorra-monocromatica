@@ -11,7 +11,7 @@
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icon.svg">
 <title>O Último Legado — RPG Multiplayer</title>
-<link rel="stylesheet" href="style.css?v=20261028-performance-14">
+<link rel="stylesheet" href="style.css?v=20261107-lobby-intro-r2">
 </head>
 <body>
 <div id="game"></div>
@@ -220,14 +220,7 @@
     </section>
     <p class="settings-note">As configurações ficam salvas neste dispositivo. Trilha: “Medieval: The Old Tower Inn”, de RandomMind (CC0, OpenGameArt).</p>
   </div>
-  <div class="camera-zoom-controls" aria-label="Câmera e zoom">
-    <button id="shiftLockToggle" class="shift-lock-toggle" type="button" aria-label="Ativar Shift Lock" aria-pressed="false" title="Ativar Shift Lock">⊙</button>
-    <button id="cameraZoomIn" type="button" aria-label="Aproximar câmera" title="Aproximar">+</button>
-    <span id="cameraZoomValue">ZOOM 8.5×</span>
-    <button id="cameraZoomOut" type="button" aria-label="Afastar câmera" title="Afastar">−</button>
-    <button id="cameraZoomReset" type="button" aria-label="Restaurar zoom" title="Restaurar zoom">↺</button>
-  </div>
-  <div class="shift-lock-crosshair" aria-hidden="true"></div>
+
   <div id="notice" class="notice"></div>
   <div class="objective">
     <small id="phaseLabel">MUNDO 1 / 5</small>
@@ -301,7 +294,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 </script>
-<script type="module" src="game.js?v=20261107-visual-3d-r1"></script>
+<script type="module" src="game.js?v=20261107-lobby-intro-r2"></script>
 </body>
     </html>
     
