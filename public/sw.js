@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ultimo-legado-performance-14';
+const CACHE_NAME = 'ultimo-legado-visual-3d-r1';
 const SHELL = ['./', './index.html', './style.css', './game.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 // Update 13: remove obsolete offline shells and avoid falling back to an old HTML document.
