@@ -1718,7 +1718,7 @@ function renderSkillTrees() {
       const stateClass=unlocked?'unlocked':canBuy?'available':'locked';
       const req=skill.req?'Pré-requisito: '+(required||'talento anterior'):'Talento inicial do caminho';
       branchNodes+='<button type="button" class="skill-rpg-node '+stateClass+(hidden?' skill-filtered-out':'')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" style="left:'+positions[branchIndex]+'%;top:'+yLevels[index]+'px" aria-label="'+esc(skill.name+'. '+skill.desc+'. '+status)+'" '+(canBuy?'':'disabled')+'>'+
-        '<span class="skill-rpg-node-icon">'+esc(skill.icon)+'</span><span class="skill-rpg-node-copy"><strong>'+esc(skill.name)+'</strong><small>NÍVEL '+(index+1)+' · 1 PONTO</small><em>'+esc(unlocked?'✓ APRENDIDA':canBuy?'TOQUE PARA APRENDER':status)+'</em></span><span class="skill-rpg-node-tooltip">'+esc(skill.desc)+' · '+esc(req)+'</span></button>';
+        '<span class="skill-rpg-node-icon">'+esc(skill.icon)+'</span><span class="skill-rpg-node-copy"><strong>'+esc(skill.name)+'</strong><small>NÍVEL '+(index+1)+' · 1 PONTO</small><em>'+esc(unlocked?'✓ APRENDIDA':canBuy?'TOQUE PARA APRENDER':status)+'</em></span></button>';
     });
   });
   const overallPct=Math.min(100,Math.round(activeCount/15*100));
@@ -1754,6 +1754,15 @@ function syncLoadoutUI() {
   renderSkillTrees();
 }
 function sendLoadout() {
+  if (offlineMode && offlineState?.players?.[0]) {
+    const player = offlineState.players[0];
+    player.playerClass = selectedClass;
+    player.skin = selectedSkin;
+    player.skills = Array.from(unlockedSkills);
+    player.talentPoints = skillPoints;
+    saveOfflineProgress(true);
+    return;
+  }
   if (ws && ws.readyState === WebSocket.OPEN && playerId) {
     send({ type:'loadout', playerClass:selectedClass, skin:selectedSkin, skills:Array.from(unlockedSkills) });
   } else if (started && !ws) {
@@ -2266,6 +2275,15 @@ function startOfflineExploration() {
     offlineState = savedOffline.state;
     if (savedOffline.inventory && typeof savedOffline.inventory === 'object') inventoryData = savedOffline.inventory;
     if (Array.isArray(savedOffline.loot)) lootDrops = savedOffline.loot;
+    const storedPlayer = offlineState.players[0];
+    const personalSkillIds = new Set(Object.values(CLASS_PERSONAL_SKILLS_UI).flat().map(skill=>skill.id));
+    const storedSkills = Array.isArray(storedPlayer.skills) ? storedPlayer.skills : [];
+    unlockedSkills.clear();
+    storedSkills.forEach(id=>{if(!personalSkillIds.has(id)||storedPlayer.playerClass===selectedClass)unlockedSkills.add(id);});
+    skillPoints = Number.isFinite(storedPlayer.talentPoints) ? Math.max(0,storedPlayer.talentPoints) : skillPoints;
+    if (storedPlayer.playerClass && storedPlayer.playerClass !== selectedClass) {
+      skillPoints += storedSkills.filter(id=>personalSkillIds.has(id)).length;
+    }
     showNotice('Progresso offline recuperado deste aparelho.');
   } else {
     offlineState = createOfflineState();
@@ -2273,14 +2291,28 @@ function startOfflineExploration() {
   // A prévia offline sempre permite retomar a exploração após uma derrota anterior.
   const offlinePlayer = offlineState?.players?.[0];
   if (offlinePlayer) {
-    const maxHp = Number.isFinite(Number(offlinePlayer.maxHp)) && Number(offlinePlayer.maxHp) > 0
-      ? Number(offlinePlayer.maxHp) : 130;
+    offlinePlayer.playerClass = selectedClass;
+    offlinePlayer.skin = selectedSkin;
+    offlinePlayer.skills = Array.from(unlockedSkills);
+    offlinePlayer.talentPoints = skillPoints;
+    offlinePlayer.baseMaxHp = Number.isFinite(Number(offlinePlayer.baseMaxHp))
+      ? Number(offlinePlayer.baseMaxHp) : (Number(offlinePlayer.maxHp) > 0 ? Number(offlinePlayer.maxHp) : 130);
+    const classHpBonus = (offlineHasSkill('vitality')?25:0)+(offlineHasSkill('final_blessing')?15:0)+
+      (offlineHasSkill('knight_fortress')?15:0)+(offlineHasSkill('archer_hawkeye')?5:0)+
+      (offlineHasSkill('goblin_agility')?5:0)+(offlineHasSkill('ogre_blood')?20:0)+
+      (offlineHasSkill('healer_mercy')?10:0)+(offlineHasSkill('necromancer_soul')?10:0)+
+      (offlineHasSkill('monk_ironbody')?12:0)+(offlineHasSkill('golem_granite')?20:0)+
+      (offlineHasSkill('golem_mountaincore')?25:0);
+    const maxHp = Math.max(1,offlinePlayer.baseMaxHp+classHpBonus);
+    const wasDefeated = !Number.isFinite(Number(offlinePlayer.hp)) || Number(offlinePlayer.hp) <= 0;
     offlinePlayer.maxHp = maxHp;
-    if (!Number.isFinite(Number(offlinePlayer.hp)) || Number(offlinePlayer.hp) <= 0) {
-      offlinePlayer.hp = maxHp;
-      offlinePlayer.mana = Number.isFinite(Number(offlinePlayer.maxMana)) ? offlinePlayer.maxMana : 100;
-      offlineDefeatNoticeShown = false;
-    }
+    offlinePlayer.hp = wasDefeated ? maxHp : Math.min(maxHp,Number(offlinePlayer.hp));
+    offlinePlayer.maxMana = Number(offlinePlayer.maxMana)||100;
+    offlinePlayer.mana = wasDefeated ? offlinePlayer.maxMana : Math.min(offlinePlayer.maxMana,Number(offlinePlayer.mana)||0);
+    offlineDefeatNoticeShown = false;
+    lastSkillSignature = '';
+    syncLoadoutUI();
+    updateClassAbilityButtons();
   }
   offlineLastSavedAt = 0;
   updateState({...offlineState, started:false});
@@ -2541,7 +2573,7 @@ function handleOfflineAction(data) {
       .filter(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2)
       .sort((a,b) => Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];
     if (target) {
-      const damage = selectedClass === 'ogre' || selectedClass === 'golem' ? 12 : selectedClass === 'archer' || selectedClass === 'goblin' ? 9 : 8;
+      const damage = (selectedClass === 'ogre' || selectedClass === 'golem' ? 12 : selectedClass === 'archer' || selectedClass === 'goblin' ? 9 : 8) + (offlineHasSkill('hunter_instinct')||offlineHasSkill('knight_royal_oath')||offlineHasSkill('goblin_poison')||offlineHasSkill('ogre_crusher')||offlineHasSkill('necromancer_reaper')||offlineHasSkill('monk_zen')?1:0);
       offlineDamageMonster(target,damage);
       showNotice(target.alive ? 'Golpe acertou o monstro!' : 'Monstro derrotado!');
     } else showNotice('Chegue mais perto do inimigo.');
