@@ -3540,3 +3540,12 @@ body.shift-lock-active .shift-lock-crosshair{display:block}
  #lobby .lobby-nav-btn{min-height:42px}
 }
 @media(prefers-reduced-motion:reduce){.start-emblem{animation:none!important}}
+
+
+/* Otimização de composição no Android: evita desfocar o canvas 3D atrás de cada painel. */
+@media (pointer: coarse) {
+  .badge,.stats,.leave,.objective,.inventory-panel,.boss-panel,.settings-panel,.notice {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
