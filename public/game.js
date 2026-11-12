@@ -129,11 +129,17 @@ function applyGraphicsQuality() {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     stopGameAnimationLoop();
+    // Uma prévia offline não continua recebendo ataques enquanto o app está em segundo plano.
+    if (offlineMode && offlineLoop) {
+      clearInterval(offlineLoop);
+      offlineLoop = null;
+    }
     if (backgroundMusic) backgroundMusic.pause();
     if (audioContext && audioContext.state === 'running') audioContext.suspend().catch(() => {});
   } else {
-    // Retoma um único loop após voltar para a aba, sem manter trabalho em segundo plano.
+    // Retoma animação e simulação offline apenas quando o app volta ao primeiro plano.
     startGameAnimationLoop();
+    if (offlineMode && !offlineLoop) offlineLoop = setInterval(stepOfflineSimulation, 220);
     if (audioContext && audioContext.state === 'suspended') audioContext.resume().catch(() => {});
     if (backgroundMusic && gameSettings.musicEnabled && gameSettings.musicVolume > 0) {
       backgroundMusic.play().catch(() => {});
@@ -2195,6 +2201,7 @@ let offlineState = null;
 let offlineLoop = null;
 let offlineLastHit = 0;
 let offlineDefeatNoticeShown = false;
+let offlineReturnSnapshot = null;
 function createOfflineState() {
   const player = {
     id: 'offline-player',
@@ -2225,6 +2232,13 @@ function createOfflineState() {
 }
 
 function startOfflineExploration() {
+  offlineReturnSnapshot = {
+    inventory: { ...inventoryData },
+    loot: lootDrops.map(item => ({ ...item })),
+    selectedItemId,
+    unlockedSkills: Array.from(unlockedSkills),
+    skillPoints
+  };
   if (ws) {
     try { ws.close(); } catch {}
     ws = null;
@@ -3549,6 +3563,15 @@ inventoryToggleBtn?.addEventListener('click', () => {
 applyInventoryVisibility();
 
 function leaveRoomToMenu() {
+  if (offlineMode && offlineReturnSnapshot) {
+    inventoryData = offlineReturnSnapshot.inventory;
+    lootDrops = offlineReturnSnapshot.loot;
+    selectedItemId = offlineReturnSnapshot.selectedItemId;
+    unlockedSkills.clear();
+    offlineReturnSnapshot.unlockedSkills.forEach(id => unlockedSkills.add(id));
+    skillPoints = offlineReturnSnapshot.skillPoints;
+    offlineReturnSnapshot = null;
+  }
   if (offlineLoop) clearInterval(offlineLoop);
   offlineLoop = null;
   offlineMode = false;
