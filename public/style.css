@@ -3880,3 +3880,9 @@ button:focus-visible { outline-offset: 3px; }
   #lobby .hero-showcase::after { display: none; }
   #lobby .lobby-online-dot { box-shadow: none; }
 }
+
+
+/* Árvore de skills: zoom por pinça controlado pelo JavaScript, mantendo a rolagem lateral. */
+.skill-rpg-scroll{touch-action:pan-x pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.skill-rpg-canvas{transform-origin:top left}
+.skill-orbit-help{font-size:10px}
