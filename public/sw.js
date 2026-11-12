@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ultimo-legado-offline-22';
+const CACHE_NAME = 'ultimo-legado-offline-23';
 const SHELL = [
   './',
   './index.html',
