@@ -2366,7 +2366,7 @@ function offlineCreateSummon(kind, index, duration, hp, damage, attackMs) {
     skin:kind==='skeleton'?'shadow':isSpirit?'celestial':'default',
     color:isSpirit?0x8cffe8:kind==='golem'?0x8a9096:kind==='skeleton'?0xe0dccb:0x80c86b,
     x:player.x+Math.cos(angle)*1.35,z:player.z+Math.sin(angle)*1.35,rot:player.rot||0,
-    hp,isSpirit?1:hp,maxHp:isSpirit?1:hp,damage:damage||0,attackMs:attackMs||1000,
+    hp:isSpirit?1:hp,maxHp:isSpirit?1:hp,damage:damage||0,attackMs:attackMs||1000,
     expiresAt:Date.now()+duration,nextAttackAt:Date.now()+700,
     nextHealAt:Date.now()+4000,nextDamageAt:Date.now()+5000
   };
