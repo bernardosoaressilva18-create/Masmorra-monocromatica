@@ -1248,7 +1248,8 @@ function makeBoss() {
   const eye = new THREE.MeshStandardMaterial({ color: 0xff345d, emissive: 0xff123c, emissiveIntensity: 2.8 });
   const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, isMobileDevice ? 1 : 2), armor); torso.position.y = 1.65; g.add(torso);
   const bossArms = [];
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.68, isMobileDevice ? 14 : 22, isMobileDevice ? 12 : 16), dark); head.position.y = 2.85; g.add(head);
+  const head = new THREE.Mesh(new THREE.DodecahedronGeometry(.66, 1), dark); head.position.y = 2.85; head.scale.set(1.02, 1.12, .94); g.add(head);
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(.78,.13,.16), bone); brow.position.set(0,3.03,-.53); brow.rotation.z=-.025; g.add(brow);
   for (const side of [-1, 1]) {
     const horn = new THREE.Mesh(new THREE.ConeGeometry(.22, .95, isMobileDevice ? 6 : 9), bone); horn.position.set(side * .48, 3.55, 0); horn.rotation.z = side * -.38; g.add(horn);
     const e = new THREE.Mesh(new THREE.SphereGeometry(.12, isMobileDevice ? 8 : 12, isMobileDevice ? 6 : 10), eye); e.position.set(side * .25, 2.9, -.59); g.add(e);
@@ -1447,7 +1448,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
   }else if(kind==='brute'){
     const chest=add(new THREE.DodecahedronGeometry(.56,1),bodyMat,0,1.05,0,1.15,1.05,.95);
     chest.rotation.z=.03;
-    add(new THREE.SphereGeometry(.34,12,10),dark,0,1.77,-.02,1.15,1,.9);
+    add(new THREE.DodecahedronGeometry(.32,1),dark,0,1.77,-.02,1.15,1,.9);
     add(new THREE.BoxGeometry(.26,.09,.05),glow,0,1.79,-.33);
     for(const side of [-1,1]){
       const shoulder=add(new THREE.DodecahedronGeometry(.32,1),rock,side*.62,1.40,0,1.25,.95,1);
@@ -1495,8 +1496,8 @@ function makeMonster(kind = 'stalker', phase = 1) {
     add(new THREE.ConeGeometry(.16,.38,5),dark,0,.76,.27,1,1,.45);
   }else{
     // Stalker: low, fast four-legged predator with a forward-facing jaw.
-    add(new THREE.SphereGeometry(.43,14,10),bodyMat,0,.84,.05,1.20,.82,1.38);
-    add(new THREE.SphereGeometry(.27,12,9),dark,0,1.18,-.36,1,.9,1.05);
+    add(new THREE.DodecahedronGeometry(.43,1),bodyMat,0,.84,.05,1.20,.82,1.38);
+    add(new THREE.IcosahedronGeometry(.27,1),dark,0,1.18,-.36,1,.9,1.05);
     add(new THREE.ConeGeometry(.16,.37,5),bodyMat,0,1.08,-.58,1,.85,.85).rotation.x=-Math.PI/2;
     for(const side of [-1,1]){
       add(new THREE.SphereGeometry(.052,10,8),glow,side*.12,1.23,-.57);
