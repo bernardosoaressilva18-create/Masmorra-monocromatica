@@ -1684,62 +1684,68 @@ const CLASS_PERSONAL_SKILLS_UI = {"knight":[{"id":"knight_fortress","icon":"🛡
 const CLASS_NAMES_UI = {knight:'CAVALEIRO',mage:'MAGO',archer:'ARQUEIRO',goblin:'GOBLIN',ogre:'OGRO',healer:'CURANDEIRO',necromancer:'NECROMANTE',monk:'MONGE',golem:'GOLEM DE PEDRA'};
 function renderSkillTrees() {
   const branches = getCurrentSkillBranches();
-  const allSkills = branches.flatMap(branch => branch.skills.map((skill, index) => ({...skill, branch:branch.id, branchTitle:branch.title, originalIndex:index})));
-  const activeBranches = new Set(allSkills.filter(skill => unlockedSkills.has(skill.id)).map(skill => skill.branch));
+  const allSkills = branches.flatMap(branch => branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index})));
+  const activeBranches = new Set(allSkills.filter(skill=>unlockedSkills.has(skill.id)).map(skill=>skill.branch));
   const activeCount = unlockedSkills.size;
-  const classGlyph = {knight:'🛡️',mage:'🔮',archer:'🏹',goblin:'👺',ogre:'👹',healer:'🌿',necromancer:'💀',monk:'🥋',golem:'🪨'}[selectedClass] || '✦';
-  const canUnlock = skill => !unlockedSkills.has(skill.id) && (!skill.req || unlockedSkills.has(skill.req)) &&
-    (activeBranches.has(skill.branch) || activeBranches.size < 3) && skillPoints > 0 && activeCount < 15;
-  const esc = value => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const classGlyph = {knight:'🛡️',mage:'🔮',archer:'🏹',goblin:'👺',ogre:'👹',healer:'🌿',necromancer:'💀',monk:'🥋',golem:'🪨'}[selectedClass]||'✦';
+  const canUnlock = skill => !unlockedSkills.has(skill.id) && (!skill.req||unlockedSkills.has(skill.req)) &&
+    (activeBranches.has(skill.branch)||activeBranches.size<3) && skillPoints>0 && activeCount<15;
+  const esc = value => String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const query = activeSkillSearch.trim().toLocaleLowerCase('pt-BR');
-  const filterBar = '<div class="skill-tree-tools"><label class="skill-search-label">⌕ <input class="skill-search" data-skill-search type="search" maxlength="40" placeholder="Buscar talento..." aria-label="Buscar talento" value="' + esc(activeSkillSearch) + '"></label>' +
-    '<div class="skill-tree-filters" role="group" aria-label="Filtrar talentos">' +
-    [['all','TODOS'],['available','DISPONÍVEIS'],['unlocked','DESBLOQUEADOS']].map(([id,label]) =>
-      '<button type="button" class="skill-filter ' + (activeSkillFilter===id?'active':'') + '" data-skill-filter="' + id + '" aria-pressed="' + (activeSkillFilter===id?'true':'false') + '">' + label + '</button>'
-    ).join('') + '</div></div>';
-  const branchColumns = branches.map((branch, branchIndex) => {
-    const skills = branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index}));
-    const unlockedCount = skills.filter(skill=>unlockedSkills.has(skill.id)).length;
-    const nodes = skills.map((skill,index) => {
-      const unlocked = unlockedSkills.has(skill.id);
-      const canBuy = canUnlock(skill);
-      const required = skill.req ? allSkills.find(item=>item.id===skill.req)?.name : '';
-      const matchesFilter = activeSkillFilter==='all' || (activeSkillFilter==='unlocked' && unlocked) || (activeSkillFilter==='available' && canBuy);
-      const matchesQuery = !query || (skill.name+' '+skill.desc+' '+branch.title).toLocaleLowerCase('pt-BR').includes(query);
-      const hidden = !matchesFilter || !matchesQuery;
-      const status = unlocked ? 'DESBLOQUEADA ✓' : canBuy ? 'DESBLOQUEAR · 1 PONTO' :
-        skill.req && !unlockedSkills.has(skill.req) ? 'REQUER: '+(required||'talento anterior') :
-        activeCount>=15 ? 'LIMITE DE 15 TALENTOS' : (!activeBranches.has(branch.id)&&activeBranches.size>=3) ? 'LIMITE DE 3 RAMOS' :
-        skillPoints<1 ? 'SEM PONTOS' : 'BLOQUEADA';
-      const stateClass = unlocked ? 'unlocked' : canBuy ? 'available' : 'locked';
-      const reqLine = skill.req ? '<small class="skill-node-requirement">Pré-requisito: '+esc(required||'talento anterior')+'</small>' : '<small class="skill-node-requirement">Talento inicial do ramo</small>';
-      return '<button type="button" class="skill-path-node '+stateClass+(hidden?' skill-filtered-out':'')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" aria-label="'+esc(skill.name+'. '+skill.desc+'. '+status)+'" '+(canBuy?'':'disabled')+'>' +
-        '<span class="skill-path-number">'+(index+1)+'</span><span class="skill-path-icon">'+esc(skill.icon)+'</span><span class="skill-path-copy"><strong>'+esc(skill.name)+'</strong><span class="skill-path-description">'+esc(skill.desc)+'</span>'+reqLine+'<em>'+esc(status)+'</em></span></button>';
-    }).join('<div class="skill-path-connector" aria-hidden="true"></div>');
-    return '<section class="skill-path-branch branch-'+esc(branch.id)+'"><header class="skill-path-header"><span class="skill-path-branch-icon">'+esc(branch.icon||({attack:'⚔️',defense:'🛡️',arcane:'✨',mobility:'💨',support:'✚'}[branch.id]||'✦'))+'</span><div><h3>'+esc(branch.title)+'</h3><small>'+unlockedCount+'/'+skills.length+' talentos · '+(unlockedCount===skills.length?'COMPLETO':unlockedCount?'EM PROGRESSO':'NOVO RAMO')+'</small></div></header><div class="skill-path-progress"><i style="width:'+(skills.length?unlockedCount/skills.length*100:0)+'%"></i></div><div class="skill-path-list">'+nodes+'</div></section>';
-  }).join('');
+  const filterBar = '<div class="skill-tree-tools"><label class="skill-search-label">⌕ <input class="skill-search" data-skill-search type="search" maxlength="40" placeholder="Buscar talento..." aria-label="Buscar talento" value="'+esc(activeSkillSearch)+'"></label>'+
+    '<div class="skill-tree-filters" role="group" aria-label="Filtrar talentos">'+
+    [['all','TODOS'],['available','DISPONÍVEIS'],['unlocked','DESBLOQUEADOS']].map(([id,label])=>'<button type="button" class="skill-filter '+(activeSkillFilter===id?'active':'')+'" data-skill-filter="'+id+'" aria-pressed="'+(activeSkillFilter===id?'true':'false')+'">'+label+'</button>').join('')+'</div></div>';
+  const positions=[12,31,50,69,88], yLevels=[270,360,450,540,630];
+  const rootLines=positions.map(x=>'<path class="skill-rpg-root-link" d="M 500 93 C 500 155 '+(x*10)+' 175 '+(x*10)+' 255"></path>').join('');
+  let branchLabels='', branchNodes='', branchLinks='';
+  branches.forEach((branch,branchIndex)=>{
+    const x=positions[branchIndex]*10;
+    const skills=branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index}));
+    const unlockedCount=skills.filter(skill=>unlockedSkills.has(skill.id)).length;
+    const glyph=branch.icon||({attack:'⚔️',defense:'🛡️',arcane:'✦',mobility:'💨',support:'✚'}[branch.id]||'✦');
+    branchLabels+='<div class="skill-rpg-branch-label" style="left:'+positions[branchIndex]+'%;top:174px"><span>'+esc(glyph)+'</span><strong>'+esc(branch.title.replace(/^\S+\s*/,''))+'</strong><small>'+unlockedCount+'/'+skills.length+' · TALENTOS</small></div>';
+    if(skills.length) branchLinks+='<line class="skill-rpg-line" x1="'+x+'" y1="'+yLevels[0]+'" x2="'+x+'" y2="'+yLevels[yLevels.length-1]+'"></line>';
+    skills.forEach((skill,index)=>{
+      const unlocked=unlockedSkills.has(skill.id),canBuy=canUnlock(skill);
+      const required=skill.req?allSkills.find(item=>item.id===skill.req)?.name:'';
+      const matchesFilter=activeSkillFilter==='all'||(activeSkillFilter==='unlocked'&&unlocked)||(activeSkillFilter==='available'&&canBuy);
+      const matchesQuery=!query||(skill.name+' '+skill.desc+' '+branch.title).toLocaleLowerCase('pt-BR').includes(query);
+      const hidden=!matchesFilter||!matchesQuery;
+      const status=unlocked?'DESBLOQUEADA ✓':canBuy?'DISPONÍVEL · 1 PONTO':
+        skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):
+        activeCount>=15?'LIMITE DE 15 TALENTOS':(!activeBranches.has(branch.id)&&activeBranches.size>=3)?'LIMITE DE 3 RAMOS':
+        skillPoints<1?'SEM PONTOS':'BLOQUEADA';
+      const stateClass=unlocked?'unlocked':canBuy?'available':'locked';
+      const req=skill.req?'Pré-requisito: '+(required||'talento anterior'):'Talento inicial do caminho';
+      branchNodes+='<button type="button" class="skill-rpg-node '+stateClass+(hidden?' skill-filtered-out':'')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" style="left:'+positions[branchIndex]+'%;top:'+yLevels[index]+'px" aria-label="'+esc(skill.name+'. '+skill.desc+'. '+status)+'" '+(canBuy?'':'disabled')+'>'+
+        '<span class="skill-rpg-node-icon">'+esc(skill.icon)+'</span><span class="skill-rpg-node-copy"><strong>'+esc(skill.name)+'</strong><small>NÍVEL '+(index+1)+' · 1 PONTO</small><em>'+esc(unlocked?'✓ APRENDIDA':canBuy?'TOQUE PARA APRENDER':status)+'</em></span><span class="skill-rpg-node-tooltip">'+esc(skill.desc)+' · '+esc(req)+'</span></button>';
+    });
+  });
   const overallPct=Math.min(100,Math.round(activeCount/15*100));
-  const core='<div class="skill-tree-core skill-tree-core-redesign"><span class="skill-tree-core-icon">'+classGlyph+'</span><span><strong>'+esc(CLASS_NAMES_UI[selectedClass]||'CLASSE')+'</strong><small>ÁRVORE DE HABILIDADES · '+skillPoints+' PONTOS · '+activeCount+'/15 DESBLOQUEADOS</small><span class="skill-tree-overall-progress" role="progressbar" aria-label="Progresso total de talentos" aria-valuemin="0" aria-valuemax="15" aria-valuenow="'+activeCount+'"><span style="width:'+overallPct+'%"></span></span></span></div>';
-  const tree = '<div class="skill-path-board"><div class="skill-path-board-heading"><strong>ESCOLHA SEU CAMINHO</strong><span>Desbloqueie do topo para baixo. Cada ramo tem 5 talentos conectados.</span></div><div class="skill-path-columns">'+branchColumns+'</div></div>';
-  const catalog = '<section class="skill-description-catalog"><h3>📖 CATÁLOGO DE HABILIDADES</h3><p>Confira os efeitos e requisitos antes de gastar pontos.</p>' +
-    branches.map(branch => '<section class="skill-description-branch"><h4>'+esc(branch.title)+'</h4><div class="skill-description-list">'+
-      branch.skills.map(skill => {
-        const unlocked=unlockedSkills.has(skill.id);
-        const canBuy=canUnlock({...skill,branch:branch.id});
-        const required=skill.req ? allSkills.find(item=>item.id===skill.req)?.name : '';
-        const state=unlocked?'DESBLOQUEADA ✓':skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):canBuy?'DISPONÍVEL · 1 PONTO':skillPoints<1?'SEM PONTOS':'BLOQUEADA';
+  const core='<div class="skill-tree-core skill-tree-core-redesign"><span class="skill-tree-core-icon">'+classGlyph+'</span><span><strong>'+esc(CLASS_NAMES_UI[selectedClass]||'CLASSE')+'</strong><small>ÁRVORE DE HABILIDADES · '+skillPoints+' PONTOS · '+activeCount+'/15 TALENTOS</small><span class="skill-tree-overall-progress" role="progressbar" aria-label="Progresso total de talentos" aria-valuemin="0" aria-valuemax="15" aria-valuenow="'+activeCount+'"><span style="width:'+overallPct+'%"></span></span></span></div>';
+  const svg='<svg class="skill-rpg-links" viewBox="0 0 1000 720" preserveAspectRatio="none" aria-hidden="true">'+rootLines+branchLinks+'</svg>';
+  const tree='<div class="skill-rpg-scroll"><div class="skill-rpg-canvas">'+svg+
+    '<div class="skill-rpg-root" style="left:50%;top:52px"><span>'+classGlyph+'</span><strong>'+esc(CLASS_NAMES_UI[selectedClass]||'CLASSE')+'</strong><small>NÚCLEO DO AVENTUREIRO</small></div>'+
+    branchLabels+branchNodes+'</div></div>';
+  const catalog='<section class="skill-description-catalog"><h3>📖 GRIMÓRIO DE TALENTOS</h3><p>Leia os efeitos antes de gastar seus pontos. Cada caminho possui cinco níveis; escolha até três caminhos.</p>'+
+    branches.map(branch=>'<section class="skill-description-branch"><h4>'+esc(branch.title)+'</h4><div class="skill-description-list">'+
+      branch.skills.map(skill=>{
+        const unlocked=unlockedSkills.has(skill.id),canBuy=canUnlock({...skill,branch:branch.id});
+        const required=skill.req?allSkills.find(item=>item.id===skill.req)?.name:'';
+        const state=unlocked?'APRENDIDA ✓':skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):canBuy?'DISPONÍVEL · 1 PONTO':skillPoints<1?'SEM PONTOS':'BLOQUEADA';
         return '<article class="skill-description-card '+(unlocked?'unlocked':canBuy?'available':'locked')+'"><span class="skill-description-icon">'+esc(skill.icon)+'</span><div class="skill-description-copy"><strong>'+esc(skill.name)+'</strong><p>'+esc(skill.desc)+'</p><small>'+esc(state)+'</small></div></article>';
       }).join('')+'</div></section>').join('')+'</section>';
-  const html=core+filterBar+tree+'<p class="skill-orbit-help">Toque em um talento dourado disponível para desbloquear. O próximo talento exige o anterior do mesmo ramo.</p>';
+  const html=core+filterBar+'<div class="skill-rpg-heading"><strong>CAMINHOS DE ESPECIALIZAÇÃO</strong><span>O núcleo se divide em cinco trilhas. Desbloqueie cada nível em sequência.</span></div>'+tree+
+    '<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Deslize para os lados para ver todos os caminhos.</p>'+catalog;
   const lobbyTree=$('skillTreeLobby'),hudTree=$('skillTreeHud');
-  if(lobbyTree) lobbyTree.innerHTML=html;
-  if(hudTree) hudTree.innerHTML=html;
-  if($('skillPoints')) $('skillPoints').textContent=String(skillPoints);
-  if($('skillPointsHud')) $('skillPointsHud').textContent=String(skillPoints);
-  if($('skillCountLobby')) $('skillCountLobby').textContent=activeCount+'/15';
-  if($('skillCountHud')) $('skillCountHud').textContent=activeCount+'/15';
-  if($('skillBranchCountLobby')) $('skillBranchCountLobby').textContent=activeBranches.size+'/3';
-  if($('skillBranchCountHud')) $('skillBranchCountHud').textContent=activeBranches.size+'/3';
+  if(lobbyTree)lobbyTree.innerHTML=html;
+  if(hudTree)hudTree.innerHTML=html;
+  if($('skillPoints'))$('skillPoints').textContent=String(skillPoints);
+  if($('skillPointsHud'))$('skillPointsHud').textContent=String(skillPoints);
+  if($('skillCountLobby'))$('skillCountLobby').textContent=activeCount+'/15';
+  if($('skillCountHud'))$('skillCountHud').textContent=activeCount+'/15';
+  if($('skillBranchCountLobby'))$('skillBranchCountLobby').textContent=activeBranches.size+'/3';
+  if($('skillBranchCountHud'))$('skillBranchCountHud').textContent=activeBranches.size+'/3';
 }
 function syncLoadoutUI() {
   const signature = selectedClass + '|' + selectedSkin + '|' + skillPoints + '|' + Array.from(unlockedSkills).sort().join(',');
@@ -2124,10 +2130,8 @@ function handleSkillClick(event) {
   const matchingNodes = document.querySelectorAll('[data-skill="' + skill.id + '"]');
   matchingNodes.forEach(node => {
     const branchNode = node.closest('.skill-path-branch');
-    const board = node.closest('.skill-path-board');
-    if (branchNode && board && board.scrollWidth > board.clientWidth) {
-      board.scrollTo({left:Math.max(0,branchNode.offsetLeft - board.offsetLeft - 8),behavior:'smooth'});
-    }
+    const board = node.closest('.skill-rpg-scroll');
+    if (board) board.scrollTo({left:Math.max(0,node.offsetLeft - board.clientWidth/2),behavior:'smooth'});
     node.focus({preventScroll:true});
   });
 }
@@ -2289,6 +2293,239 @@ function startOfflineExploration() {
   offlineLoop = setInterval(stepOfflineSimulation, 220);
 }
 
+function offlineHasSkill(id) {
+  const player = offlineState?.players?.[0];
+  return unlockedSkills.has(id) || !!player?.skills?.includes(id);
+}
+
+function offlineLivingMonsters() {
+  return (offlineState?.monsters || []).filter(monster => monster && monster.alive && monster.hp > 0);
+}
+
+function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, pushDistance = 0) {
+  if (!monster?.alive || !Number.isFinite(amount) || amount <= 0) return false;
+  monster.hp = Math.max(0, Number(monster.hp || 0) - amount);
+  if (burnMs > 0 && monster.hp > 0) {
+    monster.burnUntil = Math.max(monster.burnUntil || 0, Date.now() + burnMs);
+    monster.burnNextAt = Math.min(monster.burnNextAt || Date.now() + 1000, Date.now() + 1000);
+  }
+  if (pushFrom && pushDistance > 0 && monster.hp > 0) {
+    const dx = monster.x - pushFrom.x, dz = monster.z - pushFrom.z;
+    const distance = Math.hypot(dx, dz) || 1;
+    monster.x += dx / distance * pushDistance;
+    monster.z += dz / distance * pushDistance;
+  }
+  if (monster.hp <= 0) {
+    monster.alive = false;
+    if (Math.random() < .18) {
+      const rarity = Math.random() > .78 ? 'raro' : Math.random() > .45 ? 'incomum' : 'comum';
+      const item = {id:'offline-loot-'+Date.now()+'-'+Math.floor(Math.random()*1000),name:rarity==='raro'?'Fragmento Astral':rarity==='incomum'?'Relíquia Antiga':'Moeda da Masmorra',rarity,power:rarity==='raro'?3:rarity==='incomum'?2:1};
+      lootDrops.unshift(item);
+      inventoryData[rarity] = (inventoryData[rarity] || 0) + 1;
+      renderInventory();
+      showNotice('Loot encontrado: '+item.name+' ('+rarity+').');
+    }
+  }
+  return true;
+}
+
+function offlineDamageArea(x, z, radius, damage, burnMs = 0, pushDistance = 0) {
+  const targets = [];
+  for (const monster of offlineLivingMonsters()) {
+    if (Math.hypot(monster.x - x, monster.z - z) > radius) continue;
+    offlineDamageMonster(monster, damage, burnMs, {x,z}, pushDistance);
+    targets.push({x:monster.x,z:monster.z});
+  }
+  return targets;
+}
+
+function offlineNearestMonster(range = 14) {
+  const player = offlineState?.players?.[0];
+  if (!player) return null;
+  return offlineLivingMonsters()
+    .map(monster => ({monster,distance:Math.hypot(monster.x-player.x,monster.z-player.z)}))
+    .filter(item => item.distance <= range)
+    .sort((a,b)=>a.distance-b.distance)[0]?.monster || null;
+}
+
+function offlineCreateSummon(kind, index, duration, hp, damage, attackMs) {
+  const player = offlineState?.players?.[0];
+  if (!player) return null;
+  offlineState.summons = Array.isArray(offlineState.summons) ? offlineState.summons : [];
+  const count = offlineState.summons.filter(s => s.ownerId === player.id && s.expiresAt > Date.now()).length;
+  if (count >= 10) return null;
+  const angle = Math.PI * 2 * index / Math.max(1, 3);
+  const summonType = kind === 'goblin' ? 'goblin' : kind === 'skeleton' ? 'skeleton' : kind === 'golem' ? 'stone_golem_clone' : 'guardian_spirit';
+  const isSpirit = kind === 'spirit';
+  const summon = {
+    id:'offline-summon-'+kind+'-'+Date.now()+'-'+index+'-'+Math.floor(Math.random()*9999),
+    ownerId:player.id,
+    summonType:isSpirit?'guardian_spirit':summonType,
+    name:isSpirit?'Espírito Guardião':kind==='golem'?'Fragmento de Golem':kind==='skeleton'?'Esqueleto aliado':'Goblin aliado',
+    playerClass:isSpirit?'guardian_spirit':kind==='golem'?'golem_clone':kind==='skeleton'?'skeleton':'goblin',
+    skin:kind==='skeleton'?'shadow':isSpirit?'celestial':'default',
+    color:isSpirit?0x8cffe8:kind==='golem'?0x8a9096:kind==='skeleton'?0xe0dccb:0x80c86b,
+    x:player.x+Math.cos(angle)*1.35,z:player.z+Math.sin(angle)*1.35,rot:player.rot||0,
+    hp,isSpirit?1:hp,maxHp:isSpirit?1:hp,damage:damage||0,attackMs:attackMs||1000,
+    expiresAt:Date.now()+duration,nextAttackAt:Date.now()+700,
+    nextHealAt:Date.now()+4000,nextDamageAt:Date.now()+5000
+  };
+  offlineState.summons.push(summon);
+  return summon;
+}
+
+function offlineMoveForward(distance) {
+  const player = offlineState?.players?.[0];
+  if (!player) return;
+  const heading = Number(player.rot) || 0;
+  player.x -= Math.sin(heading) * distance;
+  player.z -= Math.cos(heading) * distance;
+  if (myPlayer) myPlayer.position.set(player.x,0,player.z);
+}
+
+function handleOfflineSpell(spell) {
+  const player = offlineState?.players?.[0];
+  if (!player || player.hp <= 0 || player.playerClass !== 'mage') return;
+  const manaCost = spell === 'fire' ? 20 : 15;
+  if ((Number(player.mana) || 0) < manaCost) {
+    if (spell === 'fire') fireCooldown = 0;
+    else lightningCooldown = 0;
+    showNotice('✦ Mana insuficiente! Espere regenerar.');
+    return;
+  }
+  player.mana = Math.max(0, (Number(player.mana) || 0) - manaCost);
+  const target = offlineNearestMonster(7);
+  if (!target) {
+    showNotice('Nenhum inimigo ao alcance da magia.');
+    return;
+  }
+  const power = (offlineHasSkill('mage_focus') ? 1.18 : 1) *
+    (offlineHasSkill('mage_mana') ? 1.15 : 1) *
+    (offlineHasSkill('mana_surge') ? 1.25 : 1);
+  const targets = [];
+  if (spell === 'fire') {
+    const damage = Math.max(1,Math.round(10*power)+(offlineHasSkill('mage_ember')?2:0)+(offlineHasSkill('mage_starseer')?1:0));
+    const affected = offlineLivingMonsters().filter(m=>Math.hypot(m.x-target.x,m.z-target.z)<=2.6 && Math.hypot(m.x-player.x,m.z-player.z)<=8.5).slice(0,5);
+    if (!affected.includes(target)) affected.unshift(target);
+    affected.slice(0,5).forEach(monster=>{offlineDamageMonster(monster,damage,offlineHasSkill('mage_ember')?6500:3500);targets.push({x:monster.x,z:monster.z});});
+    showNotice('🔥 Bola de fogo! '+targets.length+' inimigo(s) atingido(s).');
+  } else {
+    let previous=target;
+    const hit=new Set();
+    const maxHops=offlineHasSkill('mage_chain')?5:2;
+    for(let hop=0;hop<maxHops;hop++){
+      if(!previous||hit.has(previous.id))break;
+      hit.add(previous.id);
+      const amount=Math.max(1,Math.round((hop===0?8:hop===1?5:3)*power));
+      offlineDamageMonster(previous,amount);
+      targets.push({x:previous.x,z:previous.z});
+      previous=offlineLivingMonsters().filter(m=>!hit.has(m.id)&&Math.hypot(m.x-previous.x,m.z-previous.z)<=5)
+        .sort((a,b)=>Math.hypot(a.x-previous.x,a.z-previous.z)-Math.hypot(b.x-previous.x,b.z-previous.z))[0];
+    }
+    showNotice('⚡ Raio em cadeia! '+targets.length+' inimigo(s) atingido(s).');
+  }
+  handleMessage({type:'spell',id:playerId,spell,x:player.x,z:player.z,targets});
+}
+
+function handleOfflineClassAbility(data) {
+  const player = offlineState?.players?.[0];
+  if (!player || player.hp <= 0) return;
+  const ability = String(data.ability || '');
+  const classByAbility = {
+    knight_shield:'knight',knight_dash:'knight',arrow_rain:'archer',incendiary_arrows:'archer',
+    goblin_invis:'goblin',goblin_summon:'goblin',ogre_slam:'ogre',ogre_haste:'ogre',
+    healer_cure:'healer',healer_guardian_spirits:'healer',necromancer_summon:'necromancer',
+    necromancer_dive:'necromancer',monk_impact_palm:'monk',monk_winged_steps:'monk',
+    golem_split:'golem',golem_rock_toss:'golem'
+  };
+  if (classByAbility[ability] !== (player.playerClass || selectedClass)) {
+    showNotice('Esta habilidade não pertence à sua classe.');
+    return;
+  }
+  const cooldowns = {knight_shield:12000,knight_dash:9000,arrow_rain:8000,incendiary_arrows:12000,
+    goblin_invis:14000,goblin_summon:20000,ogre_slam:10000,ogre_haste:15000,
+    healer_cure:23000,healer_guardian_spirits:40000,necromancer_summon:30000,necromancer_dive:15000,
+    monk_impact_palm:18000,monk_winged_steps:15000,golem_split:26000,golem_rock_toss:14500};
+  const now=Date.now();
+  player.abilityCooldowns=player.abilityCooldowns||{};
+  const remaining=(player.abilityCooldowns[ability]||0)-now;
+  if(remaining>0){showNotice('Habilidade recarregando: '+Math.ceil(remaining/1000)+'s.');return;}
+  const reduction=(ability==='arrow_rain'&&offlineHasSkill('archer_quiver')?1500:0)+
+    (ability.startsWith('goblin_')&&offlineHasSkill('goblin_trickster')?2500:0)+
+    (ability==='necromancer_dive'&&offlineHasSkill('necromancer_shadowstep')?2500:0)+
+    (ability==='golem_rock_toss'&&offlineHasSkill('golem_mountaincore')?2000:0);
+  const spec=(CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[]).find(item=>item.ability===ability);
+  player.abilityCooldowns[ability]=now+Math.max(4500,(cooldowns[ability]||12000)-reduction);
+  if(spec){if((CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[])[0]?.ability===ability)fireCooldown=spec.cooldown;else lightningCooldown=spec.cooldown;}
+  let center={x:player.x,z:player.z},targets=[],notice='Habilidade ativada!',until=0,rockFall=null;
+  const nearby=()=>offlineNearestMonster(14);
+  if(ability==='knight_shield'){
+    player.shieldUntil=now+(offlineHasSkill('knight_aegis')?6200:4200);until=player.shieldUntil;notice='🛡️ Escudo ativado! Dano reduzido temporariamente.';
+  }else if(ability==='knight_dash'){
+    offlineMoveForward(4.2);center={x:player.x,z:player.z};targets=offlineDamageArea(player.x,player.z,5.4,offlineHasSkill('knight_charge')?8:5,0,0);
+    notice='⚔️ Avanço do cavaleiro! Você avançou e atingiu os inimigos próximos.';
+  }else if(ability==='arrow_rain'||ability==='incendiary_arrows'){
+    const target=nearby();
+    if(target)center={x:target.x,z:target.z};
+    const radius=ability==='arrow_rain'?(offlineHasSkill('archer_volley')?5.2:4.6):4.1;
+    targets=offlineDamageArea(center.x,center.z,radius,ability==='arrow_rain'?(offlineHasSkill('archer_volley')?7:5):3,
+      ability==='incendiary_arrows'?(offlineHasSkill('archer_firetip')?7500:5500):0,0);
+    notice=ability==='arrow_rain'?'🏹 Chuva de flechas! Dano em área.':'🔥 Flechas incendiárias! Os inimigos atingidos estão queimando.';
+  }else if(ability==='goblin_invis'){
+    player.invisibleUntil=now+(offlineHasSkill('goblin_shadow')?7000:5000);until=player.invisibleUntil;notice='👻 Invisibilidade ativada!';
+  }else if(ability==='goblin_summon'){
+    const count=offlineHasSkill('goblin_pack')?3:2,duration=offlineHasSkill('goblin_pack')?16000:12000;
+    for(let i=0;i<count;i++)offlineCreateSummon('goblin',i,duration,72,offlineHasSkill('goblin_poison')?4:3,950);
+    notice='👺 Goblins aliados invocados por '+Math.round(duration/1000)+' segundos.';
+  }else if(ability==='ogre_slam'){
+    const radius=offlineHasSkill('ogre_aftershock')?6.2:5.2;
+    targets=offlineDamageArea(player.x,player.z,radius,offlineHasSkill('ogre_berserker')?11:8,0,2.4);
+    notice='💥 Soco no chão! Inimigos próximos foram atingidos e empurrados.';
+  }else if(ability==='ogre_haste'){
+    player.ogreHasteUntil=now+(offlineHasSkill('ogre_longrage')?7000:5000);until=player.ogreHasteUntil;notice='💨 Velocidade aumentada!';
+  }else if(ability==='healer_cure'){
+    const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+(offlineHasSkill('healer_blessing')?70:50));
+    notice=player.hp>before?'💚 Cura! +'+(player.hp-before)+' de vida.':'💚 Você já está com a vida cheia.';
+  }else if(ability==='healer_guardian_spirits'){
+    const duration=offlineHasSkill('healer_longspirits')?26000:20000;
+    for(let i=0;i<3;i++)offlineCreateSummon('spirit',i,duration,1,0,5000);
+    player.guardianSpiritsUntil=now+duration;until=player.guardianSpiritsUntil;notice='🪽 Três espíritos guardiões chegaram!';
+  }else if(ability==='necromancer_summon'){
+    const count=(offlineHasSkill('necromancer_horde')?7:5)+(offlineHasSkill('necromancer_reaper')?1:0);
+    const duration=offlineHasSkill('necromancer_horde')?36000:30000;
+    for(let i=0;i<count;i++)offlineCreateSummon('skeleton',i,duration,offlineHasSkill('necromancer_bone')?12:8,offlineHasSkill('necromancer_reaper')?3:2,1100);
+    notice='💀 Horda invocada! Esqueletos lutarão ao seu lado.';
+  }else if(ability==='necromancer_dive'){
+    player.necromancerDivePending=true;player.necromancerDiveUntil=now+5000;
+    player.necromancerDiveOriginX=player.x;player.necromancerDiveOriginZ=player.z;
+    player.invisibleUntil=now+5000;until=player.necromancerDiveUntil;
+    necromancerDivePendingClient=true;clearTimeout(necromancerDiveClientTimer);
+    necromancerDiveClientTimer=setTimeout(()=>{necromancerDivePendingClient=false;showNotice('O tempo do Mergulho acabou.');},5000);
+    notice='🕳️ Mergulho! Toque no chão para escolher onde emergir.';
+  }else if(ability==='monk_impact_palm'){
+    const heading=Number(player.rot)||0;
+    center={x:player.x-Math.sin(heading)*1.4,z:player.z-Math.cos(heading)*1.4};
+    targets=offlineDamageArea(center.x,center.z,4.2,offlineHasSkill('monk_openpalm')?11:8,0,2.7);
+    for(const monster of offlineLivingMonsters())if(Math.hypot(monster.x-center.x,monster.z-center.z)<=4.7)monster.stunnedUntil=now+(offlineHasSkill('monk_zen')?1600:1100);
+    notice='👊 Palma de impacto! Onda de choque repelindo inimigos.';
+  }else if(ability==='monk_winged_steps'){
+    offlineMoveForward(3.1);player.monkSpeedUntil=now+(offlineHasSkill('monk_flow')?7500:5000);
+    player.dodgeUntil=now+900;until=player.monkSpeedUntil;center={x:player.x,z:player.z};notice='🪽 Passos alados! Avanço veloz ativado.';
+  }else if(ability==='golem_split'){
+    const duration=offlineHasSkill('golem_splitheart')?16000:12000;
+    for(let i=0;i<3;i++)offlineCreateSummon('golem',i,duration,offlineHasSkill('golem_shatter')?62:50,offlineHasSkill('golem_shatter')?5:4,900);
+    player.invisibleUntil=now+duration;until=player.invisibleUntil;notice='🪨 Você se dividiu em três golens menores!';
+  }else if(ability==='golem_rock_toss'){
+    if(!Number.isFinite(Number(data.x))||!Number.isFinite(Number(data.z))){delete player.abilityCooldowns[ability];if(spec){if((CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[])[0]?.ability===ability)fireCooldown=0;else lightningCooldown=0;}showNotice('Toque no chão para escolher onde a pedra vai cair.');return;}
+    center={x:Number(data.x),z:Number(data.z)};
+    const radius=offlineHasSkill('golem_mountaincore')?6.1:5;
+    targets=offlineDamageArea(center.x,center.z,radius,offlineHasSkill('golem_quake')?18:15,0,1.1);
+    rockFall={x:center.x,z:center.z,radius,stones:Array.from({length:6},(_,i)=>({x:center.x+Math.cos(i*Math.PI/3)*2.5,z:center.z+Math.sin(i*Math.PI/3)*2.5}))};
+    notice='☄️ Pedra titânica! Impacto e estilhaços!';
+  }
+  handleClassAbilityMessage({type:'classAbility',id:playerId,ability,x:player.x,z:player.z,center,targets,until,text:notice,rockFall});
+}
+
 function handleOfflineAction(data) {
   if (!offlineState || !data) return;
   const player = offlineState.players[0];
@@ -2305,8 +2542,7 @@ function handleOfflineAction(data) {
       .sort((a,b) => Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];
     if (target) {
       const damage = selectedClass === 'ogre' || selectedClass === 'golem' ? 12 : selectedClass === 'archer' || selectedClass === 'goblin' ? 9 : 8;
-      target.hp = Math.max(0, target.hp - damage);
-      if (target.hp <= 0) target.alive = false;
+      offlineDamageMonster(target,damage);
       showNotice(target.alive ? 'Golpe acertou o monstro!' : 'Monstro derrotado!');
     } else showNotice('Chegue mais perto do inimigo.');
   } else if (data.type === 'openChest' && player.hp > 0) {
@@ -2323,26 +2559,71 @@ function handleOfflineAction(data) {
     renderInventory();
     playSfx('loot');
     showNotice('Baú aberto · ' + item.name + ' (' + rarity + ')');
+  } else if (data.type === 'classAbility') {
+    handleOfflineClassAbility(data);
+  } else if (data.type === 'spell') {
+    handleOfflineSpell(data.spell === 'fire' ? 'fire' : 'lightning');
+  } else if (data.type === 'necromancerDiveTarget' && player.hp > 0 && player.necromancerDivePending) {
+    const oldX=player.necromancerDiveOriginX,oldZ=player.necromancerDiveOriginZ;
+    player.x=Number.isFinite(Number(data.x))?Number(data.x):player.x;
+    player.z=Number.isFinite(Number(data.z))?Number(data.z):player.z;
+    player.necromancerDivePending=false;player.invisibleUntil=0;
+    offlineCreateSummon('skeleton',0,18000,10,3,900);
+    player.necromancerDiveOriginX=oldX;player.necromancerDiveOriginZ=oldZ;
+    if(myPlayer)myPlayer.position.set(player.x,0,player.z);
+    handleClassAbilityMessage({type:'classAbility',id:playerId,ability:'necromancer_dive_arrive',x:player.x,z:player.z,center:{x:oldX,z:oldZ},targets:[],text:'🦴 Você emergiu e deixou um esqueleto na origem!'});
   }
 }
-
 function stepOfflineSimulation() {
   if (!offlineMode || !offlineState || !started || !myPlayer) return;
   const player = offlineState.players[0];
   const now = Date.now();
   if (player.hp > 0) {
+    if (player.mana < (player.maxMana || 100)) player.mana = Math.min(player.maxMana || 100, player.mana + .6);
+    const invisible = now < (player.invisibleUntil || 0);
+    player.invisible = invisible;
+    player.shielded = now < (player.shieldUntil || 0);
+    // Invocações atacam automaticamente, como na exploração cooperativa.
+    offlineState.summons = (offlineState.summons || []).filter(s => s.expiresAt > now && s.hp > 0);
+    for (const summon of offlineState.summons) {
+      if (summon.summonType === 'guardian_spirit') {
+        if (now >= (summon.nextHealAt || 0)) {
+          summon.nextHealAt = now + 4000;
+          player.hp = Math.min(player.maxHp, player.hp + 5);
+        }
+        if (now >= (summon.nextDamageAt || 0)) {
+          summon.nextDamageAt = now + 5000;
+          const target = offlineNearestMonster(10);
+          if (target) offlineDamageMonster(target,9);
+        }
+      } else if (now >= (summon.nextAttackAt || 0)) {
+        summon.nextAttackAt = now + (summon.attackMs || 1000);
+        const target = offlineLivingMonsters()
+          .map(m=>({m,d:Math.hypot(m.x-summon.x,m.z-summon.z)}))
+          .filter(item=>item.d<=7)
+          .sort((a,b)=>a.d-b.d)[0]?.m;
+        if (target) offlineDamageMonster(target,summon.damage || 3);
+      }
+    }
     for (const monster of offlineState.monsters) {
       if (!monster.alive) continue;
+      if (monster.burnUntil > now && now >= (monster.burnNextAt || 0)) {
+        monster.burnNextAt = now + 1000;
+        offlineDamageMonster(monster,2);
+      }
+      if (!monster.alive) continue;
+      if (monster.stunnedUntil > now || invisible) continue;
       const dx = player.x - monster.x, dz = player.z - monster.z;
       const distance = Math.hypot(dx,dz);
       if (distance > 1.35) {
-        const speed = monster.kind === 'brute' ? .22 : .34;
+        const speed = (monster.kind === 'brute' ? .22 : .34) * (now < (player.ogreHasteUntil || 0) || now < (player.monkSpeedUntil || 0) ? .78 : 1);
         monster.x += dx / Math.max(distance,.001) * speed;
         monster.z += dz / Math.max(distance,.001) * speed;
       } else if (now - (monster.lastAttack || 0) > 1500) {
         monster.lastAttack = now;
-        player.hp = Math.max(0, player.hp - (monster.kind === 'brute' ? 8 : 4));
-        showNotice('Um monstro acertou você!');
+        const incomingDamage = monster.kind === 'brute' ? 8 : 4;
+        player.hp = Math.max(0, player.hp - (player.shielded ? Math.max(1,Math.round(incomingDamage*.35)) : incomingDamage));
+        showNotice(player.shielded ? '🛡️ Seu escudo absorveu parte do dano!' : 'Um monstro acertou você!');
         if (player.hp <= 0 && !offlineDefeatNoticeShown) {
           offlineDefeatNoticeShown = true;
           showNotice('Você foi derrotado. Saia da partida para recomeçar a prévia.');
@@ -2351,10 +2632,10 @@ function stepOfflineSimulation() {
     }
   }
   offlineState.monsters = offlineState.monsters.filter(m => m.alive);
+  offlineState.summons = (offlineState.summons || []).filter(s => s.expiresAt > now && s.hp > 0);
   saveOfflineProgress();
-  updateState({...offlineState, players:[{...player}], monsters:offlineState.monsters.map(m=>({...m}))});
+  updateState({...offlineState, players:[{...player}], monsters:offlineState.monsters.map(m=>({...m})), summons:offlineState.summons.map(s=>({...s}))});
 }
-
 function send(data) {
   if (offlineMode) {
     handleOfflineAction(data);
