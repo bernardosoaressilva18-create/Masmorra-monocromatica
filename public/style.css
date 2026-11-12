@@ -3886,3 +3886,44 @@ button:focus-visible { outline-offset: 3px; }
 .skill-rpg-scroll{touch-action:pan-x pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .skill-rpg-canvas{transform-origin:top left}
 .skill-orbit-help{font-size:10px}
+
+
+/* Pacote de polimento mobile: leitura, toque e menor custo de composição. */
+.skill-rpg-scroll{padding:12px;scroll-padding:12px;overscroll-behavior-x:contain;overscroll-behavior-y:contain}
+.skill-rpg-canvas{background-size:26px 26px}
+.skill-rpg-node{min-height:76px;gap:9px;padding:9px;border-radius:12px;box-shadow:0 4px 10px #0009}
+.skill-rpg-node-icon{flex-basis:38px;width:38px;height:38px;font-size:19px}
+.skill-rpg-node-copy strong{font-size:10px;line-height:1.25}
+.skill-rpg-node-copy small{font-size:8px;line-height:1.3}
+.skill-rpg-node-copy em{font-size:7px;line-height:1.25}
+.skill-rpg-node:focus-visible{outline:2px solid #fff1b8;outline-offset:3px;z-index:5}
+.skill-rpg-node.locked{opacity:.88;border-color:#607184;background:linear-gradient(145deg,#202b38,#101720)}
+.skill-rpg-links .skill-rpg-line{stroke:#a9bfd2;opacity:.78;stroke-width:2.4}
+.skill-rpg-links .skill-rpg-root-link{stroke-width:2.8;opacity:.9}
+#lobby .class-card{min-height:112px;padding:12px;box-shadow:0 5px 16px #0004}
+#lobby .class-card.selected{box-shadow:0 0 0 1px #76e7f255,0 0 20px #76e7f222,inset 0 1px #ffffff12}
+#lobby .class-card:focus-visible,#lobby .skin-pick:focus-visible,#lobby .lobby-nav-btn:focus-visible{outline:2px solid #f0d28e;outline-offset:3px}
+#lobby .skin-pick{min-height:74px;padding:9px}
+#lobby .lobby-nav-btn{min-height:42px}
+#lobby .lobby-ready-button{min-height:48px;box-shadow:0 5px 18px #0006}
+#lobby .lobby-hint{line-height:1.45}
+#hud .attack,#hud .chest-btn,#hud .spell-btn{ -webkit-tap-highlight-color:transparent;user-select:none}
+#hud .attack{border:1px solid #ffe0a0aa;box-shadow:0 4px 18px #0008,0 0 14px #ffbd5540}
+#hud .chest-btn{border:1px solid #f2d18c99;box-shadow:0 4px 14px #0008}
+#hud .spell-btn{backdrop-filter:none;-webkit-backdrop-filter:none}
+@media(pointer:coarse){
+  #hud .inventory-panel,#hud .settings-panel,#hud .objective,#hud .players{backdrop-filter:none;-webkit-backdrop-filter:none}
+  #hud .spell-btn{min-width:56px;min-height:56px}
+  #lobby .class-card,#lobby .skin-pick,#lobby .lobby-nav-btn{transition: border-color .12s,background-color .12s}
+}
+@media(max-width:600px){
+  .skill-rpg-scroll{max-height:64dvh;padding:8px}
+  .skill-rpg-node{min-height:74px}
+  #lobby .class-card{min-height:106px}
+  #lobby .lobby-ready-button{min-height:50px}
+}
+@media(max-width:380px){
+  .skill-rpg-node-copy strong{font-size:9px}
+  .skill-rpg-node-copy small{font-size:7px}
+  #lobby .class-card{padding:9px}
+}
