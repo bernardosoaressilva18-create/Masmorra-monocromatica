@@ -2349,7 +2349,7 @@ function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, push
   }
   if (monster.hp <= 0) {
     monster.alive = false;
-    if (Math.random() < .18) {
+    if (Math.random() < (offlineHasSkill('loot_sense') ? .30 : .18)) {
       const rarity = Math.random() > .78 ? 'raro' : Math.random() > .45 ? 'incomum' : 'comum';
       const item = {id:'offline-loot-'+Date.now()+'-'+Math.floor(Math.random()*1000),name:rarity==='raro'?'Fragmento Astral':rarity==='incomum'?'Relíquia Antiga':'Moeda da Masmorra',rarity,power:rarity==='raro'?3:rarity==='incomum'?2:1};
       lootDrops.unshift(item);
@@ -2567,7 +2567,7 @@ function handleOfflineAction(data) {
     if (Number.isFinite(Number(data.rot))) player.rot = Number(data.rot);
   } else if (data.type === 'attack' && player.hp > 0) {
     const now = Date.now();
-    if (now - offlineLastHit < 300) return;
+    if (now - offlineLastHit < (offlineHasSkill('battle_focus') ? 220 : 300)) return;
     offlineLastHit = now;
     const target = offlineState.monsters
       .filter(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2)
@@ -2600,7 +2600,8 @@ function handleOfflineAction(data) {
     player.x=Number.isFinite(Number(data.x))?Number(data.x):player.x;
     player.z=Number.isFinite(Number(data.z))?Number(data.z):player.z;
     player.necromancerDivePending=false;player.invisibleUntil=0;
-    offlineCreateSummon('skeleton',0,1,18000,10,3,900);
+    const originSkeleton=offlineCreateSummon('skeleton',0,1,18000,10,3,900);
+    if(originSkeleton&&Number.isFinite(oldX)&&Number.isFinite(oldZ)){originSkeleton.x=oldX;originSkeleton.z=oldZ;}
     player.necromancerDiveOriginX=oldX;player.necromancerDiveOriginZ=oldZ;
     if(myPlayer)myPlayer.position.set(player.x,0,player.z);
     handleClassAbilityMessage({type:'classAbility',id:playerId,ability:'necromancer_dive_arrive',x:player.x,z:player.z,center:{x:oldX,z:oldZ},targets:[],text:'🦴 Você emergiu e deixou um esqueleto na origem!'});
@@ -2615,6 +2616,14 @@ function stepOfflineSimulation() {
     const invisible = now < (player.invisibleUntil || 0);
     player.invisible = invisible;
     player.shielded = now < (player.shieldUntil || 0);
+    if (offlineHasSkill('regeneration') && now >= (player.nextRegenAt || 0)) {
+      player.nextRegenAt = now + 3000;
+      player.hp = Math.min(player.maxHp, player.hp + 2);
+    }
+    if (offlineHasSkill('healing_aura') && now >= (player.nextAuraHealAt || 0)) {
+      player.nextAuraHealAt = now + 5000;
+      player.hp = Math.min(player.maxHp, player.hp + 2);
+    }
     // Invocações atacam automaticamente, como na exploração cooperativa.
     offlineState.summons = (offlineState.summons || []).filter(s => s.expiresAt > now && s.hp > 0);
     for (const summon of offlineState.summons) {
@@ -2654,7 +2663,11 @@ function stepOfflineSimulation() {
       } else if (now - (monster.lastAttack || 0) > 1500) {
         monster.lastAttack = now;
         const incomingDamage = monster.kind === 'brute' ? 8 : 4;
-        player.hp = Math.max(0, player.hp - (player.shielded ? Math.max(1,Math.round(incomingDamage*.35)) : incomingDamage));
+        let damageMultiplier = 1;
+        if (offlineHasSkill('iron_skin')) damageMultiplier *= .8;
+        if (offlineHasSkill('second_wind') && player.hp <= player.maxHp * .3) damageMultiplier *= .8;
+        if (player.shielded) damageMultiplier *= .35;
+        player.hp = Math.max(0, player.hp - Math.max(1,Math.round(incomingDamage*damageMultiplier)));
         showNotice(player.shielded ? '🛡️ Seu escudo absorveu parte do dano!' : 'Um monstro acertou você!');
         if (player.hp <= 0 && !offlineDefeatNoticeShown) {
           offlineDefeatNoticeShown = true;
