@@ -97,22 +97,26 @@ function vibrateGame(pattern = 12) {
 function getRenderPixelRatioCap(width = window.innerWidth, height = window.innerHeight) {
   const landscapeMobile = isMobileDevice && width > height;
   const quality = gameSettings.graphicsQuality;
-  if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 0.90 : 0.76) : 1.0;
-  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 1.58 : 1.38) : 1.85;
-  return isMobileDevice ? (landscapeMobile ? 1.32 : 1.16) : 1.55;
+  // Celulares não devem renderizar acima de 1:1 por padrão: evita excesso de pixels
+  // sem deixar a escala cair para uma imagem muito borrada.
+  if (quality === 'low') return isMobileDevice ? (landscapeMobile ? 1.02 : 0.96) : 1.0;
+  if (quality === 'high') return isMobileDevice ? (landscapeMobile ? 1.38 : 1.24) : 1.85;
+  return isMobileDevice ? (landscapeMobile ? 1.14 : 1.04) : 1.55;
 }
 function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.innerHeight) {
   // Never upscale beyond the device's own DPR: it costs GPU time without adding detail.
   // Keep the same lower bounds as the adaptive scaler so a resize cannot undo FPS recovery.
   const hardwareDpr = Math.max(0.5, Number(devicePixelRatio) || 1);
-  const floor = !isMobileDevice ? 0.65 : gameSettings.graphicsQuality === 'low' ? 0.55 : 0.68;
+  const floor = !isMobileDevice ? 0.65
+    : gameSettings.graphicsQuality === 'low' ? 0.82
+    : gameSettings.graphicsQuality === 'high' ? 0.94 : 0.88;
   return Math.min(hardwareDpr, floor);
 }
 function applyGraphicsQuality() {
   const quality = gameSettings.graphicsQuality;
   renderPixelRatioCap = getRenderPixelRatioCap();
   adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(), Math.min(devicePixelRatio || 1, renderPixelRatioCap));
-  if (quality === 'low') adaptivePixelRatio = Math.min(adaptivePixelRatio, isMobileDevice ? 0.85 : 1.0);
+  if (quality === 'low') adaptivePixelRatio = Math.min(adaptivePixelRatio, isMobileDevice ? 0.92 : 1.0);
   if (renderer) {
     renderer.setPixelRatio(adaptivePixelRatio);
     renderer.toneMappingExposure = quality === 'high' ? 1.30 : quality === 'low' ? 1.14 : 1.22;
@@ -299,9 +303,9 @@ function init3D() {
   scene.add(fillLight);
   const warmRimLight = new THREE.DirectionalLight(0xffd7a1, 0.78);
   warmRimLight.position.set(-3, 6, 10);
-  scene.add(warmRimLight);
+  if (!isMobileDevice) scene.add(warmRimLight);
   const ambientFill = new THREE.AmbientLight(0x7994c7, 0.24);
-  scene.add(ambientFill);
+  if (!isMobileDevice) scene.add(ambientFill);
   const cryptLight = new THREE.PointLight(0x62cfff, 10, 20, 2);
   cryptLight.position.set(-8, 2.6, 1);
   if (!isMobileDevice) scene.add(cryptLight);
@@ -323,7 +327,7 @@ function init3D() {
   moon.shadow.camera.top = 18;
   moon.shadow.camera.bottom = -18;
   moon.shadow.bias = -0.00025;
-  scene.add(moon);
+  if (!isMobileDevice) scene.add(moon);
 
   buildDungeon();
   buildDungeonVisualPass();
@@ -383,12 +387,12 @@ function buildDungeon() {
   dungeonTexture.repeat.set(textureRepeat, textureRepeat);
   const floor = mat(0x303744, .82, .08);
   floor.map = dungeonTexture;
-  floor.bumpMap = dungeonTexture;
+  floor.bumpMap = isMobileDevice ? null : dungeonTexture;
   floor.bumpScale = surfaceBumpScale;
   floor.needsUpdate = true;
 const wall = mat(0x414751, 0.95);
 wall.map = dungeonTexture;
-wall.bumpMap = dungeonTexture;
+wall.bumpMap = isMobileDevice ? null : dungeonTexture;
 wall.bumpScale = surfaceBumpScale * 1.35;
 wall.needsUpdate = true;
 const dark = mat(0x171c24, 1);
@@ -416,7 +420,7 @@ stoneDark.needsUpdate = true;
   ];
   for (const zone of worldZones) {
     zone.top.map = dungeonTexture;
-    zone.top.bumpMap = dungeonTexture;
+    zone.top.bumpMap = isMobileDevice ? null : dungeonTexture;
     zone.top.bumpScale = .012;
     zone.top.needsUpdate = true;
     box(30,.8,zone.depth,floor,0,-.5,zone.z);
@@ -3937,8 +3941,13 @@ function updatePerformanceMonitor() {
   }
 
   if (adaptiveDetailTier > 0) {
-    const dynamicCap = isMobileDevice ? (adaptiveDetailTier === 2 ? .78 : .94) : (adaptiveDetailTier === 2 ? .95 : 1.15);
-    nextRatio = Math.min(nextRatio, dynamicCap);
+    const dynamicCap = isMobileDevice ? (adaptiveDetailTier === 2 ? .88 : .98) : (adaptiveDetailTier === 2 ? .95 : 1.15);
+    // A escala adaptativa não pode passar do limite inferior de nitidez definido
+    // para cada qualidade; em vez de borrar a imagem, o jogo reduz efeitos visuais.
+    nextRatio = Math.max(
+      getMinimumRenderPixelRatio(innerWidth, innerHeight),
+      Math.min(nextRatio, dynamicCap)
+    );
   }
   if (renderer && Math.abs(nextRatio - adaptivePixelRatio) >= .01) {
     adaptivePixelRatio = Math.round(nextRatio * 100) / 100;
