@@ -2299,7 +2299,12 @@ function stepOfflineSimulation() {
   offlineState.monsters = offlineState.monsters.filter(m => m.alive);
   updateState({...offlineState, players:[{...player}], monsters:offlineState.monsters.map(m=>({...m}))});
 }
-\nfunction send(data) {
+
+function send(data) {
+  if (offlineMode) {
+    handleOfflineAction(data);
+    return;
+  }
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
@@ -3143,7 +3148,8 @@ $('startBtn').addEventListener('click', async () => {
   setStatus('Digite seu nome e toque em JOGAR ONLINE.');
 });
 
-$('playBtn').addEventListener('click', () => connect(''));\n$('offlinePlayBtn')?.addEventListener('click', startOfflineExploration);
+$('playBtn').addEventListener('click', () => connect(''));
+$('offlinePlayBtn')?.addEventListener('click', startOfflineExploration);
 $('quickMatchBtn')?.addEventListener('click', () => {
   quickMatchRequested = true;
   joiningPublicRoom = true;
@@ -3200,6 +3206,10 @@ inventoryToggleBtn?.addEventListener('click', () => {
 applyInventoryVisibility();
 
 function leaveRoomToMenu() {
+  if (offlineLoop) clearInterval(offlineLoop);
+  offlineLoop = null;
+  offlineMode = false;
+  offlineState = null;
   connectionRequested = false;
   resumeToken = '';
   try { sessionStorage.removeItem('masmorraResumeToken'); } catch {}
