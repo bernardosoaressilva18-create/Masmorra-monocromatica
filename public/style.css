@@ -3587,3 +3587,21 @@ body.shift-lock-active .shift-lock-crosshair{display:block}
 .skill-rpg-node.skill-filtered-out{display:none!important}
 @media(max-width:600px){.skill-rpg-scroll{max-height:62dvh}.skill-rpg-canvas{width:940px;min-width:940px;height:700px}.skill-rpg-root{width:204px}.skill-rpg-branch-label{width:137px}.skill-rpg-node{width:140px;min-height:68px;padding:6px}.skill-rpg-node-copy strong{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.skill-rpg-node,.skill-rpg-links{scroll-behavior:auto}}
+
+
+/* O invólucro deixa de ser uma grade de cartões: a árvore inteira é uma coluna. */
+#lobby .skill-tree,#hud .skill-tree{
+  display:block!important;
+  grid-template-columns:none!important;
+  gap:0!important;
+  width:100%!important;
+  min-width:0!important;
+  max-height:none!important;
+  height:auto!important;
+  overflow:visible!important;
+  padding:8px 0!important;
+}
+#lobby .skill-tree .skill-rpg-scroll,#hud .skill-tree .skill-rpg-scroll{
+  display:block;
+  width:100%;
+}
