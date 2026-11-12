@@ -4267,6 +4267,9 @@ function updatePerformanceMonitor() {
       particleMaterial.size = adaptiveDetailTier === 2 ? .032 : adaptiveDetailTier === 1 ? .043 : .055;
     }
     if (astralStarField) astralStarField.visible = adaptiveDetailTier === 0;
+    // Em carga alta, reduz partículas e runas do palco 3D do lobby.
+    if (lobbyPreviewParticles) lobbyPreviewParticles.visible = adaptiveDetailTier < 2;
+    if (lobbyPreviewRunes) lobbyPreviewRunes.visible = adaptiveDetailTier < 2;
   }
   
   if (lastFps < 43) {
@@ -4715,6 +4718,12 @@ function animate() {
     const walkTilt = kind === 'stalker' && moving ? Math.sin(phase) * .015 : 0;
     const targetTilt = windupTilt - attackTilt + recoveryTilt + walkTilt;
     obj.rotation.x = THREE.MathUtils.lerp(obj.rotation.x, targetTilt, 1 - Math.exp(-12 * entityDt));
+
+    // Mantém movimento e orientação dos monstros distantes, mas evita animar cada membro
+    // quando o celular já está em modo de desempenho reduzido.
+    const farMonster = adaptiveDetailTier > 0 && obj.position.distanceToSquared(camera.position) > 625;
+    if (obj.userData.attackRing) obj.userData.attackRing.visible = !farMonster;
+    if (farMonster) continue;
 
     for (const limb of obj.userData.animatedLimbs || []) {
       const limbPhase = phase * gait + (limb.side > 0 ? Math.PI : 0);
