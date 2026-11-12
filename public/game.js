@@ -2266,6 +2266,18 @@ function startOfflineExploration() {
   } else {
     offlineState = createOfflineState();
   }
+  // A prévia offline sempre permite retomar a exploração após uma derrota anterior.
+  const offlinePlayer = offlineState?.players?.[0];
+  if (offlinePlayer) {
+    const maxHp = Number.isFinite(Number(offlinePlayer.maxHp)) && Number(offlinePlayer.maxHp) > 0
+      ? Number(offlinePlayer.maxHp) : 130;
+    offlinePlayer.maxHp = maxHp;
+    if (!Number.isFinite(Number(offlinePlayer.hp)) || Number(offlinePlayer.hp) <= 0) {
+      offlinePlayer.hp = maxHp;
+      offlinePlayer.mana = Number.isFinite(Number(offlinePlayer.maxMana)) ? offlinePlayer.maxMana : 100;
+      offlineDefeatNoticeShown = false;
+    }
+  }
   offlineLastSavedAt = 0;
   updateState({...offlineState, started:false});
   updateState(offlineState);
