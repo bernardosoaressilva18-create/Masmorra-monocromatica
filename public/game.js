@@ -2178,6 +2178,33 @@ let offlineState = null;
 let offlineLoop = null;
 let offlineLastHit = 0;
 let offlineDefeatNoticeShown = false;
+let offlineLastSavedAt = 0;
+const OFFLINE_SAVE_KEY = 'ultimoLegadoOfflineSaveV1';
+
+function saveOfflineProgress(force = false) {
+  if (!offlineState) return;
+  const now = Date.now();
+  if (!force && now - offlineLastSavedAt < 1500) return;
+  offlineLastSavedAt = now;
+  try {
+    localStorage.setItem(OFFLINE_SAVE_KEY, JSON.stringify({
+      version: 1, savedAt: now, state: offlineState,
+      inventory: inventoryData, loot: lootDrops
+    }));
+  } catch (error) {
+    console.warn('[O Último Legado] Não foi possível salvar a prévia offline.', error);
+  }
+}
+
+function loadOfflineProgress() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_SAVE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (saved?.version !== 1 || !saved.state || !Array.isArray(saved.state.players) || !saved.state.players[0] || !Array.isArray(saved.state.monsters) || !Array.isArray(saved.state.chests)) return null;
+    return saved;
+  } catch { return null; }
+}
 
 function createOfflineState() {
   const player = {
@@ -2225,9 +2252,19 @@ function startOfflineExploration() {
   $('menu').classList.add('hidden');
   $('lobby').classList.add('hidden');
   $('loading').classList.add('hidden');
-  offlineState = createOfflineState();
+  const savedOffline = loadOfflineProgress();
+  if (savedOffline) {
+    offlineState = savedOffline.state;
+    if (savedOffline.inventory && typeof savedOffline.inventory === 'object') inventoryData = savedOffline.inventory;
+    if (Array.isArray(savedOffline.loot)) lootDrops = savedOffline.loot;
+    showNotice('Progresso offline recuperado deste aparelho.');
+  } else {
+    offlineState = createOfflineState();
+  }
+  offlineLastSavedAt = 0;
   updateState({...offlineState, started:false});
   updateState(offlineState);
+  renderInventory();
   $('roomLabel').textContent = 'OFFLINE';
   $('lobbyRoomCode').textContent = 'OFFLINE';
   showNotice('Prévia offline iniciada · progresso ainda não sincronizado');
@@ -2297,6 +2334,7 @@ function stepOfflineSimulation() {
     }
   }
   offlineState.monsters = offlineState.monsters.filter(m => m.alive);
+  saveOfflineProgress();
   updateState({...offlineState, players:[{...player}], monsters:offlineState.monsters.map(m=>({...m}))});
 }
 
@@ -3206,6 +3244,7 @@ inventoryToggleBtn?.addEventListener('click', () => {
 applyInventoryVisibility();
 
 function leaveRoomToMenu() {
+  if (offlineMode) saveOfflineProgress(true);
   if (offlineLoop) clearInterval(offlineLoop);
   offlineLoop = null;
   offlineMode = false;
