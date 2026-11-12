@@ -2348,13 +2348,13 @@ function offlineNearestMonster(range = 14) {
     .sort((a,b)=>a.distance-b.distance)[0]?.monster || null;
 }
 
-function offlineCreateSummon(kind, index, duration, hp, damage, attackMs) {
+function offlineCreateSummon(kind, index, total, duration, hp, damage, attackMs) {
   const player = offlineState?.players?.[0];
   if (!player) return null;
   offlineState.summons = Array.isArray(offlineState.summons) ? offlineState.summons : [];
   const count = offlineState.summons.filter(s => s.ownerId === player.id && s.expiresAt > Date.now()).length;
   if (count >= 10) return null;
-  const angle = Math.PI * 2 * index / Math.max(1, 3);
+  const angle = Math.PI * 2 * index / Math.max(1, total);
   const summonType = kind === 'goblin' ? 'goblin' : kind === 'skeleton' ? 'skeleton' : kind === 'golem' ? 'stone_golem_clone' : 'guardian_spirit';
   const isSpirit = kind === 'spirit';
   const summon = {
@@ -2475,7 +2475,7 @@ function handleOfflineClassAbility(data) {
     player.invisibleUntil=now+(offlineHasSkill('goblin_shadow')?7000:5000);until=player.invisibleUntil;notice='👻 Invisibilidade ativada!';
   }else if(ability==='goblin_summon'){
     const count=offlineHasSkill('goblin_pack')?3:2,duration=offlineHasSkill('goblin_pack')?16000:12000;
-    for(let i=0;i<count;i++)offlineCreateSummon('goblin',i,duration,72,offlineHasSkill('goblin_poison')?4:3,950);
+    for(let i=0;i<count;i++)offlineCreateSummon('goblin',i,count,duration,72,offlineHasSkill('goblin_poison')?4:3,950);
     notice='👺 Goblins aliados invocados por '+Math.round(duration/1000)+' segundos.';
   }else if(ability==='ogre_slam'){
     const radius=offlineHasSkill('ogre_aftershock')?6.2:5.2;
@@ -2488,12 +2488,12 @@ function handleOfflineClassAbility(data) {
     notice=player.hp>before?'💚 Cura! +'+(player.hp-before)+' de vida.':'💚 Você já está com a vida cheia.';
   }else if(ability==='healer_guardian_spirits'){
     const duration=offlineHasSkill('healer_longspirits')?26000:20000;
-    for(let i=0;i<3;i++)offlineCreateSummon('spirit',i,duration,1,0,5000);
+    for(let i=0;i<3;i++)offlineCreateSummon('spirit',i,3,duration,1,0,5000);
     player.guardianSpiritsUntil=now+duration;until=player.guardianSpiritsUntil;notice='🪽 Três espíritos guardiões chegaram!';
   }else if(ability==='necromancer_summon'){
     const count=(offlineHasSkill('necromancer_horde')?7:5)+(offlineHasSkill('necromancer_reaper')?1:0);
     const duration=offlineHasSkill('necromancer_horde')?36000:30000;
-    for(let i=0;i<count;i++)offlineCreateSummon('skeleton',i,duration,offlineHasSkill('necromancer_bone')?12:8,offlineHasSkill('necromancer_reaper')?3:2,1100);
+    for(let i=0;i<count;i++)offlineCreateSummon('skeleton',i,count,duration,offlineHasSkill('necromancer_bone')?12:8,offlineHasSkill('necromancer_reaper')?3:2,1100);
     notice='💀 Horda invocada! Esqueletos lutarão ao seu lado.';
   }else if(ability==='necromancer_dive'){
     player.necromancerDivePending=true;player.necromancerDiveUntil=now+5000;
@@ -2513,7 +2513,7 @@ function handleOfflineClassAbility(data) {
     player.dodgeUntil=now+900;until=player.monkSpeedUntil;center={x:player.x,z:player.z};notice='🪽 Passos alados! Avanço veloz ativado.';
   }else if(ability==='golem_split'){
     const duration=offlineHasSkill('golem_splitheart')?16000:12000;
-    for(let i=0;i<3;i++)offlineCreateSummon('golem',i,duration,offlineHasSkill('golem_shatter')?62:50,offlineHasSkill('golem_shatter')?5:4,900);
+    for(let i=0;i<3;i++)offlineCreateSummon('golem',i,3,duration,offlineHasSkill('golem_shatter')?62:50,offlineHasSkill('golem_shatter')?5:4,900);
     player.invisibleUntil=now+duration;until=player.invisibleUntil;notice='🪨 Você se dividiu em três golens menores!';
   }else if(ability==='golem_rock_toss'){
     if(!Number.isFinite(Number(data.x))||!Number.isFinite(Number(data.z))){delete player.abilityCooldowns[ability];if(spec){if((CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[])[0]?.ability===ability)fireCooldown=0;else lightningCooldown=0;}showNotice('Toque no chão para escolher onde a pedra vai cair.');return;}
@@ -2568,7 +2568,7 @@ function handleOfflineAction(data) {
     player.x=Number.isFinite(Number(data.x))?Number(data.x):player.x;
     player.z=Number.isFinite(Number(data.z))?Number(data.z):player.z;
     player.necromancerDivePending=false;player.invisibleUntil=0;
-    offlineCreateSummon('skeleton',0,18000,10,3,900);
+    offlineCreateSummon('skeleton',0,1,18000,10,3,900);
     player.necromancerDiveOriginX=oldX;player.necromancerDiveOriginZ=oldZ;
     if(myPlayer)myPlayer.position.set(player.x,0,player.z);
     handleClassAbilityMessage({type:'classAbility',id:playerId,ability:'necromancer_dive_arrive',x:player.x,z:player.z,center:{x:oldX,z:oldZ},targets:[],text:'🦴 Você emergiu e deixou um esqueleto na origem!'});
