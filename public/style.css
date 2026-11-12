@@ -3605,3 +3605,15 @@ body.shift-lock-active .shift-lock-crosshair{display:block}
   display:block;
   width:100%;
 }
+
+
+.lobby-modal-card:has(.skill-rpg-canvas){
+  width:min(1180px,100%);
+  max-width:1180px;
+  max-height:94dvh;
+  overflow:auto;
+  padding:16px;
+}
+@media(max-width:600px){
+  .lobby-modal-card:has(.skill-rpg-canvas){padding:10px 8px;max-height:94dvh}
+}
