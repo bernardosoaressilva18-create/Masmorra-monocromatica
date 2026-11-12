@@ -47,6 +47,7 @@ const lobbyCameraPositionScratch = new THREE.Vector3();
 const movementForwardScratch = new THREE.Vector3();
 const movementRightScratch = new THREE.Vector3();
 let healthBarRefreshAccumulator = 0;
+let entityUpdateAccumulator = 0;
 let bossMesh = null, bossData = null;
 const bossPortalMeshes = new Map();
 const bossTelegraphMeshes = new Map();
@@ -3905,7 +3906,7 @@ function updatePerformanceMonitor() {
   perfFrames = 0;
   perfWindowStart = now;
   
-  const nextDetailTier = lastFps > 54 ? 0 : lastFps < 28 ? 2 : lastFps < 40 ? 1 : adaptiveDetailTier;
+  const nextDetailTier = lastFps > 54 ? 0 : lastFps < 28 ? 2 : lastFps < 48 ? 1 : adaptiveDetailTier;
   if (nextDetailTier !== adaptiveDetailTier) {
     adaptiveDetailTier = nextDetailTier;
     if (ambientParticles) ambientParticles.visible = adaptiveDetailTier === 0;
@@ -4044,8 +4045,6 @@ function animate() {
   const cameraInputSmooth = 1 - Math.exp(-18 * dt);
   yaw += (targetYaw - yaw) * cameraInputSmooth;
   pitch += (targetPitch - pitch) * cameraInputSmooth;
-  const remoteSmooth = 1 - Math.exp(-14 * dt);
-  const monsterSmooth = 1 - Math.exp(-10 * dt);
   const cameraSmooth = 1 - Math.exp(-9 * dt);
 
   attackCooldown = Math.max(0, attackCooldown - dt);
@@ -4203,6 +4202,21 @@ function animate() {
     }
   }
 
+  // Em queda de desempenho no celular, a movimentação dos outros aventureiros e
+  // monstros é atualizada a 30 Hz; câmera, controles e jogador local continuam suaves.
+  let entityDt = dt;
+  let runEntityUpdate = true;
+  if (isMobileDevice && adaptiveDetailTier > 0) {
+    entityUpdateAccumulator += dt;
+    runEntityUpdate = entityUpdateAccumulator >= 1 / 30;
+    if (runEntityUpdate) {
+      entityDt = Math.min(entityUpdateAccumulator, 0.08);
+      entityUpdateAccumulator = 0;
+    }
+  }
+  if (runEntityUpdate) {
+    const remoteSmooth = 1 - Math.exp(-14 * entityDt);
+    const monsterSmooth = 1 - Math.exp(-10 * entityDt);
   // Movimento suave dos outros jogadores
   for (const obj of remotePlayers.values()) {
     if (obj.userData.targetX === undefined) continue;
@@ -4226,8 +4240,8 @@ function animate() {
       const phase = worldTime * 2.8 + (obj.userData.spiritPhase || 0);
       obj.position.y = 1.35 + Math.sin(phase) * .18;
       obj.rotation.z = Math.sin(phase * .65) * .12;
-      if (obj.userData.guardianCore) { obj.userData.guardianCore.rotation.y += dt * 1.25; obj.userData.guardianCore.rotation.x = Math.sin(phase * .8) * .12; }
-      if (obj.userData.guardianHalo) obj.userData.guardianHalo.rotation.z += dt * .8;
+      if (obj.userData.guardianCore) { obj.userData.guardianCore.rotation.y += entityDt * 1.25; obj.userData.guardianCore.rotation.x = Math.sin(phase * .8) * .12; }
+      if (obj.userData.guardianHalo) obj.userData.guardianHalo.rotation.z += entityDt * .8;
       for (const wing of obj.userData.guardianWings || []) {
         wing.mesh.rotation.z = wing.side * (-.24 + Math.sin(phase * 2.3) * .34);
         wing.mesh.rotation.y = Math.sin(phase * 1.4 + wing.side) * .18;
@@ -4237,7 +4251,7 @@ function animate() {
     const farRemote = adaptiveDetailTier > 0 && obj.position.distanceToSquared(camera.position) > 625;
     if (farRemote) continue;
     const remoteMoving = Math.hypot((obj.userData.targetX ?? obj.position.x) - obj.position.x, (obj.userData.targetZ ?? obj.position.z) - obj.position.z) > .035;
-    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (remoteMoving ? 7.2 : 1.4);
+    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + entityDt * (remoteMoving ? 7.2 : 1.4);
     const rp = obj.userData.walkPhase;
     const remoteIdleSeed = obj.userData.idleSeed || 0;
     const remoteIdleWave = Math.sin(rp*.62 + remoteIdleSeed);
@@ -4268,15 +4282,15 @@ function animate() {
         tail.rotation.z = (tail.position.x < 0 ? .10 : -.10) + Math.sin(rp * .5) * (remoteMoving ? .025 : .006);
       }
     }
-    if (obj.userData.baseRing) obj.userData.baseRing.rotation.z += dt * .3;
-    if (obj.userData.waistSigil) obj.userData.waistSigil.rotation.y += dt * .5;
+    if (obj.userData.baseRing) obj.userData.baseRing.rotation.z += entityDt * .3;
+    if (obj.userData.waistSigil) obj.userData.waistSigil.rotation.y += entityDt * .5;
     if (obj.userData.classCharm) {
-      obj.userData.classCharm.rotation.y += dt*.3;
+      obj.userData.classCharm.rotation.y += entityDt*.3;
       obj.userData.classCharm.rotation.z = Math.sin(rp*.7 + remoteIdleSeed)*.07;
       obj.userData.classCharm.position.y = 1.53 + Math.sin(rp*1.15 + remoteIdleSeed)*.022;
     }
     if (obj.userData.classShield) obj.userData.classShield.rotation.z = -.12 + Math.sin(rp) * (remoteMoving ? .025 : .01);
-    for (const part of obj.userData.decorativeParts || []) part.rotation.y += dt*.08;
+    for (const part of obj.userData.decorativeParts || []) part.rotation.y += entityDt*.08;
     obj.position.y = remoteMoving ? Math.abs(Math.sin(rp * 2)) * .012 : Math.sin(rp * .8) * .004;
     if (obj.userData.cape) {
       obj.userData.cape.rotation.x = -.08 + Math.sin(rp) * (remoteMoving ? .045 : .008);
@@ -4297,7 +4311,7 @@ function animate() {
     obj.position.z = THREE.MathUtils.lerp(obj.position.z, obj.userData.targetZ, monsterSmooth);
 
     if (obj.userData.spawnAnim > 0) {
-      obj.userData.spawnAnim = Math.max(0, obj.userData.spawnAnim - dt);
+      obj.userData.spawnAnim = Math.max(0, obj.userData.spawnAnim - entityDt);
       const spawnProgress = 1 - obj.userData.spawnAnim / .35;
       obj.scale.setScalar(Math.max(.05, spawnProgress));
     } else {
@@ -4308,11 +4322,11 @@ function animate() {
     const gait = kind === 'brute' ? .72
       : kind === 'wraith' ? 1.34
       : kind === 'stalker' ? 1.16 : .96;
-    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + dt * (moving ? 7.2 : 1.45);
+    obj.userData.walkPhase = (obj.userData.walkPhase || 0) + entityDt * (moving ? 7.2 : 1.45);
     const phase = obj.userData.walkPhase;
 
     if (obj.userData.attackAnim > 0) {
-      obj.userData.attackAnim = Math.max(0, obj.userData.attackAnim - dt);
+      obj.userData.attackAnim = Math.max(0, obj.userData.attackAnim - entityDt);
     }
     const attackProgress = obj.userData.attackAnim > 0
       ? (1 - obj.userData.attackAnim / .38) : 0;
@@ -4333,14 +4347,14 @@ function animate() {
     // A passada ganha peso e balanço lateral próprio para cada família de criatura.
     const rollAmplitude = kind === 'brute' ? .025 : kind === 'wraith' || kind === 'abyss' ? .035 : .022;
     const rollTarget = moving ? Math.sin(phase) * rollAmplitude : Math.sin(phase * .45) * .006;
-    obj.rotation.z = THREE.MathUtils.lerp(obj.rotation.z, rollTarget, 1 - Math.exp(-7.5 * dt));
+    obj.rotation.z = THREE.MathUtils.lerp(obj.rotation.z, rollTarget, 1 - Math.exp(-7.5 * entityDt));
 
     if (obj.userData.targetRot !== undefined) {
       const angleDiff = Math.atan2(
         Math.sin(obj.userData.targetRot - obj.rotation.y),
         Math.cos(obj.userData.targetRot - obj.rotation.y)
       );
-      obj.rotation.y += angleDiff * (1 - Math.exp(-8 * dt));
+      obj.rotation.y += angleDiff * (1 - Math.exp(-8 * entityDt));
     }
 
     const attackTilt = strike * (kind === 'brute' ? .42 : kind === 'wraith' ? .24 : .50);
@@ -4348,7 +4362,7 @@ function animate() {
     const recoveryTilt = recovery * .08;
     const walkTilt = kind === 'stalker' && moving ? Math.sin(phase) * .015 : 0;
     const targetTilt = windupTilt - attackTilt + recoveryTilt + walkTilt;
-    obj.rotation.x = THREE.MathUtils.lerp(obj.rotation.x, targetTilt, 1 - Math.exp(-12 * dt));
+    obj.rotation.x = THREE.MathUtils.lerp(obj.rotation.x, targetTilt, 1 - Math.exp(-12 * entityDt));
 
     for (const limb of obj.userData.animatedLimbs || []) {
       const limbPhase = phase * gait + (limb.side > 0 ? Math.PI : 0);
@@ -4384,9 +4398,9 @@ function animate() {
     if (myPlayer) {
       const faceBoss = Math.atan2(myPlayer.position.x - bossMesh.position.x, myPlayer.position.z - bossMesh.position.z);
       const turnBoss = Math.atan2(Math.sin(faceBoss - bossMesh.rotation.y), Math.cos(faceBoss - bossMesh.rotation.y));
-      bossMesh.rotation.y += turnBoss * (1 - Math.exp(-5 * dt));
+      bossMesh.rotation.y += turnBoss * (1 - Math.exp(-5 * entityDt));
     }
-    bossMesh.userData.animPhase = (bossMesh.userData.animPhase || 0) + dt * (Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04 ? 5.5 : 1.7);
+    bossMesh.userData.animPhase = (bossMesh.userData.animPhase || 0) + entityDt * (Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04 ? 5.5 : 1.7);
     const bossPhase = bossMesh.userData.animPhase;
     const bossMoving = Math.hypot((bossMesh.userData.targetX ?? bossMesh.position.x)-bossMesh.position.x,(bossMesh.userData.targetZ ?? bossMesh.position.z)-bossMesh.position.z) > .04;
     const bossHealthRatio = bossMesh.userData.serverHp !== undefined && bossMesh.userData.serverMaxHp ? bossMesh.userData.serverHp / bossMesh.userData.serverMaxHp : 1;
@@ -4395,7 +4409,7 @@ function animate() {
     if (bossMesh.userData.torso) bossMesh.userData.torso.rotation.z = Math.sin(bossPhase) * (bossMoving ? .055 : .024);
     for (const arm of bossMesh.userData.arms || []) arm.mesh.rotation.x = Math.sin(bossPhase + (arm.side > 0 ? Math.PI : 0)) * (bossMoving ? .25 : .06);
     if (bossMesh.userData.eyeMaterial) bossMesh.userData.eyeMaterial.emissiveIntensity = (2.3 + (Math.sin(bossPhase * 2.1) + 1) * .55) * bossIntensity;
-    if (bossMesh.userData.coreHalo) { bossMesh.userData.coreHalo.rotation.z += dt * (bossMoving ? .65 : .24); bossMesh.userData.coreHalo.material.emissiveIntensity = 1.0 + (Math.sin(bossPhase * 2.4) + 1) * .45; }
+    if (bossMesh.userData.coreHalo) { bossMesh.userData.coreHalo.rotation.z += entityDt * (bossMoving ? .65 : .24); bossMesh.userData.coreHalo.material.emissiveIntensity = 1.0 + (Math.sin(bossPhase * 2.4) + 1) * .45; }
     // O Guardião respira, balança os braços e pulsa os olhos durante a perseguição.
   }
   // Portais do Guardião pulsam enquanto carregam e ficam vermelhos quando vão explodir.
@@ -4406,7 +4420,7 @@ function animate() {
     const ring = portal.userData.portalRing;
     const core = portal.userData.portalCore;
     if (ring) {
-      ring.rotation.z += dt * (warning ? .35 : 1.15);
+      ring.rotation.z += entityDt * (warning ? .35 : 1.15);
       ring.scale.setScalar(warning ? .90 + pulse * .07 : 1 + pulse * .16);
       ring.material.color.setHex(warning ? 0xffa344 : 0xff214e);
       ring.material.opacity = warning ? .48 + pulse * .18 : .78 + pulse * .18;
@@ -4423,26 +4437,27 @@ function animate() {
     const offset=obj.userData.eyePulseOffset||0;
     if (obj.userData.eyeMaterial) obj.userData.eyeMaterial.emissiveIntensity=1.1+(Math.sin(worldTime*2.6+offset)+1)*.42;
     if (obj.userData.coreMesh) {
-      obj.userData.coreMesh.rotation.y += dt * (obj.userData.kind === 'brute' ? .24 : .42);
+      obj.userData.coreMesh.rotation.y += entityDt * (obj.userData.kind === 'brute' ? .24 : .42);
       obj.userData.coreMesh.rotation.x = Math.sin(worldTime * 1.2 + offset) * .12;
       const pulse = 1 + Math.sin(worldTime * (obj.userData.kind === 'inferno' ? 4.2 : 2.4) + offset) * (obj.userData.kind === 'inferno' ? .12 : .055);
       obj.userData.coreMesh.scale.set(pulse, pulse * (obj.userData.kind === 'wraith' ? 1.12 : 1), pulse);
     }
   }
   if (bossMesh && bossMesh.userData.coreMesh) {
-    bossMesh.userData.coreMesh.rotation.y+=dt*.55;
+    bossMesh.userData.coreMesh.rotation.y+=entityDt*.55;
     bossMesh.userData.coreMesh.rotation.x=Math.sin(worldTime*1.5)*.12;
-    if (bossMesh.userData.coreHalo) bossMesh.userData.coreHalo.rotation.z+=dt*.35;
+    if (bossMesh.userData.coreHalo) bossMesh.userData.coreHalo.rotation.z+=entityDt*.35;
   }
   // Anima os portões: as grades somem ao liberar a passagem.
   for (const gate of gateMeshes) {
     const targetScale = gate.userData.open ? 0 : 1;
-    gate.userData.bars.scale.x = THREE.MathUtils.lerp(gate.userData.bars.scale.x, targetScale, 1 - Math.exp(-5 * dt));
+    gate.userData.bars.scale.x = THREE.MathUtils.lerp(gate.userData.bars.scale.x, targetScale, 1 - Math.exp(-5 * entityDt));
     gate.userData.bars.visible = gate.userData.bars.scale.x > .04;
     gate.userData.ring.material.opacity = gate.userData.open ? .08 : .3;
-    gate.userData.portal.material.opacity = THREE.MathUtils.lerp(gate.userData.portal.material.opacity, gate.userData.open ? .32 : 0, 1 - Math.exp(-2.8 * dt));
-    gate.userData.portalRim.rotation.z += dt * (gate.userData.open ? .65 : .12);
+    gate.userData.portal.material.opacity = THREE.MathUtils.lerp(gate.userData.portal.material.opacity, gate.userData.open ? .32 : 0, 1 - Math.exp(-2.8 * entityDt));
+    gate.userData.portalRim.rotation.z += entityDt * (gate.userData.open ? .65 : .12);
     gate.userData.portalRim.material.emissiveIntensity = gate.userData.open ? 2.8 : 1.0;
+  }
   }
   // Efeitos de impacto compartilham o loop principal para evitar RAF por efeito.
   const impactNow = performance.now();
