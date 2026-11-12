@@ -31,8 +31,6 @@ let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=n
 let realmIntroTimer=0;
 const astralFloaters=[];
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-let shiftLockEnabled = gameSettings.shiftLock;
-let cameraDistance = gameSettings.cameraZoom;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
 const activeBurnEffects = [];
@@ -73,6 +71,8 @@ const gameSettings = {
   sfxVolume: clampSetting(storedGameSettings.sfxVolume, 0, 1, 0.72),
   musicEnabled: storedGameSettings.musicEnabled !== false
 };
+let shiftLockEnabled = gameSettings.shiftLock;
+let cameraDistance = gameSettings.cameraZoom;
 let audioContext = null, musicBus = null, sfxBus = null, backgroundMusic = null;
 
 function saveGameSettings() {
