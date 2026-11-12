@@ -2150,6 +2150,109 @@ $('skillCloseBtn')?.addEventListener('click', () => $('skillPanel')?.classList.a
 syncLoadoutUI();
 updateHeroShowcase();
 
+let offlineMode = false;
+let offlineState = null;
+let offlineLoop = null;
+let offlineLastHit = 0;
+
+function createOfflineState() {
+  const now = Date.now();
+  const player = {
+    id: 'offline-player', name: $('playerName')?.value.trim() || 'Aventureiro',
+    x: 0, z: 3, rot: 0, hp: 130, maxHp: 130, mana: 100, maxMana: 100,
+    playerClass: selectedClass, skin: selectedSkin,
+    skills: Array.from(unlockedSkills), talentPoints: skillPoints,
+    ready: true, isHost: true, color: 0x72e6ff
+  };
+  const kinds = ['stalker','stalker','brute','wraith','thorn'];
+  const monsters = kinds.map((kind, i) => {
+    const hp = kind === 'brute' ? 24 : 14;
+    return {
+      id: 'offline-monster-' + i, kind, phase: 1, realm: 1,
+      x: (i - 2) * 3.2, z: -10 - (i % 2) * 3,
+      alive: true, hp, maxHp: hp, spawned: true, spawnAt: now
+    };
+  });
+  return {
+    type: 'state', gameMode: 'coop', players: [player], summons: [],
+    phase: 1, realm: 1, safeZoneUntil: 0, started: true, hostId: player.id,
+    monsters, boss: null, portalOpen: false,
+    chests: [
+      {id:'offline-chest-1',x:-8,z:-12,opened:false},
+      {id:'offline-chest-2',x:8,z:-44,opened:false}
+    ]
+  };
+}
+
+function startOfflineExploration() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try { ws.close(); } catch {}
+  }
+  connectionRequested = false;
+  clearTimeout(reconnectTimer);
+  offlineMode = true;
+  playerId = 'offline-player';
+  roomCode = 'OFFLINE';
+  activeGameMode = 'coop';
+  selectedGameMode = 'coop';
+  $('gameModeSelect').value = 'coop';
+  $('menu').classList.add('hidden');
+  $('lobby').classList.add('hidden');
+  $('loading').classList.add('hidden');
+  offlineState = createOfflineState();
+  updateState({...offlineState, started:false});
+  updateState(offlineState);
+  $('roomLabel').textContent = 'OFFLINE';
+  $('lobbyRoomCode').textContent = 'OFFLINE';
+  showNotice('Exploração offline iniciada · prévia experimental');
+  if (offlineLoop) clearInterval(offlineLoop);
+  offlineLoop = setInterval(stepOfflineSimulation, 220);
+}
+
+function handleOfflineAction(data) {
+  if (!offlineState || !data) return;
+  if (data.type === 'move') {
+    const p = offlineState.players[0];
+    p.x = Number(data.x) || p.x; p.z = Number(data.z) || p.z; p.rot = Number(data.rot) || 0;
+  } else if (data.type === 'attack') {
+    const now = Date.now();
+    if (now - offlineLastHit < 300) return;
+    offlineLastHit = now;
+    const p = offlineState.players[0];
+    const target = offlineState.monsters
+      .filter(m => m.alive && Math.hypot(m.x - p.x, m.z - p.z) < 3.2)
+      .sort((a,b) => Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
+    if (target) {
+      target.hp = Math.max(0, target.hp - (selectedClass === 'ogre' ? 12 : 8));
+      if (target.hp <= 0) target.alive = false;
+      showNotice(target.alive ? 'Golpe acertou o monstro!' : 'Monstro derrotado!');
+    } else showNotice('Chegue mais perto do inimigo.');
+  }
+}
+
+function stepOfflineSimulation() {
+  if (!offlineMode || !offlineState || !started || !myPlayer) return;
+  const p = offlineState.players[0];
+  const now = Date.now();
+  for (const monster of offlineState.monsters) {
+    if (!monster.alive) continue;
+    const dx = p.x - monster.x, dz = p.z - monster.z;
+    const distance = Math.hypot(dx,dz);
+    if (distance > 1.35) {
+      const speed = monster.kind === 'brute' ? .22 : .34;
+      monster.x += dx / Math.max(distance,.001) * speed;
+      monster.z += dz / Math.max(distance,.001) * speed;
+    } else if (now - (monster.lastAttack || 0) > 1500) {
+      monster.lastAttack = now;
+      p.hp = Math.max(0, p.hp - (monster.kind === 'brute' ? 8 : 4));
+      showNotice('Um monstro acertou você!');
+      if (p.hp <= 0) showNotice('Você foi derrotado. Esta prévia não tem renascimento.');
+    }
+  }
+  offlineState.monsters = offlineState.monsters.filter(m => m.alive || m.hp <= 0);
+  updateState({...offlineState, players:[{...p}], monsters:offlineState.monsters.map(m=>({...m}))});
+}
+
 let joiningPublicRoom = false;
 let quickMatchRequested = false;
 function sendJoin(code) {
@@ -2172,6 +2275,10 @@ function sendJoin(code) {
 }
 
 function send(data) {
+  if (offlineMode) {
+    handleOfflineAction(data);
+    return;
+  }
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
@@ -3016,6 +3123,7 @@ $('startBtn').addEventListener('click', async () => {
 });
 
 $('playBtn').addEventListener('click', () => connect(''));
+$('offlinePlayBtn')?.addEventListener('click', startOfflineExploration);
 $('quickMatchBtn')?.addEventListener('click', () => {
   quickMatchRequested = true;
   joiningPublicRoom = true;
