@@ -3688,3 +3688,82 @@ body.shift-lock-active .shift-lock-crosshair{display:block}
   .skill-rpg-root{min-width:180px}
 }
 @media(prefers-reduced-motion:reduce){.skill-rpg-node{transition:none}}
+
+
+/* PACOTE DE REFINAMENTO 49 — interface tátil, lobby e legibilidade. */
+/* 01–09: controles mais consistentes e acessíveis. */
+:root { color-scheme: dark; }
+button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+button:focus-visible { outline: 2px solid #9be8f7; outline-offset: 3px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #83d9ee; outline-offset: 2px; }
+input[type="range"] { accent-color: #e9c477; min-height: 28px; }
+input[type="checkbox"] { accent-color: #e9c477; }
+button:disabled { cursor: not-allowed; }
+button:disabled:active { transform: none !important; }
+#menu .panel input:focus-visible, #menu .game-mode-select:focus-visible { border-color: #8adff0; box-shadow: 0 0 0 3px #76e7f226; }
+
+/* 10–11: o modo offline fica destacado sem parecer um recurso experimental. */
+#offlinePlayBtn { border-color: #d7b66d80 !important; background: linear-gradient(120deg,#292316,#18202a) !important; color: #ffe2a0 !important; }
+#offlinePlayBtn:active { filter: brightness(1.16); box-shadow: 0 0 0 2px #e9c47727; }
+
+/* 12–14: navegação do lobby com área de toque e estado ativo mais claros. */
+#lobby .lobby-nav-btn { min-height: 46px; padding-inline: 12px; }
+#lobby .lobby-nav-btn.active { border-color: #e9c477 !important; background: linear-gradient(140deg,#3a3020,#132333) !important; color: #ffe6ae !important; box-shadow: 0 0 0 1px #e9c47724,0 6px 18px #0007; }
+#lobby .lobby-nav-btn.active span { color: #ffe2a0; text-shadow: 0 0 12px #e9c47788; }
+
+/* 15–17: palco do lobby e cartão do herói com proporções mais estáveis. */
+#lobby .lobby-stage { width: min(100%, 920px); margin-inline: auto; }
+#lobby .lobby-layout { width: 100%; min-width: 0; }
+#lobby .hero-showcase { min-height: clamp(205px, 34vh, 280px); border-radius: 15px; }
+
+/* 18–22: moldura e informações do personagem mais fáceis de ler. */
+#lobby .hero-showcase { border-color: #8ce5f36b; box-shadow: inset 0 0 34px #76e7f20b,0 12px 30px #0006; }
+#lobby .hero-showcase-info { border-color: #8ce5f34d; background: linear-gradient(100deg,rgba(4,10,18,.94),rgba(8,17,27,.83)); }
+#lobby .hero-showcase-info > strong { color: #fff0c8; text-shadow: 0 2px 10px #000; }
+#lobby .hero-showcase-info p { color: #d0dce5; line-height: 1.5; }
+#lobby .hero-showcase-tags span { min-height: 22px; display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; }
+
+/* 23–25: a área da equipe ganha hierarquia e leitura rápida. */
+#lobby .lobby-team-box { padding: 12px; border-radius: 13px; }
+#lobby .lobby-section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#lobby .lobby-section-title small { color: #c6d4df; font-variant-numeric: tabular-nums; }
+
+/* 26–30: cartões dos jogadores distinguem nome e estado de prontidão. */
+#lobby .lobby-player { min-height: 50px; padding: 11px 13px; }
+#lobby .lobby-player { background: linear-gradient(100deg,#122434,#0a131e); }
+#lobby .lobby-player .lobby-name { font-size: 12px; font-weight: 750; color: #f0f7fb; }
+#lobby .lobby-player .lobby-state { font-size: 9px; letter-spacing: .9px; }
+#lobby .lobby-player.ready .lobby-state { text-shadow: 0 0 10px #6fffc255; }
+
+/* 31–35: estados vazios e painel de edição mais confortáveis no celular. */
+#lobby .lobby-empty { padding: 14px 8px; color: #b7c6d2; line-height: 1.5; text-align: center; }
+#lobby .lobby-editor-backdrop { background: rgba(1,5,10,.78); }
+#lobby .lobby-editor { max-height: min(90dvh,860px); border-color: #8bdced55; box-shadow: 0 24px 80px #000c,0 0 35px #59c8e511; }
+#lobby .lobby-editor-head { border-bottom: 1px solid #8bdced2e; }
+#lobby .lobby-editor-head strong { color: #ffe4a6; letter-spacing: .7px; }
+
+/* 36–41: rolagem, rótulos e seletores do painel de configurações. */
+#lobby .lobby-editor-content { min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #617d91 #0a1420; }
+#lobby .lobby-editor-section { min-width: 0; }
+#lobby .lobby-editor-section > label { color: #e7d4aa; letter-spacing: .7px; }
+#lobby .setting-range { line-height: 1.45; }
+#lobby .setting-range output { color: #ffe2a0; font-variant-numeric: tabular-nums; }
+#lobby .setting-toggle { min-height: 40px; }
+#lobby .setting-toggle input { width: 18px; height: 18px; flex: 0 0 18px; }
+
+/* 42–45: diagnóstico com números mais alinhados e destacados. */
+#lobby .lobby-diagnostics { margin-top: 18px; border-color: #83d9ee35; border-radius: 12px; }
+#lobby .diagnostics-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#lobby .diagnostics-grid > div { min-width: 0; border: 1px solid #8bdced20; border-radius: 8px; padding: 9px 7px; background: #07121d99; }
+#lobby .diagnostics-grid strong { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* 46–49: foco nas escolhas, botão de prontidão e redução de movimento. */
+#lobby .class-card:focus-visible, #lobby .skin-pick:focus-visible { outline: 2px solid #9be8f7; outline-offset: 3px; }
+#lobby .skin-pick.selected, #lobby .class-card.selected { box-shadow: 0 0 0 1px #e9c47730,0 8px 22px #0008; }
+#lobby #readyBtn:focus-visible, #lobby #startMatchBtn:focus-visible { outline: 2px solid #b9f5cf; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media (pointer: coarse) {
+  #lobby .hero-showcase-info { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
