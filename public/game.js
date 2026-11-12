@@ -2172,7 +2172,134 @@ function sendJoin(code) {
   quickMatchRequested = false;
 }
 
-function send(data) {
+
+let offlineMode = false;
+let offlineState = null;
+let offlineLoop = null;
+let offlineLastHit = 0;
+let offlineDefeatNoticeShown = false;
+
+function createOfflineState() {
+  const player = {
+    id: 'offline-player',
+    name: $('playerName')?.value.trim() || 'Aventureiro',
+    x: 0, z: 3, rot: 0, hp: 130, maxHp: 130, mana: 100, maxMana: 100,
+    playerClass: selectedClass, skin: selectedSkin,
+    skills: Array.from(unlockedSkills), talentPoints: skillPoints,
+    ready: true, isHost: true, color: 0x72e6ff
+  };
+  const kinds = ['stalker','stalker','brute','wraith','thorn'];
+  const monsters = kinds.map((kind, i) => {
+    const hp = kind === 'brute' ? 24 : 14;
+    return {
+      id: 'offline-monster-' + i, kind, phase: 1, realm: 1,
+      x: (i - 2) * 3.2, z: -10 - (i % 2) * 3,
+      alive: true, hp, maxHp: hp, spawned: true
+    };
+  });
+  return {
+    type: 'state', gameMode: 'coop', players: [player], summons: [],
+    phase: 1, realm: 1, safeZoneUntil: 0, started: true, hostId: player.id,
+    monsters, boss: null, portalOpen: false,
+    chests: [
+      {id:'offline-chest-1',x:-8,z:-12,opened:false},
+      {id:'offline-chest-2',x:8,z:-44,opened:false}
+    ]
+  };
+}
+
+function startOfflineExploration() {
+  if (ws) {
+    try { ws.close(); } catch {}
+    ws = null;
+  }
+  connectionRequested = false;
+  clearTimeout(reconnectTimer);
+  offlineMode = true;
+  offlineDefeatNoticeShown = false;
+  playerId = 'offline-player';
+  roomCode = 'OFFLINE';
+  activeGameMode = 'coop';
+  selectedGameMode = 'coop';
+  if ($('gameModeSelect')) $('gameModeSelect').value = 'coop';
+  $('menu').classList.add('hidden');
+  $('lobby').classList.add('hidden');
+  $('loading').classList.add('hidden');
+  offlineState = createOfflineState();
+  updateState({...offlineState, started:false});
+  updateState(offlineState);
+  $('roomLabel').textContent = 'OFFLINE';
+  $('lobbyRoomCode').textContent = 'OFFLINE';
+  showNotice('Prévia offline iniciada · progresso ainda não sincronizado');
+  if (offlineLoop) clearInterval(offlineLoop);
+  offlineLoop = setInterval(stepOfflineSimulation, 220);
+}
+
+function handleOfflineAction(data) {
+  if (!offlineState || !data) return;
+  const player = offlineState.players[0];
+  if (data.type === 'move' && player.hp > 0) {
+    if (Number.isFinite(Number(data.x))) player.x = Number(data.x);
+    if (Number.isFinite(Number(data.z))) player.z = Number(data.z);
+    if (Number.isFinite(Number(data.rot))) player.rot = Number(data.rot);
+  } else if (data.type === 'attack' && player.hp > 0) {
+    const now = Date.now();
+    if (now - offlineLastHit < 300) return;
+    offlineLastHit = now;
+    const target = offlineState.monsters
+      .filter(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2)
+      .sort((a,b) => Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];
+    if (target) {
+      const damage = selectedClass === 'ogre' || selectedClass === 'golem' ? 12 : selectedClass === 'archer' || selectedClass === 'goblin' ? 9 : 8;
+      target.hp = Math.max(0, target.hp - damage);
+      if (target.hp <= 0) target.alive = false;
+      showNotice(target.alive ? 'Golpe acertou o monstro!' : 'Monstro derrotado!');
+    } else showNotice('Chegue mais perto do inimigo.');
+  } else if (data.type === 'openChest' && player.hp > 0) {
+    const chest = offlineState.chests.find(item => item.id === data.id && !item.opened);
+    if (!chest || Math.hypot(chest.x-player.x,chest.z-player.z) > 3.2) {
+      showNotice('Chegue perto de um baú fechado.');
+      return;
+    }
+    chest.opened = true;
+    const rarity = Math.random() > .88 ? 'raro' : Math.random() > .55 ? 'incomum' : 'comum';
+    const item = {id:'offline-loot-'+Date.now(),name:rarity==='raro'?'Fragmento Astral':rarity==='incomum'?'Relíquia Antiga':'Moeda da Masmorra',rarity,power:rarity==='raro'?3:rarity==='incomum'?2:1};
+    lootDrops.unshift(item);
+    inventoryData[rarity] = (inventoryData[rarity] || 0) + 1;
+    renderInventory();
+    playSfx('loot');
+    showNotice('Baú aberto · ' + item.name + ' (' + rarity + ')');
+  }
+}
+
+function stepOfflineSimulation() {
+  if (!offlineMode || !offlineState || !started || !myPlayer) return;
+  const player = offlineState.players[0];
+  const now = Date.now();
+  if (player.hp > 0) {
+    for (const monster of offlineState.monsters) {
+      if (!monster.alive) continue;
+      const dx = player.x - monster.x, dz = player.z - monster.z;
+      const distance = Math.hypot(dx,dz);
+      if (distance > 1.35) {
+        const speed = monster.kind === 'brute' ? .22 : .34;
+        monster.x += dx / Math.max(distance,.001) * speed;
+        monster.z += dz / Math.max(distance,.001) * speed;
+      } else if (now - (monster.lastAttack || 0) > 1500) {
+        monster.lastAttack = now;
+        player.hp = Math.max(0, player.hp - (monster.kind === 'brute' ? 8 : 4));
+        showNotice('Um monstro acertou você!');
+        if (player.hp <= 0 && !offlineDefeatNoticeShown) {
+          offlineDefeatNoticeShown = true;
+          showNotice('Você foi derrotado. Saia da partida para recomeçar a prévia.');
+        }
+      }
+    }
+  }
+  offlineState.monsters = offlineState.monsters.filter(m => m.alive);
+  updateState({...offlineState, players:[{...player}], monsters:offlineState.monsters.map(m=>({...m}))});
+}
+\nfunction send(data) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
@@ -3016,7 +3143,7 @@ $('startBtn').addEventListener('click', async () => {
   setStatus('Digite seu nome e toque em JOGAR ONLINE.');
 });
 
-$('playBtn').addEventListener('click', () => connect(''));
+$('playBtn').addEventListener('click', () => connect(''));\n$('offlinePlayBtn')?.addEventListener('click', startOfflineExploration);
 $('quickMatchBtn')?.addEventListener('click', () => {
   quickMatchRequested = true;
   joiningPublicRoom = true;
