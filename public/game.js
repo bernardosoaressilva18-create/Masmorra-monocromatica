@@ -31,8 +31,8 @@ let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=n
 let realmIntroTimer=0;
 const astralFloaters=[];
 let yaw = 0, pitch = .25, targetYaw = 0, targetPitch = .25, joy = { x: 0, y: 0 }, keys = {}, lastMove = 0, attackCooldown = 0, noticeTimer = 0;
-const shiftLockEnabled = false;
-const cameraDistance = 9.5;
+let shiftLockEnabled = gameSettings.shiftLock;
+let cameraDistance = gameSettings.cameraZoom;
 const remotePlayers = new Map(), monsterMeshes = new Map(), chestMeshes = new Map();
 const gateMeshes = [];
 const activeBurnEffects = [];
@@ -65,6 +65,8 @@ try { storedGameSettings = JSON.parse(localStorage.getItem('mmGameSettings') || 
 const gameSettings = {
   sensitivity: clampSetting(storedGameSettings.sensitivity, 0.5, 3, 1.2),
   verticalSensitivity: clampSetting(storedGameSettings.verticalSensitivity, 0.5, 3, 0.9),
+  shiftLock: storedGameSettings.shiftLock === true,
+  cameraZoom: clampSetting(storedGameSettings.cameraZoom, 6, 14, 9.5),
   graphicsQuality: ['low','balanced','high'].includes(storedGameSettings.graphicsQuality) ? storedGameSettings.graphicsQuality : 'balanced',
   haptics: storedGameSettings.haptics !== false,
   musicVolume: clampSetting(storedGameSettings.musicVolume, 0, 1, 0.32),
@@ -3862,6 +3864,9 @@ function refreshSettingsUI() {
   $('lookSensitivityValue').textContent = gameSettings.sensitivity.toFixed(1).replace('.', ',') + '×';
   $('lookVerticalSensitivity').value = String(gameSettings.verticalSensitivity);
   $('lookVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
+  $('shiftLockEnabled').checked = gameSettings.shiftLock;
+  $('cameraZoom').value = String(gameSettings.cameraZoom);
+  $('cameraZoomValue').textContent = gameSettings.cameraZoom.toFixed(1).replace('.', ',') + ' m';
   $('graphicsQuality').value = gameSettings.graphicsQuality;
   $('hapticsEnabled').checked = gameSettings.haptics;
   $('musicVolume').value = String(gameSettings.musicVolume);
@@ -3909,6 +3914,18 @@ $('lookVerticalSensitivity').addEventListener('input', e => {
   $('lookVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
   saveGameSettings();
 });
+$('shiftLockEnabled').addEventListener('change', e => {
+  gameSettings.shiftLock = e.target.checked;
+  shiftLockEnabled = gameSettings.shiftLock;
+  saveGameSettings();
+  showNotice(shiftLockEnabled ? 'Shift Lock ativado · câmera no ombro.' : 'Shift Lock desativado.');
+});
+$('cameraZoom').addEventListener('input', e => {
+  gameSettings.cameraZoom = clampSetting(e.target.value, 6, 14, 9.5);
+  cameraDistance = gameSettings.cameraZoom;
+  $('cameraZoomValue').textContent = cameraDistance.toFixed(1).replace('.', ',') + ' m';
+  saveGameSettings();
+});
 $('graphicsQuality').addEventListener('change', e => {
   gameSettings.graphicsQuality = ['low','balanced','high'].includes(e.target.value) ? e.target.value : 'balanced';
   saveGameSettings(); applyGraphicsQuality();
@@ -3951,6 +3968,9 @@ function refreshLobbySettingsUI() {
   $('lobbySensitivityValue').textContent = gameSettings.sensitivity.toFixed(1).replace('.', ',') + '×';
   $('lobbyVerticalSensitivity').value = String(gameSettings.verticalSensitivity);
   $('lobbyVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
+  $('lobbyShiftLockEnabled').checked = gameSettings.shiftLock;
+  $('lobbyCameraZoom').value = String(gameSettings.cameraZoom);
+  $('lobbyCameraZoomValue').textContent = gameSettings.cameraZoom.toFixed(1).replace('.', ',') + ' m';
   $('lobbyGraphicsQuality').value = gameSettings.graphicsQuality;
   $('lobbyHapticsEnabled').checked = gameSettings.haptics;
   $('lobbyMusicVolume').value = String(gameSettings.musicVolume);
@@ -4004,6 +4024,16 @@ $('lobbySensitivity')?.addEventListener('input', e => {
 });
 $('lobbyVerticalSensitivity')?.addEventListener('input', e => {
   gameSettings.verticalSensitivity = clampSetting(e.target.value, 0.5, 3, 0.9);
+  saveGameSettings(); refreshSettingsUI(); refreshLobbySettingsUI();
+});
+$('lobbyShiftLockEnabled')?.addEventListener('change', e => {
+  gameSettings.shiftLock = e.target.checked;
+  shiftLockEnabled = gameSettings.shiftLock;
+  saveGameSettings(); refreshSettingsUI(); refreshLobbySettingsUI();
+});
+$('lobbyCameraZoom')?.addEventListener('input', e => {
+  gameSettings.cameraZoom = clampSetting(e.target.value, 6, 14, 9.5);
+  cameraDistance = gameSettings.cameraZoom;
   saveGameSettings(); refreshSettingsUI(); refreshLobbySettingsUI();
 });
 $('lobbyGraphicsQuality')?.addEventListener('change', e => {
@@ -4860,7 +4890,7 @@ function animate() {
     const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
     const dist=cameraDistance+introBlend*2.8;
-    const shoulder = 0;
+    const shoulder = shiftLockEnabled ? 1.15 : 0;
     const cameraTarget=cameraPositionScratch.set(
       target.x+Math.sin(yaw)*dist+Math.cos(yaw)*shoulder,
       target.y+3.0+pitch*2+introBlend*.65,
