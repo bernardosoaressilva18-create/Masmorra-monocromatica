@@ -1760,7 +1760,6 @@ function sendLoadout() {
     player.skin = selectedSkin;
     player.skills = Array.from(unlockedSkills);
     player.talentPoints = skillPoints;
-    saveOfflineProgress(true);
     return;
   }
   if (ws && ws.readyState === WebSocket.OPEN && playerId) {
@@ -2196,34 +2195,6 @@ let offlineState = null;
 let offlineLoop = null;
 let offlineLastHit = 0;
 let offlineDefeatNoticeShown = false;
-let offlineLastSavedAt = 0;
-const OFFLINE_SAVE_KEY = 'ultimoLegadoOfflineSaveV1';
-
-function saveOfflineProgress(force = false) {
-  if (!offlineState) return;
-  const now = Date.now();
-  if (!force && now - offlineLastSavedAt < 1500) return;
-  offlineLastSavedAt = now;
-  try {
-    localStorage.setItem(OFFLINE_SAVE_KEY, JSON.stringify({
-      version: 1, savedAt: now, state: offlineState,
-      inventory: inventoryData, loot: lootDrops
-    }));
-  } catch (error) {
-    console.warn('[O Último Legado] Não foi possível salvar a prévia offline.', error);
-  }
-}
-
-function loadOfflineProgress() {
-  try {
-    const raw = localStorage.getItem(OFFLINE_SAVE_KEY);
-    if (!raw) return null;
-    const saved = JSON.parse(raw);
-    if (saved?.version !== 1 || !saved.state || !Array.isArray(saved.state.players) || !saved.state.players[0] || !Array.isArray(saved.state.monsters) || !Array.isArray(saved.state.chests)) return null;
-    return saved;
-  } catch { return null; }
-}
-
 function createOfflineState() {
   const player = {
     id: 'offline-player',
@@ -2270,24 +2241,12 @@ function startOfflineExploration() {
   $('menu').classList.add('hidden');
   $('lobby').classList.add('hidden');
   $('loading').classList.add('hidden');
-  const savedOffline = loadOfflineProgress();
-  if (savedOffline) {
-    offlineState = savedOffline.state;
-    if (savedOffline.inventory && typeof savedOffline.inventory === 'object') inventoryData = savedOffline.inventory;
-    if (Array.isArray(savedOffline.loot)) lootDrops = savedOffline.loot;
-    const storedPlayer = offlineState.players[0];
-    const personalSkillIds = new Set(Object.values(CLASS_PERSONAL_SKILLS_UI).flat().map(skill=>skill.id));
-    const storedSkills = Array.isArray(storedPlayer.skills) ? storedPlayer.skills : [];
-    unlockedSkills.clear();
-    storedSkills.forEach(id=>{if(!personalSkillIds.has(id)||storedPlayer.playerClass===selectedClass)unlockedSkills.add(id);});
-    skillPoints = Number.isFinite(storedPlayer.talentPoints) ? Math.max(0,storedPlayer.talentPoints) : skillPoints;
-    if (storedPlayer.playerClass && storedPlayer.playerClass !== selectedClass) {
-      skillPoints += storedSkills.filter(id=>personalSkillIds.has(id)).length;
-    }
-    showNotice('Progresso offline recuperado deste aparelho.');
-  } else {
-    offlineState = createOfflineState();
-  }
+  // Cada exploração offline é temporária: começa sem recuperar partidas anteriores.
+  offlineState = createOfflineState();
+  inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 };
+  lootDrops = [];
+  selectedItemId = null;
+  try { localStorage.removeItem('ultimoLegadoOfflineSaveV1'); } catch {}
   // A prévia offline sempre permite retomar a exploração após uma derrota anterior.
   const offlinePlayer = offlineState?.players?.[0];
   if (offlinePlayer) {
@@ -2314,13 +2273,12 @@ function startOfflineExploration() {
     syncLoadoutUI();
     updateClassAbilityButtons();
   }
-  offlineLastSavedAt = 0;
   updateState({...offlineState, started:false});
   updateState(offlineState);
   renderInventory();
   $('roomLabel').textContent = 'OFFLINE';
   $('lobbyRoomCode').textContent = 'OFFLINE';
-  showNotice('Prévia offline iniciada · progresso ainda não sincronizado');
+  showNotice('Exploração temporária iniciada · o progresso não é salvo.');
   if (offlineLoop) clearInterval(offlineLoop);
   offlineLoop = setInterval(stepOfflineSimulation, 220);
 }
@@ -2562,8 +2520,13 @@ function handleOfflineAction(data) {
   if (!offlineState || !data) return;
   const player = offlineState.players[0];
   if (data.type === 'move' && player.hp > 0) {
-    if (Number.isFinite(Number(data.x))) player.x = Number(data.x);
-    if (Number.isFinite(Number(data.z))) player.z = Number(data.z);
+    const requestedX = Number.isFinite(Number(data.x)) ? Number(data.x) : player.x;
+    const requestedZ = Number.isFinite(Number(data.z)) ? Number(data.z) : player.z;
+    const boundedX = THREE.MathUtils.clamp(requestedX, -13, 13);
+    const boundedZ = THREE.MathUtils.clamp(requestedZ, -174, 8);
+    const resolved = resolveDungeonMovement(player.x, player.z, boundedX, boundedZ);
+    player.x = resolved.x;
+    player.z = resolved.z;
     if (Number.isFinite(Number(data.rot))) player.rot = Number(data.rot);
   } else if (data.type === 'attack' && player.hp > 0) {
     const now = Date.now();
@@ -2678,7 +2641,6 @@ function stepOfflineSimulation() {
   }
   offlineState.monsters = offlineState.monsters.filter(m => m.alive);
   offlineState.summons = (offlineState.summons || []).filter(s => s.expiresAt > now && s.hp > 0);
-  saveOfflineProgress();
   updateState({...offlineState, players:[{...player}], monsters:offlineState.monsters.map(m=>({...m})), summons:offlineState.summons.map(s=>({...s}))});
 }
 function send(data) {
@@ -3587,7 +3549,6 @@ inventoryToggleBtn?.addEventListener('click', () => {
 applyInventoryVisibility();
 
 function leaveRoomToMenu() {
-  if (offlineMode) saveOfflineProgress(true);
   if (offlineLoop) clearInterval(offlineLoop);
   offlineLoop = null;
   offlineMode = false;
