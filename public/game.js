@@ -1250,7 +1250,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       boot.rotation.y=side*.035;
       add(new THREE.BoxGeometry(.11,.035,.04),glow,0,-.25,-.19,1,1,.5,pivot);
     }else{
-      const leg=add(new THREE.CylinderGeometry(tiny?.075:.105,tiny?.11:.145,.38,isMobileDevice?7:10),legMat,0,-.20,0,1,1,1,pivot);
+      const leg=add(new THREE.CylinderGeometry(tiny?.085:.12,tiny?.125:.16,.38,isMobileDevice?7:10),legMat,0,-.20,0,1.08,1,1.04,pivot);
       const knee=add(new THREE.DodecahedronGeometry(tiny?.085:.125,0),armor,0,-.08,-.125,1.1,.78,.48,pivot);
       knee.rotation.x=-.10;
       const boot=add(new THREE.BoxGeometry(tiny?.20:.27,.16,.40),steel,0,-.43,-.065,1,.86,1,pivot);
@@ -1278,7 +1278,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     const torsoGeometry = heroClass === 'ogre'
       ? new THREE.CapsuleGeometry(.34,.39,7,12)
       : new THREE.CylinderGeometry(heroClass === 'monk' ? .31 : .35, heroClass === 'monk' ? .25 : .245, .62, isMobileDevice ? 8 : 12, 1);
-    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?.98:1.0,heroClass==='ogre'?.98:1,heroClass==='ogre'?.92:.9);
+    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?1.18:1.18,heroClass==='ogre'?1.04:1,heroClass==='ogre'?1.08:1.04);
     if(heroClass==='ogre'){
       const chestPlate=add(new THREE.BoxGeometry(.56,.32,.10),armor,0,1.21,-.34,1,.9,.7);
       chestPlate.rotation.z=-.035;
@@ -1441,10 +1441,10 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }else{
     const eyeZ=heroClass==='ogre'?'-.302':heroClass==='goblin'?'-.245':'-.258';
     for(const side of [-1,1]){
-      const eye=addHead(new THREE.SphereGeometry(.052,10,8),eyeWhite,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ),1.04,.9,.48);
-      const iris=addHead(new THREE.SphereGeometry(.029,9,7),faceGlow,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)-.021,1,.98,.45);
-      const pupil=addHead(new THREE.SphereGeometry(.017,8,6),pupilMat,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)-.037,1,.95,.4);
-      const glint=addHead(new THREE.SphereGeometry(.008,6,5),eyeWhite,side*.078,heroClass==='ogre'?1.965:1.935,Number(eyeZ)-.047);
+      const eye=addHead(new THREE.SphereGeometry(.039,10,8),eyeWhite,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)+.012,.98,.82,.36);
+      const iris=addHead(new THREE.SphereGeometry(.022,9,7),faceGlow,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)-.004,.96,.88,.34);
+      const pupil=addHead(new THREE.SphereGeometry(.014,8,6),pupilMat,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)-.018,.95,.88,.32);
+      const glint=addHead(new THREE.SphereGeometry(.006,6,5),eyeWhite,side*.078,heroClass==='ogre'?1.965:1.935,Number(eyeZ)-.026);
       faceEyes.push({mesh:pupil,baseX:pupil.position.x,eye,iris,glint});
       const brow=addHead(new THREE.BoxGeometry(.115,.026,.035),heroClass==='goblin'||heroClass==='ogre'?dark:cloth,side*.087,heroClass==='ogre'?2.035:1.995,Number(eyeZ)+.012,1,.9,1);
       brow.rotation.z=side*(heroClass==='healer'?.06:heroClass==='ogre'?.20:-.10);faceBrows.push(brow);
@@ -1861,14 +1861,14 @@ function makeMonster(kind = 'stalker', phase = 1) {
   const eyeColor=kind==='brute'?0xffa342:kind==='wraith'?0x72f4ff:kind==='thorn'?0x9dff69:kind==='inferno'?0xff592d:kind==='abyss'?0xc49bff:kind==='assassin'?0xff5c86:phase===2?0xff5e76:0xff4269;
   const bodyColor=kind==='thorn'?0x3e6a40:kind==='inferno'?0x3a2425:kind==='abyss'?0x251936:kind==='wraith'?0x223c59:kind==='brute'?0x4c5669:kind==='assassin'?0x292d42:phase===2?0x3c5262:0x4c4359;
   const bodyMat=new THREE.MeshStandardMaterial({color:bodyColor,roughness:kind==='wraith'?.4:.78,metalness:kind==='brute'?.28:.08,emissive:kind==='abyss'?0x29143e:0x000000,emissiveIntensity:.35});
+  const dark=new THREE.MeshStandardMaterial({color:0x151923,roughness:.84,metalness:.08});
+  const bone=new THREE.MeshStandardMaterial({color:0xc5c9d3,roughness:.45,metalness:.24});
   const monsterMaps = getHeroDetailTextures();
   bodyMat.map = kind==='thorn' || kind==='brute' ? monsterMaps.stone : kind==='wraith' || kind==='abyss' ? monsterMaps.fabric : monsterMaps.leather;
   bodyMat.roughnessMap = kind==='thorn' || kind==='brute' ? monsterMaps.stoneRoughness : monsterMaps.roughness;
   dark.map = monsterMaps.leather;
   bone.map = monsterMaps.stone;
   bodyMat.needsUpdate = dark.needsUpdate = bone.needsUpdate = true;
-  const dark=new THREE.MeshStandardMaterial({color:0x151923,roughness:.84,metalness:.08});
-  const bone=new THREE.MeshStandardMaterial({color:0xc5c9d3,roughness:.45,metalness:.24});
   const glow=new THREE.MeshStandardMaterial({color:eyeColor,emissive:eyeColor,emissiveIntensity:2.0,roughness:.22,metalness:.18});
   const leaf=new THREE.MeshStandardMaterial({color:0x72a94b,roughness:.86});
   const rock=new THREE.MeshStandardMaterial({color:bodyColor,roughness:.92,metalness:.05});
