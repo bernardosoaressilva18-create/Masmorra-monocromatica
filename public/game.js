@@ -2976,7 +2976,9 @@ function renderSkillTrees() {
     lobbyBoardLeft: lobbyBoardBefore?.scrollLeft || skillTreeScrollMemory.lobby.left,
     skillPanelTop: skillPanelScroll?.scrollTop || 0,
     hudBoardTop: hudBoardBefore?.scrollTop || skillTreeScrollMemory.hud.top,
-    hudBoardLeft: hudBoardBefore?.scrollLeft || skillTreeScrollMemory.hud.left
+    hudBoardLeft: hudBoardBefore?.scrollLeft || skillTreeScrollMemory.hud.left,
+    lobbyCatalogTop: $('skillTreeLobby')?.querySelector('.skill-description-catalog')?.scrollTop || 0,
+    hudCatalogTop: $('skillTreeHud')?.querySelector('.skill-description-catalog')?.scrollTop || 0
   };
   const branches = getCurrentSkillBranches();
   const allSkills = branches.flatMap(branch => branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index})));
@@ -3036,6 +3038,10 @@ function renderSkillTrees() {
     if (panel) panel.scrollTop = scrollSnapshot.skillPanelTop;
     if (lobbyBoard) { lobbyBoard.scrollLeft=scrollSnapshot.lobbyBoardLeft; lobbyBoard.scrollTop=scrollSnapshot.lobbyBoardTop; }
     if (hudBoard) { hudBoard.scrollLeft=scrollSnapshot.hudBoardLeft; hudBoard.scrollTop=scrollSnapshot.hudBoardTop; }
+    const lobbyCatalog = $('skillTreeLobby')?.querySelector('.skill-description-catalog');
+    const hudCatalog = $('skillTreeHud')?.querySelector('.skill-description-catalog');
+    if (lobbyCatalog) lobbyCatalog.scrollTop = scrollSnapshot.lobbyCatalogTop;
+    if (hudCatalog) hudCatalog.scrollTop = scrollSnapshot.hudCatalogTop;
   });
   if($('skillPoints'))$('skillPoints').textContent=String(skillPoints);
   if($('skillPointsHud'))$('skillPointsHud').textContent=String(skillPoints);
@@ -3526,7 +3532,9 @@ function handleSkillClick(event) {
     lobby: $('skillTreeLobby')?.scrollTop || 0,
     hud: $('skillTreeHud')?.scrollTop || 0,
     lobbyBoard: (() => { const el=$('skillTreeLobby')?.querySelector('.skill-rpg-scroll'); return el?{left:el.scrollLeft,top:el.scrollTop}:null; })(),
-    hudBoard: (() => { const el=$('skillTreeHud')?.querySelector('.skill-rpg-scroll'); return el?{left:el.scrollLeft,top:el.scrollTop}:null; })()
+    hudBoard: (() => { const el=$('skillTreeHud')?.querySelector('.skill-rpg-scroll'); return el?{left:el.scrollLeft,top:el.scrollTop}:null; })(),
+    lobbyCatalogTop: $('skillTreeLobby')?.querySelector('.skill-description-catalog')?.scrollTop || 0,
+    hudCatalogTop: $('skillTreeHud')?.querySelector('.skill-description-catalog')?.scrollTop || 0
   };
   event.preventDefault();
   event.stopPropagation();
@@ -3551,6 +3559,10 @@ function handleSkillClick(event) {
     const hb=hud?.querySelector('.skill-rpg-scroll');
     if(lb&&scrollState.lobbyBoard){lb.scrollLeft=scrollState.lobbyBoard.left;lb.scrollTop=scrollState.lobbyBoard.top;}
     if(hb&&scrollState.hudBoard){hb.scrollLeft=scrollState.hudBoard.left;hb.scrollTop=scrollState.hudBoard.top;}
+    const lobbyCatalog=lobby?.querySelector('.skill-description-catalog');
+    const hudCatalog=hud?.querySelector('.skill-description-catalog');
+    if(lobbyCatalog)lobbyCatalog.scrollTop=scrollState.lobbyCatalogTop;
+    if(hudCatalog)hudCatalog.scrollTop=scrollState.hudCatalogTop;
   };
   requestAnimationFrame(()=>{restoreSkillScroll();requestAnimationFrame(()=>{restoreSkillScroll();window.scrollTo(pageScroll.x,pageScroll.y);});});
   sendLoadout();
