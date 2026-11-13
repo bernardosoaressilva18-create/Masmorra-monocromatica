@@ -4719,3 +4719,12 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
  #lobby .hud-preview-control{width:42px;height:42px}
  #lobby .preview-menu{width:36px;height:36px}
 }
+
+/* Ajustes finais: estados do inventário e alvos de arraste na prévia */
+#hud .inventory-panel.inventory-hidden{max-width:190px;width:auto}
+#hud .inventory-panel.inventory-hidden .inventory-toggle{min-height:42px;margin:0}
+#lobby .hud-preview-control{touch-action:none}
+#lobby .hud-preview-control.preview-inventory,#lobby .hud-preview-control.preview-skills{width:43px;height:43px}
+#lobby .hud-preview-control.preview-settings,#lobby .hud-preview-control.preview-orientation,#lobby .hud-preview-control.preview-leave{width:38px;height:38px}
+#lobby .hud-preview-stage[data-orientation="landscape"] .hud-preview-joystick{width:60px;height:60px}
+#lobby .hud-preview-stage[data-orientation="portrait"] .hud-preview-joystick{width:54px;height:54px}
