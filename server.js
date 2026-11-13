@@ -191,6 +191,14 @@ function requestTacticalTarget(room, monster, players, now) {
   }
   if (tacticalAiInFlight.size >= TACTICAL_AI_MAX_IN_FLIGHT) return;
   const candidates = [];
+  const focusCountFor = candidateId => {
+    let count = 0;
+    for (const [otherMonsterId, decision] of room.tacticalAiCache) {
+      if (otherMonsterId === key || now - (Number(decision.at) || 0) > 3800) continue;
+      if (decision.targetId === candidateId) count++;
+    }
+    return count;
+  };
   for (const player of players) {
     if(player.hp<=0||now<(player.invisibleUntil||0)||!Number.isFinite(player.x)||!Number.isFinite(player.z)||!canMonsterTargetPlayer(room,monster,player,now))continue;
     if(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(player.id)===String(monster.ownerId))continue;
@@ -200,6 +208,7 @@ function requestTacticalTarget(room, monster, players, now) {
       health: player.hp, maxHealth: player.maxHp || player.hp || 100,
       playerClass: player.playerClass || 'knight', role: player.playerClass || 'knight',
       threat, recentDamage: getRecentMonsterDamage(monster, player, now), isSummon: false, alive: true,
+      focusCount: focusCountFor("player:" + String(player.id)),
       shielded: Number(player.shieldUntil || 0) > now || Number(player.guardUntil || 0) > now
     });
   }
@@ -208,7 +217,8 @@ function requestTacticalTarget(room, monster, players, now) {
     candidates.push({
       id: 'summon:' + String(summon.id), x: summon.x, z: summon.z,
       health: summon.hp, maxHealth: summon.maxHp || summon.hp || 100,
-      role: 'summon', isSummon: true, alive: true
+      role: 'summon', isSummon: true, alive: true,
+      focusCount: focusCountFor("summon:" + String(summon.id))
     });
   }
   if (!candidates.length) return;
