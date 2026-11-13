@@ -306,12 +306,12 @@ function handleSummonDefeat(room, summon, target) {
   const owner = room.players.get(summon.ownerId);
   if (!owner || owner.connected === false) return;
   if (target === room.boss) {
-    awardExperience(owner,260+(room.realm||1)*60,'boss');
+    awardKillExperience(room,target,owner,260+(room.realm||1)*60,'boss');
     const dropped = grantLoot(owner, 'boss');
     broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
     if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
   } else if (target.cursed) {
-    awardExperience(owner,52,'mini-boss');
+    awardKillExperience(room,target,owner,52,'mini-boss');
     const prize = { id: String(Date.now()) + '-curse-summon', name: 'Cristal Ancestral', rarity: 'lendário', value: 16, power: 5, source: 'cursed-chest' };
     owner.lootDrops.push(prize);
     owner.inventory['lendário'] = (owner.inventory['lendário'] || 0) + 1;
@@ -320,7 +320,7 @@ function handleSummonDefeat(room, summon, target) {
     room.cursedBoss = null;
     broadcast(room, { type: 'notice', text: 'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!' });
   } else {
-    awardExperience(owner,16+(target.phase||room.phase)*3+(room.realm||1)*3,'monster');
+    awardKillExperience(room,target,owner,16+(target.phase||room.phase)*3+(room.realm||1)*3,'monster');
     if(Math.random()<dropChance(owner,.2))grantLoot(owner,'monster');
   }
 }
@@ -636,7 +636,10 @@ function serverIsWalkableFloor(x,z,room){
  if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
  return (room?.openTraps||[]).some(id=>{const pit=SERVER_PITS.find(item=>item.id===id);return pit&&Math.hypot(x-pit.pitX,z-pit.pitZ)<1.95;});
 }
-const SERVER_PILLAR_COLLIDERS=SERVER_MAP_CENTERS.flatMap(z=>[{x:-10.5,z:z-.7,r:.72},{x:10.5,z:z-.7,r:.72}]);
+const SERVER_PILLAR_COLLIDERS=[
+ ...SERVER_MAP_CENTERS.flatMap(z=>[{x:-10.5,z:z-.7,r:.72},{x:10.5,z:z-.7,r:.72}]),
+ ...[-30,-62,-94,-126].flatMap(z=>[{x:-3.15,z,r:.30},{x:3.15,z,r:.30}])
+];
 function processPressurePlate(room,player,now){
  if(room.gameMode==='pvp_rpg'||!room.started||player.hp<=0)return false;
  const plate=SERVER_PITS.find(item=>Math.hypot(player.x-item.plateX,player.z-item.plateZ)<1.12);
@@ -695,6 +698,23 @@ function awardExperience(player,baseAmount,source='monster'){
  }
  return gained;
 }
+function awardKillExperience(room,target,killer,baseAmount,source='monster'){
+ if(!killer||killer.hp<=0)return;
+ const now=Date.now(),damageByPlayer=target?.recentDamageByPlayer||{},updatedByPlayer=target?.recentDamageUpdatedAt||{};
+ const contributors=Object.entries(damageByPlayer).map(([id,damage])=>({
+  player:room.players.get(String(id)),damage:Math.max(0,Number(damage)||0),updated:Number(updatedByPlayer[id])||0
+ })).filter(entry=>entry.player&&entry.player.hp>0&&entry.player.connected!==false&&now-entry.updated<=30000&&entry.damage>0);
+ if(!contributors.some(entry=>String(entry.player.id)===String(killer.id)))contributors.push({player:killer,damage:1,updated:now});
+ const assists=contributors.filter(entry=>String(entry.player.id)!==String(killer.id));
+ if(!assists.length){awardExperience(killer,baseAmount,source);return;}
+ awardExperience(killer,Math.max(1,Math.round(baseAmount*.70)),source);
+ const totalAssistDamage=assists.reduce((sum,entry)=>sum+entry.damage,0)||assists.length;
+ for(const entry of assists){
+  const share=entry.damage/totalAssistDamage;
+  awardExperience(entry.player,Math.max(1,Math.round(baseAmount*.30*share)),'assist');
+ }
+}
+
 
 const STATIC_DUNGEON_COLLIDERS=SERVER_PILLAR_COLLIDERS;
 function isServerPositionBlocked(room,x,z){
@@ -1777,7 +1797,7 @@ wss.on('connection', ws => {
           if (player.damageBuffHits > 0) { player.damageBuffHits--; if (player.damageBuffHits === 0) player.damageBuff = 0; }
           if (target.hp <= 0) {
             target.alive = false;
-            awardExperience(player,target.cursed?52:16+(target.phase||room.phase)*3+(room.realm||1)*3,target.cursed?'mini-boss':'monster');
+            awardKillExperience(room,target,player,target.cursed?52:16+(target.phase||room.phase)*3+(room.realm||1)*3,target.cursed?'mini-boss':'monster');
             if (target.cursed) { const prize={id:String(Date.now())+'-curse',name:'Cristal Ancestral',rarity:'lendário',value:16,power:5,source:'cursed-chest'}; player.lootDrops.push(prize); player.inventory['lendário']=(player.inventory['lendário']||0)+1; sendInventory(player); player.ws.send(JSON.stringify({type:'loot',item:prize})); room.cursedBoss=null; broadcast(room,{type:'notice',text:'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!'}); }
             else {
             // Monstros comuns não garantem item: chance de 25%, para loot não inundar o inventário.
@@ -1817,7 +1837,7 @@ wss.on('connection', ws => {
           broadcast(room, { type: 'notice', text: 'O Guardião entrou na fase de vida ' + boss.lifePhase + ' / 3!' });
         if (boss.hp <= 0) {
           boss.alive = false;
-          awardExperience(player,260+(room.realm||1)*60,'boss');
+          awardKillExperience(room,boss,player,260+(room.realm||1)*60,'boss');
           const dropped = grantLoot(player, 'boss');
           broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
           if(room.realm===1)broadcast(room,{type:'notice',text:'✦ O portão do Vale Astral despertou no fundo do Abismo!'});
