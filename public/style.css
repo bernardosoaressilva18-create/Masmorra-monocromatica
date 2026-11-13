@@ -4333,3 +4333,92 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 @media(prefers-reduced-motion:reduce){#hud *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
 /* 50 · foco por teclado fica visível em todo o HUD */
 #hud button:focus-visible,#hud input:focus-visible,#hud select:focus-visible{outline:2px solid #a6edff;outline-offset:3px}
+
+
+/* Pacote 02 — 50 refinamentos de lobby e entrada */
+#startScreen .start-emblem{position:relative;z-index:1;box-shadow:0 0 0 8px #8bdcf014,0 0 42px #65cbe044,inset 0 1px #fff5}
+#startScreen .start-title{position:relative;z-index:1;line-height:.94;letter-spacing:clamp(2px,.7vw,6px);text-shadow:0 5px 22px #000b,0 0 28px #80d8ed24}
+#startScreen .start-title span{color:#e7c982;text-shadow:0 2px 0 #60451f,0 0 24px #e4bd6b44}
+#startScreen .start-copy{max-width:430px;line-height:1.65;color:#c0d0d9}
+#startScreen .start-button{position:relative;z-index:2;width:min(100%,360px);min-height:56px;border:1px solid #f1d99a;letter-spacing:1.2px}
+#startScreen .start-button:focus-visible{outline:3px solid #9cecff;outline-offset:4px}
+#startScreen .start-button:disabled{filter:grayscale(.6);opacity:.6}
+#startScreen .start-tip{max-width:90%;line-height:1.5;text-align:center}
+#menu .brand{max-width:520px;margin-inline:auto}
+#menu .brand h1{line-height:.95;text-shadow:0 5px 20px #000b}
+#menu .brand .subtitle{max-width:360px;margin-inline:auto;line-height:1.5}
+#menu .panel{width:min(100%,480px);box-sizing:border-box;border:1px solid #9bd8e333;box-shadow:0 18px 48px #0008,inset 0 1px #ffffff0c}
+#menu .panel label{display:block;margin-bottom:7px;color:#d6c18f;letter-spacing:1px}
+#menu #playerName,#menu #gameModeSelect{width:100%;min-height:46px;box-sizing:border-box}
+#menu #playBtn,#menu #offlinePlayBtn,#menu #quickMatchBtn,#menu #publicRoomsBtn{width:100%;min-height:46px}
+#menu #playBtn{box-shadow:0 8px 24px #d1a34a24,inset 0 1px #fff5}
+#menu .joinrow{display:flex;gap:8px;min-width:0}
+#menu .joinrow input{min-width:0;flex:1}
+#menu .joinrow button{flex:0 0 auto;min-height:46px}
+#menu .status{line-height:1.5;overflow-wrap:anywhere}
+#menu .public-rooms-panel{max-height:30dvh;overflow:auto;overscroll-behavior:contain}
+#menu .public-rooms-head{position:sticky;top:0;z-index:2;background:#0a1420}
+#menu .footnote{line-height:1.6}
+#lobby .lobby-header{min-height:48px;padding-top:env(safe-area-inset-top);box-sizing:content-box}
+#lobby .lobby-brand-mark{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lobby .lobby-header-meta{display:flex;align-items:center;gap:8px}
+#lobby .lobby-room-pill{white-space:nowrap;font-variant-numeric:tabular-nums}
+#lobby .lobby-leave-mini{touch-action:manipulation}
+#lobby .lobby-layout{min-width:0;box-sizing:border-box}
+#lobby .lobby-stage{min-width:0;overflow:hidden}
+#lobby .lobby-stage-top{display:flex;align-items:center;justify-content:center;gap:8px;max-width:100%;box-sizing:border-box}
+#lobby .hero-showcase{position:relative;isolation:isolate;overflow:hidden}
+#lobby .hero-showcase:after{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 24% 50%,#8bdff01c,transparent 55%);pointer-events:none}
+#lobby .hero-preview-avatar{position:relative;flex-shrink:0;overflow:hidden}
+#lobby .hero-showcase-info{min-width:0;overflow-wrap:anywhere}
+#lobby .hero-showcase-info>strong{line-height:1.2;overflow-wrap:anywhere}
+#lobby .hero-showcase-info p{line-height:1.45}
+#lobby .hero-showcase-tags{min-width:0}
+#lobby .hero-showcase-tags span{white-space:nowrap}
+#lobby .lobby-team-box{min-width:0;box-sizing:border-box}
+#lobby .lobby-player{min-width:0;overflow-wrap:anywhere}
+#lobby .lobby-empty{line-height:1.5}
+#lobby .lobby-nav{max-width:calc(100% - 16px);overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+#lobby .lobby-nav::-webkit-scrollbar{display:none}
+#lobby .lobby-nav-btn{flex:0 0 auto;min-height:42px;touch-action:manipulation}
+#lobby .lobby-bottom-bar{padding-bottom:max(8px,env(safe-area-inset-bottom))}
+#lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:46px;touch-action:manipulation}
+#lobby .lobby-editor-content{max-height:calc(100dvh - 100px);overflow:auto;overscroll-behavior:contain}
+#lobby .lobby-editor-content button{min-height:40px}
+#lobby .class-card{min-width:0;overflow:hidden}
+#lobby .class-card strong{overflow-wrap:anywhere}
+#lobby .skin-card{min-width:0}
+#lobby button{ -webkit-tap-highlight-color:transparent}
+#lobby button:focus-visible{outline:2px solid #a6edff;outline-offset:3px}
+#lobby input,#lobby select{max-width:100%;box-sizing:border-box}
+@media(max-width:700px){
+ #startScreen.start-screen{padding:calc(20px + env(safe-area-inset-top)) 18px calc(20px + env(safe-area-inset-bottom))}
+ #startScreen .start-emblem{margin-bottom:clamp(12px,3vh,26px)}
+ #startScreen .start-copy{font-size:clamp(12px,3.2vw,15px)}
+ #menu .panel{padding:clamp(14px,4vw,22px)}
+ #menu .brand{padding-inline:12px}
+ #lobby .lobby-header{padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
+ #lobby .lobby-layout{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+ #lobby .lobby-nav{gap:6px}
+ #lobby .lobby-nav-btn{padding-inline:10px;font-size:10px}
+ #lobby .hero-showcase{align-items:center}
+ #lobby .hero-showcase-info p{max-width:100%}
+}
+@media(max-width:380px){
+ #lobby .lobby-brand-mark{font-size:9px;letter-spacing:.8px}
+ #lobby .lobby-room-pill{font-size:9px;padding:5px}
+ #lobby .hero-preview-avatar{flex-basis:100px;width:100px}
+ #menu .joinrow button{min-width:72px}
+}
+@media(orientation:landscape) and (max-height:520px){
+ #startScreen.start-screen{padding:8px 16px}
+ #startScreen .start-emblem{width:54px;height:54px;margin:0 0 6px;font-size:28px}
+ #startScreen .start-copy{margin:7px auto 9px}
+ #startScreen .start-button{min-height:42px}
+ #startScreen .start-tip{margin-top:5px}
+ #lobby .lobby-header{min-height:38px}
+ #lobby .hero-showcase{min-height:112px}
+}
+@media(prefers-reduced-motion:reduce){
+ #startScreen *,#menu *,#lobby *{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
