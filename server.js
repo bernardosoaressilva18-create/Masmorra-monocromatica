@@ -791,9 +791,16 @@ function serverIsUpperFloor(x,z,index){
  const stairX=index%2===0?-8.25:8.25,center=SERVER_MAP_CENTERS[index];
  return serverPointInPolygon(x-stairX,z-center,SERVER_UPPER_ROOM_POLYGON);
 }
+function serverIsStairRamp(x,z,index){
+ const center=SERVER_MAP_CENTERS[index],stairX=index%2===0?-8.25:8.25;
+ const inRamp=Math.abs(x-stairX)<1.72&&z<=center+1.5&&z>=center-6.5;
+ const inLanding=Math.abs(x-stairX)<2.25&&z>=center-9.4&&z<=center-5.8;
+ return inRamp||inLanding;
+}
 function serverIsWalkableFloor(x,z,room){
  for(let i=0;i<SERVER_MAP_CENTERS.length;i++){
-  if(serverPointInPolygon(x,z-SERVER_MAP_CENTERS[i],SERVER_MAP_POLYGONS[i],SERVER_MAP_WIDTH_SCALE)||serverIsUpperFloor(x,z,i))return true;
+  if(serverPointInPolygon(x,z-SERVER_MAP_CENTERS[i],SERVER_MAP_POLYGONS[i],SERVER_MAP_WIDTH_SCALE)
+     ||serverIsUpperFloor(x,z,i)||serverIsStairRamp(x,z,i))return true;
  }
  if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
  if((room?.underworldPits||[]).some(pit=>pit.open&&Math.hypot(x-pit.x,z-pit.z)<4.45))return true;
