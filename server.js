@@ -328,7 +328,7 @@ function handleSummonDefeat(room, summon, target) {
 function statsFor(player){
  const base=CLASS_STATS[player.playerClass]||CLASS_STATS.knight,upgrades=cleanLevelUpgrades(player.levelUpgrades);
  return {...base,
-  range:base.range+(player.playerClass==='archer'&&hasSkill(player,'archer_hawkeye')?1.15:0),
+  range:base.range*(1+upgrades.range*.025)+(player.playerClass==='archer'&&hasSkill(player,'archer_hawkeye')?1.15:0),
   attackMs:Math.max(180,Math.round(base.attackMs*(1-upgrades.attack*.035))),
   spellPower:base.spellPower*(1+upgrades.magic*.08),
   reduction:Math.min(.65,base.reduction+upgrades.defense*.025)
@@ -364,7 +364,7 @@ function refreshPlayerStats(player,restoreHealth=false){
   if(restoreHealth)player.mana=player.maxMana;
   else player.mana=Math.min(player.maxMana,Math.max(0,(player.mana??oldMana)+Math.max(0,player.maxMana-oldMana)));
 }
-function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player, 'treasure_luck') ? .2 : 0) + (hasSkill(player, 'loot_sense') ? .1 : 0)); }
+function dropChance(player, base) { const upgrades=cleanLevelUpgrades(player.levelUpgrades);return Math.min(.9, base + upgrades.loot*.035 + (hasSkill(player, 'treasure_luck') ? .2 : 0) + (hasSkill(player, 'loot_sense') ? .1 : 0)); }
 function takeDamage(room, player, amount) {
   if (!player) return 0;
   // Recupera estados de vida inválidos para que NaN nunca transforme o jogador em imortal.
@@ -623,6 +623,11 @@ const SERVER_SPIKES=SERVER_MAP_CENTERS.flatMap((z,index)=>[
  {id:'spike-'+index+'-R',x:6.7,z:z-5.5,r:.92,damage:12},
  ...[-1,1].map(side=>({id:'pit-spike-'+index+'-'+side,x:(index%2===0?5.2:-5.2)+side*1.36,z:z+4,r:.62,damage:17}))
 ]);
+const SERVER_ENV_HAZARDS=SERVER_MAP_CENTERS.flatMap((z,index)=>[
+ {id:'miasma-'+index,type:'miasma',x:index%2===0?-8.2:8.2,z:z+2.5,r:1.35,damage:6,cooldown:1450},
+ {id:'rune-surge-'+index,type:'rune',x:index%2===0?8.2:-8.2,z:z-11,r:1.15,damage:9,cooldown:1150},
+ {id:'crumble-'+index,type:'crumble',x:index%2===0?-5.7:5.7,z:z-13,r:1.25,damage:7,cooldown:1300}
+]);
 function serverPointInPolygon(x,y,polygon){
  let inside=false;
  for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
@@ -647,7 +652,7 @@ function processPressurePlate(room,player,now){
  room.openTraps=Array.isArray(room.openTraps)?room.openTraps:[];
  room.openTraps.push(plate.id);
  player.x=plate.pitX;player.z=plate.pitZ;player.trapId=plate.id;
- takeDamage(room,player,14);
+ takeDamage(room,player,Math.max(1,Math.round(14*(1-Math.min(.45,cleanLevelUpgrades(player.levelUpgrades).trapGuard*.06)))));
  const makePitMonster=(kind,offset,hp,damage)=>({id:'pit-'+plate.id+'-'+kind+'-'+now+'-'+Math.random().toString(36).slice(2,6),kind,name:kind==='thorn'?'Espinheiro do Poço':'Rastejador do Poço',x:plate.pitX+offset,z:plate.pitZ+(offset>0?.38:-.38),phase:room.phase,realm:room.realm||1,spawned:true,alive:true,hp,maxHp:hp,damage,attackAt:0,trapId:plate.id,trapMonster:true});
  room.monsters.push(makePitMonster('stalker',-.72,22,5),makePitMonster('thorn',.72,27,4));
  player.mapTrapDamageAt=now+650;
@@ -659,22 +664,27 @@ function applyMapHazards(room,player,now){
  if(!player||player.hp<=0||room.gameMode==='pvp_rpg'||now<(player.mapTrapDamageAt||0))return;
  let hazard=null;
  for(const spike of SERVER_SPIKES){
-  if(Math.hypot(player.x-spike.x,player.z-spike.z)<spike.r){hazard=spike;break;}
+  if(Math.hypot(player.x-spike.x,player.z-spike.z)<spike.r){hazard={...spike,type:'spike',cooldown:1050};break;}
+ }
+ if(!hazard)for(const field of SERVER_ENV_HAZARDS){
+  if(Math.hypot(player.x-field.x,player.z-field.z)<field.r){hazard=field;break;}
  }
  const activePit=(room.openTraps||[]).map(id=>SERVER_PITS.find(item=>item.id===id))
   .find(item=>item&&Math.hypot(player.x-item.pitX,player.z-item.pitZ)<1.88);
  if(!hazard&&activePit&&Math.hypot(player.x-activePit.pitX,player.z-activePit.pitZ)<.78){
-  hazard={id:'pit-center-'+activePit.id,damage:9};
+  hazard={id:'pit-center-'+activePit.id,type:'pit',damage:9,cooldown:850};
  }
  if(!hazard)return;
- const insidePit=String(hazard.id).startsWith('pit-');
- player.mapTrapDamageAt=now+(insidePit?850:1050);
- const applied=takeDamage(room,player,hazard.damage);
+ const trapRank=cleanLevelUpgrades(player.levelUpgrades).trapGuard;
+ const mitigatedDamage=Math.max(1,Math.round(hazard.damage*(1-Math.min(.45,trapRank*.06))));
+ player.mapTrapDamageAt=now+(hazard.cooldown||1050);
+ const applied=takeDamage(room,player,mitigatedDamage);
  if(applied&&player.ws?.readyState===WebSocket.OPEN){
-  player.ws.send(JSON.stringify({type:'notice',text:insidePit?'✹ Espinho no fundo do poço! -'+applied+' HP.':'✹ Espinhos no caminho! -'+applied+' HP.'}));
+  const labels={spike:'Espinhos',pit:'Espinho no poço',miasma:'Névoa tóxica',rune:'Surto rúnico',crumble:'Piso instável'};
+  player.ws.send(JSON.stringify({type:'notice',text:'✹ '+(labels[hazard.type]||'Armadilha')+'! -'+applied+' HP.'}));
  }
 }
-const LEVEL_UPGRADE_RULES={health:{max:10},power:{max:10},mana:{max:10},defense:{max:8},magic:{max:8},attack:{max:8},recovery:{max:8},item:{max:8},autoDodge:{max:1},xp:{max:8},critical:{max:8},movement:{max:6},cooldown:{max:8}};
+const LEVEL_UPGRADE_RULES={health:{max:10},power:{max:10},mana:{max:10},defense:{max:8},magic:{max:8},attack:{max:8},recovery:{max:8},item:{max:8},autoDodge:{max:1},xp:{max:8},critical:{max:8},movement:{max:6},cooldown:{max:8},loot:{max:8},manaRegen:{max:8},range:{max:8},trapGuard:{max:8}};
 function defaultLevelUpgrades(){return Object.fromEntries(Object.keys(LEVEL_UPGRADE_RULES).map(key=>[key,0]));}
 function levelXpNeeded(level){return Math.round(100+Math.max(0,level-1)*32+Math.pow(Math.max(0,level-1),1.16)*4);}
 function cleanLevelUpgrades(value){
@@ -749,7 +759,7 @@ function state(room) {
   const now = Date.now();
   for (const p of room.players.values()) {
     if (p.hp > 0 && (p.mana ?? 100) < (p.maxMana ?? 100) && now >= (p.nextManaRegenAt || 0)) {
-      p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + 1);
+      p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + 1 + cleanLevelUpgrades(p.levelUpgrades).manaRegen*.125);
       p.nextManaRegenAt = now + 500;
     }
   }
