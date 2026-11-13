@@ -693,10 +693,10 @@ function addBiomeDetailInstances(parent,palette,realmKey=1){
   :(gameSettings.graphicsQuality==='low'?34:gameSettings.graphicsQuality==='high'?80:52);
  const capacity=perZone*MAP_ZONE_CENTERS.length;
  const materials=[
-  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.96,metalness:.06,vertexColors:true}),
-  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.92,metalness:.08,vertexColors:true}),
-  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.3,metalness:.22,emissive:0x151a22,emissiveIntensity:.34,vertexColors:true}),
-  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7,metalness:.28,transparent:true,opacity:.72,vertexColors:true,side:THREE.DoubleSide,depthWrite:false})
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.96,metalness:.06,}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.92,metalness:.08,}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.3,metalness:.22,emissive:0x151a22,emissiveIntensity:.34,}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7,metalness:.28,transparent:true,opacity:.72,side:THREE.DoubleSide,depthWrite:false})
  ];
  const batches=[
   new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.27,0),materials[0],capacity),
