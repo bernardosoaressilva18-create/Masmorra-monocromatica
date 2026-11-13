@@ -1955,7 +1955,7 @@ function updateHeroShowcase() {
   }[selectedClass] || {name:'Cavaleiro',glyph:'🛡️',desc:'Defesa elevada'};
   const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'},rune:{label:'SKIN RUNAS',cls:'skin-rune'},celestial:{label:'SKIN CELESTIAL',cls:'skin-celestial'},bloodmoon:{label:'SKIN LUA SANGRENTA',cls:'skin-bloodmoon'},frostguard:{label:'GUARDA GLACIAL',cls:'skin-frostguard'},draconic:{label:'SKIN DRACÔNICA',cls:'skin-draconic'},voidwalker:{label:'ANDARILHO DO VAZIO',cls:'skin-voidwalker'},verdant:{label:'SKIN VERDEJANTE',cls:'skin-verdant'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
   refreshSkinPicker();
-  const skinCount=$('unlockedSkinCount');if(skinCount)skinCount.textContent=unlockedSkins.size+'/7 DESBLOQUEADAS';
+  const skinCount=$('unlockedSkinCount');if(skinCount)skinCount.textContent=CHEST_ONLY_SKINS.filter(id=>unlockedSkins.has(id)).length+'/7 DESBLOQUEADAS';
   const avatar=$('heroPreviewAvatar');
   if(avatar){avatar.className='hero-preview-avatar '+skinInfo.cls+' class-'+selectedClass;}
   if($('heroPreviewGlyph')) { $('heroPreviewGlyph').textContent=classInfo.glyph; $('heroPreviewGlyph').setAttribute('aria-hidden','true'); }
