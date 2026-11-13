@@ -236,8 +236,14 @@ const staticDungeonColliders = (() => {
   }
   return list;
 })();
-function isDungeonPositionBlocked(x, z) {
-  const playerRadius = 0.43;
+function isDungeonPositionBlocked(x,z){
+  const playerRadius=.43;
+  if(offlineMode&&offlineState?.started){
+    const phase=Math.max(1,Math.min(5,Number(offlineState.phase)||1));
+    const gateZ=phase<5?-(30+(phase-1)*32):-168;
+    const enemiesAlive=phase===5?!!offlineState.boss?.alive:offlineLivingMonsters().length>0;
+    if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
+  }
   // Os pilares do Mundo Monocromático só existem no primeiro mundo.
   if (currentRealmVisual === 1) {
     for (const obstacle of staticDungeonColliders) {
@@ -1523,6 +1529,10 @@ function syncBossTelegraphs(telegraphs) {
   }
 }
 
+function canUseItemsNow(){
+  if(offlineMode){const player=offlineState?.players?.[0];return !!offlineState?.started&&!!player&&Number(player.hp)>0;}
+  return !!started&&!!myPlayer&&Number(myPlayer.userData.serverHp??100)>0&&!!ws&&ws.readyState===WebSocket.OPEN;
+}
 function renderInventory() {
   const el = $('inventoryList');
   if (!el) return;
@@ -1537,20 +1547,26 @@ function renderInventory() {
   recent=recent.filter(item=>(lootFilter==='all'||item.rarity===lootFilter)).slice(0,20);
   if (selectedItemId && !recent.some(item => String(item.id) === String(selectedItemId))) selectedItemId = recent.length ? String(recent[0].id) : null;
   if (!selectedItemId && recent.length) selectedItemId = String(recent[0].id);
-  $('recentLoot').innerHTML=recent.length?recent.map(item=>'<div class="loot-entry"><button type="button" class="loot-item select-item rarity-'+item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'')+(String(item.id)===String(selectedItemId)?' selected':'')+'" data-item-id="'+escapeHTML(item.id)+'"><span>'+escapeHTML(item.name)+' <small>('+escapeHTML(item.rarity)+' · Poder '+(item.power||1)+'/5)</small></span><b>'+(String(item.id)===String(selectedItemId)?'✓':'+')+'</b></button><button type="button" class="loot-use-button" data-use-item="'+escapeHTML(item.id)+'" '+(!started||!myPlayer||myPlayer.userData.serverHp<=0?'disabled':'')+'>USAR</button></div>').join(''):'<small>Nenhum item coletado ainda.</small>';
+  $('recentLoot').innerHTML=recent.length?recent.map(item=>'<div class="loot-entry"><button type="button" class="loot-item select-item rarity-'+item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'')+(String(item.id)===String(selectedItemId)?' selected':'')+'" data-item-id="'+escapeHTML(item.id)+'"><span>'+escapeHTML(item.name)+' <small>('+escapeHTML(item.rarity)+' · Poder '+(item.power||1)+'/5)</small></span><b>'+(String(item.id)===String(selectedItemId)?'✓':'+')+'</b></button><button type="button" class="loot-use-button" data-use-item="'+escapeHTML(item.id)+'" '+(!canUseItemsNow()?'disabled':'')+' aria-label="Usar '+escapeHTML(item.name)+'">USAR</button></div>').join(''):'<small>Nenhum item coletado ainda.</small>';
+  $('recentLoot').querySelectorAll('[data-use-item]').forEach(button=>button.addEventListener('click',event=>{
+    event.preventDefault();event.stopPropagation();useItemById(button.dataset.useItem);
+  }));
   const chosen = lootDrops.find(item => String(item.id) === String(selectedItemId));
   $('selectedItemLabel').textContent = chosen ? chosen.name + ' · ' + chosen.rarity + ' · PODER ' + (chosen.power || 1) + '/5' : 'Nenhum item selecionado';
   $('useSelectedItemBtn').textContent=chosen&&['Equipamento Antigo','Relíquia Monocromática','Coroa do Abismo'].includes(chosen.name)?'EQUIPAR':'USAR ITEM';
-  $('useSelectedItemBtn').disabled = !chosen || !started;
+  $('useSelectedItemBtn').disabled=!chosen||!canUseItemsNow();
 }
 function useItemById(itemId){
-  if(!started||!myPlayer||(myPlayer.userData.serverHp??100)<=0){showNotice('Entre na partida e esteja vivo para usar itens.');return;}
   const item=lootDrops.find(entry=>String(entry.id)===String(itemId));
   if(!item){showNotice('Este item não está mais no inventário.');renderInventory();return;}
   selectedItemId=String(item.id);
-  if(offlineMode){offlineUseItem(item.id);return;}
+  if(offlineMode){
+    if(!offlineState?.started||!offlineState?.players?.[0]||offlineState.players[0].hp<=0){showNotice('Entre na partida offline e esteja vivo para usar itens.');return;}
+    offlineUseItem(item.id);return;
+  }
+  if(!started||!myPlayer||(myPlayer.userData.serverHp??100)<=0){showNotice('Entre na partida online e esteja vivo para usar itens.');return;}
   if(!ws||ws.readyState!==WebSocket.OPEN){showNotice('Conexão perdida. Aguarde reconectar para usar o item.');return;}
-  send({type:'useItem',id:String(item.id)});
+  send({type:'useItem',id:String(item.id)});showNotice('Usando '+item.name+'...');
 }
 function useSelectedItem(){
   if(!selectedItemId){showNotice('Selecione um item primeiro.');return;}
@@ -2797,8 +2813,13 @@ function offlineUseItem(itemId){
   let message='';
   if(['Poção de Vida','Moeda Antiga','Coração do Guardião'].includes(item.name)){
     const key=item.name==='Poção de Vida'?'potion':item.name==='Moeda Antiga'?'coin':'heart';
-    if(player.hp>=maxHp){showNotice('Sua vida já está cheia. Guarde este item para depois.');return;}
-    const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier[key]));message='Vida +'+(player.hp-before)+'.';
+    if(player.hp>=maxHp){
+      if(item.name==='Coração do Guardião'){player.shieldUntil=Date.now()+2500;message='Escudo de emergência por 2,5 segundos.';}
+      else if(item.name==='Moeda Antiga'){player.damageBuff=Math.max(player.damageBuff||0,1);player.damageBuffHits=Math.max(player.damageBuffHits||0,2);message='Bônus de dano +1 por 2 golpes.';}
+      else{const beforeMana=player.mana||0;player.mana=Math.min(player.maxMana||100,beforeMana+Math.round((player.maxMana||100)*.2));message='Mana +'+(player.mana-beforeMana)+'.';}
+    }else{
+      const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier[key]));message='Vida +'+(player.hp-before)+'.';
+    }
   }else if(item.name==='Pó de Cristal'){
     const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier.powderHeal));
     player.damageBuff=Math.max(player.damageBuff||0,tier.powderDamage);player.damageBuffHits=Math.max(player.damageBuffHits||0,tier.powderHits);
@@ -3912,17 +3933,17 @@ $('startMatchBtn').addEventListener('click', () => {
 
 const inventoryPanel = document.querySelector('.inventory-panel');
 const inventoryToggleBtn = $('inventoryToggleBtn');
-let inventoryHidden = isMobileDevice;
+let inventoryHidden=false;
 try {
   const oldPreference = localStorage.getItem('mmHideInventory');
   const layoutVersion = localStorage.getItem('mmInventoryLayoutV2');
   if (layoutVersion !== '1') {
-    inventoryHidden = isMobileDevice;
-    localStorage.setItem('mmInventoryLayoutV2', '1');
+    inventoryHidden=false;
+    localStorage.setItem('mmInventoryLayoutV2','2');
     localStorage.setItem('mmHideInventory', inventoryHidden ? '1' : '0');
-  } else {
-    inventoryHidden = oldPreference === '1';
-  }
+  }else if(localStorage.getItem('mmInventoryLayoutV2')==='2'){
+    inventoryHidden=oldPreference==='1';
+  }else{inventoryHidden=false;}
 } catch {}
 function applyInventoryVisibility() {
   if (!inventoryPanel || !inventoryToggleBtn) return;
@@ -3986,12 +4007,8 @@ $('pvpSummonBtn')?.addEventListener('click', () => {
 $('lootFilter')?.addEventListener('change', renderInventory);
 $('lootSort')?.addEventListener('change', renderInventory);
 $('recentLoot').addEventListener('click',e=>{
-  const useButton=e.target.closest('[data-use-item]');
-  if(useButton){useItemById(useButton.dataset.useItem);return;}
-  const row=e.target.closest('.select-item');
-  if(!row)return;
-  selectedItemId=String(row.dataset.itemId||'');
-  saveSharedProfile();renderInventory();
+  const row=e.target.closest('.select-item');if(!row)return;
+  selectedItemId=String(row.dataset.itemId||'');saveSharedProfile();renderInventory();
 });
 $('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 
@@ -4106,7 +4123,7 @@ function placeSpellButtons() {
   applySavedHudPositions();
 }
 
-const HUD_MOVABLE_IDS=['joystick','chestBtn','dodgeBtn','attackBtn','fireBtn','lightningBtn','ability3Btn'];
+const HUD_MOVABLE_IDS=['joystick','chestBtn','dodgeBtn','attackBtn','fireBtn','lightningBtn','ability3Btn','inventoryToggleBtn','skillToggleBtn','settingsBtn','orientationToggleBtn','leaveBtn'];
 let hudEditMode = false;
 let hudDragState = null;
 let hudLayout = {};
@@ -4115,24 +4132,9 @@ function hudOrientationKey() { return window.innerWidth > window.innerHeight ? '
 function saveHudLayout() {
   try { localStorage.setItem('ultimoLegadoHudLayout', JSON.stringify(hudLayout)); } catch {}
 }
-function applySavedHudPositions() {
-  if (!hud) return;
-  // O analógico não é customizável por coordenadas antigas: isso podia deixá-lo no topo
-  // depois de uma mudança de tamanho/orientação. Limpa a posição salva e volta ao rodapé.
-  let resetJoystickPosition = false;
-  for (const orientation of ['portrait', 'landscape']) {
-    if (hudLayout[orientation]?.joystick) {
-      delete hudLayout[orientation].joystick;
-      resetJoystickPosition = true;
-    }
-  }
-  const joystick = $('joystick');
-  if (joystick) {
-    for (const property of ['left','right','top','bottom','position','transform','width','height']) joystick.style.removeProperty(property);
-    delete joystick.dataset.hudCustomPosition;
-  }
-  if (resetJoystickPosition) saveHudLayout();
-  const group = hudLayout[hudOrientationKey()] || {};
+function applySavedHudPositions(){
+  if(!hud)return;
+  const group=hudLayout[hudOrientationKey()]||{};
   for (const id of HUD_MOVABLE_IDS) {
     const el = $(id);
     if (!el) continue;
@@ -4173,7 +4175,7 @@ function setHudEditMode(enabled) {
 }
 document.addEventListener('pointerdown', event => {
   if (!hudEditMode) return;
-  const el=event.target.closest('#joystick, #chestBtn, #dodgeBtn, #attackBtn, #fireBtn, #lightningBtn, #ability3Btn');
+  const el=event.target.closest('#joystick,#chestBtn,#dodgeBtn,#attackBtn,#fireBtn,#lightningBtn,#ability3Btn,#inventoryToggleBtn,#skillToggleBtn,#settingsBtn,#orientationToggleBtn,#leaveBtn');
   if (!el || !hud.contains(el)) return;
   const rect = el.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
