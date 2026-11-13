@@ -51,7 +51,7 @@ let entityUpdateAccumulator = 0;
 let bossMesh = null, bossData = null;
 const bossPortalMeshes = new Map();
 const bossTelegraphMeshes = new Map();
-let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false;
+let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false, currentSafeZoneUntil = 0;
 const SHARED_PROFILE_KEY='ultimoLegadoSharedProfileV2';
 const FREE_LOBBY_SKINS=['default','shadow','ember'];
 const CHEST_ONLY_SKINS=['rune','celestial','bloodmoon','frostguard','draconic','voidwalker','verdant'];
@@ -1654,7 +1654,25 @@ function makeMonster(kind = 'stalker', phase = 1) {
     const m=add(geo,material,x,y,z,sx,sy,sz);animatedLimbs.push({mesh:m,side,baseRotationZ:m.rotation.z});return m;
   };
   let core=null;
-  if(kind==='wraith'){
+  if(kind==='training_dummy'){
+    const woodMat=new THREE.MeshStandardMaterial({color:0x9b7046,roughness:.94});
+    const darkWood=new THREE.MeshStandardMaterial({color:0x533c2d,roughness:.9});
+    const targetMat=new THREE.MeshStandardMaterial({color:0xc84a43,roughness:.78,emissive:0x42100d,emissiveIntensity:.25});
+    const metalMat=new THREE.MeshStandardMaterial({color:0x737e88,metalness:.58,roughness:.42});
+    add(new THREE.CylinderGeometry(.62,.76,.18,12),darkWood,0,.10,0);
+    add(new THREE.CylinderGeometry(.12,.18,1.55,8),metalMat,0,.88,0);
+    add(new THREE.CapsuleGeometry(.23,.68,4,8),woodMat,0,1.55,0,1,.95,.8);
+    add(new THREE.SphereGeometry(.25,12,10),woodMat,0,2.12,0,1,1,.9);
+    add(new THREE.TorusGeometry(.25,.065,7,20),targetMat,0,1.58,-.205,1,1,.8).rotation.x=Math.PI/2;
+    for(const side of [-1,1]){
+      const arm=add(new THREE.CapsuleGeometry(.085,.48,3,7),woodMat,side*.37,1.72,0,1,1,1);
+      arm.rotation.z=side*.72;
+      const leg=add(new THREE.CylinderGeometry(.075,.10,.45,7),darkWood,side*.15,.42,0);
+      leg.rotation.z=side*.10;
+    }
+    add(new THREE.BoxGeometry(.22,.12,.12),targetMat,0,1.58,-.30);
+    g.userData.trainingDummy=true;
+  } else if(kind==='wraith'){
     const shroud=add(new THREE.ConeGeometry(.52,1.55,9),bodyMat,0,.82,0,1,.95,.82);
     shroud.rotation.x=.04;
     add(new THREE.TorusGeometry(.29,.055,7,24),glow,0,1.48,-.03,1,1,.8).rotation.x=Math.PI/2;
@@ -1961,8 +1979,8 @@ let selectedClass=['knight','mage','archer','goblin','ogre','healer','necromance
 let unlockedSkins=new Set(['default','shadow','ember',...(Array.isArray(sharedProfileSeed.unlockedSkins)?sharedProfileSeed.unlockedSkins.filter(id=>CHEST_ONLY_SKINS.includes(id)):[])]);
 let skinCandidate=sharedProfileSeed.skin||savedCharacterChoice.skin||'default';
 let selectedSkin=[...FREE_LOBBY_SKINS,...CHEST_ONLY_SKINS].includes(skinCandidate)&&(FREE_LOBBY_SKINS.includes(skinCandidate)||unlockedSkins.has(skinCandidate))?skinCandidate:'default';
-let skillPoints=Math.max(0,Math.min(99,Number(sharedProfileSeed.skillPoints??5)));
-const unlockedSkills=new Set(Array.isArray(sharedProfileSeed.skills)?sharedProfileSeed.skills.filter(id=>typeof id==='string').slice(0,15):[]);
+let skillPoints=5;
+const unlockedSkills=new Set();
 let lastSkillSignature = '';
 let activeSkillFilter = 'all';
 let activeSkillSearch = '';
@@ -2106,7 +2124,7 @@ function syncLoadoutUI() {
   renderSkillTrees();
 }
 
-function getSharedProfileData(){return{version:2,playerClass:selectedClass,skin:selectedSkin,unlockedSkins:Array.from(unlockedSkins),skills:Array.from(unlockedSkills).slice(0,15),skillPoints:Math.max(0,Math.min(99,Number(skillPoints)||0)),equipmentDamage:Math.max(0,Math.min(18,Number(equipmentDamage)||0)),inventory:{...inventoryData},lootDrops:lootDrops.slice(-100).map(item=>({...item})),selectedItemId:selectedItemId?String(selectedItemId):null,realm:sharedProgress.realm,phase:sharedProgress.phase};}
+function getSharedProfileData(){return{version:2,playerClass:selectedClass,skin:selectedSkin,unlockedSkins:Array.from(unlockedSkins),skills:[],skillPoints:5,equipmentDamage:Math.max(0,Math.min(18,Number(equipmentDamage)||0)),inventory:{...inventoryData},lootDrops:lootDrops.slice(-100).map(item=>({...item})),selectedItemId:selectedItemId?String(selectedItemId):null,realm:sharedProgress.realm,phase:sharedProgress.phase};}
 function saveSharedProfile(){try{const p=getSharedProfileData();localStorage.setItem(SHARED_PROFILE_KEY,JSON.stringify(p));sharedProfileSeed=p;}catch(error){showNotice('Não foi possível salvar o perfil neste aparelho.');}}
 function sendLoadout() {
   saveSharedProfile();
@@ -2667,7 +2685,55 @@ function createOfflineState() {
   };
 }
 
+function startTrainingRange() {
+  if (ws) { try { ws.close(); } catch {} ws = null; }
+  connectionRequested = false;
+  clearTimeout(reconnectTimer);
+  offlineMode = true;
+  offlineDefeatNoticeShown = false;
+  playerId = 'offline-player';
+  roomCode = 'TREINO';
+  activeGameMode = 'coop';
+  selectedGameMode = 'coop';
+  unlockedSkills.clear();
+  skillPoints = 5;
+  lastSkillSignature = '';
+  offlineState = createOfflineState();
+  const player = offlineState.players[0];
+  player.playerClass = selectedClass;
+  player.skin = selectedSkin;
+  player.skills = [];
+  player.talentPoints = 5;
+  player.x = 0; player.z = 3; player.rot = 0;
+  player.hp = player.maxHp = 130;
+  player.mana = player.maxMana = 100;
+  player.abilityCooldowns = {};
+  offlineState.monsters = [
+    {id:'training-dummy-center',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:0,homeZ:-7,x:0,z:-7,phase:1,realm:1,spawned:true,alive:true,hp:10000,maxHp:10000},
+    {id:'training-dummy-left',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:-4,homeZ:-10,x:-4,z:-10,phase:1,realm:1,spawned:true,alive:true,hp:10000,maxHp:10000},
+    {id:'training-dummy-right',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:4,homeZ:-10,x:4,z:-10,phase:1,realm:1,spawned:true,alive:true,hp:10000,maxHp:10000}
+  ];
+  offlineState.summons = [];
+  offlineState.chests = [];
+  offlineState.safeZoneUntil = 0;
+  offlineState.started = true;
+  offlineState.trainingMode = true;
+  appliedInitialServerPosition = false;
+  $('menu')?.classList.add('hidden');
+  $('lobby')?.classList.add('hidden');
+  $('loading')?.classList.add('hidden');
+  $('roomLabel').textContent = 'TREINO';
+  $('lobbyRoomCode').textContent = 'TREINO';
+  updateClassAbilityButtons();
+  updateState(offlineState);
+  if (offlineLoop) clearInterval(offlineLoop);
+  offlineLoop = setInterval(stepOfflineSimulation, 220);
+  showNotice('CAMPO DE TREINO · Use 1, 2 e 3 para testar os poderes. Os bonecos não atacam e recuperam o HP.');
+}
+$('openTrainingBtn')?.addEventListener('click', startTrainingRange);
+
 function startOfflineExploration() {
+  unlockedSkills.clear(); skillPoints=5; lastSkillSignature=''; syncLoadoutUI();
   saveSharedProfile();
   if (ws) {
     try { ws.close(); } catch {}
@@ -2933,6 +2999,107 @@ function offlineUseItem(itemId){
   lootDrops.splice(index,1);inventoryData[item.rarity]=Math.max(0,(inventoryData[item.rarity]||0)-1);
   selectedItemId=null;saveSharedProfile();renderInventory();showNotice(item.name+': '+message);playSfx('loot');
 }
+function handleOfflineClassAbility(data) {
+  const player = offlineState?.players?.[0];
+  if (!player || player.hp <= 0) return;
+  const ability = String(data?.ability || '');
+  const spec = (CLASS_ABILITY_CONFIG[player.playerClass] || []).find(item => item.ability === ability);
+  if (!spec || spec.spell) return;
+  const classOwner = Object.entries(CLASS_ABILITY_CONFIG).find(([,items]) => items.some(item => item.ability === ability))?.[0];
+  if (classOwner !== player.playerClass) return;
+  const now = Date.now();
+  if (now < Number(offlineState.safeZoneUntil || 0)) { showNotice('Aguarde o fim da zona segura para usar habilidades.'); return; }
+  if (spec.targeted && (!Number.isFinite(Number(data.x)) || !Number.isFinite(Number(data.z)))) { showNotice('Toque no chão para escolher o impacto.'); return; }
+  const costs = {knight_shield:12,knight_dash:16,knight_whirlwind:21,arrow_rain:18,incendiary_arrows:22,archer_piercing_shot:22,goblin_invis:16,goblin_summon:24,goblin_shadow_strike:18,ogre_slam:20,ogre_haste:14,ogre_earthquake:28,healer_cure:18,healer_guardian_spirits:25,healer_sanctuary:24,necromancer_summon:24,necromancer_dive:18,monk_impact_palm:16,monk_winged_steps:18,monk_spirit_wave:22,golem_split:24,golem_rock_toss:20,golem_stone_guard:20};
+  const cooldowns = {knight_shield:12,knight_dash:9,knight_whirlwind:14,arrow_rain:8,incendiary_arrows:12,archer_piercing_shot:9.5,goblin_invis:14,goblin_summon:20,goblin_shadow_strike:11,ogre_slam:10,ogre_haste:15,ogre_earthquake:17,healer_cure:23,healer_guardian_spirits:40,healer_sanctuary:24,necromancer_summon:30,necromancer_dive:15,monk_impact_palm:18,monk_winged_steps:15,monk_spirit_wave:13,golem_split:26,golem_rock_toss:14.5,golem_stone_guard:20};
+  player.abilityCooldowns = player.abilityCooldowns || {};
+  const remaining = Number(player.abilityCooldowns[ability] || 0) - now;
+  if (remaining > 0) { showNotice('Habilidade recarregando: ' + Math.ceil(remaining / 1000) + 's.'); return; }
+  const manaCost = costs[ability] || 16;
+  if ((Number(player.mana) || 0) < manaCost) { showNotice('✦ Mana insuficiente! Custo: ' + manaCost + '.'); return; }
+  player.mana = Math.max(0, (Number(player.mana) || 0) - manaCost);
+  player.abilityCooldowns[ability] = now + Math.round((cooldowns[ability] || spec.cooldown || 10) * 1000);
+  const living = offlineLivingMonsters();
+  const nearest = (range=14) => living.map(monster=>({monster,distance:Math.hypot(monster.x-player.x,monster.z-player.z)}))
+    .filter(entry=>entry.distance<=range).sort((a,b)=>a.distance-b.distance)[0]?.monster || null;
+  const forwardCenter = distance => ({x:player.x-Math.sin(Number(player.rot)||0)*distance,z:player.z-Math.cos(Number(player.rot)||0)*distance});
+  const targets = [];
+  const hit = (monster,amount,burnMs=0,pushDistance=0) => {
+    if (!monster) return;
+    offlineDamageMonster(monster,amount,burnMs,pushDistance?{x:player.x,z:player.z}:null,pushDistance);
+    targets.push({x:monster.x,z:monster.z});
+  };
+  const hitArea = (center,radius,amount,burnMs=0,pushDistance=0) => {
+    let total=0;
+    for (const monster of offlineLivingMonsters()) {
+      if (Math.hypot(monster.x-center.x,monster.z-center.z)>radius) continue;
+      hit(monster,amount,burnMs,pushDistance); total++;
+    }
+    return total;
+  };
+  let center = {x:player.x,z:player.z}, text = '', until = 0;
+  if (ability === 'knight_shield') {
+    player.shieldUntil = now + 4200; until=player.shieldUntil; text='🛡️ Escudo ativo: 65% menos dano por 4,2 segundos.';
+  } else if (ability === 'knight_dash') {
+    offlineMoveForward(4.2); center={x:player.x,z:player.z};
+    const count=hitArea(center,5.4,5,0,0); text='⚔️ Avanço! '+count+' alvo(s), 5 de dano base.';
+  } else if (ability === 'knight_whirlwind') {
+    const count=hitArea(center,4.6,11); text='✥ Giro de aço! '+count+' alvo(s), 11 de dano.';
+  } else if (ability === 'arrow_rain' || ability === 'incendiary_arrows') {
+    const target=nearest(14); center=target?{x:target.x,z:target.z}:forwardCenter(6);
+    const damage=ability==='arrow_rain'?(offlineHasSkill('archer_volley')?7:5):3.5;
+    const count=hitArea(center,ability==='arrow_rain'?4.6:4.1,damage,ability==='incendiary_arrows'?5500:0);
+    text=(ability==='arrow_rain'?'🏹 Chuva de flechas: ':'🔥 Flechas incendiárias: ')+count+' alvo(s), '+damage+' de dano base.';
+  } else if (ability === 'archer_piercing_shot') {
+    const target=nearest(14); if(target)hit(target,18); text=target?'➶ Flecha perfurante: 18 de dano.':'Nenhum alvo até 14 m.';
+  } else if (ability === 'goblin_invis') {
+    player.invisibleUntil=now+(offlineHasSkill('goblin_shadow')?7000:5000); until=player.invisibleUntil;text='👻 Invisibilidade ativada por 5 segundos.';
+  } else if (ability === 'goblin_summon') {
+    let created=0;for(let n=0;n<2;n++)if(offlineCreateSummon('goblin',n,2,12000,72,3,950))created++;
+    text='👺 '+created+' goblin(s) aliados por 12 segundos.';
+  } else if (ability === 'goblin_shadow_strike') {
+    const target=nearest(9);if(target)hit(target,16);player.invisibleUntil=now+600;text=target?'⟡ Golpe sombrio: 16 de dano.':'Nenhum alvo até 9 m.';
+  } else if (ability === 'ogre_slam') {
+    const count=hitArea(center,5.2,12,0,1.6);text='💥 Soco no chão! '+count+' alvo(s), 12 de dano.';
+  } else if (ability === 'ogre_haste') {
+    player.ogreHasteUntil=now+5000;until=player.ogreHasteUntil;text='💨 Velocidade aumentada por 5 segundos.';
+  } else if (ability === 'ogre_earthquake') {
+    const count=hitArea(center,5.8,15,0,1.5);text='♨ Terremoto! '+count+' alvo(s), 15 de dano.';
+  } else if (ability === 'healer_cure') {
+    const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+(offlineHasSkill('healer_blessing')?70:50));text='💚 Cura: +'+(player.hp-before)+' HP.';
+  } else if (ability === 'healer_guardian_spirits') {
+    let created=0;for(let n=0;n<3;n++)if(offlineCreateSummon('spirit',n,3,20000,1,9,5000))created++;
+    text='🪽 '+created+' espíritos: +5 HP a cada 4 s e 9 de dano a cada 5 s.';
+  } else if (ability === 'necromancer_summon') {
+    let created=0;for(let n=0;n<5;n++)if(offlineCreateSummon('skeleton',n,5,30000,8,2,1100))created++;
+    text='💀 Horda: '+created+' esqueletos aliados por 30 segundos.';
+  } else if (ability === 'necromancer_dive') {
+    player.necromancerDivePending=true;player.necromancerDiveUntil=now+5000;
+    player.necromancerDiveOriginX=player.x;player.necromancerDiveOriginZ=player.z;
+    player.invisibleUntil=now+5000;until=player.necromancerDiveUntil;necromancerDivePendingClient=true;
+    clearTimeout(necromancerDiveClientTimer);
+    necromancerDiveClientTimer=setTimeout(()=>{necromancerDivePendingClient=false;if(player.necromancerDivePending){player.necromancerDivePending=false;player.invisibleUntil=0;showNotice('Mergulho encerrado; você voltou à origem.');}},5100);
+    text='🕳️ Mergulho! Toque no chão para emergir em até 5 segundos.';
+  } else if (ability === 'monk_impact_palm') {
+    const c=forwardCenter(1.4);center=c;const count=hitArea(c,4.2,8,0,2.7);text='👊 Palma de impacto: '+count+' alvo(s), 8 de dano e empurrão.';
+  } else if (ability === 'monk_winged_steps') {
+    offlineMoveForward(3.1);player.dodgeUntil=now+900;player.monkSpeedUntil=now+5000;until=player.monkSpeedUntil;text='🪽 Passos alados: avanço e velocidade por 5 segundos.';
+  } else if (ability === 'monk_spirit_wave') {
+    center=forwardCenter(1.8);const count=hitArea(center,4.5,13,0,1);text='☯ Onda espiritual: '+count+' alvo(s), 13 de dano.';
+  } else if (ability === 'golem_split') {
+    let created=0;for(let n=0;n<3;n++)if(offlineCreateSummon('golem',n,3,12000,50,4,1150))created++;
+    player.invisibleUntil=now+12000;until=player.invisibleUntil;text='🪨 Golem dividido em '+created+' fragmentos por 12 segundos.';
+  } else if (ability === 'golem_rock_toss') {
+    center={x:THREE.MathUtils.clamp(Number(data.x),-12,12),z:THREE.MathUtils.clamp(Number(data.z),-170,8)};
+    const count=hitArea(center,5,15);text='☄ Pedra titânica: '+count+' alvo(s), 15 de dano e estilhaços.';
+  } else if (ability === 'golem_stone_guard') {
+    player.shieldUntil=now+6500;until=player.shieldUntil;text='⬟ Guarda de pedra: proteção por 6,5 segundos.';
+  } else {
+    player.abilityCooldowns[ability]=now;player.mana=Math.min(player.maxMana,player.mana+manaCost);return;
+  }
+  handleClassAbilityMessage({type:'classAbility',id:player.id,ability,x:player.x,z:player.z,center,targets,until,text});
+  showNotice(text);
+}
 function handleOfflineAction(data) {
   if (!offlineState || !data) return;
   const player = offlineState.players[0];
@@ -3063,6 +3230,7 @@ function stepOfflineSimulation() {
     }
     for (const monster of offlineState.monsters) {
       if (!monster.alive) continue;
+      if (monster.trainingDummy) { monster.x=Number(monster.homeX ?? monster.x); monster.z=Number(monster.homeZ ?? monster.z); continue; }
       if (monster.burnUntil > now && now >= (monster.burnNextAt || 0)) {
         monster.burnNextAt = now + 1000;
         offlineDamageMonster(monster,2);
@@ -3469,6 +3637,7 @@ function setHeroShielded(hero, shielded) {
   }
 }
 function updateState(m) {
+  currentSafeZoneUntil = Math.max(0, Number(m.safeZoneUntil) || 0);
   activeGameMode = m.gameMode === 'pvp_rpg' ? 'pvp_rpg' : 'coop';
   const progressRealm=Math.max(1,Math.min(3,Number(m.realm)||1)),progressPhase=Math.max(1,Math.min(5,Number(m.phase)||1));
   if(sharedProgress.realm!==progressRealm||sharedProgress.phase!==progressPhase){sharedProgress={realm:progressRealm,phase:progressPhase};saveSharedProfile();}
@@ -3818,6 +3987,7 @@ function updateState(m) {
     obj.userData.targetX = mtr.x;
     obj.userData.targetZ = mtr.z;
     obj.userData.kind = mtr.kind || 'stalker';
+    obj.userData.trainingDummy = !!mtr.trainingDummy;
     obj.userData.serverHp = mtr.hp ?? 100;
     setHealthBar(obj, mtr.hp ?? 100, mtr.maxHp ?? mtr.maxHP ?? 100);
     // Monstros normais encaram o jogador local; invocações do PvP encaram o rival
@@ -4171,7 +4341,36 @@ const CLASS_DEMO_VISUALS = {
   monk:{glyph:'✊',accent:'#f4cf85',tag:'MOBILIDADE'},
   golem:{glyph:'⬟',accent:'#aeb9c2',tag:'DEFESA TITÂNICA'}
 };
-const CLASS_DEMO_STEP_MS = 3200;
+const CLASS_DEMO_STATS = {
+  knight_shield:{result:'0 dano · bloqueia 65% do dano',kind:'guard'},
+  knight_dash:{result:'5 dano por inimigo',kind:'mobility'},
+  knight_whirlwind:{result:'11 dano em área',kind:'area'},
+  fire:{result:'2 × poder mágico + queimadura',kind:'projectile'},
+  lightning:{result:'1,5 × poder mágico por alvo',kind:'chain'},
+  mage_arcane_orb:{result:'3,2 × poder mágico + explosão',kind:'projectile'},
+  arrow_rain:{result:'5 dano por inimigo',kind:'area'},
+  incendiary_arrows:{result:'3,5 dano + queimadura',kind:'area'},
+  archer_piercing_shot:{result:'18 dano',kind:'projectile'},
+  goblin_invis:{result:'0 dano · invisível por 5 s',kind:'stealth'},
+  goblin_summon:{result:'2 aliados · 3 dano por golpe',kind:'summon'},
+  goblin_shadow_strike:{result:'16 dano + invisibilidade breve',kind:'mobility'},
+  ogre_slam:{result:'12 dano em área',kind:'area'},
+  ogre_haste:{result:'0 dano · velocidade por 5 s',kind:'buff'},
+  ogre_earthquake:{result:'15 dano em área',kind:'area'},
+  healer_cure:{result:'+50 HP',kind:'heal'},
+  healer_guardian_spirits:{result:'+5 HP / 4 s · 9 dano / 5 s',kind:'summon'},
+  healer_light_orb:{result:'+28 HP',kind:'heal'},
+  necromancer_summon:{result:'5 esqueletos · 2 dano por golpe',kind:'summon'},
+  necromancer_dive:{result:'0 dano direto · cria 1 esqueleto',kind:'mobility'},
+  necromancer_bone_bolt:{result:'1,8 × poder da magia óssea',kind:'projectile'},
+  monk_impact_palm:{result:'8 dano + empurrão',kind:'area'},
+  monk_winged_steps:{result:'0 dano · velocidade por 5 s',kind:'mobility'},
+  monk_spirit_wave:{result:'13 dano em área',kind:'area'},
+  golem_split:{result:'0 dano direto · 3 fragmentos',kind:'summon'},
+  golem_rock_toss:{result:'15 dano + estilhaços',kind:'area'},
+  golem_stone_guard:{result:'0 dano · armadura por 6,5 s',kind:'guard'}
+};
+const CLASS_DEMO_STEP_MS = 3600;
 let classDemoStartedAt = performance.now();
 let classDemoPausedAt = 0;
 let classDemoPaused = false;
@@ -4200,11 +4399,24 @@ function updateClassAbilityDemo(reset = false) {
     const name = $('classDemoAbilityName');
     const description = $('classDemoAbilityDescription');
     const classTag = $('classDemoClassTag');
+    const stage = root.querySelector('.class-demo-stage');
+    const stats = CLASS_DEMO_STATS[ability.ability] || {result:'Efeito especial da classe',kind:'area'};
+    root.dataset.ability = ability.ability;
+    root.dataset.demoKind = stats.kind;
+    if (stage) { stage.dataset.ability = ability.ability; stage.classList.remove('demo-replay'); void stage.offsetWidth; stage.classList.add('demo-replay'); }
     if (character) character.textContent = visual.glyph;
     if (icon) icon.textContent = ability.icon;
     if (name) name.textContent = ability.label;
     if (description) description.textContent = ability.description;
     if (classTag) classTag.textContent = visual.tag;
+    const monster = $('classDemoMonster');
+    const damage = $('classDemoDamage');
+    const damageText = $('classDemoDamageText');
+    const cooldownText = $('classDemoCooldownText');
+    if (monster) monster.textContent = stats.kind === 'heal' || stats.kind === 'guard' ? '🛡️' : '👹';
+    if (damage) damage.textContent = stats.result.startsWith('0 dano') ? 'EFEITO' : stats.result.startsWith('+') ? 'CURA' : '−HP';
+    if (damageText) damageText.textContent = stats.result;
+    if (cooldownText) cooldownText.textContent = (Number(ability.cooldown) || 0).toLocaleString('pt-BR') + ' s';
     const tabs = $('classDemoAbilityTabs');
     if (tabs) {
       tabs.replaceChildren();
@@ -4267,7 +4479,7 @@ function placeSpellButtons() {
   if(!fire||!lightning||!third)return;
   const viewport = getEffectiveViewport();
   const landscape = viewport.width > viewport.height;
-  const size = landscape ? 44 : 50;
+  const size = landscape ? 58 : 54;
   for (const btn of [fire,lightning,third]) {
     btn.style.setProperty('display', 'flex', 'important');
     btn.style.setProperty('position', 'fixed', 'important');
@@ -4298,13 +4510,13 @@ function placeSpellButtons() {
   } else {
     // Paisagem: pilha compacta à direita, acima dos controles de combate.
     fire.style.setProperty('right', '12px', 'important');
-    fire.style.setProperty('bottom', '86px', 'important');
+    fire.style.setProperty('bottom', '82px', 'important');
     lightning.style.setProperty('right','12px','important');
-    lightning.style.setProperty('bottom','136px','important');
+    lightning.style.setProperty('bottom','150px','important');
     third.style.setProperty('right','12px','important');
-    third.style.setProperty('bottom','186px','important');
-    third.style.setProperty('width','44px','important');
-    third.style.setProperty('height','44px','important');
+    third.style.setProperty('bottom','218px','important');
+    third.style.setProperty('width','58px','important');
+    third.style.setProperty('height','58px','important');
   }
   applySavedHudPositions();
 }
@@ -4508,6 +4720,7 @@ $('shiftLockEnabled').addEventListener('change', e => {
 });
 function setCameraMode(mode) {
   if (!['first','second','third'].includes(mode)) return;
+  pitch = targetPitch = THREE.MathUtils.clamp(Number(pitch) || .18, -.5, .5);
   gameSettings.cameraMode = mode;
   saveGameSettings();
   refreshSettingsUI();
@@ -4722,6 +4935,8 @@ refreshLobbySettingsUI();
 
 function castSpell(kind) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
+  if (!offlineMode && (!ws || ws.readyState !== WebSocket.OPEN)) { showNotice('Conexão indisponível. Reconecte antes de lançar magia.'); return; }
+  if (activeGameMode !== 'pvp_rpg' && Date.now() < currentSafeZoneUntil) { showNotice('A magia será liberada quando a zona segura terminar.'); return; }
   const spec=Object.values(CLASS_ABILITY_CONFIG).flat().find(item=>(item.spellType||item.ability)===kind||item.ability===kind);
   const slot=(CLASS_ABILITY_CONFIG[selectedClass]||[]).findIndex(item=>(item.spellType||item.ability)===kind||item.ability===kind);
   const manaCost={fire:20,lightning:15,arcane:18,bone:16,healing:18}[kind]||15;
@@ -4756,6 +4971,8 @@ function castSpell(kind) {
 }
 function activateClassAbility(slot) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
+  if (!offlineMode && (!ws || ws.readyState !== WebSocket.OPEN)) { showNotice('Conexão indisponível. Reconecte antes de usar habilidades.'); return; }
+  if (activeGameMode !== 'pvp_rpg' && Date.now() < currentSafeZoneUntil) { showNotice('As habilidades ficam disponíveis quando a zona segura terminar.'); return; }
   const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
   const spec=abilities[slot];
   if(!spec)return;
@@ -4923,7 +5140,7 @@ function rendererPointerSetup() {
     lastX = e.clientX;
     lastY = e.clientY;
     targetYaw -= dx * .008 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .014 * gameSettings.verticalSensitivity, -1.02, 1.02);
+    targetPitch = THREE.MathUtils.clamp(targetPitch - dy * .014 * gameSettings.verticalSensitivity, -.78, .78);
   });
 
   const end = e => {
@@ -5609,33 +5826,35 @@ function animate() {
   } else if (myPlayer) {
     const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
+    const viewPitch = THREE.MathUtils.clamp(pitch, -.78, .78);
+    const viewCos = Math.cos(viewPitch);
+    const viewForwardX = -Math.sin(yaw) * viewCos;
+    const viewForwardY = Math.sin(viewPitch);
+    const viewForwardZ = -Math.cos(yaw) * viewCos;
     if (gameSettings.cameraMode === 'first') {
-      // Primeira pessoa: câmera centralizada na altura dos olhos, sem deslocamento lateral.
-      cameraPositionScratch.set(target.x + Math.sin(yaw) * 0.06, 1.62, target.z + Math.cos(yaw) * 0.06);
-      camera.position.lerp(cameraPositionScratch, 1 - Math.exp(-18 * dt));
-      camera.lookAt(target.x - Math.sin(yaw) * 12, 1.62 - pitch * 8, target.z - Math.cos(yaw) * 12);
+      // 1ª pessoa: a mira usa o mesmo ângulo de yaw/pitch das outras perspectivas.
+      cameraPositionScratch.set(target.x, 1.62, target.z);
+      camera.position.lerp(cameraPositionScratch, 1 - Math.exp(-20 * dt));
+      camera.lookAt(
+        target.x + viewForwardX * 12,
+        1.62 + viewForwardY * 12,
+        target.z + viewForwardZ * 12
+      );
     } else {
-      // Shift Lock mantém a câmera centralizada e permite strafe lateral sem girar a visão.
+      // 2ª pessoa usa o mesmo arco da 3ª, mas fica mais próxima sem entrar no corpo.
       const baseDistance = gameSettings.cameraMode === 'second'
-        ? THREE.MathUtils.clamp(cameraDistance * 0.52, 3.2, 6.5)
+        ? THREE.MathUtils.clamp(cameraDistance * 0.34, 2.45, 4.1)
         : cameraDistance;
-      const distance = baseDistance + introBlend * 2.8;
-      // A câmera percorre um arco real ao redor do herói. O toque vertical
-      // altera o ângulo de elevação, em vez de apenas empurrar a câmera para cima.
-      const orbitPitch = THREE.MathUtils.clamp(pitch, -0.62, 1.12);
-      const horizontalDistance = Math.max(0.35, Math.cos(orbitPitch) * distance);
-      const verticalOffset = Math.sin(orbitPitch) * distance;
-      const cameraFloor = 0.42;
+      const distance = baseDistance + introBlend * (gameSettings.cameraMode === 'second' ? 1.1 : 2.8);
+      const horizontalDistance = Math.max(.65, Math.cos(viewPitch) * distance);
+      const verticalOffset = Math.sin(viewPitch) * distance;
       cameraPositionScratch.set(
         target.x + Math.sin(yaw) * horizontalDistance,
-        Math.max(cameraFloor, target.y + verticalOffset),
+        Math.max(.65, target.y + verticalOffset),
         target.z + Math.cos(yaw) * horizontalDistance
       );
       camera.position.lerp(cameraPositionScratch, cameraSmooth);
-      const lookUpTargetY = orbitPitch < 0
-        ? Math.max(target.y + 0.15, cameraPositionScratch.y + horizontalDistance * Math.tan(-orbitPitch))
-        : target.y + 0.15;
-      camera.lookAt(target.x, lookUpTargetY, target.z);
+      camera.lookAt(target.x, target.y + .2, target.z);
     }
   }
 
