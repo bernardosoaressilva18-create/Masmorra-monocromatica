@@ -70,11 +70,12 @@ function clampSetting(value, min, max, fallback) {
 }
 let storedGameSettings = {};
 try { storedGameSettings = JSON.parse(localStorage.getItem('mmGameSettings') || '{}') || {}; } catch {}
+const previousCameraControlsVersion = Number(storedGameSettings.cameraControlsVersion) || 0;
 const gameSettings = {
   sensitivity: clampSetting(storedGameSettings.sensitivity, 0.5, 3, 1.2),
-  verticalSensitivity: clampSetting(storedGameSettings.verticalSensitivity, 0.5, 3, 0.9),
+  verticalSensitivity: clampSetting(previousCameraControlsVersion >= 4 ? storedGameSettings.verticalSensitivity : 0.45, 0.25, 1.2, 0.45),
   shiftLock: Number(storedGameSettings.cameraControlsVersion) >= 2 && storedGameSettings.shiftLock === true,
-  cameraControlsVersion: 3,
+  cameraControlsVersion: 4,
   cameraMode: ['first','second','third'].includes(storedGameSettings.cameraMode) ? storedGameSettings.cameraMode : 'third',
   cameraZoom: clampSetting(storedGameSettings.cameraZoom, 6, 14, 9.5),
   graphicsQuality: ['low','balanced','high'].includes(storedGameSettings.graphicsQuality) ? storedGameSettings.graphicsQuality : 'balanced',
@@ -193,7 +194,7 @@ function ensureAudio() {
       backgroundMusic.preload = 'auto';
       backgroundMusic.volume = gameSettings.musicEnabled ? gameSettings.musicVolume * 0.78 : 0;
       backgroundMusic.addEventListener('error', () => {
-        console.warn('[O Último Legado] A faixa externa não pôde ser carregada.');
+        console.warn('[Last Legacy] A faixa externa não pôde ser carregada.');
         if (started) showNotice('A trilha não carregou. Confira a conexão de internet.');
       });
     }
@@ -211,7 +212,7 @@ function ensureAudio() {
       backgroundMusic.play().catch(() => {});
     }
   } catch (error) {
-    console.warn('[O Último Legado] Áudio indisponível neste navegador:', error);
+    console.warn('[Last Legacy] Áudio indisponível neste navegador:', error);
   }
 }
 function playSfx(kind = 'ui') {
@@ -4708,7 +4709,7 @@ $('lookSensitivity').addEventListener('input', e => {
   saveGameSettings();
 });
 $('lookVerticalSensitivity').addEventListener('input', e => {
-  gameSettings.verticalSensitivity = clampSetting(e.target.value, 0.5, 3, 0.9);
+  gameSettings.verticalSensitivity = clampSetting(e.target.value, 0.25, 1.2, 0.45);
   $('lookVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
   saveGameSettings();
 });
@@ -4720,7 +4721,7 @@ $('shiftLockEnabled').addEventListener('change', e => {
 });
 function setCameraMode(mode) {
   if (!['first','second','third'].includes(mode)) return;
-  pitch = targetPitch = THREE.MathUtils.clamp(Number(pitch) || .18, -.5, .5);
+  pitch = targetPitch = THREE.MathUtils.clamp(Number(pitch) || .18, -.52, .52);
   gameSettings.cameraMode = mode;
   saveGameSettings();
   refreshSettingsUI();
@@ -4898,7 +4899,7 @@ $('lobbySensitivity')?.addEventListener('input', e => {
   saveGameSettings(); refreshSettingsUI(); refreshLobbySettingsUI();
 });
 $('lobbyVerticalSensitivity')?.addEventListener('input', e => {
-  gameSettings.verticalSensitivity = clampSetting(e.target.value, 0.5, 3, 0.9);
+  gameSettings.verticalSensitivity = clampSetting(e.target.value, 0.25, 1.2, 0.45);
   saveGameSettings(); refreshSettingsUI(); refreshLobbySettingsUI();
 });
 $('lobbyShiftLockEnabled')?.addEventListener('change', e => {
@@ -5140,7 +5141,7 @@ function rendererPointerSetup() {
     lastX = e.clientX;
     lastY = e.clientY;
     targetYaw -= dx * .008 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch - dy * .014 * gameSettings.verticalSensitivity, -.78, .78);
+    targetPitch = THREE.MathUtils.clamp(targetPitch - dy * .0036 * gameSettings.verticalSensitivity, -.52, .52);
   });
 
   const end = e => {
@@ -5826,7 +5827,7 @@ function animate() {
   } else if (myPlayer) {
     const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
-    const viewPitch = THREE.MathUtils.clamp(pitch, -.78, .78);
+    const viewPitch = THREE.MathUtils.clamp(pitch, -.52, .52);
     const viewCos = Math.cos(viewPitch);
     const viewForwardX = -Math.sin(yaw) * viewCos;
     const viewForwardY = Math.sin(viewPitch);
@@ -5899,7 +5900,7 @@ try {
     });
   }
 } catch (error) {
-  console.error('[O Último Legado] Falha ao inicializar os gráficos 3D:', error);
+  console.error('[Last Legacy] Falha ao inicializar os gráficos 3D:', error);
   const bootError = document.createElement('div');
   bootError.setAttribute('role', 'alert');
   bootError.textContent = 'Não foi possível iniciar os gráficos 3D. Recarregue a página e tente novamente.';
