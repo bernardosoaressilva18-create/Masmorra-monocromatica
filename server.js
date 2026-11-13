@@ -1455,7 +1455,10 @@ wss.on('connection', ws => {
         else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};const count=area(center,5.8,8,1.5);text='♨ Terremoto! '+count+' rival(is) atingido(s).';}
         else if(ability==='healer_sanctuary'){let healed=0;for(const ally of room.players.values()){if(ally.connected===false||ally.hp<=0||Math.hypot(ally.x-player.x,ally.z-player.z)>7)continue;const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+25);ally.shieldUntil=Math.max(ally.shieldUntil||0,now+1600);if(ally.hp>before)healed++;}center={x:player.x,z:player.z};text='✚ Santuário! '+healed+' aliado(s) receberam cura e proteção.';}
         else if(ability==='monk_spirit_wave'){center={x:player.x-Math.sin(player.rot||0)*1.8,z:player.z-Math.cos(player.rot||0)*1.8};const count=area(center,4.5,13,1.0);text='☯ Onda espiritual! '+count+' rival(is) atingido(s).';}
-        else if(ability==='golem_stone_guard'){player.shieldUntil=now+6500;text='⬟ Guarda de pedra! Armadura reforçada por 6,5 segundos.';}
+        else if(ability==='golem_stone_guard'){
+          player.stoneGuardUntil=now+4000;player.shieldUntil=player.stoneGuardUntil;player.dodgeUntil=player.stoneGuardUntil;
+          text='⬟ Guarda de Pedra: você se deita, fica imóvel e intangível por 4 segundos.';
+        }
         broadcast(room,{type:'classAbility',id:player.id,ability,x:player.x,z:player.z,center,targets,until:player.shieldUntil||player.invisibleUntil||player.ogreHasteUntil||0,text});
         broadcast(room,state(room));return;
       }
@@ -1707,7 +1710,7 @@ wss.on('connection', ws => {
       else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};for(const enemy of enemies())if(Math.hypot(enemy.x-player.x,enemy.z-player.z)<=5.8)damageEnemy(enemy,8,0,center,1.5);text='♨ Terremoto! O chão tremeu ao redor do Ogro.';}
       else if(ability==='healer_sanctuary'){let healed=0;for(const ally of room.players.values()){if(ally.connected===false||ally.hp<=0||Math.hypot(ally.x-player.x,ally.z-player.z)>7)continue;const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+25);ally.shieldUntil=Math.max(ally.shieldUntil||0,now+1800);if(ally.hp>before)healed++;}center={x:player.x,z:player.z};text='✚ Santuário! '+healed+' aliado(s) curado(s) e protegido(s).';}
       else if(ability==='monk_spirit_wave'){const heading=Number(player.rot)||0;center={x:player.x-Math.sin(heading)*1.8,z:player.z-Math.cos(heading)*1.8};let hits=0;for(const enemy of enemies())if(Math.hypot(enemy.x-center.x,enemy.z-center.z)<=4.5){damageEnemy(enemy,16,0,center,1.0);hits++;}text='☯ Onda espiritual: '+hits+' inimigo(s) atingido(s), 16 de dano.';}
-      else if(ability==='golem_stone_guard'){player.shieldUntil=now+6500;until=player.shieldUntil;text='⬟ Guarda de pedra! Armadura reforçada por 6,5 segundos.';}
+      else if(ability==='golem_stone_guard'){player.stoneGuardUntil=now+4000;player.shieldUntil=player.stoneGuardUntil;player.dodgeUntil=player.stoneGuardUntil;until=player.stoneGuardUntil;text='⬟ Guarda de Pedra: você se deita, fica imóvel e intangível por 4 segundos.';}
       broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text, rockFall });
       broadcast(room, state(room));
     } else if (msg.type === 'spell') {
@@ -2105,6 +2108,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
       ...(room.gameMode === 'pvp_rpg' ? players.filter(p=>p.hp>0).map(p=>({...p,alive:true,pvpPlayer:true,sourcePlayer:p})) : [])]
       .filter(enemy => enemy && enemy.alive && enemy.spawned !== false);
     for (const summon of room.summons) {
+      if (summon.summonType === 'stone_golem_clone') continue;
       if (summon.summonType === 'guardian_spirit') {
         // Espíritos não entram em combate corpo a corpo como esqueletos/goblins.
         // Buscam primeiro aliados feridos; se nenhum aliado ferido estiver mais perto,
