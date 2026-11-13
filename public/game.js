@@ -64,7 +64,9 @@ let sharedProgress={realm:Math.max(1,Math.min(3,Number(sharedProfileSeed.realm)|
 let levelProgress=(()=>{
  const saved=sharedProfileSeed.levelProgress&&typeof sharedProfileSeed.levelProgress==='object'?sharedProfileSeed.levelProgress:{};
  const upgrades=saved.upgrades&&typeof saved.upgrades==='object'?saved.upgrades:{};
- return {level:Math.max(1,Math.min(100,Math.floor(Number(saved.level)||1))),xp:Math.max(0,Number(saved.xp)||0),xpToNext:Math.max(100,Number(saved.xpToNext)||100),levelPoints:Math.max(0,Math.floor(Number(saved.levelPoints)||0)),upgrades:{...upgrades}};
+ const level=Math.max(1,Math.min(100,Math.floor(Number(saved.level)||1)));
+ const xpNeeded=Math.round(50+Math.max(0,level-1)*16+Math.pow(Math.max(0,level-1),1.16)*2);
+ return {level,xp:Math.max(0,Number(saved.xp)||0),xpToNext:xpNeeded,levelPoints:Math.max(0,Math.floor(Number(saved.levelPoints)||0)),upgrades:{...upgrades}};
 })();
 const LEVEL_UPGRADE_UI=[
  {id:'health',name:'Vida reforçada',desc:'+12 de vida máxima por ponto',max:10},
@@ -3844,7 +3846,7 @@ function awardOfflineExperience(baseAmount){
  p.levelUpgrades=p.levelUpgrades||{};
  const gained=Math.max(1,Math.round(baseAmount*(1+Math.min(.4,(Number(p.levelUpgrades.xp)||0)*.05))));
  p.xp=(p.xp||0)+gained;p.level=p.level||1;p.levelPoints=p.levelPoints||0;
- const need=()=>Math.round(100+Math.max(0,p.level-1)*32+Math.pow(Math.max(0,p.level-1),1.16)*4);
+ const need=()=>Math.round(50+Math.max(0,p.level-1)*16+Math.pow(Math.max(0,p.level-1),1.16)*2);
  let levels=0;while(p.level<100&&p.xp>=need()){p.xp-=need();p.level++;p.levelPoints++;levels++;}
  p.xpToNext=need();updateLevelHud(p);
  if(levels)showNotice('✦ SUBIU DE NÍVEL! Nível '+p.level+' · +'+levels+' ponto(s) de melhoria.');
