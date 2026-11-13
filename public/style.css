@@ -5012,3 +5012,51 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 @media (max-height: 500px) {
   #startScreen.start-screen { background-position: center 43%; }
 }
+
+
+/* Last Legacy: prévia de habilidades em 2D lateral, com HP animado. */
+.class-demo-stage{
+  min-height:178px;
+  aspect-ratio:3.04;
+  background:#101e31;
+  isolation:isolate;
+}
+.class-demo-canvas{
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  border-radius:9px;
+  image-rendering:auto;
+}
+.class-demo-stage .class-demo-stars,
+.class-demo-stage .class-demo-character,
+.class-demo-stage .class-demo-skill-icon,
+.class-demo-stage .class-demo-monster,
+.class-demo-stage .class-demo-damage{display:none!important}
+.class-demo-stage .class-demo-caption{
+  left:12px;
+  right:auto;
+  top:auto;
+  bottom:12px;
+  max-width:min(48%,250px);
+  padding:6px 8px;
+  border:1px solid #ffffff25;
+  border-radius:7px;
+  background:#071321d9;
+  transform:none;
+  text-align:left;
+  z-index:4;
+  backdrop-filter:blur(5px);
+}
+.class-demo-stage .class-demo-caption b{display:block;font-size:11px}
+.class-demo-stage .class-demo-caption span{display:block;font-size:8px;line-height:1.25}
+.class-demo-progress{height:3px;z-index:5}
+.class-demo-preview .class-demo-metrics{grid-template-columns:1.5fr 1fr}
+@media(max-width:430px){
+  .class-demo-stage{min-height:164px;aspect-ratio:2.05}
+  .class-demo-stage .class-demo-caption{left:8px;bottom:8px;max-width:54%;padding:5px 6px}
+  .class-demo-stage .class-demo-caption b{font-size:9px}
+  .class-demo-stage .class-demo-caption span{font-size:7px}
+}
