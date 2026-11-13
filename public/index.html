@@ -132,7 +132,13 @@
         <input id="lobbySensitivity" type="range" min="0.5" max="3" step="0.1" value="1.2">
         <label class="setting-range" for="lobbyVerticalSensitivity">Sensibilidade vertical <output id="lobbyVerticalSensitivityValue">0,9×</output></label>
         <input id="lobbyVerticalSensitivity" type="range" min="0.5" max="3" step="0.1" value="0.9">
-        <label class="setting-toggle"><input id="lobbyShiftLockEnabled" type="checkbox"> Shift Lock · câmera no ombro</label>
+        <label class="setting-toggle"><input id="lobbyShiftLockEnabled" type="checkbox"> Shift Lock · câmera centralizada e strafe lateral</label>
+        <label class="setting-range" for="lobbyCameraMode">Perspectiva da câmera</label>
+        <select id="lobbyCameraMode" class="settings-select">
+          <option value="first">1ª pessoa · visão pelos olhos</option>
+          <option value="second">2ª pessoa · câmera próxima</option>
+          <option value="third" selected>3ª pessoa · câmera distante</option>
+        </select>
         <label class="setting-range" for="lobbyCameraZoom">Zoom da câmera <output id="lobbyCameraZoomValue">9,5 m</output></label>
         <input id="lobbyCameraZoom" type="range" min="6" max="14" step="0.5" value="9.5">
         <label class="setting-range" for="lobbyGraphicsQuality">Qualidade gráfica</label>
@@ -165,7 +171,7 @@
   </section>
 
   <footer class="lobby-bottom-bar">
-    <button id="lobbyClassBtn" class="lobby-class-button" type="button"><small>CLASSE</small><strong id="lobbyClassCurrent">CAVALEIRO</strong><span>⌃</span></button>
+    <button id="lobbyClassBtn" class="lobby-class-button" type="button" aria-label="Escolher classe do aventureiro" title="Escolher classe"><small>CLASSE</small><strong id="lobbyClassCurrent">CAVALEIRO</strong><span>⌃</span></button>
     <button id="readyBtn" class="primary lobby-ready-button" type="button">ESTOU PRONTO</button>
     <button id="startMatchBtn" class="primary start-match lobby-start-button hidden" type="button" disabled>INICIAR PARTIDA</button>
   </footer>
@@ -195,7 +201,13 @@
     <input id="lookSensitivity" type="range" min="0.5" max="3" step="0.1" value="1.2">
     <label class="setting-range" for="lookVerticalSensitivity">Sensibilidade vertical <output id="lookVerticalSensitivityValue">0,9×</output></label>
     <input id="lookVerticalSensitivity" type="range" min="0.5" max="3" step="0.1" value="0.9">
-    <label class="setting-toggle"><input id="shiftLockEnabled" type="checkbox"> Shift Lock · câmera no ombro</label>
+    <label class="setting-toggle"><input id="shiftLockEnabled" type="checkbox"> Shift Lock · câmera centralizada e strafe lateral</label>
+    <label class="setting-range" for="cameraMode">Perspectiva da câmera</label>
+    <select id="cameraMode" class="settings-select">
+      <option value="first">1ª pessoa · visão pelos olhos</option>
+      <option value="second">2ª pessoa · câmera próxima</option>
+      <option value="third" selected>3ª pessoa · câmera distante</option>
+    </select>
     <label class="setting-range" for="cameraZoom">Zoom da câmera <output id="cameraZoomValue">9,5 m</output></label>
     <input id="cameraZoom" type="range" min="6" max="14" step="0.5" value="9.5">
     <label class="setting-range" for="graphicsQuality">Qualidade gráfica</label>
