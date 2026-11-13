@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "O Último Legado",
-  "short_name": "Último Legado",
-  "description": "RPG 3D multiplayer com classes, invocações de monstros e arena PvP.",
+  "name": "Last Legacy",
+  "short_name": "Last Legacy",
+  "description": "RPG 3D de fantasia com classes, mundos, monstros e chefes cooperativos.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",
