@@ -1435,12 +1435,12 @@ wss.on('connection', ws => {
       broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text, rockFall });
       broadcast(room, state(room));
     } else if (msg.type === 'spell') {
-      if (!room.started || player.hp <= 0 || player.playerClass !== 'mage') return;
+      const spellAllowed=(player.playerClass==='mage'&&['fire','lightning','arcane'].includes(msg.spell))||(player.playerClass==='necromancer'&&msg.spell==='bone');
+      if(!room.started||player.hp<=0||!spellAllowed)return;
       if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Você está na zona segura. Use esse tempo para melhorar suas habilidades.' })); return; }
-      const spell = msg.spell === 'fire' ? 'fire' : msg.spell === 'lightning' ? 'lightning' : null;
-      if (!spell) return;
-
-      const manaCost = spell === 'fire' ? 20 : 15;
+      const spell=String(msg.spell||'');
+      const manaCost={fire:20,lightning:15,arcane:18,bone:16}[spell];
+      if(!manaCost)return;
       if ((player.mana ?? 100) < manaCost) { ws.send(JSON.stringify({ type: 'notice', text: '✦ Mana insuficiente! Espere regenerar.' })); return; }
       player.mana=Math.max(0,(player.mana??100)-manaCost);
       const now=Date.now();
@@ -1451,7 +1451,7 @@ wss.on('connection', ws => {
         const target=candidates[0]?.p;
         if(!target){ws.send(JSON.stringify({type:'notice',text:'Nenhum rival na direção da magia.'}));broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:[]});broadcast(room,state(room));return;}
         const power=statsFor(player).spellPower*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1)*(hasSkill(player,'mana_surge')?1.25:1);
-        const damage=Math.max(1,Math.round((spell==='fire'?10:8)*power+(spell==='fire'&&hasSkill(player,'mage_ember')?1.5:0)));
+        const damage=Math.max(1,Math.round((spell==='fire'?10:spell==='lightning'?8:spell==='arcane'?14:16)*power+(spell==='fire'&&hasSkill(player,'mage_ember')?1.5:0)));
         const hitTargets=[];
         if(spell==='fire'){
           // Fireball explodes on impact; it should punish grouped rivals instead of acting like a basic attack.
@@ -1468,20 +1468,20 @@ wss.on('connection', ws => {
             hitTargets.push({x:victim.x,z:victim.z});
           }
           ws.send(JSON.stringify({type:'notice',text:'🔥 Bola de fogo! '+blastTargets.length+' rival(is) atingido(s), até '+damage+' de dano e queimadura.'}));
-        }else{
-          let previous=target;
-          const hitIds=new Set([String(target.id)]);
+        }else if(spell==='lightning'){
+          let previous=target;const hitIds=new Set([String(target.id)]);
           applyPvpPlayerDamage(room,player,target,damage);hitTargets.push({x:target.x,z:target.z});
           const maxHops=hasSkill(player,'mage_chain')?5:2;
           for(let hop=0;hop<maxHops;hop++){
-            const next=rivals.filter(p=>!hitIds.has(String(p.id))&&Math.hypot(p.x-previous.x,p.z-previous.z)<=4.6)
-              .sort((a,b)=>Math.hypot(a.x-previous.x,a.z-previous.z)-Math.hypot(b.x-previous.x,b.z-previous.z))[0];
-            if(!next)break;
-            hitIds.add(String(next.id));
-            applyPvpPlayerDamage(room,player,next,Math.max(1,Math.round(damage*(hop===0?.65:.45))));
+            const next=rivals.filter(p=>!hitIds.has(String(p.id))&&Math.hypot(p.x-previous.x,p.z-previous.z)<=4.6).sort((a,b)=>Math.hypot(a.x-previous.x,a.z-previous.z)-Math.hypot(b.x-previous.x,b.z-previous.z))[0];
+            if(!next)break;hitIds.add(String(next.id));applyPvpPlayerDamage(room,player,next,Math.max(1,Math.round(damage*(hop===0?.65:.45))));
             hitTargets.push({x:next.x,z:next.z});previous=next;
           }
           ws.send(JSON.stringify({type:'notice',text:'⚡ Raio em cadeia! '+hitTargets.length+' rival(is) atingido(s), até '+damage+' de dano.'}));
+        }else{
+          applyPvpPlayerDamage(room,player,target,damage);
+          hitTargets.push({x:target.x,z:target.z});
+          ws.send(JSON.stringify({type:'notice',text:spell==='bone'?'☽ Orbe ósseo acertou o rival!':'✦ Orbe arcano acertou o rival!'}));
         }
         broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:hitTargets});broadcast(room,state(room));return;
       }
@@ -1497,7 +1497,7 @@ wss.on('connection', ws => {
       const hitTargets = [];
       const applyDamage = (enemy, amount) => {
         if (!enemy || !enemy.alive) return;
-        const classPower = statsFor(player).spellPower * (hasSkill(player, 'mage_focus') ? 1.18 : 1) * (hasSkill(player, 'mage_mana') ? 1.15 : 1) * (hasSkill(player, 'mana_surge') ? 1.25 : 1);
+        const classPower=(player.playerClass==='mage'?statsFor(player).spellPower:1)*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1)*(hasSkill(player,'mana_surge')?1.25:1);
         const emberBonus = spell === 'fire' && hasSkill(player, 'mage_ember') ? 1.5 : 0;
         const bossBonus = enemy === room.boss && hasSkill(player, 'boss_hunter') ? 1.5 : 1;
         const executeBonus = enemy.hp / (enemy.maxHp || 1) <= .35 && hasSkill(player, 'executioner') ? 1.5 : 1;
@@ -1520,25 +1520,25 @@ wss.on('connection', ws => {
         }
       };
 
-      if (spell === 'fire') {
-        applyDamage(target, hasSkill(player, 'mage_starseer') ? 3 : 2);
-        if (target && target.alive) target.burnUntil = Date.now() + (hasSkill(player, 'mage_ember') ? 6500 : 3500);
-        player.ws.send(JSON.stringify({ type: 'notice', text: '🔥 Bola de fogo! Queimadura por ' + (hasSkill(player, 'mage_ember') ? '6' : '3') + ' segundos.' }));
-      } else {
-        applyDamage(target, 1.5);
-        // O raio perde força a cada salto: 0.9 no primeiro e 0.6 no segundo.
-        let previous = target;
-        const maxHops = hasSkill(player, 'mage_chain') ? 5 : 2;
-        for (let hop = 0; hop < maxHops; hop++) {
-          const next = room.monsters
-            .filter(m => m.alive && m.spawned && m !== previous && !hitTargets.some(t => t.x === m.x && t.z === m.z)
-              && Math.hypot(m.x - previous.x, m.z - previous.z) <= 5)
-            .sort((a, b) => Math.hypot(a.x-previous.x, a.z-previous.z) - Math.hypot(b.x-previous.x, b.z-previous.z))[0];
-          if (!next) break;
-          applyDamage(next, hop === 0 ? 0.9 : 0.6);
-          previous = next;
+      if(spell==='fire'){
+        applyDamage(target,hasSkill(player,'mage_starseer')?3:2);
+        if(target&&target.alive)target.burnUntil=Date.now()+(hasSkill(player,'mage_ember')?6500:3500);
+        player.ws.send(JSON.stringify({type:'notice',text:'🔥 Bola de fogo! Queimadura por '+(hasSkill(player,'mage_ember')?'6':'3')+' segundos.'}));
+      }else if(spell==='lightning'){
+        applyDamage(target,1.5);let previous=target;
+        const maxHops=hasSkill(player,'mage_chain')?5:2;
+        for(let hop=0;hop<maxHops;hop++){
+          const next=room.monsters.filter(m=>m.alive&&m.spawned&&m!==previous&&!hitTargets.some(t=>t.x===m.x&&t.z===m.z)&&Math.hypot(m.x-previous.x,m.z-previous.z)<=5).sort((a,b)=>Math.hypot(a.x-previous.x,a.z-previous.z)-Math.hypot(b.x-previous.x,b.z-previous.z))[0];
+          if(!next)break;applyDamage(next,hop===0?.9:.6);previous=next;
         }
-        player.ws.send(JSON.stringify({ type: 'notice', text: '⚡ Raio em cadeia! Dano reduzido por salto.' }));
+        player.ws.send(JSON.stringify({type:'notice',text:'⚡ Raio em cadeia! Dano reduzido por salto.'}));
+      }else if(spell==='arcane'){
+        applyDamage(target,3.2);
+        for(const extra of room.monsters.filter(m=>m.alive&&m.spawned&&m!==target&&Math.hypot(m.x-target.x,m.z-target.z)<=1.8).slice(0,2))applyDamage(extra,1.4);
+        player.ws.send(JSON.stringify({type:'notice',text:'✦ Orbe arcano atingiu o inimigo!'}));
+      }else{
+        applyDamage(target,3.8);target.stunnedUntil=Date.now()+850;
+        player.ws.send(JSON.stringify({type:'notice',text:'☽ Orbe ósseo! Inimigo desacelerado.'}));
       }
       broadcast(room, { type: 'spell', id: player.id, spell, x: player.x, z: player.z, targets: hitTargets });
       broadcast(room, state(room));
