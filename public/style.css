@@ -5647,3 +5647,28 @@ html,body,#game{
   .skill-rpg-node,
   .skill-description-card { max-width: 100%; min-width: 0; }
 }
+
+
+/* Last Legacy — painel de classes estável em telas móveis e sem âncora de rolagem saltitante. */
+#lobby .lobby-editor{
+  top:max(10px,env(safe-area-inset-top));
+  bottom:max(10px,env(safe-area-inset-bottom));
+  left:50%;
+  transform:translateX(-50%);
+  height:fit-content;
+  max-height:calc(100dvh - 20px);
+  margin-block:auto;
+  overflow:hidden;
+  overflow-anchor:none;
+}
+#lobby .lobby-editor-content{
+  min-height:0;
+  overflow-anchor:none;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+}
+#lobby [data-lobby-editor-panel="class"]{overflow-anchor:none}
+#lobby .class-cards{align-content:start}
+@media(prefers-reduced-motion:reduce){
+  #lobby .lobby-editor,#lobby .class-card{scroll-behavior:auto!important;transition:none!important}
+}
