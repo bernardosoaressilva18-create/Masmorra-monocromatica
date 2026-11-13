@@ -2159,6 +2159,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.blinkTimer = 2.4 + Math.random()*2.8;
   g.userData.blinkRemaining = 0;
   g.userData.visualModelRevision='humanoid-silhouette-v3';
+  // Proporção geral um pouco mais esguia sem reduzir a altura nem a leitura das classes.
+  g.scale.set(.94,1,.96);
   attachHealthBar(g);
   return g;
 }
@@ -2401,6 +2403,32 @@ function interactChest() {
   if (!nearest || distance > 3.0) { showNotice('Chegue perto de um baú.'); return; }
   playSfx('chest');
   send({ type: 'openChest', id: nearest.id });
+}
+
+function makeStoneFragment(color=0x858d91){
+  const g=new THREE.Group();
+  const stone=new THREE.MeshStandardMaterial({color,roughness:.94,metalness:.08,flatShading:true});
+  const seam=new THREE.MeshStandardMaterial({color:0x53636a,roughness:.88,metalness:.12});
+  const glow=new THREE.MeshStandardMaterial({color:0xc9f2ad,emissive:0x506c3d,emissiveIntensity:.7,roughness:.32});
+  const shadow=addSoftContactShadow(g,.62,.5);shadow.position.y=.025;
+  const pieces=[
+    [-.18,.22,0,.28,.27,.30], [.20,.18,.04,.31,.24,.25],
+    [0,.42,-.08,.26,.28,.23], [-.23,.12,.21,.17,.16,.20],
+    [.22,.11,-.18,.19,.16,.22], [0,.09,-.28,.16,.14,.12]
+  ];
+  pieces.forEach((p,index)=>{
+    const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(1,index%3===0?1:0),index===5?glow:stone);
+    rock.position.set(p[0],p[1],p[2]);rock.scale.set(p[3],p[4],p[5]);
+    rock.rotation.set(index*.18,index*.47,index*-.13);
+    rock.castShadow=!isMobileDevice;rock.receiveShadow=!isMobileDevice;g.add(rock);
+  });
+  const crack=new THREE.Mesh(new THREE.BoxGeometry(.055,.025,.24),seam);
+  crack.position.set(.05,.34,-.17);crack.rotation.z=.42;g.add(crack);
+  attachHealthBar(g);
+  if(g.userData.healthBar)g.userData.healthBar.position.y=.9;
+  g.userData.isStoneFragment=true;
+  g.userData.playerClass='golem_clone';
+  return g;
 }
 
 function makeMonster(kind = 'stalker', phase = 1) {
@@ -4862,7 +4890,9 @@ function updateState(m) {
           if (Math.abs(dx) > 1.6) myPlayer.position.x += dx * 0.12;
           if (Math.abs(dz) > 1.6) myPlayer.position.z += dz * 0.12;
         }
-        myPlayer.position.y=getDungeonFloorHeight(myPlayer.position.x,myPlayer.position.z);
+        const localGuarding=Date.now()<(Number(p.stoneGuardUntil)||0);
+        myPlayer.rotation.x=localGuarding?-Math.PI/2:0;
+        myPlayer.position.y=getDungeonFloorHeight(myPlayer.position.x,myPlayer.position.z)+(localGuarding?-.38:0);
       }
       continue;
     }
@@ -4887,6 +4917,8 @@ function updateState(m) {
     if (obj.userData.playerClass !== (p.playerClass || 'knight') || obj.userData.skin !== (p.skin || 'default')) {
       const replacement = makeHero(p.color, p.playerClass || 'knight', p.skin || 'default');
       replacement.userData.targetX = p.x; replacement.userData.targetZ = p.z; replacement.userData.targetRot = p.rot;
+      replacement.userData.targetY = getDungeonFloorHeight(p.x,p.z)+(remoteGuarding?-.38:0);
+      replacement.rotation.x=remoteGuarding?-Math.PI/2:0;
       replacement.userData.playerClass = p.playerClass || 'knight'; replacement.userData.skin = p.skin || 'default';
       scene.remove(obj); scene.add(replacement); remotePlayers.set(p.id, replacement); obj = replacement;
     }
@@ -4919,12 +4951,14 @@ function updateState(m) {
     // Never render a known summon as a goblin just because its type alias is unfamiliar.
     const summonClass = isGolemClone ? 'golem_clone' : isSkeleton ? 'skeleton' :
       (['goblin','golem_clone','skeleton'].includes(summonClassHint) ? summonClassHint : 'goblin');
-    if (!obj || (!!obj.userData.isGuardianSpirit !== isGuardianSpirit) || (!isGuardianSpirit && obj.userData.playerClass !== summonClass)) {
+    if (!obj || (!!obj.userData.isGuardianSpirit !== isGuardianSpirit) || (!!obj.userData.isStoneFragment !== isGolemClone) || (!isGuardianSpirit && !isGolemClone && obj.userData.playerClass !== summonClass)) {
       if (obj) { scene.remove(obj); disposeObject3D(obj); }
       obj = isGuardianSpirit
         ? makeGuardianSpirit(summon.color || 0x8cffe8)
-        : makeHero(summon.color || (isSkeleton ? 0xe0dccb : isGolemClone ? 0x8a9096 : 0x80c86b), summonClass, isSkeleton ? 'shadow' : 'default');
+        : isGolemClone ? makeStoneFragment(summon.color || 0x858d91)
+        : makeHero(summon.color || (isSkeleton ? 0xe0dccb : 0x80c86b), summonClass, isSkeleton ? 'shadow' : 'default');
       obj.userData.isGuardianSpirit = isGuardianSpirit;
+      obj.userData.isStoneFragment = isGolemClone;
       obj.userData.playerClass = isGuardianSpirit ? 'guardian_spirit' : summonClass;
       obj.userData.skin = summon.skin || (isSkeleton ? 'shadow' : 'default');
       scene.add(obj); remotePlayers.set(id, obj);
