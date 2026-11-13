@@ -63,8 +63,9 @@ try { storedGameSettings = JSON.parse(localStorage.getItem('mmGameSettings') || 
 const gameSettings = {
   sensitivity: clampSetting(storedGameSettings.sensitivity, 0.5, 3, 1.2),
   verticalSensitivity: clampSetting(storedGameSettings.verticalSensitivity, 0.5, 3, 0.9),
-  shiftLock: storedGameSettings.cameraControlsVersion === 2 && storedGameSettings.shiftLock === true,
-  cameraControlsVersion: 2,
+  shiftLock: Number(storedGameSettings.cameraControlsVersion) >= 2 && storedGameSettings.shiftLock === true,
+  cameraControlsVersion: 3,
+  cameraMode: ['first','second','third'].includes(storedGameSettings.cameraMode) ? storedGameSettings.cameraMode : 'third',
   cameraZoom: clampSetting(storedGameSettings.cameraZoom, 6, 14, 9.5),
   graphicsQuality: ['low','balanced','high'].includes(storedGameSettings.graphicsQuality) ? storedGameSettings.graphicsQuality : 'balanced',
   haptics: storedGameSettings.haptics !== false,
@@ -1838,6 +1839,16 @@ function chooseClass(className) {
   updateClassAbilityButtons();
   updateHeroShowcase();
   refreshLocalHeroAppearance();
+  if (offlineMode && offlineState?.players?.[0]) {
+    const offlinePlayer = offlineState.players[0];
+    offlinePlayer.playerClass = selectedClass;
+    offlinePlayer.skin = selectedSkin;
+    offlinePlayer.skills = Array.from(unlockedSkills);
+    offlinePlayer.talentPoints = skillPoints;
+    offlinePlayer.maxHp = Math.max(1, Number(offlinePlayer.maxHp) || 130);
+    offlinePlayer.hp = Math.min(offlinePlayer.maxHp, Math.max(1, Number(offlinePlayer.hp) || offlinePlayer.maxHp));
+    if (!offlineState.started) updateState(offlineState);
+  }
   sendLoadout();
   showNotice('Classe alterada para ' + (CLASS_NAMES_UI[selectedClass] || selectedClass.toUpperCase()) + '. A árvore foi atualizada.');
   closeLobbyEditor();
@@ -1850,6 +1861,11 @@ function chooseSkin(skinName) {
   document.querySelectorAll('.skin-pick').forEach(el => el.classList.toggle('selected', el.dataset.skin === selectedSkin));
   updateHeroShowcase();
   refreshLocalHeroAppearance();
+  if (offlineMode && offlineState?.players?.[0]) {
+    offlineState.players[0].skin = selectedSkin;
+    offlineState.players[0].playerClass = selectedClass;
+    if (!offlineState.started) updateState(offlineState);
+  }
   sendLoadout();
   closeLobbyEditor();
 }
@@ -2321,14 +2337,15 @@ function startOfflineExploration() {
     syncLoadoutUI();
     updateClassAbilityButtons();
   }
-  updateState({...offlineState, started:false});
+  offlineState.started = false;
   updateState(offlineState);
   renderInventory();
   $('roomLabel').textContent = 'OFFLINE';
   $('lobbyRoomCode').textContent = 'OFFLINE';
-  showNotice('Exploração temporária iniciada · o progresso não é salvo.');
+  openLobbyEditor('class');
+  showNotice('Modo offline · escolha sua classe e toque em INICIAR PARTIDA. O progresso não é salvo.');
   if (offlineLoop) clearInterval(offlineLoop);
-  offlineLoop = setInterval(stepOfflineSimulation, 220);
+  offlineLoop = null;
 }
 
 function offlineHasSkill(id) {
@@ -3565,8 +3582,27 @@ function requestPublicRooms() {
 $('publicRoomsBtn')?.addEventListener('click', requestPublicRooms);
 $('refreshPublicRoomsBtn')?.addEventListener('click', requestPublicRooms);
 
-$('readyBtn').addEventListener('click', () => send({ type: 'ready' }));
-$('startMatchBtn').addEventListener('click', () => send({ type: 'startMatch' }));
+$('readyBtn').addEventListener('click', () => {
+  if (offlineMode && offlineState?.players?.[0]) {
+    offlineState.players[0].ready = !offlineState.players[0].ready;
+    updateState({ ...offlineState, started: false });
+    return;
+  }
+  send({ type: 'ready' });
+});
+$('startMatchBtn').addEventListener('click', () => {
+  if (offlineMode && offlineState?.players?.[0]) {
+    const self = offlineState.players[0];
+    if (!self.ready) { showNotice('Marque ESTOU PRONTO antes de começar.'); return; }
+    offlineState.started = true;
+    updateState(offlineState);
+    if (offlineLoop) clearInterval(offlineLoop);
+    offlineLoop = setInterval(stepOfflineSimulation, 220);
+    showNotice('Exploração offline iniciada · classe ' + (CLASS_NAMES_UI[selectedClass] || selectedClass) + '.');
+    return;
+  }
+  send({ type: 'startMatch' });
+});
 
 const inventoryPanel = document.querySelector('.inventory-panel');
 const inventoryToggleBtn = $('inventoryToggleBtn');
@@ -3897,6 +3933,8 @@ function refreshSettingsUI() {
   $('lookVerticalSensitivity').value = String(gameSettings.verticalSensitivity);
   $('lookVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
   $('shiftLockEnabled').checked = gameSettings.shiftLock;
+  $('cameraMode').value = gameSettings.cameraMode;
+  $('cameraZoom').disabled = gameSettings.cameraMode === 'first';
   $('cameraZoom').value = String(gameSettings.cameraZoom);
   $('cameraZoomValue').textContent = gameSettings.cameraZoom.toFixed(1).replace('.', ',') + ' m';
   $('graphicsQuality').value = gameSettings.graphicsQuality;
@@ -3950,8 +3988,18 @@ $('shiftLockEnabled').addEventListener('change', e => {
   gameSettings.shiftLock = e.target.checked;
   shiftLockEnabled = gameSettings.shiftLock;
   saveGameSettings();
-  showNotice(shiftLockEnabled ? 'Shift Lock ativado · câmera no ombro.' : 'Shift Lock desativado.');
+  showNotice(shiftLockEnabled ? 'Shift Lock ativado · câmera centralizada e strafe lateral.' : 'Shift Lock desativado · personagem acompanha o movimento.');
 });
+function setCameraMode(mode) {
+  if (!['first','second','third'].includes(mode)) return;
+  gameSettings.cameraMode = mode;
+  saveGameSettings();
+  refreshSettingsUI();
+  refreshLobbySettingsUI();
+  showNotice('Câmera: ' + ({first:'1ª pessoa',second:'2ª pessoa · próxima',third:'3ª pessoa · distante'}[mode]) + '.');
+}
+$('cameraMode').addEventListener('change', e => setCameraMode(e.target.value));
+$('lobbyCameraMode')?.addEventListener('change', e => setCameraMode(e.target.value));
 $('cameraZoom').addEventListener('input', e => {
   gameSettings.cameraZoom = clampSetting(e.target.value, 6, 14, 9.5);
   cameraDistance = gameSettings.cameraZoom;
@@ -4001,6 +4049,8 @@ function refreshLobbySettingsUI() {
   $('lobbyVerticalSensitivity').value = String(gameSettings.verticalSensitivity);
   $('lobbyVerticalSensitivityValue').textContent = gameSettings.verticalSensitivity.toFixed(1).replace('.', ',') + '×';
   $('lobbyShiftLockEnabled').checked = gameSettings.shiftLock;
+  $('lobbyCameraMode').value = gameSettings.cameraMode;
+  $('lobbyCameraZoom').disabled = gameSettings.cameraMode === 'first';
   $('lobbyCameraZoom').value = String(gameSettings.cameraZoom);
   $('lobbyCameraZoomValue').textContent = gameSettings.cameraZoom.toFixed(1).replace('.', ',') + ' m';
   $('lobbyGraphicsQuality').value = gameSettings.graphicsQuality;
@@ -4481,11 +4531,12 @@ function animate() {
       myPlayer.position.x = nextPosition.x;
       myPlayer.position.z = nextPosition.z;
 
-      myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+      if (!shiftLockEnabled) myPlayer.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
     }
 
-    // Face the view direction even when standing still, so PvP aiming uses the camera.
-    myPlayer.rotation.y = yaw;
+    // Shift Lock mantém o herói alinhado à câmera; o movimento lateral vira strafe.
+    // Sem Shift Lock, o personagem acompanha a direção em que está caminhando.
+    if (shiftLockEnabled) myPlayer.rotation.y = yaw;
     if (performance.now() - lastMove > 120) {
       send({
         type: 'move',
@@ -4932,18 +4983,27 @@ function animate() {
     const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
     const dist=cameraDistance+introBlend*2.8;
-    const shoulder = shiftLockEnabled ? 1.15 : 0;
-    const cameraTarget=cameraPositionScratch.set(
-      target.x+Math.sin(yaw)*dist+Math.cos(yaw)*shoulder,
-      target.y+3.0+pitch*2+introBlend*.65,
-      target.z+Math.cos(yaw)*dist-Math.sin(yaw)*shoulder
-    );
-    camera.position.lerp(cameraTarget, cameraSmooth);
-    camera.lookAt(target.x, target.y + 0.15, target.z);
+    if (gameSettings.cameraMode === 'first') {
+      // Primeira pessoa: câmera centralizada na altura dos olhos, sem deslocamento lateral.
+      cameraPositionScratch.set(target.x + Math.sin(yaw) * 0.06, 1.62, target.z + Math.cos(yaw) * 0.06);
+      camera.position.lerp(cameraPositionScratch, 1 - Math.exp(-18 * dt));
+      camera.lookAt(target.x - Math.sin(yaw) * 12, 1.62 - pitch * 8, target.z - Math.cos(yaw) * 12);
+    } else {
+      // Shift Lock mantém a câmera centralizada e permite strafe lateral sem girar a visão.
+      const dist = gameSettings.cameraMode === 'second' ? THREE.MathUtils.clamp(cameraDistance * 0.52, 3.2, 6.5) : cameraDistance;
+      const cameraHeight = gameSettings.cameraMode === 'second' ? 2.25 : 3.0;
+      cameraPositionScratch.set(
+        target.x + Math.sin(yaw) * (dist + introBlend * 2.8),
+        target.y + cameraHeight + pitch * (gameSettings.cameraMode === 'second' ? 1.35 : 2) + introBlend * 0.65,
+        target.z + Math.cos(yaw) * (dist + introBlend * 2.8)
+      );
+      camera.position.lerp(cameraPositionScratch, cameraSmooth);
+      camera.lookAt(target.x, target.y + 0.15, target.z);
+    }
   }
 
   const lobbyVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
-  if (myPlayer) myPlayer.visible = !lobbyVisible;
+  if (myPlayer) myPlayer.visible = !lobbyVisible && gameSettings.cameraMode !== 'first';
   for (const obj of remotePlayers.values()) obj.visible = !lobbyVisible;
   updatePerformanceMonitor();
   const lobbyOverlayVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
