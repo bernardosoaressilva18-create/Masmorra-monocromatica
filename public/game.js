@@ -416,6 +416,11 @@ const staticDungeonColliders = [
     ];
   })
 ];
+function isChestClaimedByLocal(chest){
+  return Array.isArray(chest?.openedBy)
+    ? chest.openedBy.some(id=>String(id)===String(playerId))
+    : !!chest?.opened;
+}
 function isDungeonPositionBlocked(x,z){
   const playerRadius=.43;
   if(offlineMode&&offlineState?.started){
@@ -429,6 +434,7 @@ function isDungeonPositionBlocked(x,z){
     if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
   }
   for (const chest of latestChests || []) {
+    if (isChestClaimedByLocal(chest)) continue;
     if (Math.hypot(x - chest.x, z - chest.z) < playerRadius + 0.62) return true;
   }
   return false;
@@ -5144,10 +5150,7 @@ function updateState(m) {
     }
   }
   latestChests = isPvpRpg ? [] : (m.chests || []);
-  const chestClaimedByLocal=chest=>Array.isArray(chest.openedBy)
-    ? chest.openedBy.some(id=>String(id)===String(playerId))
-    : !!chest.opened;
-  const nearbyChest = latestChests.find(chest => !chestClaimedByLocal(chest) && myPlayer && Math.hypot(chest.x - myPlayer.position.x, chest.z - myPlayer.position.z) <= 3.4);
+  const nearbyChest = latestChests.find(chest => !isChestClaimedByLocal(chest) && myPlayer && Math.hypot(chest.x - myPlayer.position.x, chest.z - myPlayer.position.z) <= 3.4);
   const chestButton = $('chestBtn');
   if (chestButton) {
     chestButton.classList.toggle('hidden', !nearbyChest);
@@ -5164,7 +5167,7 @@ function updateState(m) {
     }
     obj.userData.chestId = chest.id;
     obj.position.set(chest.x,getDungeonFloorHeight(chest.x,chest.z),chest.z);
-    obj.visible = !chestClaimedByLocal(chest);
+    obj.visible = !isChestClaimedByLocal(chest);
   }
 
   let alive = 0;
