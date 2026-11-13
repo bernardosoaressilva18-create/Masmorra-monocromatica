@@ -1202,6 +1202,35 @@ function buildEclipseWorld(){
     }
     index++;
   });
+  // Estruturas suspensas e cristais de ponta para fazer o terceiro mundo parecer de cabeça para baixo.
+  const invertedStone=new THREE.MeshStandardMaterial({color:0x34213e,roughness:.88,metalness:.18,emissive:0x260f35,emissiveIntensity:.55});
+  const invertedCrystal=new THREE.MeshStandardMaterial({color:0xd14c78,roughness:.24,metalness:.28,emissive:0x9c174f,emissiveIntensity:1.25});
+  const hangingGeometry=new THREE.ConeGeometry(.74,2.75,7);
+  const hangingTowers=new THREE.InstancedMesh(hangingGeometry,invertedStone,MAP_ZONE_CENTERS.length*2);
+  const hangingCrystals=new THREE.InstancedMesh(new THREE.OctahedronGeometry(.34,0),invertedCrystal,MAP_ZONE_CENTERS.length*3);
+  const invertedDummy=new THREE.Object3D();
+  let hangingIndex=0,crystalIndex=0;
+  for(let zone=0;zone<MAP_ZONE_CENTERS.length;zone++){
+    const center=MAP_ZONE_CENTERS[zone];
+    for(const side of [-1,1]){
+      invertedDummy.position.set(side*(7.5+(zone%2)*1.3),5.85,center+(zone%2?3:-3));
+      invertedDummy.rotation.set(Math.PI,side*.12,zone*.2);
+      invertedDummy.scale.set(1,1+(zone%3)*.12,1);
+      invertedDummy.updateMatrix();hangingTowers.setMatrixAt(hangingIndex++,invertedDummy.matrix);
+      invertedDummy.position.set(side*(6.4+(zone%2)),4.95,center+(zone%2?-5:5));
+      invertedDummy.rotation.set(Math.PI*.72,side*.38,zone*.34);
+      invertedDummy.scale.set(.82,1.25,.82);
+      invertedDummy.updateMatrix();hangingCrystals.setMatrixAt(crystalIndex++,invertedDummy.matrix);
+      invertedDummy.position.set(side*10.2,4.65,center);
+      invertedDummy.rotation.set(Math.PI*.85,zone*.6,side*.2);
+      invertedDummy.scale.set(.52,.9,.52);
+      invertedDummy.updateMatrix();hangingCrystals.setMatrixAt(crystalIndex++,invertedDummy.matrix);
+    }
+    const invertedRune=new THREE.Mesh(new THREE.TorusGeometry(2.4,.045,6,32),new THREE.MeshBasicMaterial({color:0xff6b96,transparent:true,opacity:.34,side:THREE.DoubleSide}));
+    invertedRune.rotation.x=Math.PI/2;invertedRune.position.set(0,4.25,center);invertedRune.scale.set(1.45,1,1);eclipse.add(invertedRune);
+  }
+  hangingTowers.count=hangingIndex;hangingTowers.instanceMatrix.needsUpdate=true;hangingTowers.name='inverted-hanging-pillars';eclipse.add(hangingTowers);
+  hangingCrystals.count=crystalIndex;hangingCrystals.instanceMatrix.needsUpdate=true;hangingCrystals.name='inverted-suspended-crystals';eclipse.add(hangingCrystals);
   const frame=new THREE.MeshStandardMaterial({color:0x9a3f45,emissive:0x5d1524,emissiveIntensity:1.3,metalness:.5,roughness:.25});
   eclipsePortal=new THREE.Group();
   const arch=new THREE.Mesh(new THREE.TorusGeometry(1.72,.095,10,64),frame);arch.scale.set(1.48,1.17,1);arch.position.set(0,2.08,-.3);eclipsePortal.add(arch);
