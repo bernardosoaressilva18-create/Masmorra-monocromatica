@@ -1667,7 +1667,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
     add(new THREE.TorusGeometry(.25,.065,7,20),targetMat,0,1.58,-.205,1,1,.8).rotation.x=Math.PI/2;
     for(const side of [-1,1]){
       const arm=limb(new THREE.CapsuleGeometry(.085,.48,3,7),woodMat,side*.37,1.72,0,1,1,1,side);
-      arm.rotation.z=side*.72;
+      arm.rotation.z=side*.72;animatedLimbs[animatedLimbs.length-1].baseRotationZ=arm.rotation.z;
       const leg=add(new THREE.CylinderGeometry(.075,.10,.45,7),darkWood,side*.15,.42,0);
       leg.rotation.z=side*.10;
     }
