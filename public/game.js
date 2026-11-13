@@ -24,7 +24,9 @@ gameModeSelect?.addEventListener('change', () => {
 });
 syncGameModeChoice();
 let lobbyPreviewScene = null, lobbyPreviewCamera = null, lobbyPreviewHero = null, lobbyPreviewPlatform = null, lobbyPreviewRing = null, lobbyPreviewParticles = null, lobbyPreviewRunes = null, lobbyPreviewCrystals = null, lobbyPreviewCompanions = null;
+let lobbyPreviewExitingHero = null, lobbyPreviewTransitionStartedAt = 0, lobbySelectionBurstStartedAt = 0;
 let lobbyPreviewRosterSignature = '';
+let dayNightHemisphereLight = null, dayNightSunLight = null, dayNightMoonLight = null;
 let activeEnvironmentGroup=null;
 const environmentGroups=Object.create(null);
 let currentRealmVisual=1,realmPortal=null,realmPortalCore=null,realmPortalRing=null,astralStarField=null;
@@ -317,9 +319,11 @@ function init3D() {
   document.body.appendChild(perfBadge);
 
   clock = new THREE.Clock();
-  scene.add(new THREE.HemisphereLight(0xc8e2ff, 0x302339, 2.72));
-  // Luz principal e luzes de recorte deixam os materiais legíveis inclusive no celular.
+  dayNightHemisphereLight = new THREE.HemisphereLight(0xc8e2ff, 0x302339, 2.72);
+  scene.add(dayNightHemisphereLight);
+  // Luz principal dinâmica: acompanha o ciclo de dia/noite sem criar luzes por frame.
   const fillLight = new THREE.DirectionalLight(0x9dc5ff, 0.92);
+  dayNightSunLight = fillLight;
   fillLight.position.set(8, 7, -18);
   scene.add(fillLight);
   const warmRimLight = new THREE.DirectionalLight(0xffd7a1, 0.78);
@@ -340,6 +344,7 @@ function init3D() {
   const bossGlow = new THREE.PointLight(0xff245b, 32, 20, 2); bossGlow.position.set(0, 3, -29); if (!isMobileDevice) scene.add(bossGlow);
 
   const moon = new THREE.DirectionalLight(0xb5d9ff, 1.4);
+  dayNightMoonLight = moon;
   moon.position.set(-6, 12, 5);
   moon.castShadow = !isMobileDevice;
   moon.shadow.mapSize.set(1024, 1024);
@@ -359,6 +364,35 @@ function init3D() {
 }
 
 let softContactShadowTexture = null;
+function updateDayNightCycle(worldTime) {
+  if (!scene || !dayNightHemisphereLight || !dayNightSunLight) return;
+  // Um dia completo dura quatro minutos reais; o ciclo começa de dia para facilitar a leitura.
+  const phase = ((worldTime / 240) + 0.25) % 1;
+  const sunAngle = phase * Math.PI * 2;
+  const rawDaylight = (Math.sin(sunAngle) + 0.18) / 1.18;
+  const daylight = THREE.MathUtils.smoothstep(rawDaylight, 0, 1);
+  const night = 1 - daylight;
+  const realmTint = currentRealmVisual === 3 ? 0.12 : currentRealmVisual === 2 ? 0.07 : 0;
+
+  dayNightSunLight.position.set(Math.cos(sunAngle) * 18, Math.max(-3, Math.sin(sunAngle) * 15 + 1), 4);
+  dayNightSunLight.intensity = 0.18 + daylight * 1.18;
+  dayNightSunLight.color.setRGB(
+    0.42 + daylight * 0.58,
+    0.52 + daylight * 0.42,
+    0.78 - daylight * 0.12
+  );
+  dayNightHemisphereLight.intensity = 0.62 + daylight * 1.72;
+  dayNightHemisphereLight.color.setRGB(0.16 + daylight * 0.62, 0.22 + daylight * 0.58, 0.48 + daylight * 0.46);
+  dayNightHemisphereLight.groundColor.setRGB(0.025 + daylight * 0.15, 0.035 + daylight * 0.13, 0.075 + daylight * 0.10);
+  if (dayNightMoonLight) dayNightMoonLight.intensity = isMobileDevice ? 0 : 0.08 + night * 0.82;
+
+  const skyR = 0.012 + daylight * (0.055 - realmTint * 0.08);
+  const skyG = 0.018 + daylight * (0.105 - realmTint * 0.18);
+  const skyB = 0.038 + daylight * (0.19 + realmTint * 0.24);
+  if (scene.background?.isColor) scene.background.setRGB(skyR, skyG, skyB);
+  if (scene.fog) scene.fog.color.setRGB(skyR, skyG, skyB);
+}
+
 function getSoftContactShadowTexture() {
   if (softContactShadowTexture) return softContactShadowTexture;
   const canvas = document.createElement('canvas');
@@ -2260,13 +2294,29 @@ function initLobby3DPreview() {
 }
 function refreshLobby3DPreview() {
   if (!lobbyPreviewScene) return;
-  if (lobbyPreviewHero) { lobbyPreviewScene.remove(lobbyPreviewHero); disposeObject3D(lobbyPreviewHero); lobbyPreviewHero = null; }
+  const now = performance.now();
+  if (lobbyPreviewExitingHero) {
+    lobbyPreviewScene.remove(lobbyPreviewExitingHero);
+    disposeObject3D(lobbyPreviewExitingHero);
+    lobbyPreviewExitingHero = null;
+  }
+  if (lobbyPreviewHero) {
+    lobbyPreviewExitingHero = lobbyPreviewHero;
+    lobbyPreviewExitingHero.userData.lobbyExitStartedAt = now;
+    lobbyPreviewExitingHero.userData.lobbyExitBaseScale = lobbyPreviewExitingHero.scale.x;
+    lobbyPreviewExitingHero.userData.lobbyExitBaseY = lobbyPreviewExitingHero.position.y;
+  }
   lobbyPreviewHero = makeHero(null, selectedClass || 'knight', selectedSkin || 'default');
-  lobbyPreviewHero.scale.setScalar(selectedClass==='ogre'||selectedClass==='golem'?1.02:.98);
-  lobbyPreviewHero.position.set(0,0,0);
+  const baseScale = selectedClass==='ogre'||selectedClass==='golem'?1.02:.98;
+  lobbyPreviewHero.userData.lobbyEntryBaseScale = baseScale;
+  lobbyPreviewHero.userData.lobbyEntryStartedAt = now;
+  lobbyPreviewHero.scale.setScalar(.035);
+  lobbyPreviewHero.position.set(0,-.28,0);
   lobbyPreviewHero.rotation.y = Math.PI;
   if (lobbyPreviewHero.userData.healthBar) lobbyPreviewHero.userData.healthBar.visible = false;
   lobbyPreviewScene.add(lobbyPreviewHero);
+  lobbyPreviewTransitionStartedAt = now;
+  lobbySelectionBurstStartedAt = now;
 }
 function refreshLobby3DCompanions(players) {
   if (!lobbyPreviewScene) return;
@@ -2319,6 +2369,24 @@ function renderLobby3DPreview() {
     avatar.rotation.y = Math.PI + (index===0 ? -.12 : .12) + Math.sin(time*.28+index)*.045;
     avatar.position.y = Math.sin(time*1.05+index*2.1)*.018;
   });
+  const now = performance.now();
+  if (lobbyPreviewExitingHero) {
+    const exitProgress = THREE.MathUtils.clamp((now - lobbyPreviewExitingHero.userData.lobbyExitStartedAt) / 360, 0, 1);
+    const exitScale = lobbyPreviewExitingHero.userData.lobbyExitBaseScale * (1 - exitProgress);
+    lobbyPreviewExitingHero.scale.setScalar(Math.max(.001, exitScale));
+    lobbyPreviewExitingHero.position.y = lobbyPreviewExitingHero.userData.lobbyExitBaseY + exitProgress * .34;
+    lobbyPreviewExitingHero.rotation.y += .035;
+    if (exitProgress >= 1) {
+      lobbyPreviewScene.remove(lobbyPreviewExitingHero);
+      disposeObject3D(lobbyPreviewExitingHero);
+      lobbyPreviewExitingHero = null;
+    }
+  }
+  const entryProgress = THREE.MathUtils.clamp((now - lobbyPreviewHero.userData.lobbyEntryStartedAt) / 560, 0, 1);
+  const entryEase = 1 + 1.45 * Math.pow(entryProgress - 1, 3) + .45 * Math.pow(entryProgress - 1, 2);
+  const entryScale = entryProgress >= 1 ? 1 : Math.max(.035, entryEase);
+  lobbyPreviewHero.scale.setScalar(lobbyPreviewHero.userData.lobbyEntryBaseScale * entryScale);
+  lobbyPreviewHero.position.y = (1 - entryProgress) * -.28;
   lobbyPreviewHero.visible = true;
   const heroClass = lobbyPreviewHero.userData.heroClass || selectedClass || 'knight';
   const idle = time * (heroClass === 'mage' ? 1.35 : heroClass === 'archer' ? 1.7 : 1.05);
@@ -2403,7 +2471,9 @@ function renderLobby3DPreview() {
   if (lobbyPreviewRing) {
     lobbyPreviewRing.material.color.setHex(effectPalette.color);
     lobbyPreviewRing.material.opacity = .72 + Math.sin(time*2.2)*.18;
-    lobbyPreviewRing.scale.setScalar(1 + Math.sin(time*1.5)*.025);
+    const ringBurst = THREE.MathUtils.clamp((now - lobbySelectionBurstStartedAt) / 520, 0, 1);
+    const ringPulse = ringBurst < 1 ? 1.18 - ringBurst * .18 : 1 + Math.sin(time*1.5)*.025;
+    lobbyPreviewRing.scale.setScalar(ringPulse);
   }
   if (lobbyPreviewRunes) {
     lobbyPreviewRunes.rotation.y = time * (heroClass === 'mage' ? .24 : heroClass === 'archer' ? -.13 : .09);
@@ -2413,12 +2483,19 @@ function renderLobby3DPreview() {
     });
   }
   if (lobbyPreviewParticles) {
+    const burstProgress = THREE.MathUtils.clamp((now - lobbySelectionBurstStartedAt) / 520, 0, 1);
     lobbyPreviewParticles.children.forEach((particle,index)=>{
       const phase = particle.userData.phase + time*(heroClass === 'mage' ? .7 : heroClass === 'archer' ? -.45 : .32);
-      const radius = particle.userData.radius + Math.sin(time*1.1+index)*.045;
-      particle.position.set(Math.cos(phase)*radius,particle.userData.height+Math.sin(phase*1.4)*.12,Math.sin(phase)*radius*.42);
+      const orbitRadius = particle.userData.radius + Math.sin(time*1.1+index)*.045;
+      if (burstProgress < 1) {
+        const burstRadius = .16 + burstProgress * (1.15 + (index % 4) * .12);
+        particle.position.set(Math.cos(phase)*burstRadius, .18 + particle.userData.height*burstProgress + Math.sin(phase)*.08, Math.sin(phase)*burstRadius*.42);
+        particle.material.opacity = .9 * (1 - burstProgress) + .12;
+      } else {
+        particle.position.set(Math.cos(phase)*orbitRadius,particle.userData.height+Math.sin(phase*1.4)*.12,Math.sin(phase)*orbitRadius*.42);
+        particle.material.opacity = .25 + (Math.sin(phase*1.7)+1)*.25;
+      }
       particle.material.color.setHex(effectPalette.color);
-      particle.material.opacity = .25 + (Math.sin(phase*1.7)+1)*.25;
     });
   }
   if (lobbyPreviewCrystals) {
@@ -4859,6 +4936,7 @@ function animate() {
   startGameAnimationLoop();
 
   const dt = Math.min(clock.getDelta(), 0.05), worldTime = clock.elapsedTime;
+  updateDayNightCycle(worldTime);
   const classFxNow = performance.now();
   for (let i = activeClassEffects.length - 1; i >= 0; i--) {
     const effect = activeClassEffects[i];
