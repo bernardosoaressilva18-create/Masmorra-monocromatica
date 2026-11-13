@@ -995,7 +995,8 @@ wss.on('connection', ws => {
       broadcast(room, state(room));
     } else if (msg.type === 'useItem') {
       if (!room.started || player.hp <= 0) return;
-      const itemIndex = player.lootDrops.findIndex(item => item.id === String(msg.id));
+      const requestedItemId=String(msg.id??'');
+      const itemIndex=player.lootDrops.findIndex(item=>String(item.id)===requestedItemId);
       if (itemIndex < 0) { ws.send(JSON.stringify({ type: 'notice', text: 'Esse item não está mais no inventário.' })); return; }
       const item = player.lootDrops[itemIndex];
       const tier = RARITY_EFFECTS[item.rarity] || RARITY_EFFECTS['comum'];
@@ -1046,7 +1047,7 @@ wss.on('connection', ws => {
       player.lootDrops.splice(itemIndex, 1);
       player.inventory[item.rarity] = Math.max(0, (player.inventory[item.rarity] || 0) - 1);
       sendInventory(player);
-      ws.send(JSON.stringify({ type: 'notice', text: item.name + ': ' + effect }));
+      ws.send(JSON.stringify({type:'notice',text:'✓ '+item.name+': '+effect}));
       broadcast(room, state(room));
     } else if (msg.type === 'classAbility') {
       if (!room.started || player.hp <= 0) return;
