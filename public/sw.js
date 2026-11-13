@@ -1,12 +1,12 @@
-const CACHE_NAME = 'ultimo-legado-offline-49';
+const CACHE_NAME = 'ultimo-legado-offline-50';
 const SHELL = [
   './',
   './index.html',
-  './style.css?v=20261113-map-xp-r2',
-  './game.js?v=20261113-map-xp-r2',
-  './manifest.webmanifest?v=20261113-name-r2',
-  './icon.svg?v=20261113-name-r2',
-  './cover.svg?v=20261113-name-r2',
+  './style.css?v=20261113-map-xp-r3',
+  './game.js?v=20261113-map-xp-r3',
+  './manifest.webmanifest?v=20261113-world-r3',
+  './icon.svg?v=20261113-world-r3',
+  './cover.svg?v=20261113-world-r3',
   './icon-192.png',
   './icon-512.png'
 ];
