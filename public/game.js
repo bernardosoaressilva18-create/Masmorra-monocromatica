@@ -2710,9 +2710,9 @@ function startTrainingRange() {
   player.mana = player.maxMana = 100;
   player.abilityCooldowns = {};
   offlineState.monsters = [
-    {id:'training-dummy-center',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:0,homeZ:-7,x:0,z:-7,phase:1,realm:1,spawned:true,alive:true,hp:10000,maxHp:10000},
-    {id:'training-dummy-left',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:-4,homeZ:-10,x:-4,z:-10,phase:1,realm:1,spawned:true,alive:true,hp:10000,maxHp:10000},
-    {id:'training-dummy-right',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:4,homeZ:-10,x:4,z:-10,phase:1,realm:1,spawned:true,alive:true,hp:10000,maxHp:10000}
+    {id:'training-dummy-center',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:0,homeZ:0,x:0,z:0,phase:1,realm:1,spawned:true,alive:true,hp:80,maxHp:80,respawnDelay:1800},
+    {id:'training-dummy-left',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:-3,homeZ:-1,x:-3,z:-1,phase:1,realm:1,spawned:true,alive:true,hp:80,maxHp:80,respawnDelay:1800},
+    {id:'training-dummy-right',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:3,homeZ:-1,x:3,z:-1,phase:1,realm:1,spawned:true,alive:true,hp:80,maxHp:80,respawnDelay:1800}
   ];
   offlineState.summons = [];
   offlineState.chests = [];
@@ -2816,6 +2816,11 @@ function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, push
   }
   if (monster.hp <= 0) {
     monster.alive = false;
+    if (monster.trainingDummy) {
+      monster.respawnAt = Date.now() + Math.max(900, Number(monster.respawnDelay) || 1800);
+      monster.hp = 0;
+      return true;
+    }
     if (Math.random() < (offlineHasSkill('loot_sense') ? .30 : .18)) {
       const roll=Math.random(),rarity=roll>.96?'lendário':roll>.84?'épico':roll>.58?'raro':roll>.28?'incomum':'comum';
       const names={comum:'Moeda Antiga',incomum:'Pó de Cristal',raro:'Fragmento Monocromático',épico:'Núcleo Sombrio',lendário:'Cristal Ancestral'};
@@ -3082,11 +3087,11 @@ function handleOfflineClassAbility(data) {
     necromancerDiveClientTimer=setTimeout(()=>{necromancerDivePendingClient=false;if(player.necromancerDivePending){player.necromancerDivePending=false;player.invisibleUntil=0;showNotice('Mergulho encerrado; você voltou à origem.');}},5100);
     text='🕳️ Mergulho! Toque no chão para emergir em até 5 segundos.';
   } else if (ability === 'monk_impact_palm') {
-    const c=forwardCenter(1.4);center=c;const count=hitArea(c,4.2,8,0,2.7);text='👊 Palma de impacto: '+count+' alvo(s), 8 de dano e empurrão.';
+    const c=forwardCenter(1.4);center=c;const count=hitArea(c,4.2,12,0,2.7);text='👊 Palma de impacto: '+count+' alvo(s), 12 de dano e empurrão.';
   } else if (ability === 'monk_winged_steps') {
-    offlineMoveForward(3.1);player.dodgeUntil=now+900;player.monkSpeedUntil=now+5000;until=player.monkSpeedUntil;text='🪽 Passos alados: avanço e velocidade por 5 segundos.';
+    offlineMoveForward(3.1);center={x:player.x,z:player.z};const count=hitArea(center,4.1,10,0,1.1);player.dodgeUntil=now+900;player.monkSpeedUntil=now+5000;until=player.monkSpeedUntil;text='🪽 Passos alados: avanço, '+count+' alvo(s) atingido(s) e 10 de dano.';
   } else if (ability === 'monk_spirit_wave') {
-    center=forwardCenter(1.8);const count=hitArea(center,4.5,13,0,1);text='☯ Onda espiritual: '+count+' alvo(s), 13 de dano.';
+    center=forwardCenter(1.8);const count=hitArea(center,4.5,16,0,1);text='☯ Onda espiritual: '+count+' alvo(s), 16 de dano.';
   } else if (ability === 'golem_split') {
     let created=0;for(let n=0;n<3;n++)if(offlineCreateSummon('golem',n,3,12000,50,4,1150))created++;
     player.invisibleUntil=now+12000;until=player.invisibleUntil;text='🪨 Golem dividido em '+created+' fragmentos por 12 segundos.';
@@ -3230,8 +3235,23 @@ function stepOfflineSimulation() {
       }
     }
     for (const monster of offlineState.monsters) {
+      if (monster.trainingDummy && !monster.alive) {
+        if (now >= (monster.respawnAt || 0)) {
+          monster.alive = true;
+          monster.hp = Number(monster.maxHp) || 80;
+          monster.respawnAt = 0;
+          monster.burnUntil = 0;
+          monster.burnNextAt = 0;
+        } else {
+          continue;
+        }
+      }
       if (!monster.alive) continue;
-      if (monster.trainingDummy) { monster.x=Number(monster.homeX ?? monster.x); monster.z=Number(monster.homeZ ?? monster.z); continue; }
+      if (monster.trainingDummy) {
+        monster.x = Number(monster.homeX ?? monster.x);
+        monster.z = Number(monster.homeZ ?? monster.z);
+        continue;
+      }
       if (monster.burnUntil > now && now >= (monster.burnNextAt || 0)) {
         monster.burnNextAt = now + 1000;
         offlineDamageMonster(monster,2);
@@ -3260,7 +3280,7 @@ function stepOfflineSimulation() {
       }
     }
   }
-  offlineState.monsters = offlineState.monsters.filter(m => m.alive);
+  offlineState.monsters = offlineState.monsters.filter(m => m.alive || m.trainingDummy);
   offlineState.summons = (offlineState.summons || []).filter(s => s.expiresAt > now && s.hp > 0);
   updateState({...offlineState, players:[{...player}], monsters:offlineState.monsters.map(m=>({...m})), summons:offlineState.summons.map(s=>({...s}))});
 }
@@ -4322,7 +4342,7 @@ const CLASS_ABILITY_CONFIG = {
   ],
   monk: [
     { ability: 'monk_impact_palm', icon: '👊', label: 'PALMA', description: 'Onda de choque: 8 de dano, empurra e atordoa inimigos.', cooldown: 18 },
-    { ability: 'monk_winged_steps', icon: '🪽', label: 'PASSOS', description: 'Avanço veloz com esquiva breve e velocidade extra.', cooldown: 15 },
+    { ability: 'monk_winged_steps', icon: '🪽', label: 'PASSOS', description: 'Avança com uma onda de impacto, causa 10 de dano e ganha velocidade.', cooldown: 15 },
     { ability: 'monk_spirit_wave', icon: '☯', label: 'ONDA ESPIRITUAL', description: 'Libera uma onda de energia à frente do Monge.', cooldown: 13 }
   ],
   golem: [
@@ -4339,7 +4359,7 @@ const CLASS_DEMO_VISUALS = {
   ogre:{glyph:'⚒',accent:'#ffad70',tag:'FORÇA BRUTA'},
   healer:{glyph:'✚',accent:'#70e8c3',tag:'CURA E SUPORTE'},
   necromancer:{glyph:'☠',accent:'#c7a0ff',tag:'INVOCAR E CONTROLAR'},
-  monk:{glyph:'✊',accent:'#f4cf85',tag:'MOBILIDADE'},
+  monk:{glyph:'✊',accent:'#f4cf85',tag:'COMBATE E ENERGIA'},
   golem:{glyph:'⬟',accent:'#aeb9c2',tag:'DEFESA TITÂNICA'}
 };
 const CLASS_DEMO_STATS = {
@@ -4364,14 +4384,158 @@ const CLASS_DEMO_STATS = {
   necromancer_summon:{result:'5 esqueletos · 2 dano por golpe',kind:'summon'},
   necromancer_dive:{result:'0 dano direto · cria 1 esqueleto',kind:'mobility'},
   necromancer_bone_bolt:{result:'1,8 × poder da magia óssea',kind:'projectile'},
-  monk_impact_palm:{result:'8 dano + empurrão',kind:'area'},
-  monk_winged_steps:{result:'0 dano · velocidade por 5 s',kind:'mobility'},
-  monk_spirit_wave:{result:'13 dano em área',kind:'area'},
+  monk_impact_palm:{result:'12 dano + empurrão',kind:'area'},
+  monk_winged_steps:{result:'10 dano no avanço + velocidade por 5 s',kind:'mobility'},
+  monk_spirit_wave:{result:'16 dano em área',kind:'area'},
   golem_split:{result:'0 dano direto · 3 fragmentos',kind:'summon'},
   golem_rock_toss:{result:'15 dano + estilhaços',kind:'area'},
   golem_stone_guard:{result:'0 dano · armadura por 6,5 s',kind:'guard'}
 };
 const CLASS_DEMO_STEP_MS = 3600;
+const CLASS_DEMO_DAMAGE = {
+  knight_shield:0,knight_dash:10,knight_whirlwind:26,
+  fire:22,lightning:20,mage_arcane_orb:30,
+  arrow_rain:18,incendiary_arrows:16,archer_piercing_shot:34,
+  goblin_invis:0,goblin_summon:12,goblin_shadow_strike:25,
+  ogre_slam:30,ogre_haste:0,ogre_earthquake:38,
+  healer_cure:0,healer_guardian_spirits:18,healer_light_orb:0,
+  necromancer_summon:18,necromancer_dive:0,necromancer_bone_bolt:30,
+  monk_impact_palm:22,monk_winged_steps:16,monk_spirit_wave:32,
+  golem_split:18,golem_rock_toss:34,golem_stone_guard:0
+};
+function drawClassDemoCanvas(canvas, ability, stats, visual, elapsed) {
+  const ctx = canvas?.getContext?.('2d');
+  if (!ctx) return;
+  const W = canvas.width || 760, H = canvas.height || 250;
+  const t = Math.max(0, elapsed % CLASS_DEMO_STEP_MS);
+  const damage = Math.max(0, Number(CLASS_DEMO_DAMAGE[ability.ability]) || 0);
+  const impact = Math.max(0, Math.min(1, (t - 980) / 430));
+  const easing = impact * impact * (3 - 2 * impact);
+  const health = Math.max(0.12, 1 - (damage / 100) * easing);
+  const accent = visual.accent || '#e9c477';
+  const heroX = 142 + (damage > 0 ? Math.sin(Math.min(1, t / 980) * Math.PI) * 34 : 0);
+  const ground = H - 30;
+  const enemyX = 552 + (impact > 0 ? impact * 16 : 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#101e31');
+  sky.addColorStop(.62, '#1b3040');
+  sky.addColorStop(1, '#111a22');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#243445'; ctx.globalAlpha = .72;
+  for (let i = 0; i < 5; i++) {
+    const x = i * 178 - 22;
+    ctx.beginPath(); ctx.moveTo(x, ground); ctx.lineTo(x + 36, 74 + (i % 2) * 25);
+    ctx.lineTo(x + 72, ground); ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#0a111b'; ctx.fillRect(0, ground, W, H - ground);
+  ctx.fillStyle = '#75654e'; ctx.fillRect(0, ground, W, 4);
+  ctx.fillStyle = '#3f3a35';
+  for (let x = 0; x < W; x += 76) {
+    ctx.fillRect(x + 5, ground + 10, 46, 2);
+    ctx.fillStyle = '#967d5a'; ctx.fillRect(x + 22, ground + 17, 2, 2);
+    ctx.fillStyle = '#3f3a35';
+  }
+
+  // Backlit columns and small braziers make the scene read as a side-view RPG arena.
+  for (const x of [42, 715]) {
+    ctx.fillStyle = '#364353'; ctx.fillRect(x, 54, 17, ground - 54);
+    ctx.fillStyle = '#697184'; ctx.fillRect(x - 7, 52, 31, 6);
+    ctx.fillRect(x - 4, ground - 5, 25, 7);
+    ctx.fillStyle = '#e6a95c'; ctx.beginPath(); ctx.arc(x + 8, 43, 5 + Math.sin(t * .012) * 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // The class character is drawn as a small readable 2D adventurer sprite.
+  ctx.save(); ctx.translate(heroX, ground);
+  const bob = Math.sin(t * .009) * 2;
+  ctx.translate(0, bob);
+  ctx.fillStyle = '#080d15a8'; ctx.beginPath(); ctx.ellipse(0, -1, 31, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#262b38';
+  ctx.fillRect(-17, -39, 12, 31); ctx.fillRect(5, -39, 12, 31);
+  ctx.fillStyle = '#b8c2ce'; ctx.fillRect(-20, -11, 17, 8); ctx.fillRect(3, -11, 18, 8);
+  ctx.fillStyle = '#182636'; ctx.beginPath(); ctx.moveTo(-25, -82); ctx.lineTo(25, -82); ctx.lineTo(21, -37); ctx.lineTo(-19, -37); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = accent; ctx.beginPath(); ctx.moveTo(-23, -80); ctx.lineTo(0, -73); ctx.lineTo(22, -80); ctx.lineTo(16, -48); ctx.lineTo(-17, -48); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#e8edf2'; ctx.fillRect(-4, -75, 8, 26);
+  ctx.fillStyle = '#d3a77b'; ctx.beginPath(); ctx.arc(0, -99, 14, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#202c3d'; ctx.beginPath(); ctx.moveTo(-16, -99); ctx.lineTo(-12, -119); ctx.lineTo(7, -124); ctx.lineTo(17, -104); ctx.lineTo(13, -94); ctx.lineTo(-15, -94); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#d9e4ed'; ctx.fillRect(-13, -104, 26, 5);
+  ctx.fillStyle = '#18212e'; ctx.fillRect(4, -102, 4, 3);
+
+  const swing = damage > 0 ? Math.sin(Math.min(1, t / 980) * Math.PI) : 0;
+  ctx.strokeStyle = '#d3a77b'; ctx.lineWidth = 9; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(15, -72); ctx.lineTo(30 + swing * 15, -62 - swing * 18); ctx.stroke();
+  ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(31 + swing * 15, -62 - swing * 18, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = selectedClass === 'monk' ? '#f4cf85' : '#d9e3ec'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(31 + swing * 15, -62 - swing * 18); ctx.lineTo(49 + swing * 18, -85 - swing * 22); ctx.stroke();
+  ctx.restore();
+
+  // A broad-shouldered training monster with horns, face, arms and feet.
+  ctx.save(); ctx.translate(enemyX, ground);
+  const recoil = impact > .12 ? Math.sin(impact * Math.PI) * 5 : 0;
+  ctx.translate(0, recoil);
+  ctx.fillStyle = '#090d14a8'; ctx.beginPath(); ctx.ellipse(0, -1, 47, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#344b45'; ctx.fillRect(-26, -43, 18, 39); ctx.fillRect(8, -43, 18, 39);
+  ctx.fillStyle = '#1b2c31'; ctx.fillRect(-31, -9, 23, 8); ctx.fillRect(7, -9, 25, 8);
+  ctx.fillStyle = '#496b57'; ctx.beginPath(); ctx.moveTo(-39, -112); ctx.lineTo(-30, -57); ctx.lineTo(-23, -41); ctx.lineTo(25, -41); ctx.lineTo(34, -72); ctx.lineTo(39, -106); ctx.lineTo(23, -125); ctx.lineTo(-22, -125); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#618366'; ctx.beginPath(); ctx.arc(0, -130, 28, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#e2d2b0'; ctx.beginPath(); ctx.moveTo(-20, -148); ctx.lineTo(-33, -168); ctx.lineTo(-7, -154); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(18, -148); ctx.lineTo(32, -167); ctx.lineTo(8, -154); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#1a2229'; ctx.fillRect(-17, -135, 10, 6); ctx.fillRect(7, -135, 10, 6);
+  ctx.fillStyle = '#ff665e'; ctx.fillRect(-15, -134, 5, 3); ctx.fillRect(9, -134, 5, 3);
+  ctx.strokeStyle = '#496b57'; ctx.lineWidth = 14; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-28, -99); ctx.lineTo(-47, -63); ctx.lineTo(-34, -52); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(28, -99); ctx.lineTo(48, -70); ctx.lineTo(38, -56); ctx.stroke();
+  ctx.restore();
+
+  // The attack effect travels across the lane and the monster reacts on impact.
+  if (damage > 0 && t > 420 && t < 1800) {
+    const travel = Math.max(0, Math.min(1, (t - 420) / 660));
+    const ex = heroX + 72 + (enemyX - heroX - 118) * travel;
+    const ey = ground - 102 - Math.sin(travel * Math.PI) * 25;
+    ctx.save(); ctx.globalAlpha = .95;
+    ctx.shadowBlur = 18; ctx.shadowColor = accent; ctx.fillStyle = accent;
+    if (stats.kind === 'projectile' || stats.kind === 'chain') {
+      ctx.beginPath(); ctx.arc(ex, ey, 9 + Math.sin(t * .02) * 2, 0, Math.PI * 2); ctx.fill();
+      if (stats.kind === 'chain') {
+        ctx.strokeStyle = '#a5ddff'; ctx.lineWidth = 3; ctx.beginPath();
+        ctx.moveTo(ex - 35, ey + 18); ctx.lineTo(ex - 17, ey - 8); ctx.lineTo(ex - 4, ey + 8); ctx.lineTo(ex + 5, ey - 10); ctx.stroke();
+      }
+    } else {
+      ctx.strokeStyle = accent; ctx.lineWidth = stats.kind === 'area' ? 8 : 5;
+      ctx.beginPath(); ctx.arc(enemyX - 10, ground - 82, 35 + travel * 15, -1.2, 1.3); ctx.stroke();
+      ctx.beginPath(); ctx.arc(heroX + 36, ground - 88, 18 + travel * 25, -.8, .9); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (damage > 0 && t >= 980 && t < 2450) {
+    const pop = Math.min(1, (t - 980) / 220);
+    ctx.save(); ctx.globalAlpha = Math.max(0, 1 - Math.max(0, t - 1800) / 650);
+    ctx.fillStyle = '#fff1bb'; ctx.font = '900 20px system-ui'; ctx.textAlign = 'center';
+    ctx.shadowBlur = 12; ctx.shadowColor = accent;
+    ctx.fillText('-' + damage + ' HP', enemyX, ground - 184 - pop * 12);
+    ctx.restore();
+  }
+
+  // Monster health is reduced only by offensive abilities; support abilities keep it intact.
+  const barX = 420, barY = 20, barW = 282, barH = 17;
+  ctx.fillStyle = '#07101cdd'; ctx.fillRect(barX - 8, barY - 10, barW + 16, 51);
+  ctx.fillStyle = '#e0e8ed'; ctx.font = '800 11px system-ui'; ctx.textAlign = 'left';
+  ctx.fillText('VIDA DO MONSTRO', barX, barY + 1);
+  ctx.fillStyle = '#1b2835'; ctx.fillRect(barX, barY + 9, barW, barH);
+  const hpFill = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+  hpFill.addColorStop(0, health > .55 ? '#5ce28b' : health > .28 ? '#f3bd53' : '#f35b62');
+  hpFill.addColorStop(1, '#d6e8a5');
+  ctx.fillStyle = hpFill; ctx.fillRect(barX + 2, barY + 11, Math.max(0, (barW - 4) * health), barH - 4);
+  ctx.fillStyle = '#eaf1f5'; ctx.textAlign = 'right'; ctx.font = '900 11px system-ui';
+  ctx.fillText(Math.round(health * 100) + '%', barX + barW, barY + 40);
+  ctx.textAlign = 'left'; ctx.font = '900 10px system-ui'; ctx.fillStyle = accent;
+  ctx.fillText(ability.label.toUpperCase(), 19, 23);
+  ctx.fillStyle = '#c9d6df'; ctx.font = '10px system-ui';
+  ctx.fillText(damage > 0 ? 'GOLPE · IMPACTO · DANO' : (stats.kind === 'heal' ? 'EFEITO DE SUPORTE' : 'HABILIDADE ESPECIAL'), 19, 40);
+}
+
 let classDemoStartedAt = performance.now();
 let classDemoPausedAt = 0;
 let classDemoPaused = false;
@@ -4441,6 +4605,8 @@ function updateClassAbilityDemo(reset = false) {
   }
   const progress = $('classDemoProgress');
   if (progress) progress.style.width = (classDemoPaused ? 100 : (elapsed % CLASS_DEMO_STEP_MS) / CLASS_DEMO_STEP_MS * 100) + '%';
+  const canvas = $('classDemoCanvas');
+  if (canvas) drawClassDemoCanvas(canvas, ability, CLASS_DEMO_STATS[ability.ability] || {result:'Efeito especial da classe',kind:'area'}, visual, elapsed);
   root.classList.toggle('paused', classDemoPaused);
 }
 $('classDemoPauseBtn')?.addEventListener('click', () => {
@@ -4456,6 +4622,7 @@ $('classDemoPauseBtn')?.addEventListener('click', () => {
   if (button) button.textContent = classDemoPaused ? '▶ CONTINUAR PRÉVIA' : 'Ⅱ PAUSAR PRÉVIA';
   updateClassAbilityDemo(false);
 });
+setInterval(() => updateClassAbilityDemo(false), 33);
 let ogreHasteUntil = 0;
 function updateClassAbilityButtons() {
   const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
@@ -5141,7 +5308,7 @@ function rendererPointerSetup() {
     lastX = e.clientX;
     lastY = e.clientY;
     targetYaw -= dx * .008 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch - dy * .0036 * gameSettings.verticalSensitivity, -.52, .52);
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0036 * gameSettings.verticalSensitivity, -.52, .52);
   });
 
   const end = e => {
@@ -5830,7 +5997,7 @@ function animate() {
     const viewPitch = THREE.MathUtils.clamp(pitch, -.52, .52);
     const viewCos = Math.cos(viewPitch);
     const viewForwardX = -Math.sin(yaw) * viewCos;
-    const viewForwardY = Math.sin(viewPitch);
+    const viewForwardY = -Math.sin(viewPitch);
     const viewForwardZ = -Math.cos(yaw) * viewCos;
     if (gameSettings.cameraMode === 'first') {
       // 1ª pessoa: a mira usa o mesmo ângulo de yaw/pitch das outras perspectivas.
