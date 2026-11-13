@@ -57,7 +57,7 @@ const FREE_LOBBY_SKINS=['default','shadow','ember'];
 const CHEST_ONLY_SKINS=['rune','celestial','bloodmoon','frostguard','draconic','voidwalker','verdant'];
 let sharedProfileSeed={};try{sharedProfileSeed=JSON.parse(localStorage.getItem(SHARED_PROFILE_KEY)||'{}')||{};}catch{}
 const EMPTY_INVENTORY={comum:0,incomum:0,raro:0,'épico':0,'lendário':0};
-let latestChests=[],inventoryData=(()=>{const saved=sharedProfileSeed.inventory&&typeof sharedProfileSeed.inventory==='object'?sharedProfileSeed.inventory:{};return Object.fromEntries(Object.keys(EMPTY_INVENTORY).map(k=>[k,Math.max(0,Math.min(9999,Number(saved[k])||0))]));})(),
+let latestMapHazards=[],latestChests=[],inventoryData=(()=>{const saved=sharedProfileSeed.inventory&&typeof sharedProfileSeed.inventory==='object'?sharedProfileSeed.inventory:{};return Object.fromEntries(Object.keys(EMPTY_INVENTORY).map(k=>[k,Math.max(0,Math.min(9999,Number(saved[k])||0))]));})(),
 lootDrops=(Array.isArray(sharedProfileSeed.lootDrops)?sharedProfileSeed.lootDrops:[]).slice(-100),selectedItemId=sharedProfileSeed.selectedItemId?String(sharedProfileSeed.selectedItemId):null;
 let equipmentDamage=Math.max(0,Math.min(18,Number(sharedProfileSeed.equipmentDamage)||0));
 let sharedProgress={realm:Math.max(1,Math.min(3,Number(sharedProfileSeed.realm)||1)),phase:Math.max(1,Math.min(5,Number(sharedProfileSeed.phase)||1))};
@@ -165,6 +165,7 @@ function getDungeonFloorHeight(x,z) {
 }
 function syncMapHazardLayout(hazards=[]){
  const list=Array.isArray(hazards)?hazards:[];
+ latestMapHazards=list;
  const byId=new Map(list.map(item=>[String(item.id),item]));
  const roots=[['dungeon',environmentGroups.dungeon],['astral',environmentGroups.astral],['eclipse',environmentGroups.eclipse]].filter(([,root])=>!!root);
  for(const hazard of list){
@@ -185,6 +186,7 @@ function syncMapHazardLayout(hazards=[]){
   const live=byId.get(visual.id);if(!live)continue;
   visual.group.position.x=Number(live.x)||0;
   visual.group.position.z=Number(live.z)||0;
+  visual.group.position.y=visual.type==='spike'?getDungeonFloorHeight(visual.group.position.x,visual.group.position.z):0;
  }
 }
 function syncUnderworldVisuals(pits=[]) {
@@ -476,7 +478,7 @@ let adaptiveDetailTier = 0;
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x172638, isMobileDevice ? .00265 : .00305);
+  scene.fog = new THREE.FogExp2(0x1b2d3d, isMobileDevice ? .0017 : .00205);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
   renderer = new THREE.WebGLRenderer({
@@ -736,13 +738,17 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
     }
     // Pedras e espinhos de chão: legíveis de longe e com hitboxes no servidor.
     for(const spike of MAP_SPIKE_HAZARDS.filter(h=>h.id.startsWith('spike-'+i+'-'))) {
-      const bed=new THREE.Mesh(new THREE.BoxGeometry(2.25,.16,1.8),stoneDark);bed.position.set(spike.x,.06,spike.z);parent.add(bed);
+      const trapGroup=new THREE.Group();trapGroup.name='hazard-'+spike.id;
+      trapGroup.position.set(spike.x,0,spike.z);
+      const bed=new THREE.Mesh(new THREE.BoxGeometry(2.25,.16,1.8),stoneDark);bed.position.set(0,.06,0);trapGroup.add(bed);
       for(let k=-1;k<=1;k++) {
         const thorn=new THREE.Mesh(new THREE.ConeGeometry(.22,.82,5),spikeMat);
-        thorn.position.set(spike.x+k*.58,.52,spike.z+(k%2)*.18);thorn.rotation.z=(k-1)*-.08;parent.add(thorn);
-        const base=new THREE.Mesh(new THREE.CylinderGeometry(.29,.34,.12,5),gold);base.position.set(thorn.position.x,.12,thorn.position.z);parent.add(base);
+        thorn.position.set(k*.58,.52,(k%2)*.18);thorn.rotation.z=(k-1)*-.08;trapGroup.add(thorn);
+        const base=new THREE.Mesh(new THREE.CylinderGeometry(.29,.34,.12,5),gold);base.position.set(thorn.position.x,.12,thorn.position.z);trapGroup.add(base);
       }
-      const warning=new THREE.Mesh(new THREE.RingGeometry(.82,1.0,20),hazardGlow);warning.rotation.x=-Math.PI/2;warning.position.set(spike.x,.16,spike.z);parent.add(warning);
+      const warning=new THREE.Mesh(new THREE.RingGeometry(.82,1.0,20),hazardGlow);warning.rotation.x=-Math.PI/2;warning.position.set(0,.16,0);trapGroup.add(warning);
+      parent.add(trapGroup);
+      environmentalHazardVisuals.push({id:spike.id,type:'spike',group:trapGroup,realm:'dungeon'});
     }
     // Três perigos ambientais extras por região, com avisos visuais claros no chão.
     const environmentalHazards=[
@@ -897,9 +903,8 @@ function addBiomeDetailInstances(parent,palette,realmKey=1){
   for(let n=0;n<perZone;n++){
    let point=null;
    for(let attempt=0;attempt<36&&!point;attempt++){
-    const seed=(zone+1)*97+(n+1)*31+(attempt+1)*17+realmKey*113;
-    const x=(fract(Math.sin(seed*12.9898)*43758.5453)*2-1)*14.8;
-    const offset=(fract(Math.sin(seed*78.233)*19341.173)*2-1)*(zone===4?18.7:14.2);
+    const x=(Math.random()*2-1)*14.8;
+    const offset=(Math.random()*2-1)*(zone===4?18.7:14.2);
     if(!pointInMapPolygon(x,offset,poly))continue;
     if(Math.abs(x)<4.65)continue;
     const z=center+offset,pit=MAP_PIT_LAYOUT[zone];
@@ -1010,7 +1015,7 @@ stoneDark.needsUpdate = true;
   // Cinco zonas independentes: cada mundo tem seu próprio piso e perímetro.
   const worldZones = MAP_ZONE_CENTERS.map((z,index)=>({
     id:index+1,z,depth:MAP_ZONE_DEPTHS[index],top:[
-      mat(0x303b49,.96),mat(0x33284c,.92),mat(0x192a24,.88,.12),mat(0x4a2414,.88,.12),mat(0x21131f,.88,.12)
+      mat(0x526276,.94),mat(0x5a477b,.90),mat(0x31553e,.86,.10),mat(0x744627,.86,.10),mat(0x57344f,.86,.10)
     ][index]
   }));
   for (const zone of worldZones) {
@@ -3650,6 +3655,19 @@ let offlineLoop = null;
 let offlineLastHit = 0;
 let offlineDefeatNoticeShown = false;
 let offlineReturnSnapshot = null;
+function createOfflineMapHazards(){
+  const rand=(min,max)=>min+Math.random()*(max-min);
+  return MAP_ZONE_CENTERS.flatMap((center,index)=>{
+    const side=Math.random()<.5?-1:1,other=-side,stairX=index%2===0?-8.25:8.25;
+    return [
+      {id:'miasma-'+index,type:'miasma',x:side*rand(10.1,12.7),z:center+rand(-5.8,6.8),r:1.28,damage:5,cooldown:1200},
+      {id:'rune-surge-'+index,type:'rune',x:other*rand(9.2,12.1),z:center-rand(5.4,12.8),r:1.18,damage:9,cooldown:1150},
+      {id:'crumble-'+index,type:'crumble',x:side*rand(4.8,6.5),z:center-rand(10.8,14.8),r:1.3,damage:6,cooldown:1400},
+      {id:'spike-'+index+'-L',type:'spike',x:stairX-rand(.45,1.18),z:center-rand(1.3,6.2),r:.88,damage:13,cooldown:1050},
+      {id:'spike-'+index+'-R',type:'spike',x:stairX+rand(.45,1.18),z:center-rand(1.3,6.2),r:.88,damage:13,cooldown:1050}
+    ];
+  });
+}
 function createOfflineState() {
   const player = {
     id: 'offline-player',
@@ -3666,18 +3684,21 @@ function createOfflineState() {
     const hp = kind === 'brute' ? 24 : 14;
     return {
       id: 'offline-monster-' + i, kind, phase: 1, realm: 1,
-      x: (i - 2) * 3.2, z: -10 - (i % 2) * 3,
-      alive: true, hp, maxHp: hp, spawned: true
+      x: (Math.random()-.5)*15, z: -14+(Math.random()-.5)*9,
+      alive: true, hp, maxHp: hp, spawned: false, spawnAt: 0
     };
   });
   return {
     type: 'state', gameMode: 'coop', players: [player], summons: [],
     phase: 1, realm: 1, safeZoneUntil: 0, started: true, hostId: player.id,
-    monsters, boss: null, portalOpen: false,
-    chests: [
-      {id:'offline-chest-1',x:-8,z:-12,opened:false},
-      {id:'offline-chest-2',x:8,z:-44,opened:false}
-    ]
+    monsters, boss: null, portalOpen: false, mapHazards:createOfflineMapHazards(),
+    chests: MAP_ZONE_CENTERS.flatMap((center,index)=>{
+      const side=Math.random()<.5?-1:1,upperSide=Math.random()<.5?-1:1;
+      return [
+        {id:'offline-chest-'+index+'a',x:side*(5.8+Math.random()*2),z:center+(Math.random()-.5)*7.2,opened:false},
+        {id:'offline-chest-'+index+'b',x:upperSide*(5.9+Math.random()*2),z:center-12.6-Math.random()*2.8,opened:false,upperFloor:true}
+      ];
+    })
   };
 }
 
@@ -4019,11 +4040,13 @@ function spawnOfflineWave(phase,realm){
   };
   const kinds=kindSets[phase]||kindSets[5],baseZ=-((phase-1)*32+10);
   const healthScale=1+(phase-1)*.18+(realm-1)*.28;
+  const safeUntil=Date.now()+22000;
+  offlineState.safeZoneUntil=safeUntil;
   const batch=kinds.map((kind,index)=>{
     const base=kind==='brute'?34:kind==='abyss'||kind==='inferno'?27:kind==='thorn'?22:16;
     const hp=Math.round(base*healthScale);
     return{id:'offline-r'+realm+'-p'+phase+'-'+Date.now()+'-'+index,kind,phase,realm,
-      x:-8+index*4,z:baseZ-(index%2)*2.4,alive:true,hp,maxHp:hp,spawned:true,moveSpeed:kind==='brute'?.23:kind==='assassin'?.37:.30};
+      x:(Math.random()-.5)*16,z:baseZ+(Math.random()-.5)*9,alive:true,hp,maxHp:hp,spawned:false,spawnAt:safeUntil+index*3400,moveSpeed:kind==='brute'?.23:kind==='assassin'?.37:.30};
   });
   offlineState.monsters=[...(offlineState.monsters||[]).filter(monster=>monster.alive),...batch];
   offlineState.portalOpen=false;
@@ -4297,6 +4320,17 @@ function stepOfflineSimulation() {
   if (!offlineMode || !offlineState || !started || !myPlayer) return;
   const player = offlineState.players[0];
   const now = Date.now();
+  if(player.hp>0&&now>=(player.mapTrapDamageAt||0)){
+    const hazard=(offlineState.mapHazards||[]).find(item=>Math.hypot(player.x-Number(item.x||0),player.z-Number(item.z||0))<Number(item.r||0));
+    if(hazard){
+      const baseDamage=Math.max(1,Number(hazard.damage)||5);
+      const damage=now<(player.shieldUntil||0)?Math.max(1,Math.round(baseDamage*.35)):baseDamage;
+      player.hp=Math.max(0,player.hp-damage);
+      player.mapTrapDamageAt=now+(Number(hazard.cooldown)||1100);
+      const label=hazard.type==='spike'?'Espinhos da escada':hazard.type==='miasma'?'Névoa tóxica':hazard.type==='rune'?'Surto rúnico':'Piso instável';
+      showNotice('✹ '+label+'! -'+damage+' HP.');
+    }
+  }
   if (player.hp > 0) {
     const previousManaAt=Number(player.manaRegenLastAt);
     const manaElapsed=Number.isFinite(previousManaAt)&&previousManaAt>0?Math.max(0,Math.min(1.5,(now-previousManaAt)/1000)):.22;
@@ -4343,6 +4377,10 @@ function stepOfflineSimulation() {
       }
     }
     for (const monster of offlineState.monsters) {
+      if(monster.spawned===false){
+        if(now<(Number(monster.spawnAt)||Infinity))continue;
+        monster.spawned=true;
+      }
       if (monster.trainingDummy && !monster.alive) {
         if (now >= (monster.respawnAt || 0)) {
           monster.alive = true;
@@ -5517,6 +5555,12 @@ $('startMatchBtn').addEventListener('click', () => {
     const self = offlineState.players[0];
     if (!self.ready) { showNotice('Marque ESTOU PRONTO antes de começar.'); return; }
     offlineState.started = true;
+    const initialSafeUntil=Date.now()+22000;
+    offlineState.safeZoneUntil=initialSafeUntil;
+    offlineState.monsters.forEach((monster,index)=>{
+      if(monster.trainingDummy)return;
+      monster.spawned=false;monster.spawnAt=initialSafeUntil+index*3400;
+    });
     // Recupera o estado visual completo ao sair do lobby: a prévia 3D usa scissor
     // no mesmo renderer e não pode deixar a cena principal limitada a um viewport.
     if (renderer) {
