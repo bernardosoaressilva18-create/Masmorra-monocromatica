@@ -11,7 +11,7 @@
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icon.svg">
 <title>O Último Legado — RPG Multiplayer</title>
-<link rel="stylesheet" href="style.css?v=20261113-lobby-visual-28">
+<link rel="stylesheet" href="style.css?v=20261113-class-hud-refresh-1">
 </head>
 <body>
 <div id="game"></div>
@@ -113,6 +113,19 @@
           <button type="button" class="class-card" data-class="golem"><span class="class-icon" aria-hidden="true">⬟</span><b>GOLEM DE PEDRA</b><small>Tanque · Divisão · Impacto em área</small></button>
         </div>
         <p id="classDescription" class="class-description">Cavaleiro: defesa elevada e combate corpo a corpo.</p>
+        <section id="classDemoPreview" class="class-demo-preview" data-class="knight" aria-label="Prévia animada das habilidades da classe">
+          <div class="class-demo-heading"><div><small>ARENA DE DEMONSTRAÇÃO</small><strong>PRÉVIA DAS HABILIDADES</strong></div><span id="classDemoClassTag">DEFESA E COMBATE</span></div>
+          <div class="class-demo-stage">
+            <div class="class-demo-stars" aria-hidden="true"></div>
+            <div id="classDemoCharacter" class="class-demo-character" aria-hidden="true">⚔</div>
+            <div id="classDemoSkillIcon" class="class-demo-skill-icon" aria-hidden="true">🛡️</div>
+            <div class="class-demo-caption"><b id="classDemoAbilityName">ESCUDO</b><span id="classDemoAbilityDescription">Reduz o dano recebido por 4,2 segundos.</span></div>
+            <div class="class-demo-progress"><i id="classDemoProgress"></i></div>
+          </div>
+          <div id="classDemoAbilityTabs" class="class-demo-ability-tabs"></div>
+          <button type="button" id="classDemoPauseBtn" class="class-demo-pause">Ⅱ PAUSAR PRÉVIA</button>
+          <small class="class-demo-note">A prévia troca automaticamente entre as três habilidades. Escolha outra classe para ver o personagem e os poderes dela.</small>
+        </section>
       </section>
 
       <section class="lobby-editor-section hidden" data-lobby-editor-panel="skin">
@@ -334,7 +347,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 </script>
-<script type="module" src="game.js?v=20261113-daynight-lobby-transition-r1"></script>
+<script type="module" src="game.js?v=20261113-class-hud-refresh-1"></script>
 </body>
     </html>
     
