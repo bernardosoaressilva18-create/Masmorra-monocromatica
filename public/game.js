@@ -2686,198 +2686,52 @@ function offlineMoveForward(distance) {
 }
 
 function handleOfflineSpell(spell) {
-  const player = offlineState?.players?.[0];
-  if (!player || player.hp <= 0 || player.playerClass !== 'mage') return;
-  const manaCost = spell === 'fire' ? 20 : 15;
-  if ((Number(player.mana) || 0) < manaCost) {
-    if (spell === 'fire') fireCooldown = 0;
-    else lightningCooldown = 0;
+  const player=offlineState?.players?.[0];
+  if(!player||player.hp<=0)return;
+  const isMage=player.playerClass==='mage';
+  const isNecromancer=player.playerClass==='necromancer';
+  const valid=(isMage&&['fire','lightning','arcane'].includes(spell))||(isNecromancer&&spell==='bone');
+  if(!valid)return;
+  const costs={fire:20,lightning:15,arcane:18,bone:16},manaCost=costs[spell]||16;
+  if((Number(player.mana)||0)<manaCost){
+    const slot=spell==='fire'?0:spell==='lightning'?1:2;
+    if(slot===0)fireCooldown=0;else if(slot===1)lightningCooldown=0;else thirdCooldown=0;
     showNotice('✦ Mana insuficiente! Espere regenerar.');
     return;
   }
-  player.mana = Math.max(0, (Number(player.mana) || 0) - manaCost);
-  const target = offlineNearestMonster(7);
-  if (!target) {
-    showNotice('Nenhum inimigo ao alcance da magia.');
-    return;
-  }
-  const power = (offlineHasSkill('mage_focus') ? 1.18 : 1) *
-    (offlineHasSkill('mage_mana') ? 1.15 : 1) *
-    (offlineHasSkill('mana_surge') ? 1.25 : 1);
-  const targets = [];
-  if (spell === 'fire') {
-    const damage = Math.max(1,Math.round(10*power)+(offlineHasSkill('mage_ember')?2:0)+(offlineHasSkill('mage_starseer')?1:0));
-    const affected = offlineLivingMonsters().filter(m=>Math.hypot(m.x-target.x,m.z-target.z)<=2.6 && Math.hypot(m.x-player.x,m.z-player.z)<=8.5).slice(0,5);
-    if (!affected.includes(target)) affected.unshift(target);
+  player.mana=Math.max(0,(Number(player.mana)||0)-manaCost);
+  const target=offlineNearestMonster(spell==='bone'?10:spell==='arcane'?9:7);
+  if(!target){showNotice('Nenhum inimigo ao alcance da magia.');return;}
+  const power=(offlineHasSkill('mage_focus')?1.18:1)*(offlineHasSkill('mage_mana')?1.15:1)*(offlineHasSkill('mana_surge')?1.25:1);
+  const targets=[];
+  if(spell==='fire'){
+    const damage=Math.max(1,Math.round(10*power)+(offlineHasSkill('mage_ember')?2:0)+(offlineHasSkill('mage_starseer')?1:0));
+    const affected=offlineLivingMonsters().filter(m=>Math.hypot(m.x-target.x,m.z-target.z)<=2.6&&Math.hypot(m.x-player.x,m.z-player.z)<=8.5).slice(0,5);
+    if(!affected.includes(target))affected.unshift(target);
     affected.slice(0,5).forEach(monster=>{offlineDamageMonster(monster,damage,offlineHasSkill('mage_ember')?6500:3500);targets.push({x:monster.x,z:monster.z});});
     showNotice('🔥 Bola de fogo! '+targets.length+' inimigo(s) atingido(s).');
-  } else {
-    let previous=target;
-    const hit=new Set();
-    const maxHops=offlineHasSkill('mage_chain')?5:2;
+  }else if(spell==='lightning'){
+    let previous=target;const hit=new Set(),maxHops=offlineHasSkill('mage_chain')?5:2;
     for(let hop=0;hop<maxHops;hop++){
-      if(!previous||hit.has(previous.id))break;
-      hit.add(previous.id);
+      if(!previous||hit.has(previous.id))break;hit.add(previous.id);
       const amount=Math.max(1,Math.round((hop===0?8:hop===1?5:3)*power));
-      offlineDamageMonster(previous,amount);
-      targets.push({x:previous.x,z:previous.z});
+      offlineDamageMonster(previous,amount);targets.push({x:previous.x,z:previous.z});
       previous=offlineLivingMonsters().filter(m=>!hit.has(m.id)&&Math.hypot(m.x-previous.x,m.z-previous.z)<=5)
         .sort((a,b)=>Math.hypot(a.x-previous.x,a.z-previous.z)-Math.hypot(b.x-previous.x,b.z-previous.z))[0];
     }
     showNotice('⚡ Raio em cadeia! '+targets.length+' inimigo(s) atingido(s).');
+  }else if(spell==='arcane'){
+    const damage=Math.max(1,Math.round(16*power));
+    offlineDamageMonster(target,damage);targets.push({x:target.x,z:target.z});
+    const splash=offlineLivingMonsters().filter(m=>m!==target&&Math.hypot(m.x-target.x,m.z-target.z)<=1.8).slice(0,2);
+    splash.forEach(monster=>{offlineDamageMonster(monster,Math.round(damage*.45));targets.push({x:monster.x,z:monster.z});});
+    showNotice('✦ Orbe arcano! '+damage+' de dano mágico.');
+  }else{
+    const damage=Math.max(1,Math.round(19*power));
+    offlineDamageMonster(target,damage);target.stunnedUntil=Date.now()+850;targets.push({x:target.x,z:target.z});
+    showNotice('☽ Orbe ósseo! A energia branca atingiu e desacelerou o inimigo.');
   }
-  handleMessage({type:'spell',id:playerId,spell,x:player.x,z:player.z,targets});
-}
-
-function handleOfflineClassAbility(data) {
-  const player = offlineState?.players?.[0];
-  if (!player || player.hp <= 0) return;
-  const ability = String(data.ability || '');
-  const classByAbility = {
-    knight_shield:'knight',knight_dash:'knight',knight_whirlwind:'knight',arrow_rain:'archer',incendiary_arrows:'archer',archer_piercing_shot:'archer',
-    goblin_invis:'goblin',goblin_summon:'goblin',goblin_shadow_strike:'goblin',ogre_slam:'ogre',ogre_haste:'ogre',ogre_earthquake:'ogre',
-    healer_cure:'healer',healer_guardian_spirits:'healer',healer_sanctuary:'healer',necromancer_summon:'necromancer',
-    necromancer_dive:'necromancer',necromancer_bone_bolt:'necromancer',monk_impact_palm:'monk',monk_winged_steps:'monk',monk_spirit_wave:'monk',
-    golem_split:'golem',golem_rock_toss:'golem',golem_stone_guard:'golem'
-  };
-  if (classByAbility[ability] !== (player.playerClass || selectedClass)) {
-    showNotice('Esta habilidade não pertence à sua classe.');
-    return;
-  }
-  const cooldowns = {knight_shield:12000,knight_dash:9000,knight_whirlwind:14000,arrow_rain:8000,incendiary_arrows:12000,archer_piercing_shot:9500,
-    goblin_invis:14000,goblin_summon:20000,goblin_shadow_strike:11000,ogre_slam:10000,ogre_haste:15000,ogre_earthquake:17000,
-    healer_cure:23000,healer_guardian_spirits:40000,healer_sanctuary:24000,necromancer_summon:30000,necromancer_dive:15000,necromancer_bone_bolt:8500,
-    monk_impact_palm:18000,monk_winged_steps:15000,monk_spirit_wave:13000,golem_split:26000,golem_rock_toss:14500,golem_stone_guard:20000};
-  const now=Date.now();
-  player.abilityCooldowns=player.abilityCooldowns||{};
-  const remaining=(player.abilityCooldowns[ability]||0)-now;
-  if(remaining>0){showNotice('Habilidade recarregando: '+Math.ceil(remaining/1000)+'s.');return;}
-  const manaCosts={knight_shield:12,knight_dash:16,knight_whirlwind:21,arrow_rain:18,incendiary_arrows:22,archer_piercing_shot:22,goblin_invis:16,goblin_summon:24,goblin_shadow_strike:18,ogre_slam:20,ogre_haste:14,ogre_earthquake:28,healer_cure:18,healer_guardian_spirits:25,healer_sanctuary:24,necromancer_summon:24,necromancer_dive:18,necromancer_bone_bolt:16,monk_impact_palm:16,monk_winged_steps:18,monk_spirit_wave:22,golem_split:24,golem_rock_toss:20,golem_stone_guard:20};
-  const manaCost=manaCosts[ability]||16;
-  if((Number(player.mana)||0)<manaCost){showNotice('✦ Mana insuficiente! Aguarde regenerar.');return;}
-  player.mana=Math.max(0,(Number(player.mana)||0)-manaCost);
-  const reduction=(ability==='arrow_rain'&&offlineHasSkill('archer_quiver')?1500:0)+
-    (ability.startsWith('goblin_')&&offlineHasSkill('goblin_trickster')?2500:0)+
-    (ability==='necromancer_dive'&&offlineHasSkill('necromancer_shadowstep')?2500:0)+
-    (ability==='golem_rock_toss'&&offlineHasSkill('golem_mountaincore')?2000:0);
-  const spec=(CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[]).find(item=>item.ability===ability);
-  player.abilityCooldowns[ability]=now+Math.max(4500,(cooldowns[ability]||12000)-reduction);
-  if(spec){const slot=(CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[]).findIndex(item=>item.ability===ability);if(slot===0)fireCooldown=spec.cooldown;else if(slot===1)lightningCooldown=spec.cooldown;else if(slot===2)thirdCooldown=spec.cooldown;}
-  let center={x:player.x,z:player.z},targets=[],notice='Habilidade ativada!',until=0,rockFall=null;
-  const nearby=()=>offlineNearestMonster(14);
-  if(ability==='knight_shield'){
-    player.shieldUntil=now+(offlineHasSkill('knight_aegis')?6200:4200);until=player.shieldUntil;notice='🛡️ Escudo ativado! Dano reduzido temporariamente.';
-  }else if(ability==='knight_dash'){
-    offlineMoveForward(4.2);center={x:player.x,z:player.z};targets=offlineDamageArea(player.x,player.z,5.4,offlineHasSkill('knight_charge')?8:5,0,0);
-    notice='⚔️ Avanço do cavaleiro! Você avançou e atingiu os inimigos próximos.';
-  }else if(ability==='arrow_rain'||ability==='incendiary_arrows'){
-    const target=nearby();
-    if(target)center={x:target.x,z:target.z};
-    const radius=ability==='arrow_rain'?(offlineHasSkill('archer_volley')?5.2:4.6):4.1;
-    targets=offlineDamageArea(center.x,center.z,radius,ability==='arrow_rain'?(offlineHasSkill('archer_volley')?7:5):3,
-      ability==='incendiary_arrows'?(offlineHasSkill('archer_firetip')?7500:5500):0,0);
-    notice=ability==='arrow_rain'?'🏹 Chuva de flechas! Dano em área.':'🔥 Flechas incendiárias! Os inimigos atingidos estão queimando.';
-  }else if(ability==='goblin_invis'){
-    player.invisibleUntil=now+(offlineHasSkill('goblin_shadow')?7000:5000);until=player.invisibleUntil;notice='👻 Invisibilidade ativada!';
-  }else if(ability==='goblin_summon'){
-    const count=offlineHasSkill('goblin_pack')?3:2,duration=offlineHasSkill('goblin_pack')?16000:12000;
-    for(let i=0;i<count;i++)offlineCreateSummon('goblin',i,count,duration,72,offlineHasSkill('goblin_poison')?4:3,950);
-    notice='👺 Goblins aliados invocados por '+Math.round(duration/1000)+' segundos.';
-  }else if(ability==='ogre_slam'){
-    const radius=offlineHasSkill('ogre_aftershock')?6.2:5.2;
-    targets=offlineDamageArea(player.x,player.z,radius,offlineHasSkill('ogre_berserker')?11:8,0,2.4);
-    notice='💥 Soco no chão! Inimigos próximos foram atingidos e empurrados.';
-  }else if(ability==='ogre_haste'){
-    player.ogreHasteUntil=now+(offlineHasSkill('ogre_longrage')?7000:5000);until=player.ogreHasteUntil;notice='💨 Velocidade aumentada!';
-  }else if(ability==='healer_cure'){
-    const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+(offlineHasSkill('healer_blessing')?70:50));
-    notice=player.hp>before?'💚 Cura! +'+(player.hp-before)+' de vida.':'💚 Você já está com a vida cheia.';
-  }else if(ability==='healer_guardian_spirits'){
-    const duration=offlineHasSkill('healer_longspirits')?26000:20000;
-    for(let i=0;i<3;i++)offlineCreateSummon('spirit',i,3,duration,1,0,5000);
-    player.guardianSpiritsUntil=now+duration;until=player.guardianSpiritsUntil;notice='🪽 Três espíritos guardiões chegaram!';
-  }else if(ability==='necromancer_summon'){
-    const count=(offlineHasSkill('necromancer_horde')?7:5)+(offlineHasSkill('necromancer_reaper')?1:0);
-    const duration=offlineHasSkill('necromancer_horde')?36000:30000;
-    for(let i=0;i<count;i++)offlineCreateSummon('skeleton',i,count,duration,offlineHasSkill('necromancer_bone')?12:8,offlineHasSkill('necromancer_reaper')?3:2,1100);
-    notice='💀 Horda invocada! Esqueletos lutarão ao seu lado.';
-  }else if(ability==='necromancer_dive'){
-    player.necromancerDivePending=true;player.necromancerDiveUntil=now+5000;
-    player.necromancerDiveOriginX=player.x;player.necromancerDiveOriginZ=player.z;
-    player.invisibleUntil=now+5000;until=player.necromancerDiveUntil;
-    necromancerDivePendingClient=true;clearTimeout(necromancerDiveClientTimer);
-    necromancerDiveClientTimer=setTimeout(()=>{necromancerDivePendingClient=false;showNotice('O tempo do Mergulho acabou.');},5000);
-    notice='🕳️ Mergulho! Toque no chão para escolher onde emergir.';
-  }else if(ability==='monk_impact_palm'){
-    const heading=Number(player.rot)||0;
-    center={x:player.x-Math.sin(heading)*1.4,z:player.z-Math.cos(heading)*1.4};
-    targets=offlineDamageArea(center.x,center.z,4.2,offlineHasSkill('monk_openpalm')?11:8,0,2.7);
-    for(const monster of offlineLivingMonsters())if(Math.hypot(monster.x-center.x,monster.z-center.z)<=4.7)monster.stunnedUntil=now+(offlineHasSkill('monk_zen')?1600:1100);
-    notice='👊 Palma de impacto! Onda de choque repelindo inimigos.';
-  }else if(ability==='monk_winged_steps'){
-    offlineMoveForward(3.1);player.monkSpeedUntil=now+(offlineHasSkill('monk_flow')?7500:5000);
-    player.dodgeUntil=now+900;until=player.monkSpeedUntil;center={x:player.x,z:player.z};notice='🪽 Passos alados! Avanço veloz ativado.';
-  }else if(ability==='golem_split'){
-    const duration=offlineHasSkill('golem_splitheart')?16000:12000;
-    for(let i=0;i<3;i++)offlineCreateSummon('golem',i,3,duration,offlineHasSkill('golem_shatter')?62:50,offlineHasSkill('golem_shatter')?5:4,900);
-    player.invisibleUntil=now+duration;until=player.invisibleUntil;notice='🪨 Você se dividiu em três golens menores!';
-  }else if(ability==='golem_rock_toss'){
-    if(!Number.isFinite(Number(data.x))||!Number.isFinite(Number(data.z))){delete player.abilityCooldowns[ability];if(spec){if((CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[])[0]?.ability===ability)fireCooldown=0;else lightningCooldown=0;}showNotice('Toque no chão para escolher onde a pedra vai cair.');return;}
-    center={x:Number(data.x),z:Number(data.z)};
-    const radius=offlineHasSkill('golem_mountaincore')?6.1:5;
-    targets=offlineDamageArea(center.x,center.z,radius,offlineHasSkill('golem_quake')?18:15,0,1.1);
-    rockFall={x:center.x,z:center.z,radius,stones:Array.from({length:6},(_,i)=>({x:center.x+Math.cos(i*Math.PI/3)*2.5,z:center.z+Math.sin(i*Math.PI/3)*2.5}))};
-    notice='☄️ Pedra titânica! Impacto e estilhaços!';
-  }else if(ability==='knight_whirlwind'){
-    targets=offlineDamageArea(player.x,player.z,4.6,10,0,0);notice='⚔️ Redemoinho de aço! Inimigos ao redor foram atingidos.';
-  }else if(ability==='archer_piercing_shot'){
-    const target=nearby();if(target){targets=[{x:target.x,z:target.z}];offlineDamageMonster(target,18);}notice='➶ Flecha perfurante disparada!';
-  }else if(ability==='goblin_shadow_strike'){
-    const target=nearby();if(target){offlineDamageMonster(target,16);offlineMoveForward(1.7);targets=[{x:target.x,z:target.z}];}player.invisibleUntil=now+600;notice='⟡ Golpe sombrio!';
-  }else if(ability==='ogre_earthquake'){
-    targets=offlineDamageArea(player.x,player.z,5.8,15,0,1.5);notice='♨ Terremoto! Uma onda de choque se espalhou pelo chão.';
-  }else if(ability==='healer_sanctuary'){
-    const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+25);player.shieldUntil=now+2000;targets=[{x:player.x,z:player.z}];notice='✚ Santuário! Cura e proteção ativadas.';
-  }else if(ability==='monk_spirit_wave'){
-    const heading=Number(player.rot)||0;center={x:player.x-Math.sin(heading)*1.8,z:player.z-Math.cos(heading)*1.8};targets=offlineDamageArea(center.x,center.z,4.5,13,0,0);notice='☯ Onda espiritual!';
-  }else if(ability==='golem_stone_guard'){
-    player.shieldUntil=now+6500;until=player.shieldUntil;notice='⬟ Guarda de pedra! Sua armadura ficou reforçada.';
-  }
-  handleClassAbilityMessage({type:'classAbility',id:playerId,ability,x:player.x,z:player.z,center,targets,until,text:notice,rockFall});
-}
-
-
-function offlineUseItem(itemId){
-  const index=lootDrops.findIndex(entry=>String(entry.id)===String(itemId));
-  if(index<0){showNotice('Esse item não está no inventário.');return;}
-  const item=lootDrops[index],player=offlineState?.players?.[0];if(!player||player.hp<=0)return;
-  const effects={
-    comum:{potion:.3,coin:.1,powderHeal:.15,powderDamage:1,powderHits:3,fragmentDamage:1,fragmentHits:4,coreDamage:2,coreHits:4,gearDamage:1,heart:.4,ancientDamage:3,ancientHits:5},
-    incomum:{potion:.45,coin:.15,powderHeal:.25,powderDamage:2,powderHits:4,fragmentDamage:2,fragmentHits:5,coreDamage:3,coreHits:5,gearDamage:2,heart:.55,ancientDamage:5,ancientHits:7},
-    raro:{potion:.6,coin:.25,powderHeal:.35,powderDamage:3,powderHits:5,fragmentDamage:3,fragmentHits:6,coreDamage:5,coreHits:7,gearDamage:3,heart:.7,ancientDamage:7,ancientHits:9},
-    épico:{potion:.8,coin:.35,powderHeal:.5,powderDamage:5,powderHits:7,fragmentDamage:5,fragmentHits:8,coreDamage:7,coreHits:9,gearDamage:5,heart:.85,ancientDamage:10,ancientHits:12},
-    lendário:{potion:1,coin:.5,powderHeal:.7,powderDamage:8,powderHits:10,fragmentDamage:8,fragmentHits:12,coreDamage:10,coreHits:12,gearDamage:8,heart:1,ancientDamage:15,ancientHits:16}
-  };
-  const tier=effects[item.rarity]||effects.comum,maxHp=Number(player.maxHp)||130,heal=f=>Math.max(1,Math.round(maxHp*f));let message='';
-  if(['Poção de Vida','Moeda Antiga','Coração do Guardião'].includes(item.name)){
-    const key=item.name==='Poção de Vida'?'potion':item.name==='Moeda Antiga'?'coin':'heart';
-    if(player.hp>=maxHp){showNotice('Sua vida já está cheia!');return;}
-    const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier[key]));message='Vida +'+(player.hp-before)+'.';
-  }else if(item.name==='Pó de Cristal'){
-    const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier.powderHeal));
-    player.damageBuff=Math.max(player.damageBuff||0,tier.powderDamage);player.damageBuffHits=Math.max(player.damageBuffHits||0,tier.powderHits);
-    message='Vida +'+(player.hp-before)+' e dano aumentado por '+tier.powderHits+' golpes.';
-  }else if(['Fragmento Monocromático','Núcleo Sombrio','Cristal Ancestral'].includes(item.name)){
-    const ancient=item.name==='Cristal Ancestral',core=item.name==='Núcleo Sombrio';
-    const damage=ancient?tier.ancientDamage:core?tier.coreDamage:tier.fragmentDamage,hits=ancient?tier.ancientHits:core?tier.coreHits:tier.fragmentHits;
-    player.damageBuff=Math.max(player.damageBuff||0,damage);player.damageBuffHits=Math.max(player.damageBuffHits||0,hits);message='Dano +'+damage+' por '+hits+' golpes.';
-  }else if(['Equipamento Antigo','Relíquia Monocromática','Coroa do Abismo'].includes(item.name)){
-    equipmentDamage=Math.min(18,equipmentDamage+tier.gearDamage);player.equipmentDamage=equipmentDamage;
-    if(item.name==='Coroa do Abismo')player.hp=maxHp;
-    message='Equipado! Ataque permanente +'+tier.gearDamage+'.';
-  }else{showNotice('Este item ainda não tem um efeito.');return;}
-  lootDrops.splice(index,1);inventoryData[item.rarity]=Math.max(0,(inventoryData[item.rarity]||0)-1);selectedItemId=null;
-  saveSharedProfile();renderInventory();showNotice(item.name+': '+message);
+  saveSharedProfile();
 }
 function handleOfflineAction(data) {
   if (!offlineState || !data) return;
@@ -2928,7 +2782,7 @@ function handleOfflineAction(data) {
   } else if (data.type === 'classAbility') {
     handleOfflineClassAbility(data);
   } else if (data.type === 'spell') {
-    handleOfflineSpell(data.spell === 'fire' ? 'fire' : 'lightning');
+    handleOfflineSpell(String(data.spell||'lightning'));
   } else if (data.type === 'necromancerDiveTarget' && player.hp > 0 && player.necromancerDivePending) {
     const oldX=player.necromancerDiveOriginX,oldZ=player.necromancerDiveOriginZ;
     player.x=Number.isFinite(Number(data.x))?Number(data.x):player.x;
@@ -4501,7 +4355,7 @@ function castSpell(kind) {
   if(slot===0)fireCooldown=value;else if(slot===1)lightningCooldown=value;else thirdCooldown=value;
   // O efeito de lançamento aparece na hora; o servidor confirma os alvos e o dano.
   vibrateGame(kind === 'fire' ? 18 : 24);
-  playSfx(kind);
+  playSfx(kind==='fire'?'fire':'lightning');
   const palette={fire:{color:0xff6b24,geo:new THREE.SphereGeometry(.25,9,7)},lightning:{color:0x69aaff,geo:new THREE.OctahedronGeometry(.24,1)},arcane:{color:0x68baff,geo:new THREE.DodecahedronGeometry(.25,1)},bone:{color:0xf3f5ff,geo:new THREE.IcosahedronGeometry(.24,1)}};
   const selected=palette[kind]||palette.lightning,color=selected.color,geo=selected.geo;
   const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
@@ -4527,8 +4381,8 @@ function activateClassAbility(slot) {
   const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
   const spec = abilities[slot];
   if (!spec) return;
-  if (spec.spell) {
-    castSpell(spec.ability);
+  if(spec.spell){
+    castSpell(spec.spellType||spec.ability);
     return;
   }
   const remaining=slot===0?fireCooldown:slot===1?lightningCooldown:thirdCooldown;
