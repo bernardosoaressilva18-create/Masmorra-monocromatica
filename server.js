@@ -1435,15 +1435,28 @@ wss.on('connection', ws => {
       broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text, rockFall });
       broadcast(room, state(room));
     } else if (msg.type === 'spell') {
-      const spellAllowed=(player.playerClass==='mage'&&['fire','lightning','arcane'].includes(msg.spell))||(player.playerClass==='necromancer'&&msg.spell==='bone');
+      const spellAllowed=(player.playerClass==='mage'&&['fire','lightning','arcane'].includes(msg.spell))||(player.playerClass==='necromancer'&&msg.spell==='bone')||(player.playerClass==='healer'&&msg.spell==='healing');
       if(!room.started||player.hp<=0||!spellAllowed)return;
       if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Você está na zona segura. Use esse tempo para melhorar suas habilidades.' })); return; }
       const spell=String(msg.spell||'');
-      const manaCost={fire:20,lightning:15,arcane:18,bone:16}[spell];
+      const manaCost={fire:20,lightning:15,arcane:18,bone:16,healing:18}[spell];
       if(!manaCost)return;
       if ((player.mana ?? 100) < manaCost) { ws.send(JSON.stringify({ type: 'notice', text: '✦ Mana insuficiente! Espere regenerar.' })); return; }
       player.mana=Math.max(0,(player.mana??100)-manaCost);
       const now=Date.now();
+      if(spell==='healing'){
+        let target=player;
+        if(room.gameMode!=='pvp_rpg'){
+          const allies=[...room.players.values()].filter(ally=>ally.connected!==false&&ally.hp>0)
+            .sort((a,b)=>(a.hp/Math.max(1,a.maxHp))-(b.hp/Math.max(1,b.maxHp)));
+          target=allies.find(ally=>ally.hp<ally.maxHp)||player;
+        }
+        const before=target.hp;target.hp=Math.min(target.maxHp,target.hp+28);
+        const targets=[{x:target.x,z:target.z}];
+        ws.send(JSON.stringify({type:'notice',text:target.hp>before?'✚ Orbe da vida! +'+(target.hp-before)+' de vida.':'✚ A vida do alvo já está cheia.'}));
+        broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets});
+        broadcast(room,state(room));return;
+      }
       if(room.gameMode==='pvp_rpg'){
         const rivals=[...room.players.values()].filter(p=>p.connected!==false&&String(p.id)!==String(player.id)&&p.hp>0&&now>=(p.invisibleUntil||0));
         const candidates=rivals.map(p=>({p,d:Math.hypot(p.x-player.x,p.z-player.z),facing:isTargetInFront(player,p,spell === 'fire' ? 0.08 : 0)}))
