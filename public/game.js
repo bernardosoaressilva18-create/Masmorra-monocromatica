@@ -3297,10 +3297,12 @@ function updateState(m) {
       const incomingSkills=Array.isArray(p.skills)?p.skills:[];
       const incomingSkins=Array.isArray(p.unlockedSkins)?p.unlockedSkins.filter(id=>CHEST_ONLY_SKINS.includes(id)):[];
       const skinSetChanged=incomingSkins.slice().sort().join(',')!==Array.from(unlockedSkins).filter(id=>CHEST_ONLY_SKINS.includes(id)).sort().join(',');
-      const changed=selectedClass!==(p.playerClass||'knight')||selectedSkin!==(p.skin||'default')||skillPoints!==(p.talentPoints??5)||incomingSkills.slice().sort().join(',')!==Array.from(unlockedSkills).sort().join(',');
+      const incomingEquipmentDamage=Math.max(0,Math.min(18,Number(p.equipmentDamage)||0));
+      const equipmentChanged=incomingEquipmentDamage!==equipmentDamage;
+      const changed=selectedClass!==(p.playerClass||'knight')||selectedSkin!==(p.skin||'default')||skillPoints!==(p.talentPoints??5)||incomingSkills.slice().sort().join(',')!==Array.from(unlockedSkills).sort().join(',')||equipmentChanged;
       selectedClass=p.playerClass||selectedClass;selectedSkin=p.skin||selectedSkin;
       unlockedSkins=new Set(['default','shadow','ember',...incomingSkins]);
-      equipmentDamage=Math.max(0,Math.min(18,Number(p.equipmentDamage)||equipmentDamage));
+      equipmentDamage=incomingEquipmentDamage;
       updateClassAbilityButtons();skillPoints=Number.isFinite(p.talentPoints)?p.talentPoints:skillPoints;
       unlockedSkills.clear();incomingSkills.forEach(id=>unlockedSkills.add(id));
       document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
