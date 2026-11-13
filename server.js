@@ -129,6 +129,38 @@ function getRecentMonsterDamage(monster, player, now) {
   return Math.max(0, Math.min(100, damage * Math.exp(-Math.max(0, now - updated) / 6500)));
 }
 
+function getPlayerUnderworldPit(room, player, now=Date.now()) {
+  if (!player || Number(player.underworldUntil || 0) <= now) return null;
+  return (room.underworldPits || []).find(pit =>
+    pit?.open && Number(pit.until || 0) > now &&
+    Math.hypot(
+      Number(player.underworldReturnX) - Number(pit.x),
+      Number(player.underworldReturnZ) - Number(pit.z)
+    ) < 0.25
+  ) || null;
+}
+function getSummonUnderworldPit(room, summon, now=Date.now()) {
+  if (!summon || !Number.isFinite(Number(summon.x)) || !Number.isFinite(Number(summon.z))) return null;
+  return (room.underworldPits || []).find(pit =>
+    pit?.open && Number(pit.until || 0) > now &&
+    Math.hypot(Number(summon.x) - Number(pit.x), Number(summon.z) - Number(pit.z)) < 4.45
+  ) || null;
+}
+function canMonsterTargetPlayer(room, monster, player, now=Date.now()) {
+  const playerPit = getPlayerUnderworldPit(room, player, now);
+  if (!monster?.underworldPitId) return !playerPit;
+  const monsterPit = (room.underworldPits || []).find(pit =>
+    pit?.open && Number(pit.until || 0) > now &&
+    String(pit.id) === String(monster.underworldPitId)
+  );
+  return !!monsterPit && !!playerPit && String(playerPit.id) === String(monsterPit.id);
+}
+function canMonsterTargetSummon(room, monster, summon, now=Date.now()) {
+  const summonPit = getSummonUnderworldPit(room, summon, now);
+  if (!monster?.underworldPitId) return !summonPit;
+  return !!summonPit && String(summonPit.id) === String(monster.underworldPitId);
+}
+
 function requestTacticalTarget(room, monster, players, now) {
   if (!TACTICAL_AI_URL || typeof fetch !== 'function') return;
   if (now < tacticalAiCircuitOpenUntil) { tacticalAiStats.fallbackUses++; return; }
@@ -150,7 +182,7 @@ function requestTacticalTarget(room, monster, players, now) {
   if (tacticalAiInFlight.size >= TACTICAL_AI_MAX_IN_FLIGHT) return;
   const candidates = [];
   for (const player of players) {
-    if(player.hp<=0||now<(player.invisibleUntil||0)||!Number.isFinite(player.x)||!Number.isFinite(player.z))continue;
+    if(player.hp<=0||now<(player.invisibleUntil||0)||!Number.isFinite(player.x)||!Number.isFinite(player.z)||!canMonsterTargetPlayer(room,monster,player,now))continue;
     if(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(player.id)===String(monster.ownerId))continue;
     const threat = getMonsterThreat(monster, player, now);
     candidates.push({
@@ -162,7 +194,7 @@ function requestTacticalTarget(room, monster, players, now) {
     });
   }
   for (const summon of (room.summons || [])) {
-    if (summon.summonType === 'guardian_spirit' || summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
+    if (summon.summonType === 'guardian_spirit' || summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now) || !canMonsterTargetSummon(room,monster,summon,now)) continue;
     candidates.push({
       id: 'summon:' + String(summon.id), x: summon.x, z: summon.z,
       health: summon.hp, maxHealth: summon.maxHp || summon.hp || 100,
@@ -231,12 +263,13 @@ function applyTacticalTarget(room, monster, players, now) {
   if (cached.targetId.startsWith('player:')) {
     const id = cached.targetId.slice(7);
     const player=players.find(p=>String(p.id)===id&&p.hp>0&&now>=(p.invisibleUntil||0)
+      &&canMonsterTargetPlayer(room,monster,p,now)
       &&!(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(p.id)===String(monster.ownerId)));
     return player ? { ...player, id: player.id, isSummon: false, tacticalAi: true } : null;
   }
   if (cached.targetId.startsWith('summon:')) {
     const id = cached.targetId.slice(7);
-    const summon = (room.summons || []).find(s => String(s.id) === id && s.summonType !== 'guardian_spirit' && s.hp > 0 && (!s.expiresAt || s.expiresAt > now));
+    const summon = (room.summons || []).find(s => String(s.id) === id && s.summonType !== 'guardian_spirit' && s.hp > 0 && (!s.expiresAt || s.expiresAt > now) && canMonsterTargetSummon(room,monster,s,now));
     return summon ? { ...summon, id: 'summon:' + summon.id, isSummon: true, sourceSummon: summon, tacticalAi: true } : null;
   }
   return null;
@@ -494,7 +527,7 @@ function rollLoot(source) {
     name: item.name, rarity: rarity.name, value: rarity.value, power: rarityMultiplier(rarity.name), source };
 }
 function sendInventory(player) {
-  if (player.ws.readyState === WebSocket.OPEN) {
+  if (player?.ws?.readyState === WebSocket.OPEN) {
     player.ws.send(JSON.stringify({ type: 'inventory', inventory: player.inventory, lootDrops: player.lootDrops }));
   }
 }
@@ -503,7 +536,7 @@ function grantLoot(player, source) {
   player.lootDrops.push(item);
   player.inventory[item.rarity] = (player.inventory[item.rarity] || 0) + 1;
   sendInventory(player);
-  if (player.ws.readyState === WebSocket.OPEN) {
+  if (player?.ws?.readyState === WebSocket.OPEN) {
     player.ws.send(JSON.stringify({ type: 'loot', item }));
   }
   return item;
@@ -925,7 +958,11 @@ function state(room) {
     monsters: [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])],
     boss: room.boss,
     portalOpen: room.phase === 5 && !!room.boss && !room.boss.alive,
-    chests: room.chests.map(chest => ({ id: chest.id, x: chest.x, z: chest.z, opened: chest.openedBy.includes(String(room.hostId)) && chest.openedBy.length > 0, openedBy: chest.openedBy.slice(), cursed: !!chest.cursed, underground:!!chest.underground }))
+    chests: (Array.isArray(room.chests) ? room.chests : []).map(chest => {
+      const openedBy = Array.isArray(chest.openedBy) ? chest.openedBy : [];
+      chest.openedBy = openedBy;
+      return { id: chest.id, x: chest.x, z: chest.z, opened: openedBy.includes(String(room.hostId)) && openedBy.length > 0, openedBy: openedBy.slice(), cursed: !!chest.cursed, underground: !!chest.underground };
+    })
   };
 }
 
@@ -2024,6 +2061,7 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'notice', text: 'Chegue mais perto do baú.' }));
         return;
       }
+      if (!Array.isArray(chest.openedBy)) chest.openedBy = [];
       if (chest.openedBy.includes(player.id)) {
         ws.send(JSON.stringify({ type: 'notice', text: 'Você já pegou o loot deste baú.' }));
         return;
@@ -2121,7 +2159,7 @@ setInterval(() => {
       // Summons temporários expiram e não acumulam na lista enviada a cada tick.
       room.monsters = room.monsters.filter(monster => !monster.classSummoned || !monster.expiresAt || now < monster.expiresAt);
     }
-    if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0||now<(p.invisibleUntil||0))continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;if(now<(t.dodgeUntil||0)){t.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você evitou o golpe.'}));}else{takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}}
+    if(room.cursedBoss && room.cursedBoss.alive){const e=room.cursedBoss;let t=null,dmin=Infinity;for(const p of players){if(p.hp<=0||now<(p.invisibleUntil||0)||!canMonsterTargetPlayer(room,e,p,now))continue;const d=Math.hypot(p.x-e.x,p.z-e.z);if(d<dmin){dmin=d;t=p;}}if(t&&dmin>1.8&&dmin<22){const dx=t.x-e.x,dz=t.z-e.z,d=Math.hypot(dx,dz)||1;e.x+=dx/d*.15;e.z+=dz/d*.15;}if(t&&dmin<2.3&&now-(e.attackAt||0)>1100){e.attackAt=now;if(now<(t.dodgeUntil||0)){t.ws.send(JSON.stringify({type:'notice',text:'Esquiva perfeita! Você evitou o golpe.'}));}else{takeDamage(room,t,8);t.ws.send(JSON.stringify({type:'notice',text:'Mini-chefe amaldiçoado: -8 HP!'}));}}}
     if (room.safeZoneUntil && now >= room.safeZoneUntil) {
       room.safeZoneUntil = 0;
       broadcast(room, { type: 'notice', text: 'A zona segura terminou. Prepare-se para os inimigos!' });
@@ -2292,8 +2330,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
       // Goblins invocados provocam os monstros: recebem uma vantagem de aggro
       // para que os inimigos realmente os persigam em vez de focar sempre o jogador.
       for(const player of players){
-        if(player.hp<=0||now<(player.invisibleUntil||0)||now<(player.stoneGuardUntil||0))continue;
-        if(monster.underworldOnlyPlayerId&&String(player.id)!==String(monster.underworldOnlyPlayerId))continue;
+        if(player.hp<=0||now<(player.invisibleUntil||0)||now<(player.stoneGuardUntil||0)||!canMonsterTargetPlayer(room,monster,player,now))continue;
         if(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(player.id)===String(monster.ownerId))continue;
         const distance=Math.hypot(player.x-monster.x,player.z-monster.z);
         if (distance < targetPriority) {
@@ -2304,7 +2341,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
       }
       for (const summon of (room.summons || [])) {
         if (summon.summonType === 'guardian_spirit' || summon.summonType === 'stone_golem_clone') continue;
-        if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
+        if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now) || !canMonsterTargetSummon(room,monster,summon,now)) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
         // Goblins/esqueletos recebem aggro pela distância real. Antes havia
         // uma margem fixa de 3 unidades, fazendo monstros ignorarem invocações próximas.
@@ -2455,7 +2492,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
       // Portais de ruptura: o círculo avisa antes de explodir para dar tempo de esquivar.
       if (!Array.isArray(boss.portals)) boss.portals = [];
       boss.portals = boss.portals.filter(portal => now < portal.expiresAt);
-      const portalTargets = players.filter(p => p.hp > 0 && now >= (p.invisibleUntil || 0));
+      const portalTargets = players.filter(p => p.hp > 0 && now >= (p.invisibleUntil || 0) && canMonsterTargetPlayer(room,boss,p,now));
       if (portalTargets.length && now >= (boss.nextPortalAt || 0)) {
         const sequence = boss.portalSequence || 0;
         const target = portalTargets[sequence % portalTargets.length];
@@ -2546,12 +2583,12 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
       const bossArena = { minZ: -162, maxZ: -138, minX: -13, maxX: 13 };
       const bossTargets = [
         ...players.filter(p => p.hp > 0 && now >= (p.invisibleUntil || 0)
-          && Number.isFinite(p.x) && Number.isFinite(p.z))
+          && Number.isFinite(p.x) && Number.isFinite(p.z) && canMonsterTargetPlayer(room,boss,p,now))
           .map(p => ({ ...p, isSummon: false })),
         ...(room.summons || [])
           .filter(s => s.summonType !== 'guardian_spirit' && s.hp > 0
             && (!s.expiresAt || s.expiresAt > now)
-            && Number.isFinite(s.x) && Number.isFinite(s.z)
+            && Number.isFinite(s.x) && Number.isFinite(s.z) && canMonsterTargetSummon(room,boss,s,now)
             // The boss is physically confined to this arena. Don't select a summon
             // outside it: that made the boss run against its movement boundary.
             && s.z >= bossArena.minZ && s.z <= bossArena.maxZ
