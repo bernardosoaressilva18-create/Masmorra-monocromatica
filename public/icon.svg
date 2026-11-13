@@ -1,17 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#182d40"/>
-      <stop offset="1" stop-color="#070a10"/>
-    </linearGradient>
-    <linearGradient id="blade" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#d9fbff"/>
-      <stop offset=".5" stop-color="#72e7f2"/>
-      <stop offset="1" stop-color="#4a87a8"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
-  <path d="M256 62 287 153 379 120 346 212 438 256 346 300 379 392 287 359 256 450 225 359 133 392 166 300 74 256 166 212 133 120 225 153Z" fill="none" stroke="#e9c477" stroke-width="8" opacity=".75"/>
-  <path d="M256 112 292 225 400 256 292 287 256 400 220 287 112 256 220 225Z" fill="url(#blade)" stroke="#d8faff" stroke-width="7" stroke-linejoin="round"/>
-  <circle cx="256" cy="256" r="27" fill="#09111b" stroke="#e9c477" stroke-width="8"/>
+<defs><linearGradient id="b" x2="1" y2="1"><stop stop-color="#253954"/><stop offset="1" stop-color="#080d17"/></linearGradient><linearGradient id="p" x2="0" y2="1"><stop stop-color="#c7fbff"/><stop offset=".55" stop-color="#8a7cff"/><stop offset="1" stop-color="#402579"/></linearGradient></defs>
+<rect width="512" height="512" rx="100" fill="url(#b)"/>
+<path d="M256 46 294 139 391 105 357 202 466 256 357 310 391 407 294 373 256 466 218 373 121 407 155 310 46 256 155 202 121 105 218 139Z" fill="none" stroke="#e8c77f" stroke-width="11" opacity=".85"/>
+<path d="M128 420V231Q128 100 256 100T384 231V420Z" fill="#101b2c" stroke="#b3f4ff" stroke-width="18"/>
+<path d="M158 420V234Q158 132 256 132T354 234V420Z" fill="url(#p)"/>
+<path d="M256 165 279 242 357 256 279 270 256 347 233 270 155 256 233 242Z" fill="#e5fbff"/>
+<circle cx="256" cy="256" r="24" fill="#111a2a" stroke="#e9c477" stroke-width="8"/>
 </svg>
