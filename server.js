@@ -557,13 +557,13 @@ function advancePhase(room) {
 
 function enterAstralRealm(room){
  room.realm=2;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,2,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
- room.chests=[{id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},{id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}];
+ room.mapHazards=createRoomMapHazards();room.underworldPits=[];room.chests=createRoomChests(2);
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 function enterEclipseRealm(room){
  room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
- room.chests=[{id:'e0',x:8,z:-12,openedBy:[]},{id:'e1',x:-8,z:-44,openedBy:[]},{id:'e2',x:8,z:-76,openedBy:[]},{id:'e3',x:-8,z:-108,openedBy:[]},{id:'e4',x:8,z:-140,openedBy:[]}];
+ room.mapHazards=createRoomMapHazards();room.underworldPits=[];room.chests=createRoomChests(3);
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ PORTAL DO MUNDO INVERTIDO! Você chegou ao Eclipse Selvagem: inimigos mais fortes, armadilhas corrompidas, novo guardião e +3 pontos de skill.'}));}
  broadcast(room,state(room));
 }
@@ -601,10 +601,7 @@ function newRoom(code,hostId,isPublic=false,requestedGameMode='coop'){
   openTraps:[],safeZoneUntil:0,nextSafeBroadcast:0,emptySince:0,cursedBoss:null,cursedBossAttackAt:0,
   mapHazards:gameMode==='pvp_rpg'?[]:createRoomMapHazards(),
   underworldPits:[],
-  chests:gameMode==='pvp_rpg'?[]:[
-   {id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},
-   {id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}
-  ]};
+  chests:gameMode==='pvp_rpg'?[]:createRoomChests(1)};
  room.code=code;rooms.set(code,room);return room;
 }
 
@@ -652,6 +649,16 @@ function createRoomMapHazards(){
   ];
  });
 }
+function createRoomChests(realm=1){
+ const prefix=realm===3?'e':realm===2?'a':'c';
+ return SERVER_MAP_CENTERS.flatMap((center,index)=>{
+  const side=Math.random()<.5?-1:1,upperSide=index%2===0?-1:1;
+  return [
+   {id:prefix+index,x:side*(5.8+Math.random()*2.0),z:center+(Math.random()-.5)*7.2,openedBy:[]},
+   {id:prefix+'u'+index,x:upperSide*8.25+(Math.random()-.5)*1.1,z:center-13.1-Math.random()*3.0,openedBy:[],upperFloor:true}
+  ];
+ });
+}
 function serverPointInPolygon(x,y,polygon){
  let inside=false;
  for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
@@ -660,14 +667,29 @@ function serverPointInPolygon(x,y,polygon){
  }
  return inside;
 }
+function serverIsUpperFloor(x,z,index){
+ const stairX=index%2===0?-8.25:8.25,center=SERVER_MAP_CENTERS[index];
+ return Math.abs(x-stairX)<3.62&&z<=center-8.0&&z>=center-20.5;
+}
 function serverIsWalkableFloor(x,z,room){
- for(let i=0;i<SERVER_MAP_CENTERS.length;i++)if(serverPointInPolygon(x,z-SERVER_MAP_CENTERS[i],SERVER_MAP_POLYGONS[i]))return true;
+ for(let i=0;i<SERVER_MAP_CENTERS.length;i++){
+  if(serverPointInPolygon(x,z-SERVER_MAP_CENTERS[i],SERVER_MAP_POLYGONS[i])||serverIsUpperFloor(x,z,i))return true;
+ }
  if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
+ if((room?.underworldPits||[]).some(pit=>pit.open&&Math.hypot(x-pit.x,z-pit.z)<4.45))return true;
  return (room?.openTraps||[]).some(id=>{const pit=SERVER_PITS.find(item=>item.id===id);return pit&&Math.hypot(x-pit.pitX,z-pit.pitZ)<1.95;});
 }
 const SERVER_PILLAR_COLLIDERS=[
  ...SERVER_MAP_CENTERS.flatMap(z=>[{x:-10.5,z:z-.7,r:.72},{x:10.5,z:z-.7,r:.72}]),
- ...[-30,-62,-94,-126].flatMap(z=>[{x:-3.15,z,r:.30},{x:3.15,z,r:.30}])
+ ...[-30,-62,-94,-126].flatMap(z=>[{x:-3.15,z,r:.30},{x:3.15,z,r:.30}]),
+ ...SERVER_MAP_CENTERS.flatMap((center,index)=>{
+  const stairX=index%2===0?-8.25:8.25;
+  return [
+   ...[-1.78,1.78].flatMap(side=>Array.from({length:8},(_,n)=>({x:stairX+side,z:center+1.0-n,r:.19}))),
+   ...[-3.62,3.62].flatMap(side=>Array.from({length:9},(_,n)=>({x:stairX+side,z:center-9.0-n*1.18,r:.22}))),
+   ...Array.from({length:9},(_,n)=>({x:stairX-3.25+n*.81,z:center-20.5,r:.22}))
+  ];
+ })
 ];
 function processPressurePlate(room,player,now){
  if(room.gameMode==='pvp_rpg'||!room.started||player.hp<=0)return false;
@@ -2194,7 +2216,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
         }
       }
       for (const summon of (room.summons || [])) {
-        if (summon.summonType === 'guardian_spirit') continue;
+        if (summon.summonType === 'guardian_spirit' || summon.summonType === 'stone_golem_clone') continue;
         if (summon.hp <= 0 || (summon.expiresAt && summon.expiresAt <= now)) continue;
         const distance = Math.hypot(summon.x - monster.x, summon.z - monster.z);
         // Goblins/esqueletos recebem aggro pela distância real. Antes havia
