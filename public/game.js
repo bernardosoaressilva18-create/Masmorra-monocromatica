@@ -5025,11 +5025,14 @@ function animate() {
       const cameraFloor = 0.42;
       cameraPositionScratch.set(
         target.x + Math.sin(yaw) * horizontalDistance,
-        Math.max(cameraFloor, target.y + 1.2 + verticalOffset),
+        Math.max(cameraFloor, target.y + verticalOffset),
         target.z + Math.cos(yaw) * horizontalDistance
       );
       camera.position.lerp(cameraPositionScratch, cameraSmooth);
-      camera.lookAt(target.x, target.y + 0.15, target.z);
+      const lookUpTargetY = orbitPitch < 0
+        ? Math.max(target.y + 0.15, cameraPositionScratch.y + horizontalDistance * Math.tan(-orbitPitch))
+        : target.y + 0.15;
+      camera.lookAt(target.x, lookUpTargetY, target.z);
     }
   }
 
