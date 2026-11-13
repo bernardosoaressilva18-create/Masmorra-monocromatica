@@ -139,6 +139,16 @@ function getPlayerUnderworldPit(room, player, now=Date.now()) {
     ) < 0.25
   ) || null;
 }
+function arePlayersInSameWorldLayer(room, first, second, now=Date.now()) {
+  const firstPit = getPlayerUnderworldPit(room, first, now);
+  const secondPit = getPlayerUnderworldPit(room, second, now);
+  return String(firstPit?.id || 'surface') === String(secondPit?.id || 'surface');
+}
+function areSummonAndPlayerInSameWorldLayer(room, summon, player, now=Date.now()) {
+  const summonPit = getSummonUnderworldPit(room, summon, now);
+  const playerPit = getPlayerUnderworldPit(room, player, now);
+  return String(summonPit?.id || 'surface') === String(playerPit?.id || 'surface');
+}
 function getSummonUnderworldPit(room, summon, now=Date.now()) {
   if (!summon || !Number.isFinite(Number(summon.x)) || !Number.isFinite(Number(summon.z))) return null;
   return (room.underworldPits || []).find(pit =>
@@ -433,7 +443,7 @@ function takeDamage(room, player, amount) {
   if (hasSkill(player, 'monk_ironbody')) damage *= .95;
   if (hasSkill(player, 'golem_granite')) damage *= .92;
   if (Date.now() < (player.shieldUntil || 0)) damage *= .35;
-  const nearbyAlly = [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && Math.hypot(other.x-player.x, other.z-player.z) <= 7);
+  const nearbyAlly = [...room.players.values()].some(other => other.connected !== false && other.id !== player.id && other.hp > 0 && arePlayersInSameWorldLayer(room,player,other,damageNow) && Math.hypot(other.x-player.x, other.z-player.z) <= 7);
   if (hasSkill(player, 'party_guard') && nearbyAlly) damage *= .9;
   if (hasSkill(player, 'team_resolve') && nearbyAlly) damage *= .85;
   // "Segunda chance" não ressuscita: reduz dano enquanto a vida já está crítica.
@@ -1828,7 +1838,7 @@ wss.on('connection', ws => {
       if(spell==='healing'){
         let target=player;
         if(room.gameMode!=='pvp_rpg'){
-          const allies=[...room.players.values()].filter(ally=>ally.connected!==false&&ally.hp>0)
+          const allies=[...room.players.values()].filter(ally=>ally.connected!==false&&ally.hp>0&&arePlayersInSameWorldLayer(room,player,ally,now))
             .sort((a,b)=>(a.hp/Math.max(1,a.maxHp))-(b.hp/Math.max(1,b.maxHp)));
           target=allies.find(ally=>ally.hp<ally.maxHp)||player;
         }
@@ -2068,7 +2078,7 @@ wss.on('connection', ws => {
       }
       chest.openedBy.push(player.id);
       const hiddenSkins=['rune','celestial','bloodmoon','frostguard','draconic','voidwalker','verdant'].filter(id=>!(player.unlockedSkins||[]).includes(id));
-      if(Math.random()<.25){
+      if(!chest.cursed&&!(room.cursedBoss&&room.cursedBoss.alive)&&Math.random()<.25){
         chest.cursed=true;
         room.cursedBoss={id:'cursed-'+chest.id,kind:'brute',x:chest.x,z:chest.z,hp:30+room.phase*8,maxHp:30+room.phase*8,alive:true,spawned:true,phase:room.phase,cursed:true,attackAt:0};
         broadcast(room,{type:'notice',text:'☠ BAÚ AMALDIÇOADO! Um mini-chefe apareceu. Derrote-o para ganhar um item lendário!'});
@@ -2217,6 +2227,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
         for (const ally of players) {
           if (ally.hp <= 0 || ally.hp >= ally.maxHp ||
               (room.gameMode === 'pvp_rpg' && String(ally.id) !== String(p.id)) ||
+              !arePlayersInSameWorldLayer(room,p,ally,now) ||
               Math.hypot(ally.x-p.x, ally.z-p.z) > 6) continue;
           ally.hp = Math.min(ally.maxHp, ally.hp + 2);
         }
@@ -2236,12 +2247,15 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
         // perseguem o inimigo mais próximo e alternam seus pulsos de cura/dano.
         const woundedAllies = players.filter(ally =>
           (room.gameMode !== 'pvp_rpg' || String(ally.id) === String(summon.ownerId)) &&
-          ally.hp > 0 && ally.hp < ally.maxHp)
+          ally.hp > 0 && ally.hp < ally.maxHp && areSummonAndPlayerInSameWorldLayer(room,summon,ally,now))
           .map(ally => ({ entity: ally, distance: Math.hypot(ally.x - summon.x, ally.z - summon.z), isAlly: true }))
           .sort((a, b) => a.distance - b.distance);
         const nearestEnemyEntry = summonEnemies.filter(enemy =>
           enemy.alive && (room.gameMode !== 'pvp_rpg' || enemy.pvpPlayer)
-          && (!enemy.pvpPlayer || String(enemy.id) !== String(summon.ownerId)))
+          && (!enemy.pvpPlayer || String(enemy.id) !== String(summon.ownerId))
+          && (enemy.pvpPlayer
+            ? areSummonAndPlayerInSameWorldLayer(room,summon,enemy.sourcePlayer||enemy,now)
+            : canMonsterTargetSummon(room,enemy,summon,now)))
           .map(enemy => ({ entity: enemy, distance: Math.hypot(enemy.x - summon.x, enemy.z - summon.z), isAlly: false, isPvpPlayer:!!enemy.pvpPlayer }))
           .sort((a, b) => a.distance - b.distance)[0];
         const nearestAllyEntry = woundedAllies[0];
