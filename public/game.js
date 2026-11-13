@@ -2691,7 +2691,7 @@ function handleOfflineSpell(spell) {
   const isMage=player.playerClass==='mage',isNecromancer=player.playerClass==='necromancer',isHealer=player.playerClass==='healer';
   const valid=(isMage&&['fire','lightning','arcane'].includes(spell))||(isNecromancer&&spell==='bone')||(isHealer&&spell==='healing');
   if(!valid)return;
-  const costs={fire:20,lightning:15,arcane:18,bone:16},manaCost=costs[spell]||16;
+  const costs={fire:20,lightning:15,arcane:18,bone:16,healing:18},manaCost=costs[spell]||16;
   if((Number(player.mana)||0)<manaCost){
     const slot=spell==='fire'?0:spell==='lightning'?1:2;
     if(slot===0)fireCooldown=0;else if(slot===1)lightningCooldown=0;else thirdCooldown=0;
@@ -4400,7 +4400,7 @@ function castSpell(kind) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
   const spec=Object.values(CLASS_ABILITY_CONFIG).flat().find(item=>(item.spellType||item.ability)===kind||item.ability===kind);
   const slot=(CLASS_ABILITY_CONFIG[selectedClass]||[]).findIndex(item=>(item.spellType||item.ability)===kind||item.ability===kind);
-  const manaCost={fire:20,lightning:15,arcane:18,bone:16}[kind]||15;
+  const manaCost={fire:20,lightning:15,arcane:18,bone:16,healing:18}[kind]||15;
   const currentMana=offlineMode?Number(offlineState?.players?.[0]?.mana??100):Number(myPlayer?.userData.serverMana??100);
   if(currentMana<manaCost){showNotice('✦ Mana insuficiente! Espere regenerar.');return;}
   const cooldown=slot===0?fireCooldown:slot===1?lightningCooldown:thirdCooldown;
