@@ -1,9 +1,9 @@
-const CACHE_NAME = 'last-legacy-offline-66';
+const CACHE_NAME = 'last-legacy-offline-67';
 const SHELL = [
   './',
   './index.html',
-  './style.css?v=20261113-r18',
-  './game.js?v=20261113-r19',
+  './style.css?v=20261113-r17',
+  './game.js?v=20261113-r20',
   './manifest.webmanifest?v=20261113-world-r6',
   './icon.svg?v=20261113-world-r6',
   './cover.svg?v=20261113-world-r6',
