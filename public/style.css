@@ -5470,3 +5470,45 @@ html, body, #game { width:100%; height:100%; min-width:0; min-height:0; }
   #lobby .hero-showcase { padding:5px; }
   #lobby .hero-preview-avatar { width:72px; height:82px; }
 }
+
+
+/* CORREÇÃO DE VIEWPORT MÓVEL — lobby, menu e partida sem esticar em paisagem. */
+html,body,#game{
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  margin:0;
+  overflow:hidden;
+  overscroll-behavior:none;
+}
+#game{position:fixed;inset:0;width:100vw;height:100dvh;max-width:100vw;max-height:100dvh}
+#startScreen,#menu,#lobby,#hud{
+  box-sizing:border-box;
+  min-width:0;
+  max-width:100vw;
+}
+#startScreen,#menu,#lobby{max-height:100dvh}
+@media (orientation:landscape) and (max-height:600px){
+  #lobby.lobby-screen{position:fixed;inset:0;width:100vw;height:100dvh;min-height:0;max-height:100dvh;overflow:hidden}
+  #lobby .lobby-layout{display:flex;flex-direction:row;align-items:stretch;gap:8px;min-width:0;width:100%;height:calc(100dvh - 78px);max-height:calc(100dvh - 78px);overflow-x:hidden;overflow-y:auto}
+  #lobby .lobby-stage{flex:1 1 0;min-width:0;max-width:none}
+  #lobby .lobby-team-box{flex:0 1 30vw;min-width:150px;max-width:30vw;min-height:0}
+  #lobby .lobby-editor{max-width:min(520px,calc(100vw - 16px));max-height:calc(100dvh - 12px)}
+  #lobby .lobby-editor-content{min-width:0;max-height:calc(100dvh - 68px);overflow-x:hidden;overflow-y:auto}
+  #menu .panel{max-width:calc(100vw - 24px);max-height:calc(100dvh - 16px);overflow-x:hidden;overflow-y:auto}
+  #startScreen{padding-top:max(8px,env(safe-area-inset-top));padding-bottom:max(8px,env(safe-area-inset-bottom))}
+}
+@media (orientation:landscape) and (max-height:430px){
+  #lobby .lobby-layout{height:calc(100dvh - 66px);max-height:calc(100dvh - 66px)}
+  #lobby .lobby-team-box{min-width:138px}
+  #lobby .hero-showcase{min-height:0}
+  #lobby .hero-preview-avatar{max-height:24dvh}
+  #menu .panel{padding:8px}
+}
+@media (orientation:portrait) and (max-width:760px){
+  #lobby.lobby-screen{height:100dvh;max-height:100dvh;overflow:hidden}
+  #lobby .lobby-layout{max-width:100%;min-width:0}
+  #lobby .lobby-editor{width:calc(100vw - 16px);max-width:calc(100vw - 16px)}
+  #lobby .lobby-editor-content{min-width:0;overflow-x:hidden;overflow-y:auto}
+}
