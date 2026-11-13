@@ -2871,7 +2871,8 @@ function offlineLivingMonsters() {
 
 function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, pushDistance = 0) {
   if (!monster?.alive || !Number.isFinite(amount) || amount <= 0) return false;
-  monster.hp = Math.max(0, Number(monster.hp || 0) - amount);
+  const previousHp = Math.max(0, Number(monster.hp || 0));
+  monster.hp = Math.max(0, previousHp - amount);
   if (burnMs > 0 && monster.hp > 0) {
     monster.burnUntil = Math.max(monster.burnUntil || 0, Date.now() + burnMs);
     monster.burnNextAt = Math.min(monster.burnNextAt || Date.now() + 1000, Date.now() + 1000);
@@ -2882,7 +2883,7 @@ function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, push
     monster.x += dx / distance * pushDistance;
     monster.z += dz / distance * pushDistance;
   }
-  const actualTrainingDamage = Math.min(Math.max(0,Number(monster.hp)||0),amount);
+  const actualTrainingDamage = Math.min(previousHp,amount);
   if (monster.trainingDummy) recordTrainingDamage(actualTrainingDamage);
   if (monster.hp <= 0) {
     monster.alive = false;
