@@ -329,16 +329,10 @@ function playSfx(kind = 'ui') {
 }
 
 // Colisores 2D alinhados aos pilares, suportes dos portões e cristais sólidos.
-const staticDungeonColliders = (() => {
-  const list = [];
-  for (let z = -30; z <= 8; z += 9) {
-    for (const x of [-10, 10]) list.push({ x, z, r: 0.88 });
-  }
-  for (const z of [-31.8, -63.8, -95.8, -127.8]) {
-    for (const x of [-3.4, 3.4]) list.push({ x, z, r: 0.48 });
-  }
-  return list;
-})();
+const staticDungeonColliders = [
+  ...MAP_PILLAR_COLLIDERS,
+  ...[-30,-62,-94,-126].flatMap(z=>[{x:-3.15,z,r:.30},{x:3.15,z,r:.30}])
+];
 function isDungeonPositionBlocked(x,z){
   const playerRadius=.43;
   if(offlineMode&&offlineState?.started){
@@ -347,11 +341,9 @@ function isDungeonPositionBlocked(x,z){
     const enemiesAlive=offlineLivingMonsters().length>0||!!offlineState.boss?.alive;
     if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
   }
-  // Os pilares do Mundo Monocromático só existem no primeiro mundo.
-  if (currentRealmVisual === 1) {
-    for (const obstacle of staticDungeonColliders) {
-      if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
-    }
+  // O desenho e as hitboxes dos pilares/portais são iguais nos três reinos.
+  for (const obstacle of staticDungeonColliders) {
+    if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
   }
   for (const chest of latestChests || []) {
     if (Math.hypot(x - chest.x, z - chest.z) < playerRadius + 0.62) return true;
@@ -4238,7 +4230,7 @@ function handleMessage(m) {
 
   if(m.type==='experience'){
     levelProgress={level:m.level||1,xp:m.xp||0,xpToNext:m.xpToNext||100,levelPoints:m.levelPoints||0,upgrades:{...levelProgress.upgrades}};
-    updateLevelHud();showNotice('+'+Math.max(0,Number(m.amount)||0)+' XP · '+(m.source==='boss'?'Chefe':m.source==='player'?'Jogador rival':'Monstro'));return;
+    updateLevelHud();showNotice('+'+Math.max(0,Number(m.amount)||0)+' XP · '+(m.source==='boss'?'Chefe':m.source==='player'?'Jogador rival':m.source==='assist'?'Assistência':'Monstro'));return;
   }
   if(m.type==='autoDodge'){
     if(m.id===playerId&&myPlayer){myPlayer.position.set(m.x,getDungeonFloorHeight(m.x,m.z),m.z);myPlayer.userData.dodgeFlashUntil=performance.now()+240;}
