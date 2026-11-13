@@ -4432,3 +4432,92 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 #lobby .skin-pick{min-width:0}
 #lobby .hero-showcase{min-height:clamp(230px,38vh,340px)}
 @media(max-width:600px){#lobby .skin-chest-info{padding:10px}#lobby .hero-showcase{min-height:250px}}
+
+
+/* Pacote de refinamento de RPG: árvore, mundos, inventário e leitura mobile */
+.skill-rpg-links .skill-rpg-line{fill:none;stroke:#a9bfd2;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;opacity:.78}
+.skill-rpg-node{min-width:0;backdrop-filter:blur(4px);transition:transform .16s ease,border-color .16s ease,filter .16s ease,box-shadow .16s ease}
+.skill-rpg-node:focus-visible{outline:2px solid #d8f5ff;outline-offset:4px;z-index:5}
+.skill-rpg-node.available:hover{filter:brightness(1.18);box-shadow:0 0 0 2px #f0d28e35,0 0 20px #e9c47755}
+.skill-rpg-node.unlocked:hover{filter:brightness(1.12);box-shadow:0 0 0 2px #7ee0bf35,0 0 18px #5ed6b455}
+.skill-rpg-node.locked{filter:saturate(.72)}
+.skill-rpg-node-copy strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.skill-rpg-node-copy em{white-space:normal}
+.skill-rpg-root{box-shadow:0 0 0 5px #79dce01a,0 0 24px #69e5f055,inset 0 1px #ffffff55}
+.skill-rpg-branch-label{max-width:17%;text-align:center;line-height:1.25}
+.skill-rpg-branch-label strong{overflow-wrap:anywhere}
+.skill-rpg-branch-label small{display:block;margin-top:4px;color:#a9c4d2;font-size:8px;letter-spacing:.5px}
+.skill-tree-core-redesign{border:1px solid #d3b66c55;background:linear-gradient(115deg,#151f2c,#0a111b);box-shadow:0 8px 24px #0006,inset 0 1px #fff1}
+.skill-tree-core-icon{display:grid;place-items:center;min-width:40px;min-height:40px;border:1px solid #d8bd7c66;border-radius:12px;background:radial-gradient(circle at 35% 25%,#43526a,#0e1723);font-size:22px}
+.skill-tree-overall-progress{display:block;overflow:hidden;height:5px;margin-top:7px;border-radius:99px;background:#263645}
+.skill-tree-overall-progress>span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#58d9c3,#efcd7d);box-shadow:0 0 9px #74e4d466}
+.skill-tree-tools{gap:8px}
+.skill-search-label{min-width:0;border:1px solid #5d7b8d;background:#091522}
+.skill-search-label input{min-width:0;color:#e8f4fb}
+.skill-tree-filters{display:flex;gap:5px;flex-wrap:wrap}
+.skill-filter{min-height:34px;padding:6px 9px;border:1px solid #536c7e;border-radius:8px;background:#101d2a;color:#bcd1dc;font-size:9px}
+.skill-filter.active{border-color:#e4c47e;background:#372e1c;color:#ffe8b5}
+.skill-description-catalog{margin-top:18px;padding:12px;border:1px solid #6c879a55;border-radius:14px;background:linear-gradient(150deg,#0e1b29e8,#080f18f2)}
+.skill-description-catalog>h3{margin:0 0 6px;color:#e7cf96;font-size:12px;letter-spacing:1.3px}
+.skill-description-catalog>p{margin:0 0 12px;color:#9fb7c5;font-size:10px;line-height:1.5}
+.skill-description-branch{margin-top:12px}
+.skill-description-branch h4{margin:0 0 7px;color:#8de4e8;font-size:10px;letter-spacing:1px}
+.skill-description-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.skill-description-card{display:flex;align-items:flex-start;gap:8px;min-width:0;padding:9px;border:1px solid #4f6577;border-radius:9px;background:#0c1722}
+.skill-description-card.available{border-color:#d2ad60;background:#1e1a14}
+.skill-description-card.unlocked{border-color:#52c49f;background:#10231f}
+.skill-description-icon{display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;border-radius:8px;background:#1b2b3a;font-size:16px}
+.skill-description-copy{min-width:0}
+.skill-description-copy strong{display:block;color:#eaf2f5;font-size:10px;line-height:1.25}
+.skill-description-copy p{margin:4px 0;color:#b5c6d1;font-size:9px;line-height:1.4}
+.skill-description-copy small{color:#d9c17f;font-size:8px;line-height:1.3}
+#hud .inventory-panel{border-color:#6d8ba0;background:linear-gradient(150deg,#101d2beF,#070e17f2);box-shadow:0 12px 28px #0008}
+#hud .loot-row{min-height:25px;align-items:center;border:1px solid #ffffff0c}
+#hud .loot-row.selected{border-color:#e4c47e;background:#332a19}
+#hud .recent-loot{max-height:20vh;overflow:auto;overscroll-behavior:contain}
+#hud .loot-item{padding:5px;border-radius:6px;background:#ffffff08;line-height:1.35}
+#hud .selected-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;margin-top:8px}
+#hud .selected-item span{min-width:0;overflow-wrap:anywhere;color:#e3d5ad}
+#hud .selected-item button{min-height:36px;padding:6px 8px;border:1px solid #d4b36d;border-radius:8px;background:#382d19;color:#ffe7b1;font-size:9px;font-weight:900}
+#hud .selected-item button:disabled{filter:grayscale(1);opacity:.45}
+#lobby .skin-pick.selected{border-color:#e8ca83;box-shadow:0 0 0 2px #e8ca8322,0 0 16px #e8ca8330}
+#lobby .skin-pick[data-chest-skin="true"]{border-color:#65cdb6;background:linear-gradient(145deg,#10332f,#0b1922)}
+#lobby .skin-pick[data-chest-skin="true"] .skin-swatch{box-shadow:0 0 12px #67ddc755}
+#lobby .hero-showcase-info{position:relative;z-index:2}
+#lobby .hero-showcase-info strong{line-height:1.15}
+#lobby .lobby-stage{background:radial-gradient(ellipse at 50% 40%,#17334844,transparent 70%)}
+#lobby .lobby-team-box{backdrop-filter:blur(6px)}
+#lobby .lobby-player.is-self{border-color:#8be0eb;background:linear-gradient(110deg,#173747,#101a25)}
+#lobby .lobby-player.ready .lobby-state{color:#86e7bc}
+#lobby .lobby-room-pill strong{letter-spacing:1.5px;font-variant-numeric:tabular-nums}
+#hud .boss-panel{border-color:#b77b60;box-shadow:0 0 24px #a9403050}
+#hud .mana-hud{border-color:#5bcbe866}
+#hud .objective{border-color:#79c7df55}
+#hud .notice{border:1px solid #e1c47766;box-shadow:0 8px 28px #000b}
+#hud .spell-btn:active,#hud .attack:active,#hud .dodge-btn:active{filter:brightness(1.18)}
+#hud .chest-btn:disabled{filter:grayscale(.7);opacity:.5}
+#hud .player-chip{border:1px solid #8acbdb33}
+#hud .player-chip.is-self{border-color:#8be2ef;background:#102a35}
+#hud .skill-panel{border:1px solid #85d7e955;box-shadow:0 16px 42px #000b}
+#hud .settings-panel{backdrop-filter:blur(12px)}
+#lobby .lobby-editor{backdrop-filter:blur(8px)}
+#lobby .lobby-editor-content{scrollbar-width:thin;scrollbar-color:#557a8c #0a1420}
+#lobby .lobby-ready-button:disabled,#lobby .lobby-start-button:disabled{filter:grayscale(.7);opacity:.56}
+#lobby .lobby-nav-btn.active{box-shadow:inset 0 1px #ffffff24,0 0 14px #75d9ea25}
+#lobby .class-card.selected{border-color:#8de7f4}
+#lobby .class-card:focus-visible{outline:2px solid #8de7f4}
+@media(max-width:600px){
+ .skill-description-list{grid-template-columns:1fr}
+ .skill-rpg-node{min-height:66px;padding:6px;gap:5px}
+ .skill-rpg-node-copy strong{font-size:8px}
+ .skill-rpg-node-copy small{font-size:6px}
+ .skill-rpg-node-copy em{font-size:5.5px}
+ .skill-rpg-node-icon{flex-basis:29px;width:29px;height:29px;font-size:14px}
+ .skill-tree-tools{display:grid;grid-template-columns:1fr}
+ .skill-tree-filters{justify-content:stretch}
+ .skill-tree-filters .skill-filter{flex:1}
+ #hud .inventory-panel{width:min(42vw,170px)}
+}
+@media(prefers-reduced-motion:reduce){
+ .skill-rpg-node,.skill-filter,#lobby .skin-pick{transition:none}
+}
