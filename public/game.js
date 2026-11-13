@@ -3032,7 +3032,7 @@ function handleOfflineClassAbility(data) {
   const now = Date.now();
   if (now < Number(offlineState.safeZoneUntil || 0)) { showNotice('Aguarde o fim da zona segura para usar habilidades.'); return; }
   if (spec.targeted && (!Number.isFinite(Number(data.x)) || !Number.isFinite(Number(data.z)))) { showNotice('Toque no chão para escolher o impacto.'); return; }
-  const costs = {knight_shield:12,knight_dash:16,knight_whirlwind:21,arrow_rain:18,incendiary_arrows:22,archer_piercing_shot:22,goblin_invis:16,goblin_summon:24,goblin_shadow_strike:18,ogre_slam:20,ogre_haste:14,ogre_earthquake:28,healer_cure:18,healer_guardian_spirits:25,healer_sanctuary:24,necromancer_summon:24,necromancer_dive:18,monk_impact_palm:16,monk_winged_steps:18,monk_spirit_wave:22,golem_split:24,golem_rock_toss:20,golem_stone_guard:20};
+  const costs = {knight_shield:20,knight_dash:22,knight_whirlwind:28,arrow_rain:26,incendiary_arrows:30,archer_piercing_shot:28,goblin_invis:22,goblin_summon:38,goblin_shadow_strike:28,ogre_slam:26,ogre_haste:20,ogre_earthquake:36,healer_cure:24,healer_guardian_spirits:36,healer_sanctuary:34,necromancer_summon:42,necromancer_dive:24,monk_impact_palm:26,monk_winged_steps:24,monk_spirit_wave:32,golem_split:42,golem_rock_toss:30,golem_stone_guard:26};
   const cooldowns = {knight_shield:12,knight_dash:9,knight_whirlwind:14,arrow_rain:8,incendiary_arrows:12,archer_piercing_shot:9.5,goblin_invis:14,goblin_summon:20,goblin_shadow_strike:11,ogre_slam:10,ogre_haste:15,ogre_earthquake:17,healer_cure:23,healer_guardian_spirits:40,healer_sanctuary:24,necromancer_summon:30,necromancer_dive:15,monk_impact_palm:18,monk_winged_steps:15,monk_spirit_wave:13,golem_split:26,golem_rock_toss:14.5,golem_stone_guard:20};
   player.abilityCooldowns = player.abilityCooldowns || {};
   const remaining = Number(player.abilityCooldowns[ability] || 0) - now;
@@ -5334,7 +5334,7 @@ function castSpell(kind) {
   if (activeGameMode !== 'pvp_rpg' && Date.now() < currentSafeZoneUntil) { showNotice('A magia será liberada quando a zona segura terminar.'); return; }
   const spec=Object.values(CLASS_ABILITY_CONFIG).flat().find(item=>(item.spellType||item.ability)===kind||item.ability===kind);
   const slot=(CLASS_ABILITY_CONFIG[selectedClass]||[]).findIndex(item=>(item.spellType||item.ability)===kind||item.ability===kind);
-  const manaCost={fire:20,lightning:15,arcane:18,bone:16,healing:18}[kind]||15;
+  const manaCost={fire:26,lightning:22,arcane:30,bone:26,healing:22}[kind]||22;
   const currentMana=offlineMode?Number(offlineState?.players?.[0]?.mana??100):Number(myPlayer?.userData.serverMana??100);
   if(currentMana<manaCost){showNotice('✦ Mana insuficiente! Espere regenerar.');return;}
   const cooldown=slot===0?fireCooldown:slot===1?lightningCooldown:thirdCooldown;
@@ -5371,7 +5371,7 @@ function activateClassAbility(slot) {
   const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
   const spec=abilities[slot];
   if(!spec)return;
-  const activeManaCosts={knight_shield:12,knight_dash:16,knight_whirlwind:21,arrow_rain:18,incendiary_arrows:22,archer_piercing_shot:22,goblin_invis:16,goblin_summon:24,goblin_shadow_strike:18,ogre_slam:20,ogre_haste:14,ogre_earthquake:28,healer_cure:18,healer_guardian_spirits:25,healer_sanctuary:24,necromancer_summon:24,necromancer_dive:18,monk_impact_palm:16,monk_winged_steps:18,monk_spirit_wave:22,golem_split:24,golem_rock_toss:20,golem_stone_guard:20};
+  const activeManaCosts={knight_shield:20,knight_dash:22,knight_whirlwind:28,arrow_rain:26,incendiary_arrows:30,archer_piercing_shot:28,goblin_invis:22,goblin_summon:38,goblin_shadow_strike:28,ogre_slam:26,ogre_haste:20,ogre_earthquake:36,healer_cure:24,healer_guardian_spirits:36,healer_sanctuary:34,necromancer_summon:42,necromancer_dive:24,monk_impact_palm:26,monk_winged_steps:24,monk_spirit_wave:32,golem_split:42,golem_rock_toss:30,golem_stone_guard:26};
   const needed=activeManaCosts[spec.ability]||16;
   const available=offlineMode?Number(offlineState?.players?.[0]?.mana??100):Number(myPlayer?.userData.serverMana??100);
   if(!spec.spell&&available<needed){showNotice('✦ Mana insuficiente! Custo: '+needed+'.');return;}
