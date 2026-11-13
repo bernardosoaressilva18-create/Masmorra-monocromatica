@@ -748,7 +748,7 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
       }
       const warning=new THREE.Mesh(new THREE.RingGeometry(.82,1.0,20),hazardGlow);warning.rotation.x=-Math.PI/2;warning.position.set(0,.16,0);trapGroup.add(warning);
       parent.add(trapGroup);
-      environmentalHazardVisuals.push({id:spike.id,type:'spike',group:trapGroup,realm:'dungeon'});
+      environmentalHazardVisuals.push({id:spike.id,type:'spike',group:trapGroup,realm:realmKey===1?'dungeon':realmKey===2?'astral':'eclipse'});
     }
     // Três perigos ambientais extras por região, com avisos visuais claros no chão.
     const environmentalHazards=[
@@ -759,7 +759,7 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
     for(const field of environmentalHazards){
       const fieldGroup=new THREE.Group();fieldGroup.name='hazard-'+field.id;
       fieldGroup.position.set(field.x,0,field.z);parent.add(fieldGroup);
-      environmentalHazardVisuals.push({id:field.id,type:field.type,group:fieldGroup,realm:'dungeon'});
+      environmentalHazardVisuals.push({id:field.id,type:field.type,group:fieldGroup,realm:realmKey===1?'dungeon':realmKey===2?'astral':'eclipse'});
       const disk=new THREE.Mesh(new THREE.CircleGeometry(field.r,20),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
       disk.rotation.x=-Math.PI/2;disk.position.y=.035;fieldGroup.add(disk);
       const warning=new THREE.Mesh(new THREE.TorusGeometry(field.r*.88,.055,6,28),new THREE.MeshStandardMaterial({color:field.color,emissive:field.color,emissiveIntensity:.95,transparent:true,opacity:.94,roughness:.32,metalness:.25}));
