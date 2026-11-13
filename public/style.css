@@ -3927,3 +3927,138 @@ button:focus-visible { outline-offset: 3px; }
   .skill-rpg-node-copy small{font-size:7px}
   #lobby .class-card{padding:9px}
 }
+
+
+/* 50 melhorias visuais do início e lobby — pacote de entrada 2026-11 */
+/* 01 · tela inicial ocupa a área segura do celular */
+.start-screen{padding: max(24px,env(safe-area-inset-top)) 20px max(24px,env(safe-area-inset-bottom));gap:0;overflow:hidden}
+/* 02 · profundidade visual com luzes suaves */
+.start-screen::before{content:"";position:absolute;inset:10% 8%;border:1px solid #b6eaff12;border-radius:28px;pointer-events:none}
+/* 03 · detalhe de moldura superior */
+.start-screen::after{content:"";position:absolute;top:8%;left:50%;width:min(70vw,380px);height:1px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#e9c47788,transparent);pointer-events:none}
+/* 04 · brasão central mais nítido */
+.start-emblem{position:relative;z-index:1;display:grid;place-items:center;width:92px;height:92px;margin:0 auto 18px;border:1px solid #e9c47755;border-radius:26px;background:linear-gradient(145deg,#182b3b,#090f19);box-shadow:0 12px 38px #0008,inset 0 1px #ffffff1b}
+/* 05 · pequenos brilhos do brasão sem animação pesada */
+.start-emblem{text-shadow:0 0 12px #e9c477a8,0 0 28px #66dff766}
+/* 06 · selo da aventura com contraste */
+.start-screen .eyebrow{position:relative;z-index:1;color:#9feaff;font-size:9px;letter-spacing:3px}
+/* 07 · título com mais respiro */
+.start-screen .start-title{position:relative;z-index:1;line-height:1.08;letter-spacing:1.4px}
+/* 08 · destaque dourado do nome */
+.start-screen .start-title span{display:inline-block;margin-top:5px;color:#f2d28f;text-shadow:0 2px 20px #e9c47744}
+/* 09 · descrição mais confortável */
+.start-screen .start-copy{position:relative;z-index:1;max-width:340px;margin:18px auto 26px;font-size:13px;line-height:1.75}
+/* 10 · botão principal de entrada maior */
+.start-screen .start-button{z-index:1;width:min(100%,360px);min-height:58px;border:1px solid #fff2;border-radius:12px;font-size:13px;letter-spacing:1.1px}
+/* 11 · foco acessível no botão de entrada */
+.start-screen .start-button:focus-visible{outline:3px solid #a8edff;outline-offset:4px}
+/* 12 · resposta tátil sem salto visual */
+.start-screen .start-button:active{transform:translateY(1px) scale(.99);filter:brightness(1.08)}
+/* 13 · instrução de toque mais legível */
+.start-screen .start-tip{z-index:1;max-width:300px;margin:17px auto 0;font-size:10px;line-height:1.5;letter-spacing:.8px}
+/* 14 · telas pequenas mantêm o brasão dentro do enquadramento */
+@media(max-height:620px){.start-screen .start-emblem{width:64px;height:64px;margin-bottom:9px}.start-screen .start-copy{margin:10px auto 14px}.start-screen .start-tip{margin-top:9px}}
+/* 15 · menu principal com largura e espaçamento consistentes */
+#menu.screen{gap:18px;align-content:center}
+/* 16 · cabeçalho do menu ganha largura controlada */
+#menu .brand{width:min(100%,520px);padding:4px 8px}
+/* 17 · símbolo do menu mais destacado */
+#menu .brand .sigil{display:inline-grid;place-items:center;width:58px;height:58px;border:1px solid #e9c47755;border-radius:18px;background:linear-gradient(145deg,#172a3a,#0a111b);box-shadow:0 8px 25px #0006}
+/* 18 · texto auxiliar do menu com leitura melhor */
+#menu .subtitle{max-width:360px;margin:12px auto 0;line-height:1.65;color:#b7c8d4}
+/* 19 · painel de ações com limite responsivo */
+#menu .panel{width:min(100%,430px);padding:clamp(15px,3vw,22px);border:1px solid #8edcf536;border-radius:16px;background:linear-gradient(155deg,#111e2df2,#080f18f5);box-shadow:0 18px 48px #0008,inset 0 1px #ffffff12}
+/* 20 · campos do menu mais fáceis de reconhecer */
+#menu .panel>label{margin-top:7px;font-size:10px;letter-spacing:1.6px;color:#b8cad7}
+/* 21 · campo do nome maior e com melhor foco */
+#menu #playerName{height:49px;border-radius:10px;background:#050a11;border-color:#496274}
+/* 22 · foco do campo do nome com contorno visível */
+#menu #playerName:focus-visible{outline:2px solid #81e4f5;outline-offset:2px}
+/* 23 · seletor do modo com espaço para o texto */
+#menu .game-mode-select{min-height:49px;margin-top:2px;border-radius:10px;font-size:12px}
+/* 24 · botão jogar online com prioridade visual */
+#menu #playBtn{min-height:53px;border-radius:10px;font-size:12px;box-shadow:0 7px 22px #e9c47722}
+/* 25 · botões alternativos alinhados com o botão principal */
+#menu .public-rooms-btn{min-height:47px;border-radius:10px;font-size:10px}
+/* 26 · foco de teclado e controle nos botões secundários */
+#menu button:focus-visible{outline:2px solid #a8edff;outline-offset:3px}
+/* 27 · hover discreto nos botões do menu */
+#menu button:not(:disabled):hover{filter:brightness(1.12)}
+/* 28 · junção por código de sala com altura uniforme */
+#menu .joinrow{align-items:stretch;gap:7px;margin-top:2px}
+/* 29 · campo de código mais legível */
+#menu .joinrow input{height:45px;border-radius:9px;background:#050a11}
+/* 30 · botão entrar não encolhe em telas estreitas */
+#menu .joinrow button{min-width:78px;border-radius:9px}
+/* 31 · separador do menu menos apagado */
+#menu .split{gap:10px;margin:15px 0;color:#9aafbc}
+/* 32 · status de conexão em área própria */
+#menu .status{min-height:28px;padding:7px 9px;border:1px solid #8edcf51c;border-radius:8px;background:#07101a;color:#aac2d0;line-height:1.45}
+/* 33 · rodapé do menu mais próximo do painel */
+#menu .footnote{margin-top:0;line-height:1.5;text-align:center}
+/* 34 · painel de salas públicas com borda coerente */
+#menu .public-rooms-panel{border-color:#47788b;border-radius:12px;background:#07111df7}
+/* 35 · linha de sala tem toque confortável */
+#menu .public-room-row{min-height:44px}
+/* 36 · cabeçalho do lobby mais forte */
+#lobby .lobby-header{min-height:55px;border-bottom-color:#9bdcf53c;background:linear-gradient(180deg,#050a14f2,#081321d9)}
+/* 37 · nome do lobby sem apertar em celular */
+#lobby .lobby-brand-mark{font-size:12px;letter-spacing:1.4px}
+/* 38 · código da sala destaca informação útil */
+#lobby .lobby-room-pill{padding:7px 10px;border:1px solid #8dddf52b;border-radius:9px;background:#08131edb}
+/* 39 · botão sair fica menos chamativo que iniciar */
+#lobby .lobby-leave-mini{min-height:34px;border-radius:8px}
+/* 40 · navegação do lobby com mais altura para toque */
+#lobby .lobby-nav{width:min(600px,calc(100% - 24px));gap:8px;flex-basis:47px}
+/* 41 · estado ativo da navegação fica evidente */
+#lobby .lobby-nav-btn.active{border-color:#f0d28f;background:linear-gradient(145deg,#3a321f,#101e2b);color:#fff1c7;box-shadow:inset 0 1px #fff2,0 5px 14px #0005}
+/* 42 · área da arena ganha melhor espaçamento */
+#lobby .lobby-layout{width:min(100%,1120px);padding-inline:clamp(10px,2.5vw,28px)}
+/* 43 · etapa de seleção recebe fundo mais profundo */
+#lobby .lobby-stage{isolation:isolate;padding-inline:clamp(4px,1.2vw,14px)}
+/* 44 · etiqueta de status do lobby mais clara */
+#lobby .lobby-stage-top{font-size:10px;letter-spacing:1.5px;color:#d6e9f2}
+/* 45 · prévia do herói parece um cartão de personagem */
+#lobby .hero-showcase{min-height:130px;border-color:#8ce5f355;border-radius:16px;background:linear-gradient(115deg,#102b3be8,#0a1421ed);box-shadow:0 14px 32px #0005,inset 0 1px #ffffff12}
+/* 46 · dados do personagem têm hierarquia */
+#lobby .hero-showcase-info{gap:5px}
+#lobby .hero-showcase-info strong{font-size:clamp(15px,2vw,20px);color:#f4e2b7}
+/* 47 · etiquetas de classe e skin não quebram */
+#lobby .hero-showcase-tags{display:flex;flex-wrap:wrap;gap:6px}
+#lobby .hero-showcase-tags span{padding:5px 8px;border:1px solid #a7d9e72b;border-radius:20px;background:#07121c;color:#cde4ec;font-size:8px}
+/* 48 · área do grupo mais clara e espaçosa */
+#lobby .lobby-team-box{border-color:#9bdaf64a;background:linear-gradient(140deg,#071421ed,#0c1a29eb)}
+#lobby .lobby-section-title>span{font-size:10px;letter-spacing:1.5px}
+#lobby .lobby-section-title small{color:#a9e9f1}
+/* 49 · ações de classe e pronto com estados consistentes */
+#lobby .lobby-class-button{min-height:56px;border-color:#8acfe66b;border-radius:10px}
+#lobby .lobby-class-button:focus-visible,#lobby .lobby-ready-button:focus-visible,#lobby .lobby-start-button:focus-visible{outline:2px solid #f7dda2;outline-offset:3px}
+#lobby .lobby-ready-button,#lobby .lobby-start-button{min-height:56px;border-radius:10px;font-weight:950}
+#lobby .lobby-start-button:disabled{opacity:.55;filter:saturate(.5);box-shadow:none}
+/* 50 · editor e hint respeitam a área visível do aparelho */
+#lobby .lobby-hint{padding:0 8px;color:#d3e2eb;font-size:9px}
+#lobby .lobby-editor{max-height:min(78dvh,680px);border-radius:16px}
+#lobby .lobby-editor-content{overscroll-behavior:contain;scrollbar-width:thin}
+#lobby .lobby-editor-head{padding:14px 16px}
+#lobby .lobby-editor-head button{width:36px;height:36px;border:1px solid #9bdaf640;border-radius:9px;background:#101d2a;color:#fff}
+#lobby .class-card{min-height:108px;border-radius:12px}
+#lobby .class-card.selected{outline:1px solid #76e7f288;box-shadow:0 0 0 2px #76e7f229,0 8px 20px #0006}
+#lobby .class-card:focus-visible,#lobby .skin-pick:focus-visible{outline:2px solid #f2d48e;outline-offset:3px}
+#lobby .skin-pick{min-height:76px;border-radius:12px}
+#lobby .setting-range{line-height:1.5}
+#lobby .settings-select{min-height:44px;border-radius:9px}
+@media(max-width:600px){
+  #menu .panel{padding:15px;border-radius:13px}
+  #lobby .hero-showcase{min-height:116px;padding:11px}
+  #lobby .lobby-editor{width:calc(100vw - 16px);max-height:80dvh}
+  #lobby .lobby-editor-content{padding:12px}
+  #lobby .class-card{min-height:102px}
+}
+@media(max-height:520px) and (orientation:landscape){
+  #menu.screen{gap:8px;padding-top:8px;padding-bottom:8px}
+  #menu .brand .sigil{width:42px;height:42px;font-size:25px;margin-bottom:3px}
+  #menu .brand h1{font-size:clamp(22px,5vh,34px)}
+  #menu .brand .subtitle{margin-top:5px;font-size:10px}
+  #menu .panel{padding:10px}
+  #lobby .lobby-editor{max-height:88dvh}
+}
