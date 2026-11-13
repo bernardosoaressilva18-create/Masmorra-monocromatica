@@ -3289,7 +3289,9 @@ function updateState(m) {
   const objectiveMonsterText = $('monsterText');
   if (objectiveMonsterText) objectiveMonsterText.classList.toggle('hidden', isPvpRpg);
   const lobbyModeLabel = $('lobbyModeLabel');
-  if (lobbyModeLabel) lobbyModeLabel.textContent = isPvpRpg ? 'ARENA PvP RPG' : 'SALA COOPERATIVA';
+  if (lobbyModeLabel) lobbyModeLabel.textContent = offlineMode ? 'EXPLORAÇÃO SOLO' : isPvpRpg ? 'ARENA PvP RPG' : 'SALA COOPERATIVA';
+  const stageCapacity=$('lobbyStageCapacity');if(stageCapacity)stageCapacity.textContent=offlineMode?'PROGRESSO LOCAL':'ATÉ 4 JOGADORES';
+  const teamTitle=$('lobbyTeamTitle');if(teamTitle)teamTitle.textContent=offlineMode?'SEU AVENTUREIRO':'SEU TIME';
   if (!m.started) {
     started = false;
     $('lobby').classList.remove('hidden');
@@ -3309,7 +3311,7 @@ function updateState(m) {
     refreshLobby3DCompanions(lobbyPlayers);
     const onlineCount = lobbyPlayers.length;
     const onlineLabel = $('lobbyOnlineCount');
-    if (onlineLabel) onlineLabel.textContent = onlineCount + '/4 CONECTADOS · ' + lobbyPlayers.filter(p => p.ready).length + ' PRONTOS';
+    if (onlineLabel) onlineLabel.textContent = offlineMode ? 'MODO SOLO · LOCAL' : onlineCount + '/4 CONECTADOS · ' + lobbyPlayers.filter(p => p.ready).length + ' PRONTOS';
     $('readyBtn').disabled = !!m.started;
 
     $('lobbyPlayers').innerHTML = lobbyPlayers.map(p =>
