@@ -873,7 +873,7 @@ function buildDungeonVisualPass() {
     for(let n=0;n<18;n++){
       const side=n%2===0?-1:1;
       const x=side*(10.4+(n%3)*.95);
-      const z=zone.z-zoneData.length*.0-13.5+(n%9)*3.0;
+      const z=zone.z-13.5+(n%9)*3.0;
       const scale=.48+(n%4)*.17;
       dummy.position.set(x,.10+(n%3)*.025,z);
       dummy.rotation.set((n%3)*.12,(n*1.71+zi)*.2,(n%4)*.09);
@@ -1558,6 +1558,25 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     for (const side of [-1,1]) {
       const backRidge = add(new THREE.ConeGeometry(.075,.32,5), trim, side*.17,1.42,.35);
       backRidge.rotation.z = side*-.18;
+    }
+    // Equipamentos traseiros exclusivos ajudam a reconhecer a classe por qualquer ângulo.
+    if (heroClass === 'archer') {
+      const quiver = add(new THREE.CylinderGeometry(.10,.13,.58,8), dark, .22,1.20,.39,1,1,1);
+      quiver.rotation.z = -.12;
+      for (let arrow = -1; arrow <= 1; arrow++) {
+        const shaft = add(new THREE.CylinderGeometry(.009,.009,.48,5), steel, .22+arrow*.045,1.53,.40,1,1,1);
+        shaft.rotation.z = -.12 + arrow*.035;
+        const tip = add(new THREE.ConeGeometry(.028,.095,5), trim, .22+arrow*.045,1.81,.40,1,1,1);
+        tip.rotation.z = -.12 + arrow*.035;
+      }
+    } else if (heroClass === 'necromancer') {
+      const skullToken = add(new THREE.DodecahedronGeometry(.105,0), glow, 0,.79,.39,.95,1.05,.7);
+      skullToken.rotation.set(.18,.25,.12);
+      add(new THREE.BoxGeometry(.18,.035,.035), trim, 0,.73,.405);
+    } else if (heroClass === 'healer') {
+      const backEmblem = add(new THREE.TorusGeometry(.13,.022,5,18), glow, 0,1.32,.39);
+      backEmblem.rotation.y = Math.PI/2;
+      add(new THREE.OctahedronGeometry(.075,0), trim, 0,1.32,.40);
     }
   }
   const ringColor=heroClass==='healer'?0x74ffd8:heroClass==='mage'||heroClass==='necromancer'?0xb697ff:heroClass==='golem'||heroClass==='golem_clone'?0xc4d0cf:heroClass==='ogre'?0xff9862:heroClass==='goblin'?0xc8f06b:heroClass==='archer'?0x88ffb4:0x75dfff;
@@ -6258,7 +6277,11 @@ function animate() {
       if (weapon.userData.halo) weapon.userData.halo.rotation.z += dt * .75;
     }
     if (myPlayer.userData.baseRing) myPlayer.userData.baseRing.rotation.z += dt * (moving ? .38 : .16);
-    if (myPlayer.userData.waistSigil) myPlayer.userData.waistSigil.rotation.y += dt * (moving ? 1.2 : .45);
+    if (myPlayer.userData.waistSigil) {
+      myPlayer.userData.waistSigil.rotation.y += dt * (moving ? 1.2 : .45);
+      const sigilPulse = 1 + Math.sin(phase*1.55+idleSeed)*.055;
+      myPlayer.userData.waistSigil.scale.set(sigilPulse,sigilPulse,sigilPulse);
+    }
     if (myPlayer.userData.classCharm) {
       myPlayer.userData.classCharm.rotation.y += dt * (moving ? .85 : .42);
       myPlayer.userData.classCharm.rotation.z = Math.sin(phase*.7 + idleSeed) * .08;
@@ -6359,7 +6382,11 @@ function animate() {
       }
     }
     if (obj.userData.baseRing) obj.userData.baseRing.rotation.z += entityDt * .3;
-    if (obj.userData.waistSigil) obj.userData.waistSigil.rotation.y += entityDt * .5;
+    if (obj.userData.waistSigil) {
+      obj.userData.waistSigil.rotation.y += entityDt * .5;
+      const sigilPulse = 1 + Math.sin(rp*1.4+remoteIdleSeed)*.045;
+      obj.userData.waistSigil.scale.set(sigilPulse,sigilPulse,sigilPulse);
+    }
     if (obj.userData.classCharm) {
       obj.userData.classCharm.rotation.y += entityDt*.3;
       obj.userData.classCharm.rotation.z = Math.sin(rp*.7 + remoteIdleSeed)*.07;
