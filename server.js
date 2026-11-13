@@ -2487,8 +2487,10 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
             if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: room.gameMode === 'pvp_rpg' ? 'Você foi derrotado. Retorno em 4 segundos.' : 'Você foi derrotado. Não há renascimento automático nesta partida.' }));
           }
         }
-      } else if (!target || nearest > 2.5) {
+      } else if (!target || currentTargetDistance > monsterMeleeReach) {
+        // Cancelar o aviso se o alvo sair do alcance antes do impacto.
         monster.attackWarnAt = 0;
+        monster.attackTargetId = null;
         monster.attackTargetId = null;
       }
     }
