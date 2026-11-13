@@ -4898,3 +4898,47 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 @media(prefers-reduced-motion:reduce){
  .class-demo-stars,.class-demo-character,.class-demo-skill-icon,.class-demo-stage:before,.class-demo-stage:after{animation:none!important}
 }
+
+
+/* HUD compacto v5: cada orientação tem uma distribuição própria e sem painéis empilhados. */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:700px){
+ #hud .topbar{left:5px!important;right:5px!important;top:max(5px,env(safe-area-inset-top))!important;gap:4px!important;display:flex!important;flex-wrap:nowrap!important;align-items:center!important}
+ #hud .badge{min-width:0!important;max-width:29vw!important;padding:5px 6px!important}
+ #hud .badge small{font-size:6px!important;letter-spacing:.5px!important}
+ #hud .badge strong{font-size:8px!important;letter-spacing:.5px!important}
+ #hud .stats{min-width:0!important;flex:1 1 auto!important;justify-content:center!important;gap:5px!important;padding:5px!important;font-size:9px!important}
+ #hud .leave{padding:5px 6px!important;font-size:8px!important}
+ #hud .objective{top:51px!important;left:5px!important;width:min(43vw,175px)!important;max-height:12vh!important;overflow:auto!important;padding:6px!important;font-size:8px!important}
+ #hud .inventory-panel{top:51px!important;right:5px!important;width:min(42vw,165px)!important;max-height:15vh!important;overflow:auto!important;padding:5px!important}
+ #hud .players{top:calc(54px + 13vh)!important;left:5px!important;right:auto!important;max-width:34vw!important;max-height:12vh!important;overflow:auto!important}
+ #hud .boss-panel{top:calc(54px + 13vh)!important;width:54vw!important;max-height:10vh!important;padding:5px 7px!important}
+ #hud .mana-hud{top:calc(54px + 24vh)!important;left:5px!important;width:32vw!important}
+ #hud .skill-toggle{top:calc(54px + 24vh)!important;right:5px!important;left:auto!important}
+ #hud .joystick{left:max(9px,env(safe-area-inset-left))!important;bottom:max(10px,env(safe-area-inset-bottom))!important;width:94px!important;height:94px!important}
+ #hud .stick{left:26px!important;top:26px!important;width:42px!important;height:42px!important}
+ #hud .attack{right:8px!important;bottom:max(9px,env(safe-area-inset-bottom))!important;width:66px!important;height:66px!important}
+ #hud .chest-btn{right:82px!important;bottom:max(12px,env(safe-area-inset-bottom))!important;width:44px!important;height:44px!important}
+ #hud .dodge-btn{right:82px!important;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 48px)!important;width:44px!important;height:44px!important}
+ #hud .spell-btn{width:44px!important;height:44px!important}
+ #hud .fire-btn{right:9px!important;bottom:150px!important}
+ #hud .lightning-btn{right:61px!important;bottom:198px!important}
+ #hud .inventory-panel.inventory-hidden{display:none!important}
+}
+@media (pointer:coarse) and (orientation:landscape){
+ #hud .topbar{top:max(4px,env(safe-area-inset-top))!important;left:6px!important;right:6px!important;gap:5px!important}
+ #hud .badge{min-width:0!important;padding:5px 7px!important}
+ #hud .stats{padding:5px 7px!important;gap:7px!important;font-size:10px!important}
+ #hud .objective{top:48px!important;left:6px!important;width:min(27vw,190px)!important;max-height:22vh!important;overflow:auto!important}
+ #hud .inventory-panel{top:48px!important;right:6px!important;width:min(24vw,165px)!important;max-height:24vh!important;overflow:auto!important}
+ #hud .players{top:calc(50px + 22vh)!important;left:6px!important;right:auto!important;max-width:24vw!important;max-height:18vh!important;overflow:auto!important}
+ #hud .boss-panel{top:48px!important;width:min(36vw,320px)!important}
+ #hud .joystick{left:max(10px,env(safe-area-inset-left))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;width:84px!important;height:84px!important}
+ #hud .stick{left:22px!important;top:22px!important;width:40px!important;height:40px!important}
+ #hud .attack{right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;width:60px!important;height:60px!important}
+ #hud .chest-btn{right:74px!important;bottom:max(10px,env(safe-area-inset-bottom))!important;width:42px!important;height:42px!important}
+ #hud .dodge-btn{right:74px!important;bottom:58px!important;width:42px!important;height:42px!important}
+ #hud .fire-btn{right:10px!important;bottom:82px!important}
+ #hud .lightning-btn{right:70px!important;bottom:132px!important}
+ #hud .inventory-panel.inventory-hidden{display:none!important}
+}
+#game, #game canvas{width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;aspect-ratio:auto!important}
