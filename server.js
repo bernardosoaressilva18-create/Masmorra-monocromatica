@@ -524,7 +524,7 @@ function createWave(phase,realm=1,spawnStartAt=Date.now()){
  const eliteHp=Math.round((72+phase*19)*scale),eliteDamage=Math.round((9+phase*2)*scale);
  wave.push({id:'r'+realm+'p'+phase+'elite',kind:realm===3?'abyss':realm===2?'assassin':'brute',name:'Guardião do Andar Superior',phase,realm,x:upperX,z:center-14.5,spawned:false,spawnAt:firstSpawnAt+count*1150+600,alive:true,hp:eliteHp,maxHp:eliteHp,damage:eliteDamage,attackAt:0,upperElite:true,eliteTier:2,affix:'champion',armor:.2,moveSpeed:.36,attackMs:1450});
  // Variantes de elite são raras e têm uma função clara, sem multiplicar a quantidade de inimigos.
- const affixes=['armored','swift','mana_leech','vampiric'];
+ const affixes=['armored','swift','mana_leech','vampiric','venomous'];
  const eligible=wave.filter(enemy=>!enemy.upperElite);
  const affixCount=Math.min(2,Math.max(1,Math.round(eligible.length*.22)));
  for(let n=0;n<affixCount;n++){
@@ -1919,8 +1919,11 @@ wss.on('connection', ws => {
           if (target.hp / (target.maxHp || 1) <= .35 && hasSkill(player, 'executioner')) damage += 2;
           const criticalRank=cleanLevelUpgrades(player.levelUpgrades).critical;
           if(criticalRank>0&&Math.random()<criticalRank*.02)damage=Math.round(damage*1.7);
-          target.hp = Math.max(0, (target.hp || 1) - damage);
-          recordMonsterThreat(target, player, damage, now);
+          const targetArmor=Math.max(0,Math.min(.48,Number(target.armor)||0));
+          const appliedDamage=Math.max(1,damage*(1-targetArmor));
+          const hpBefore=target.hp;
+          target.hp = Math.max(0, (target.hp || 1) - appliedDamage);
+          recordMonsterThreat(target, player, Math.max(0,hpBefore-target.hp), now);
           if (isMonk && target.hp > 0 && monkCombo >= 2) {
             target.stunnedUntil = now + (monkCombo === 2 ? 550 : 950);
             target.attackWarnAt = 0; target.attackTargetId = null;
