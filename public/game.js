@@ -1418,6 +1418,27 @@ function makeBoss() {
     const spine = new THREE.Mesh(new THREE.ConeGeometry(.14,.52,6),bone);
     spine.position.set((i-1)*.35,2.05,.60); spine.rotation.x=Math.PI/2; spine.rotation.z=(i-1)*-.12; g.add(spine);
   }
+  // Chefe: máscara facial, mandíbula segmentada e marcas de fase.
+  const bossFaceMat=new THREE.MeshStandardMaterial({color:0x4b344e,metalness:.35,roughness:.55});
+  const bossDark=new THREE.MeshStandardMaterial({color:0x120f1b,roughness:.8});
+  const bossGold=new THREE.MeshStandardMaterial({color:0xc49c65,metalness:.62,roughness:.32});
+  for(const side of [-1,1]){
+    const cheek=new THREE.Mesh(new THREE.DodecahedronGeometry(.20,0),armor);cheek.position.set(side*.40,2.66,-.48);cheek.scale.set(1,.8,.5);g.add(cheek);
+    const pupil=new THREE.Mesh(new THREE.SphereGeometry(.052,8,6),bossDark);pupil.position.set(side*.25,2.91,-.705);g.add(pupil);
+    const glint=new THREE.Mesh(new THREE.SphereGeometry(.018,6,5),new THREE.MeshBasicMaterial({color:0xffffff}));glint.position.set(side*.23,2.94,-.75);g.add(glint);
+    const fang=new THREE.Mesh(new THREE.ConeGeometry(.075,.25,5),bone);fang.position.set(side*.27,2.48,-.57);fang.rotation.x=Math.PI;g.add(fang);
+    const runeMark=new THREE.Mesh(new THREE.BoxGeometry(.07,.28,.035),bossGold);runeMark.position.set(side*.74,1.92,-.43);runeMark.rotation.z=side*.22;g.add(runeMark);
+  }
+  const jaw=new THREE.Mesh(new THREE.BoxGeometry(.44,.16,.18),bossFaceMat);jaw.position.set(0,2.48,-.52);g.add(jaw);
+  for(let i=0;i<5;i++){
+    const tooth=new THREE.Mesh(new THREE.ConeGeometry(.035,.12,4),bone);tooth.position.set((i-2)*.13,2.43,-.62);tooth.rotation.x=Math.PI;g.add(tooth);
+  }
+  const foreheadMark=new THREE.Mesh(new THREE.OctahedronGeometry(.13,0),bossGold);foreheadMark.position.set(0,3.22,-.57);foreheadMark.rotation.z=Math.PI/4;g.add(foreheadMark);
+  const backSpines=[];
+  for(let i=0;i<5;i++){
+    const spine=new THREE.Mesh(new THREE.ConeGeometry(.12,.42,5),bone);spine.position.set((i-2)*.30,2.48,.62);spine.rotation.x=Math.PI/2.2;spine.rotation.z=(i-2)*-.10;g.add(spine);backSpines.push(spine);
+  }
+  g.userData.backSpines=backSpines;
   const rune = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.65, 32), new THREE.MeshBasicMaterial({ color: 0xff315d, transparent: true, opacity: .7, side: THREE.DoubleSide }));
   rune.rotation.x = -Math.PI / 2; rune.position.y = .04; g.add(rune);
   g.userData.eyeMaterial = eye; g.userData.bodyMaterial = armor; g.userData.coreMesh=core; g.userData.coreHalo=coreHalo; g.userData.torso = torso; g.userData.arms = bossArms; g.userData.animPhase = Math.random()*Math.PI*2; return g;
@@ -1646,6 +1667,82 @@ function makeMonster(kind = 'stalker', phase = 1) {
         const leg=limb(new THREE.CapsuleGeometry(.09,.30,3,7),bodyMat,side*.29,.48,z,1,1,1,side);leg.rotation.x=z<0?-.20:.20;leg.rotation.z=side*.12;
       }
       add(new THREE.ConeGeometry(.045,.24,5),bone,side*.22,.67,.22).rotation.x=.55;
+    }
+  }
+  // Pacote de identidade visual: rosto, mandíbula, placas e marcas por criatura.
+  const faceZ=kind==='wraith'?.27:kind==='abyss'?.22:kind==='brute'?.34:kind==='thorn'?.29:kind==='assassin'?.25:.55;
+  const headY=kind==='brute'?1.79:kind==='inferno'?1.72:kind==='abyss'?1.84:kind==='assassin'?1.68:kind==='wraith'?1.55:kind==='thorn'?1.48:1.22;
+  const pupilMat=new THREE.MeshStandardMaterial({color:0x10131d,roughness:.3});
+  const glintMat=new THREE.MeshBasicMaterial({color:0xffffff});
+  const scarMat=new THREE.MeshStandardMaterial({color:kind==='inferno'?0xff7a35:kind==='thorn'?0x9acb59:0x202632,roughness:.86});
+  const armorAccent=new THREE.MeshStandardMaterial({color:kind==='brute'?0x9ba6b4:kind==='abyss'?0x694a8c:kind==='assassin'?0x9a4568:kind==='inferno'?0xb84a2e:kind==='thorn'?0x8dba55:0x687d93,metalness:.42,roughness:.5});
+  const eyePairs=[];
+  for(const side of [-1,1]){
+    const eyeX=kind==='brute'?.12:kind==='assassin'?.105:kind==='wraith'?.12:.12;
+    const eye=add(new THREE.SphereGeometry(kind==='brute'?.065:.052,8,6),glow,side*eyeX,headY, -faceZ);
+    const pupil=add(new THREE.SphereGeometry(.021,7,5),pupilMat,side*eyeX,headY-.003,-faceZ-.042);
+    const glint=add(new THREE.SphereGeometry(.009,6,5),glintMat,side*eyeX-.012,headY+.018,-faceZ-.052);
+    eyePairs.push({eye,pupil,glint,side});
+    const brow=add(new THREE.BoxGeometry(.14,.035,.045),kind==='brute'||kind==='assassin'?dark:armorAccent,side*eyeX,headY+.085,-faceZ+.012);
+    brow.rotation.z=side*(kind==='brute'?.20:kind==='assassin'?-.18:.08);
+  }
+  g.userData.eyePairs=eyePairs;
+  // Jaw and teeth are kept low-poly so they remain readable on phones.
+  if(kind==='stalker'||kind==='brute'||kind==='inferno'||kind==='assassin'){
+    const jaw=add(new THREE.BoxGeometry(kind==='brute'?.30:.22,.09,.12),dark,0,headY-.15,-faceZ+.015,1,.8,1);
+    jaw.rotation.x=-.08;
+    for(let tooth=-1;tooth<=1;tooth++){
+      add(new THREE.ConeGeometry(.025,.075,4),bone,tooth*.065,headY-.18,-faceZ-.045,1,1,.65).rotation.x=Math.PI;
+    }
+  }else if(kind==='wraith'||kind==='abyss'){
+    add(new THREE.TorusGeometry(.095,.018,4,12),glow,0,headY-.13,-faceZ-.02,1,.7,.5).rotation.x=Math.PI;
+  }
+  // Chest sigil gives each species a readable weak-point identity.
+  const sigilColor=kind==='thorn'?0x9dff69:kind==='inferno'?0xff6a2c:kind==='wraith'?0x72f4ff:kind==='abyss'?0xc49bff:kind==='brute'?0xffc078:kind==='assassin'?0xff5c86:eyeColor;
+  const sigilMat=new THREE.MeshStandardMaterial({color:sigilColor,emissive:sigilColor,emissiveIntensity:1.05,metalness:.2,roughness:.32});
+  const sigil=add(new THREE.OctahedronGeometry(.105,0),sigilMat,0,kind==='brute'?1.12:kind==='wraith'?.98:1.02,-.43,.8,1.2,.5);
+  sigil.rotation.z=Math.PI/4;
+  for(const side of [-1,1]){
+    if(kind==='brute'||kind==='inferno'||kind==='assassin'){
+      const pauldron=add(new THREE.DodecahedronGeometry(.19,0),armorAccent,side*(kind==='brute'?.62:.43),kind==='brute'?1.40:1.20,-.02,1.1,.8,.72);
+      pauldron.rotation.z=side*-.16;
+      for(let spike=0;spike<2;spike++){
+        const s=add(new THREE.ConeGeometry(.055,.20,4),bone,side*(kind==='brute'?.68:.48),1.46+spike*.11,.02);
+        s.rotation.z=side*-.38;
+      }
+    }else if(kind==='thorn'){
+      const vine=add(new THREE.TorusGeometry(.22,.025,4,12),leaf,side*.32,1.05,-.18,.75,1,.55);
+      vine.rotation.z=side*.5;
+    }else if(kind==='wraith'||kind==='abyss'){
+      const wisp=add(new THREE.OctahedronGeometry(.09,0),glow,side*.36,.94,.02,.8,1.5,.8);
+      wisp.rotation.z=side*.6;
+    }
+  }
+  // Species markings: stripes, runes and back spines.
+  if(kind==='stalker'||kind==='assassin'){
+    for(let stripe=0;stripe<3;stripe++){
+      const mark=add(new THREE.BoxGeometry(.045,.22,.025),armorAccent,(stripe-1)*.14,1.02,-.31);
+      mark.rotation.z=(stripe-1)*-.12;
+    }
+  }
+  if(kind==='brute'||kind==='inferno'||kind==='abyss'){
+    for(let spike=0;spike<3;spike++){
+      const backSpike=add(new THREE.ConeGeometry(.095,.32,5),kind==='abyss'?glow:bone,(spike-1)*.22,1.48,.38);
+      backSpike.rotation.x=Math.PI/2.6;
+      backSpike.rotation.z=(spike-1)*-.12;
+    }
+  }
+  if(kind==='thorn'){
+    for(let thorn=0;thorn<4;thorn++){
+      const vine=add(new THREE.ConeGeometry(.055,.27,4),(thorn%2)?leaf:rock,(thorn-1.5)*.16,.9,.31);
+      vine.rotation.x=.8;vine.rotation.z=(thorn-1.5)*-.15;
+    }
+  }
+  // Wrist and ankle guards improve silhouette separation during movement.
+  if(kind!=='wraith'&&kind!=='abyss'&&kind!=='thorn'){
+    for(const side of [-1,1]){
+      add(new THREE.TorusGeometry(.105,.022,4,12),armorAccent,side*(kind==='brute'?.70:.40),kind==='brute'?.66:.83,-.015,1,1,.8).rotation.x=Math.PI/2;
+      add(new THREE.BoxGeometry(.16,.07,.20),dark,side*(kind==='brute'?.29:.20),.18,-.04);
     }
   }
   core=add(new THREE.OctahedronGeometry(kind==='brute'?.16:.12,1),glow,0,1.17,-.42,.9,1.1,.5);
