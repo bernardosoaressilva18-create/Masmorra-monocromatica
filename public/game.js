@@ -77,7 +77,9 @@ const LEVEL_UPGRADE_UI=[
  {id:'item',name:'Item especial',desc:'+10% de cura de itens por ponto',max:8},
  {id:'autoDodge',name:'Esquiva automática',desc:'Desvia de um golpe automaticamente; recarga de 5,2 s',max:1},
  {id:'xp',name:'Conhecimento',desc:'+5% de XP ganho por ponto',max:8},
- {id:'critical',name:'Acerto crítico',desc:'+2% de chance de crítico por ponto',max:8}
+ {id:'critical',name:'Acerto crítico',desc:'+2% de chance de crítico por ponto',max:8},
+ {id:'movement',name:'Passos velozes',desc:'+3% de velocidade de movimento por ponto',max:6},
+ {id:'cooldown',name:'Recarga de habilidade',desc:'Reduz até 20% das recargas especiais',max:8}
 ];
 let levelUpgradeCardsBuilt=false,lastSavedLevelSignature='';
 const world = { width: 30, depth: 190 };
@@ -99,8 +101,7 @@ const MAP_PIT_LAYOUT = MAP_ZONE_CENTERS.map((z, index) => ({
   pitZ: z + 4
 }));
 const MAP_PILLAR_COLLIDERS = MAP_ZONE_CENTERS.flatMap(z => [
-  {x:-10.5,z:z-.7,r:.78},{x:10.5,z:z-.7,r:.78},
-  {x:-8.9,z:z-8.2,r:.62},{x:8.9,z:z-8.2,r:.62}
+  {x:-10.5,z:z-.7,r:.72},{x:10.5,z:z-.7,r:.72}
 ]);
 const MAP_SPIKE_HAZARDS = MAP_ZONE_CENTERS.flatMap((z,index) => [
   {id:'spike-'+index+'-L',x:-6.7,z:z-5.5,r:.92,damage:12},
@@ -146,7 +147,8 @@ function syncMapTrapVisuals(openTraps=[]) {
   for(const item of pressureTrapVisuals) {
     const open=openMapTraps.has(item.id);
     item.cover.visible=!open;
-    item.plate.material.emissiveIntensity=open?.05:.35;
+    item.plate.position.y=open?.075:.17;
+    item.plate.material.emissiveIntensity=open?.05:.5;
     item.plate.material.color.setHex(open?0x303746:0x8b7954);
   }
 }
@@ -580,7 +582,7 @@ function addOrganicZoneFloor(center, index, sideMaterial, topMaterial, height = 
 function addCliffEdgeDetails(parent){
  const geometry=new THREE.DodecahedronGeometry(1,0);
  const material=new THREE.MeshStandardMaterial({color:0x343c4c,roughness:.98,metalness:.04});
- const count=isMobileDevice?84:140;
+ const count=isMobileDevice?(gameSettings.graphicsQuality==='low'?100:140):180;
  const cliffs=new THREE.InstancedMesh(geometry,material,count);
  const dummy=new THREE.Object3D();
  let index=0;
@@ -693,6 +695,77 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
   }
 }
 
+function addBiomeDetailInstances(parent,palette,realmKey=1){
+ const perZone=isMobileDevice
+  ?(gameSettings.graphicsQuality==='low'?10:gameSettings.graphicsQuality==='high'?26:18)
+  :(gameSettings.graphicsQuality==='low'?34:gameSettings.graphicsQuality==='high'?80:52);
+ const capacity=perZone*MAP_ZONE_CENTERS.length;
+ const materials=[
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.96,metalness:.06,vertexColors:true}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.92,metalness:.08,vertexColors:true}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.3,metalness:.22,emissive:0x151a22,emissiveIntensity:.34,vertexColors:true}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7,metalness:.28,transparent:true,opacity:.72,vertexColors:true,side:THREE.DoubleSide,depthWrite:false})
+ ];
+ const batches=[
+  new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.27,0),materials[0],capacity),
+  new THREE.InstancedMesh(new THREE.ConeGeometry(.16,.62,5),materials[1],capacity),
+  new THREE.InstancedMesh(new THREE.OctahedronGeometry(.21,0),materials[2],capacity),
+  new THREE.InstancedMesh(new THREE.TorusGeometry(.17,.018,5,12),materials[3],capacity)
+ ];
+ const names=['biome-stone-scatter','biome-root-and-spire-scatter','biome-crystal-scatter','biome-rune-inlays'];
+ const dummy=new THREE.Object3D();
+ const counts=[0,0,0,0];
+ const fract=value=>value-Math.floor(value);
+ for(let zone=0;zone<MAP_ZONE_CENTERS.length;zone++){
+  const center=MAP_ZONE_CENTERS[zone],poly=MAP_ZONE_POLYGONS[zone],accent=new THREE.Color(palette[zone%palette.length]);
+  for(let n=0;n<perZone;n++){
+   let point=null;
+   for(let attempt=0;attempt<36&&!point;attempt++){
+    const seed=(zone+1)*97+(n+1)*31+(attempt+1)*17+realmKey*113;
+    const x=(fract(Math.sin(seed*12.9898)*43758.5453)*2-1)*12.3;
+    const offset=(fract(Math.sin(seed*78.233)*19341.173)*2-1)*(zone===4?18.7:14.2);
+    if(!pointInMapPolygon(x,offset,poly))continue;
+    if(Math.abs(x)<4.65)continue;
+    const z=center+offset,pit=MAP_PIT_LAYOUT[zone];
+    if(Math.hypot(x-pit.pitX,z-pit.pitZ)<3.25||Math.hypot(x-pit.plateX,z-pit.plateZ)<2.5)continue;
+    if(Math.abs(Math.abs(x)-10.5)<1.6&&Math.abs(z-(center-.7))<1.7)continue;
+    const stairX=zone%2===0?-8.25:8.25;
+    if(Math.abs(x-stairX)<2.65&&z<=center+1.8&&z>=center-10.8)continue;
+    if(MAP_SPIKE_HAZARDS.some(spike=>Math.hypot(x-spike.x,z-spike.z)<1.75))continue;
+    point={x,z,offset};
+   }
+   if(!point)continue;
+   const {x,z}=point;
+   const color=accent.clone().multiplyScalar(.62+.28*fract(Math.sin((n+zone*13)*4.13)*93.71));
+   // Detritos baixos, colocados fora do corredor de combate para dar escala às plataformas.
+   dummy.position.set(x,.07,z);dummy.rotation.set(fract(Math.sin(n*3.1+zone)*9)*.22,fract(Math.sin(n*7.7+zone)*17)*Math.PI,fract(Math.sin(n*5.3+zone)*11)*.16);
+   const rockScale=.62+fract(Math.sin(n*12.4+zone)*31)*.95;
+   dummy.scale.set(rockScale*1.2,rockScale*(.48+fract(Math.sin(n*6.2+zone)*7)*.42),rockScale);
+   dummy.updateMatrix();batches[0].setMatrixAt(counts[0],dummy.matrix);batches[0].setColorAt(counts[0],color);counts[0]++;
+   // Raízes, ruínas ou espinhos decorativos baixos; não ocupam a rota nem as hitboxes de combate.
+   dummy.position.set(x*.985,.29,z+.22);dummy.rotation.set(.10,fract(Math.sin(n*9.9+zone)*13)*Math.PI,fract(Math.sin(n*2.7+zone)*19)*.24);
+   const rootScale=.62+fract(Math.sin(n*8.4+zone)*23)*.78;
+   dummy.scale.set(rootScale,rootScale*(.78+zone*.035),rootScale);
+   dummy.updateMatrix();batches[1].setMatrixAt(counts[1],dummy.matrix);batches[1].setColorAt(counts[1],color.clone().multiplyScalar(zone===2?1.1:.74));counts[1]++;
+   // Cristais pequenos e brilhantes, com variação de altura e cor por bioma.
+   dummy.position.set(x*.96,.22+fract(Math.sin(n*2.6+zone)*11)*.36,z-.28);dummy.rotation.set(fract(Math.sin(n*5.1+zone)*9),fract(Math.sin(n*3.4+zone)*15)*Math.PI,fract(Math.sin(n*9.1+zone)*7)*.32);
+   const shardScale=.56+fract(Math.sin(n*11.7+zone)*27)*.88;
+   dummy.scale.set(shardScale*.72,shardScale*(1.05+zone*.05),shardScale*.68);
+   dummy.updateMatrix();batches[2].setMatrixAt(counts[2],dummy.matrix);batches[2].setColorAt(counts[2],accent.clone().multiplyScalar(.86+fract(Math.sin(n*7+zone)*5)*.3));counts[2]++;
+   // Runas planas ajudam a ler a superfície sem desenhar símbolos no meio do caminho.
+   dummy.position.set(x*.94,.025,z+.55);dummy.rotation.set(-Math.PI/2,0,fract(Math.sin(n*6.3+zone)*21)*Math.PI);
+   const runeScale=.72+fract(Math.sin(n*4.7+zone)*37)*.8;
+   dummy.scale.set(runeScale,runeScale*.7,1);dummy.updateMatrix();batches[3].setMatrixAt(counts[3],dummy.matrix);batches[3].setColorAt(counts[3],accent);counts[3]++;
+  }
+ }
+ for(let i=0;i<batches.length;i++){
+  const mesh=batches[i];mesh.count=counts[i];mesh.instanceMatrix.needsUpdate=true;
+  if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+  mesh.name=names[i]+'-realm-'+realmKey;parent.add(mesh);
+ }
+ parent.userData.biomeDetailCount=counts.reduce((sum,value)=>sum+value,0);
+}
+
 function buildDungeon() {
   const dungeonGroup=new THREE.Group();dungeonGroup.name='environment-monochrome';scene.add(dungeonGroup);activeEnvironmentGroup=dungeonGroup;
   addVoidBackdrop(dungeonGroup,0x0e1725,0x354356);
@@ -799,6 +872,7 @@ stoneDark.needsUpdate = true;
   }
   addAdventureMapFeatures(dungeonGroup,[0x75eaff,0xb49aff,0x76f0ad,0xffa45e,0xff77b7],1,true);
   addCliffEdgeDetails(dungeonGroup);
+  addBiomeDetailInstances(dungeonGroup,[0x76869b,0x8977b8,0x6b9968,0xc27b50,0x9b688e],1);
 
   // Pilares agora pertencem à composição de cada região e também têm colisão no servidor.
 
@@ -1178,6 +1252,7 @@ function buildAstralWorld(){
   addZoneLandmarks(astral,[0x9c86ff,0x61eaff,0xa5f0cc,0xffc57b,0xf179ab]);
   addAdventureMapFeatures(astral,[0x9c86ff,0x61eaff,0xa5f0cc,0xffc57b,0xf179ab],2,false);
   addCliffEdgeDetails(astral);
+  addBiomeDetailInstances(astral,[0x9c86ff,0x61eaff,0xa5f0cc,0xffc57b,0xf179ab],2);
   environmentGroups.astral=activeEnvironmentGroup;activeEnvironmentGroup.visible=false;activeEnvironmentGroup=null;
   buildEclipseWorld();
 }
@@ -1563,6 +1638,16 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       add(new THREE.TorusGeometry(.16,.018,5,18),trim,0,1.22,-.36).rotation.x=Math.PI/2;
     }
   }
+  // Abdômen arredondado e ombros um pouco mais largos: silhueta robusta, sem olhos saltados.
+  let abdomenBulge=null;
+  if(heroClass==='ogre'){
+    abdomenBulge=add(new THREE.SphereGeometry(.34,12,10),skinMat,0,1.00,-.43,1.42,1.02,.78);
+  }else if(isStoneBody){
+    abdomenBulge=add(new THREE.SphereGeometry(.33,10,8),armor,0,1.02,-.39,1.46,.92,.70);
+  }else{
+    const abdomenMaterial=clothClasses.includes(heroClass)?cloth:armor;
+    abdomenBulge=add(new THREE.SphereGeometry(.32,12,9),abdomenMaterial,0,.94,-.41,1.32,.91,.72);
+  }
   // Neck and collar connect the head to the torso instead of leaving a floating round head.
   if (!isStoneBody) {
     add(new THREE.CylinderGeometry(.085,.11,.18,8),skinMat,0,1.52,-.005);
@@ -1688,15 +1773,15 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     for(let tooth=-1;tooth<=1;tooth++)addHead(new THREE.BoxGeometry(.025,.045,.025),trim,tooth*.045,1.755,-.316);
   }else if(heroClass==='knight'){
     for(const side of [-1,1]){
-      const eye=addHead(new THREE.SphereGeometry(.031,9,7),faceGlow,side*.085,1.945,-.226,.98,.82,.30);
-      const pupil=addHead(new THREE.SphereGeometry(.010,8,6),dark,side*.085,1.945,-.239,.92,.95,.34);
+      const eye=addHead(new THREE.SphereGeometry(.030,9,7),faceGlow,side*.085,1.945,-.213,.98,.82,.18);
+      const pupil=addHead(new THREE.SphereGeometry(.010,8,6),dark,side*.085,1.945,-.224,.92,.95,.18);
       faceEyes.push({mesh:pupil,baseX:pupil.position.x,eye});
       const brow=addHead(new THREE.BoxGeometry(.105,.024,.04),dark,side*.085,2.005,-.238);brow.rotation.z=side*-.10;faceBrows.push(brow);
     }
   }else if(heroClass==='necromancer'){
     for(const side of [-1,1]){
-      const eye=addHead(new THREE.SphereGeometry(.034,9,7),faceGlow,side*.085,1.93,-.242,.98,.82,.30);
-      const pupil=addHead(new THREE.SphereGeometry(.010,8,6),dark,side*.085,1.93,-.254,.92,.95,.34);
+      const eye=addHead(new THREE.SphereGeometry(.032,9,7),faceGlow,side*.085,1.93,-.226,.98,.82,.18);
+      const pupil=addHead(new THREE.SphereGeometry(.010,8,6),dark,side*.085,1.93,-.238,.92,.95,.18);
       faceEyes.push({mesh:pupil,baseX:pupil.position.x,eye});
       const brow=addHead(new THREE.BoxGeometry(.11,.025,.035),dark,side*.085,1.995,-.25);brow.rotation.z=side*-.12;faceBrows.push(brow);
     }
@@ -1704,10 +1789,10 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }else{
     const eyeZ=heroClass==='ogre'?'-.278':heroClass==='goblin'?'-.228':'-.242';
     for(const side of [-1,1]){
-      const eye=addHead(new THREE.SphereGeometry(.032,10,8),eyeWhite,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)+.020,.98,.86,.25);
-      const iris=addHead(new THREE.SphereGeometry(.018,9,7),faceGlow,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)+.007,.96,.88,.26);
-      const pupil=addHead(new THREE.SphereGeometry(.011,8,6),pupilMat,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)-.002,.95,.9,.28);
-      const glint=addHead(new THREE.SphereGeometry(.0045,6,5),eyeWhite,side*.078,heroClass==='ogre'?1.965:1.935,Number(eyeZ)-.009);
+      const eye=addHead(new THREE.SphereGeometry(.031,10,8),eyeWhite,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)+.032,.98,.84,.17);
+      const iris=addHead(new THREE.SphereGeometry(.017,9,7),faceGlow,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)+.020,.96,.88,.18);
+      const pupil=addHead(new THREE.SphereGeometry(.010,8,6),pupilMat,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)+.009,.95,.9,.18);
+      const glint=addHead(new THREE.SphereGeometry(.004,6,5),eyeWhite,side*.078,heroClass==='ogre'?1.965:1.935,Number(eyeZ)+.003);
       faceEyes.push({mesh:pupil,baseX:pupil.position.x,eye,iris,glint});
       const brow=addHead(new THREE.BoxGeometry(.115,.026,.035),heroClass==='goblin'||heroClass==='ogre'?dark:cloth,side*.087,heroClass==='ogre'?2.035:1.995,Number(eyeZ)+.012,1,.9,1);
       brow.rotation.z=side*(heroClass==='healer'?.06:heroClass==='ogre'?.20:-.10);faceBrows.push(brow);
@@ -1857,7 +1942,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.scale.setScalar(scale);
   g.userData.heroClass=heroClass;g.userData.heroSkin=skin;g.userData.idleSeed=Math.random()*Math.PI*2;
   g.userData.sword=classWeapon;g.userData.weaponRest={x:classWeapon.rotation.x,z:classWeapon.rotation.z,y:classWeapon.position.y};
-  g.userData.headRig=headRig;g.userData.head=head;g.userData.torso=torso;g.userData.torsoBaseScaleY=torso?torso.scale.y:1;
+  g.userData.headRig=headRig;g.userData.head=head;g.userData.torso=torso;g.userData.torsoBaseScaleY=torso?torso.scale.y:1;g.userData.abdomen=abdomenBulge;
   g.userData.legs=legs;g.userData.arms=arms;g.userData.cape=cape;g.userData.capeTails=capeTails;
   g.userData.classCharm=classCharm;g.userData.classShield=classShield;g.userData.decorativeParts=decorativeParts;
   g.userData.baseRing=ring;g.userData.waistSigil=waistSigil;g.userData.walkPhase=Math.random()*Math.PI*2;g.userData.baseY=0;
@@ -4151,15 +4236,6 @@ function handleMessage(m) {
     return;
   }
 
-  if(m.type==='experience'){
-    levelProgress={level:m.level||1,xp:m.xp||0,xpToNext:m.xpToNext||100,levelPoints:m.levelPoints||0,upgrades:{...levelProgress.upgrades}};
-    updateLevelHud();showNotice('+'+Math.max(0,Number(m.amount)||0)+' XP · '+(m.source==='boss'?'Chefe':m.source==='player'?'Jogador rival':'Monstro'));return;
-  }
-  if(m.type==='autoDodge'){
-    if(m.id===playerId&&myPlayer){myPlayer.position.set(m.x,getDungeonFloorHeight(m.x,m.z),m.z);myPlayer.userData.dodgeFlashUntil=performance.now()+240;}
-    else{const obj=remotePlayers.get(m.id);if(obj){obj.userData.targetX=m.x;obj.userData.targetZ=m.z;obj.userData.targetY=getDungeonFloorHeight(m.x,m.z);}}
-    return;
-  }
   if(m.type==='experience'){
     levelProgress={level:m.level||1,xp:m.xp||0,xpToNext:m.xpToNext||100,levelPoints:m.levelPoints||0,upgrades:{...levelProgress.upgrades}};
     updateLevelHud();showNotice('+'+Math.max(0,Number(m.amount)||0)+' XP · '+(m.source==='boss'?'Chefe':m.source==='player'?'Jogador rival':'Monstro'));return;
@@ -6536,7 +6612,8 @@ function animate() {
 
       const classMoveMultiplier = selectedClass === 'goblin' ? 1.10 : selectedClass === 'ogre' ? .88 : selectedClass === 'archer' ? 1.12 : 1;
       const hasteMultiplier = selectedClass === 'ogre' && performance.now() < ogreHasteUntil ? 1.65 : 1;
-      const moveSpeed = 5.8 * classMoveMultiplier * hasteMultiplier * (unlockedSkills.has('swift_step') ? 1.18 : 1);
+      const levelMoveMultiplier=1+Math.min(.18,(Number(levelProgress.upgrades?.movement)||0)*.03);
+      const moveSpeed = 5.8 * classMoveMultiplier * hasteMultiplier * (unlockedSkills.has('swift_step') ? 1.18 : 1) * levelMoveMultiplier;
       const nextPosition = resolveDungeonMovement(
         myPlayer.position.x,
         myPlayer.position.z,
