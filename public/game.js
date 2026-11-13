@@ -2688,9 +2688,8 @@ function offlineMoveForward(distance) {
 function handleOfflineSpell(spell) {
   const player=offlineState?.players?.[0];
   if(!player||player.hp<=0)return;
-  const isMage=player.playerClass==='mage';
-  const isNecromancer=player.playerClass==='necromancer';
-  const valid=(isMage&&['fire','lightning','arcane'].includes(spell))||(isNecromancer&&spell==='bone');
+  const isMage=player.playerClass==='mage',isNecromancer=player.playerClass==='necromancer',isHealer=player.playerClass==='healer';
+  const valid=(isMage&&['fire','lightning','arcane'].includes(spell))||(isNecromancer&&spell==='bone')||(isHealer&&spell==='healing');
   if(!valid)return;
   const costs={fire:20,lightning:15,arcane:18,bone:16},manaCost=costs[spell]||16;
   if((Number(player.mana)||0)<manaCost){
@@ -2700,6 +2699,11 @@ function handleOfflineSpell(spell) {
     return;
   }
   player.mana=Math.max(0,(Number(player.mana)||0)-manaCost);
+  if(spell==='healing'){
+    const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+28);
+    showNotice(player.hp>before?'✚ Orbe da vida! +'+(player.hp-before)+' de vida.':'✚ Orbe da vida! Sua energia vital já está completa.');
+    return;
+  }
   const target=offlineNearestMonster(spell==='bone'?10:spell==='arcane'?9:7);
   if(!target){showNotice('Nenhum inimigo ao alcance da magia.');return;}
   const power=(offlineHasSkill('mage_focus')?1.18:1)*(offlineHasSkill('mage_mana')?1.15:1)*(offlineHasSkill('mana_surge')?1.25:1);
@@ -3137,8 +3141,8 @@ function handleMessage(m) {
     return;
   }
   if (m.type === 'spell') {
-    const isFire=m.spell==='fire',isLightning=m.spell==='lightning',isBone=m.spell==='bone',isArcane=m.spell==='arcane';
-    const color=isFire?0xff6b24:isLightning?0x69aaff:isBone?0xf3f5ff:0x68baff;
+    const isFire=m.spell==='fire',isLightning=m.spell==='lightning',isBone=m.spell==='bone',isArcane=m.spell==='arcane',isHealing=m.spell==='healing';
+    const color=isFire?0xff6b24:isLightning?0x69aaff:isBone?0xf3f5ff:isHealing?0x73ffc1:0x68baff;
     const origin = new THREE.Vector3(m.x, 1.35, m.z);
     const reducedVisualLoad = isMobileDevice || (lastFps > 0 && lastFps < 42);
     const targets = (Array.isArray(m.targets) ? m.targets : []).slice(0, reducedVisualLoad ? 2 : 3);
@@ -3151,7 +3155,7 @@ function handleMessage(m) {
       const geo = new THREE.BufferGeometry().setFromPoints(points);
       const beamMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 1 });
       const beam = new THREE.Line(geo, beamMat); scene.add(beam);
-      const impactGeo=isFire?new THREE.ConeGeometry(.28,.72,6):isBone?new THREE.DodecahedronGeometry(.24,1):isArcane?new THREE.IcosahedronGeometry(.24,1):new THREE.SphereGeometry(.2,8,6);
+      const impactGeo=isFire?new THREE.ConeGeometry(.28,.72,6):isBone?new THREE.DodecahedronGeometry(.24,1):isArcane||isHealing?new THREE.IcosahedronGeometry(.24,1):new THREE.SphereGeometry(.2,8,6);
       const impactMat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.98,wireframe:isBone});
       const impact = new THREE.Mesh(impactGeo, impactMat);
       impact.position.copy(end); impact.position.y += isFire ? .35 : .15; scene.add(impact);
@@ -3959,7 +3963,7 @@ const CLASS_ABILITY_CONFIG = {
   healer: [
     { ability: 'healer_cure', icon: '💚', label: 'CURA', description: 'Cura você e aliados vivos em até 50 de vida.', cooldown: 23 },
     { ability: 'healer_guardian_spirits', icon: '🪽', label: 'ESPÍRITOS', description: 'Invoca 3 espíritos por 20 s: curam aliados em 5 a cada 4 s ou causam 9 de dano a inimigos a cada 5 s.', cooldown: 40 },
-    { ability: 'healer_sanctuary', icon: '✚', label: 'SANTUÁRIO', description: 'Cria uma aura de cura e proteção para aliados próximos.', cooldown: 24 }
+    { ability: 'healer_light_orb', icon: '✚', label: 'ORBE DA VIDA', description: 'Dispara uma esfera verde de energia que cura o aliado mais ferido.', cooldown: 10, spell: true, spellType: 'healing' }
   ],
   necromancer: [
     { ability: 'necromancer_summon', icon: '💀', label: 'HORDA', description: 'Invoca até cinco esqueletos aliados por 18 segundos.', cooldown: 30 },
@@ -4406,7 +4410,7 @@ function castSpell(kind) {
   // O efeito de lançamento aparece na hora; o servidor confirma os alvos e o dano.
   vibrateGame(kind === 'fire' ? 18 : 24);
   playSfx(kind==='fire'?'fire':'lightning');
-  const palette={fire:{color:0xff6b24,geo:new THREE.SphereGeometry(.25,9,7)},lightning:{color:0x69aaff,geo:new THREE.OctahedronGeometry(.24,1)},arcane:{color:0x68baff,geo:new THREE.DodecahedronGeometry(.25,1)},bone:{color:0xf3f5ff,geo:new THREE.IcosahedronGeometry(.24,1)}};
+  const palette={fire:{color:0xff6b24,geo:new THREE.SphereGeometry(.25,9,7)},lightning:{color:0x69aaff,geo:new THREE.OctahedronGeometry(.24,1)},arcane:{color:0x68baff,geo:new THREE.DodecahedronGeometry(.25,1)},bone:{color:0xf3f5ff,geo:new THREE.IcosahedronGeometry(.24,1)},healing:{color:0x73ffc1,geo:new THREE.IcosahedronGeometry(.24,1)}};
   const selected=palette[kind]||palette.lightning,color=selected.color,geo=selected.geo;
   const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
   const projectile = new THREE.Mesh(geo, material);
