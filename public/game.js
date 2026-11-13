@@ -375,20 +375,20 @@ function updateDayNightCycle(worldTime) {
   const realmTint = currentRealmVisual === 3 ? 0.12 : currentRealmVisual === 2 ? 0.07 : 0;
 
   dayNightSunLight.position.set(Math.cos(sunAngle) * 18, Math.max(-3, Math.sin(sunAngle) * 15 + 1), 4);
-  dayNightSunLight.intensity = 0.18 + daylight * 1.18;
+  dayNightSunLight.intensity = (isMobileDevice ? 0.42 : 0.18) + daylight * (isMobileDevice ? 1.28 : 1.18);
   dayNightSunLight.color.setRGB(
     0.42 + daylight * 0.58,
     0.52 + daylight * 0.42,
     0.78 - daylight * 0.12
   );
-  dayNightHemisphereLight.intensity = 0.62 + daylight * 1.72;
+  dayNightHemisphereLight.intensity = (isMobileDevice ? 1.28 : 0.62) + daylight * (isMobileDevice ? 1.55 : 1.72);
   dayNightHemisphereLight.color.setRGB(0.16 + daylight * 0.62, 0.22 + daylight * 0.58, 0.48 + daylight * 0.46);
   dayNightHemisphereLight.groundColor.setRGB(0.025 + daylight * 0.15, 0.035 + daylight * 0.13, 0.075 + daylight * 0.10);
   if (dayNightMoonLight) dayNightMoonLight.intensity = isMobileDevice ? 0 : 0.08 + night * 0.82;
 
-  const skyR = 0.012 + daylight * (0.055 - realmTint * 0.08);
-  const skyG = 0.018 + daylight * (0.105 - realmTint * 0.18);
-  const skyB = 0.038 + daylight * (0.19 + realmTint * 0.24);
+  const skyR = (isMobileDevice ? 0.026 : 0.012) + daylight * (0.075 - realmTint * 0.08);
+  const skyG = (isMobileDevice ? 0.034 : 0.018) + daylight * (0.135 - realmTint * 0.18);
+  const skyB = (isMobileDevice ? 0.062 : 0.038) + daylight * (0.23 + realmTint * 0.24);
   if (scene.background?.isColor) scene.background.setRGB(skyR, skyG, skyB);
   if (scene.fog) scene.fog.color.setRGB(skyR, skyG, skyB);
 }
@@ -4462,8 +4462,16 @@ function refreshLobbySettingsUI() {
 let lobbyHudPreviewOrientation='landscape';
 let lobbyHudPreviewDrag=null;
 const LOBBY_HUD_PREVIEW_DEFAULTS={
-  landscape:{dodgeBtn:{x:.56,y:.76},chestBtn:{x:.70,y:.79},attackBtn:{x:.86,y:.72},fireBtn:{x:.86,y:.40},lightningBtn:{x:.86,y:.20},ability3Btn:{x:.72,y:.40}},
-  portrait:{dodgeBtn:{x:.50,y:.82},chestBtn:{x:.68,y:.82},attackBtn:{x:.84,y:.82},fireBtn:{x:.84,y:.61},lightningBtn:{x:.84,y:.43},ability3Btn:{x:.65,y:.54}}
+  landscape:{
+    joystick:{x:.035,y:.66},dodgeBtn:{x:.55,y:.76},chestBtn:{x:.68,y:.79},attackBtn:{x:.88,y:.73},
+    fireBtn:{x:.88,y:.47},lightningBtn:{x:.88,y:.23},ability3Btn:{x:.75,y:.47},
+    inventoryToggleBtn:{x:.76,y:.04},skillToggleBtn:{x:.64,y:.04},settingsBtn:{x:.88,y:.04},orientationToggleBtn:{x:.93,y:.04},leaveBtn:{x:.96,y:.16}
+  },
+  portrait:{
+    joystick:{x:.035,y:.78},dodgeBtn:{x:.05,y:.60},chestBtn:{x:.70,y:.80},attackBtn:{x:.84,y:.82},
+    fireBtn:{x:.82,y:.61},lightningBtn:{x:.82,y:.43},ability3Btn:{x:.65,y:.52},
+    inventoryToggleBtn:{x:.05,y:.04},skillToggleBtn:{x:.20,y:.04},settingsBtn:{x:.78,y:.04},orientationToggleBtn:{x:.88,y:.04},leaveBtn:{x:.90,y:.12}
+  }
 };
 function renderLobbyHudPreview(){
   const stage=$('lobbyHudPreview');if(!stage)return;
