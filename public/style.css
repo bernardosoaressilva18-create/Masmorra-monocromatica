@@ -4942,3 +4942,41 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
  #hud .inventory-panel.inventory-hidden{display:none!important}
 }
 #game, #game canvas{width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;aspect-ratio:auto!important}
+
+
+/* Microgameplay: personagem, impacto, dano/efeito e recarga por poder. */
+.class-demo-stage{isolation:isolate}
+.class-demo-character{left:17%;animation:class-demo-hero-cast 3.6s ease-in-out infinite}
+.class-demo-monster{position:absolute;left:80%;top:50%;z-index:1;display:grid;place-items:center;width:76px;height:94px;transform:translate(-50%,-50%);font-size:62px;filter:drop-shadow(0 8px 9px #000b);animation:class-demo-monster-idle 3.6s ease-in-out infinite}
+.class-demo-damage{position:absolute;left:78%;top:16%;z-index:4;min-width:54px;padding:5px 8px;border:1px solid color-mix(in srgb,var(--demo-accent) 75%,white);border-radius:8px;background:#111d2be8;color:#fff;font-size:11px;font-weight:1000;text-align:center;text-shadow:0 0 10px var(--demo-accent);opacity:0;animation:class-demo-damage-pop 3.6s ease-out infinite}
+.class-demo-skill-icon{left:50%;top:26%;animation:class-demo-impact-burst 3.6s ease-in-out infinite}
+.class-demo-caption{left:35%;right:35%;top:71%;padding:6px 8px;border:1px solid #ffffff1a;border-radius:8px;background:#071321bd;text-align:center;transform:translateY(-50%);backdrop-filter:blur(5px)}
+.class-demo-caption b{font-size:clamp(10px,2vw,15px)}
+.class-demo-caption span{font-size:clamp(8px,1.6vw,10px)}
+.class-demo-metrics{display:grid;grid-template-columns:1.5fr 1fr;gap:7px}
+.class-demo-metrics span{display:grid;gap:3px;min-width:0;padding:8px 9px;border:1px solid #ffffff1b;border-radius:8px;background:#081522}
+.class-demo-metrics small{font-size:7px;letter-spacing:1.4px;color:#86a0b3;font-weight:900}
+.class-demo-metrics b{font-size:clamp(9px,2vw,11px);color:#f7dca4;line-height:1.25}
+.class-demo-training{min-height:38px;border:1px solid #68d6c4a6;border-radius:8px;background:linear-gradient(120deg,#103b3b,#15283a);color:#c8fff0;font-size:9px;font-weight:1000;letter-spacing:1px;box-shadow:0 5px 16px #0005}
+.class-demo-stage.demo-replay .class-demo-character{animation:class-demo-hero-cast 3.6s ease-in-out infinite}
+.class-demo-stage.demo-replay .class-demo-monster{animation:class-demo-monster-idle 3.6s ease-in-out infinite}
+.class-demo-preview[data-demo-kind="heal"] .class-demo-damage{color:#8dffd0}
+.class-demo-preview[data-demo-kind="guard"] .class-demo-damage{color:#a8dcff}
+.class-demo-preview[data-demo-kind="summon"] .class-demo-monster{filter:drop-shadow(0 0 14px var(--demo-accent))}
+.class-demo-preview.paused .class-demo-monster,.class-demo-preview.paused .class-demo-damage{animation-play-state:paused}
+@keyframes class-demo-hero-cast{0%,12%,100%{transform:translate(-50%,-50%) scale(1)}28%{transform:translate(-34%,-50%) scale(1.06)}42%{transform:translate(-30%,-50%) scale(1.02)}58%{transform:translate(-50%,-50%) scale(1)}}
+@keyframes class-demo-monster-idle{0%,38%,100%{transform:translate(-50%,-50%) rotate(0) scale(1);filter:drop-shadow(0 8px 9px #000b)}49%{transform:translate(-44%,-50%) rotate(8deg) scale(.94);filter:drop-shadow(0 0 16px var(--demo-accent))}62%{transform:translate(-52%,-50%) rotate(-3deg) scale(1.02)}}
+@keyframes class-demo-impact-burst{0%,22%,100%{opacity:0;transform:scale(.35) rotate(-12deg)}36%{opacity:1;transform:scale(1.3) rotate(10deg)}52%{opacity:.9;transform:scale(1) rotate(0)}70%{opacity:0;transform:scale(1.55) rotate(18deg)}}
+@keyframes class-demo-damage-pop{0%,42%,100%{opacity:0;transform:translateY(8px) scale(.7)}50%{opacity:1;transform:translateY(-3px) scale(1.08)}66%{opacity:1;transform:translateY(-10px) scale(1)}78%{opacity:0;transform:translateY(-18px) scale(.9)}}
+@media(max-width:430px){.class-demo-monster{font-size:49px;width:60px;height:78px;left:82%}.class-demo-character{left:16%;font-size:54px}.class-demo-caption{left:32%;right:32%;top:72%}.class-demo-metrics span{padding:6px}.class-demo-training{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.class-demo-monster,.class-demo-damage,.class-demo-character,.class-demo-skill-icon{animation:none!important;opacity:1}}
+
+/* Landscape HUD: larger touch targets and more breathing room. */
+@media (pointer:coarse) and (orientation:landscape){
+ #hud .joystick{width:102px!important;height:102px!important}
+ #hud .stick{left:28px!important;top:28px!important;width:46px!important;height:46px!important}
+ #hud .attack{width:74px!important;height:74px!important}
+ #hud .chest-btn,#hud .dodge-btn{width:52px!important;height:52px!important}
+ #hud .chest-btn{right:92px!important;bottom:10px!important}
+ #hud .dodge-btn{right:92px!important;bottom:68px!important}
+}
