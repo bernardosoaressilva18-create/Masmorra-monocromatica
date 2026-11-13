@@ -4198,7 +4198,7 @@ function handleOfflineAction(data) {
     if(Number.isFinite(Number(data.rot)))player.rot=Number(data.rot);
   } else if(data.type==='dash'&&player.hp>0){
     const dx=Number(data.dx)||0,dz=Number(data.dz)||0,length=Math.hypot(dx,dz)||1;
-    const distance=3.0+(offlineHasSkill('dodge_mastery')?.35:0)+(offlineHasSkill('phantom_step')?.45:0);
+    const distance=3.0+(offlineHasSkill('dodge_mastery') ? .35 : 0)+(offlineHasSkill('phantom_step') ? .45 : 0);
     const resolved=resolveDungeonMovement(player.x,player.z,player.x+dx/length*distance,player.z+dz/length*distance);
     if(Math.hypot(resolved.x-player.x,resolved.z-player.z)>.35){
       player.x=resolved.x;player.z=resolved.z;player.dodgeUntil=Date.now()+220;
@@ -4253,6 +4253,26 @@ function handleOfflineAction(data) {
     if(myPlayer)myPlayer.position.set(player.x,0,player.z);
     handleClassAbilityMessage({type:'classAbility',id:playerId,ability:'necromancer_dive_arrive',x:player.x,z:player.z,center:{x:oldX,z:oldZ},targets:[],text:'🦴 Você emergiu e deixou um esqueleto na origem!'});
   }
+}
+function tryOfflineAutomaticDodge(player,threat,now=Date.now()){
+ if(!player||!threat||Number(player.levelUpgrades?.autoDodge)<1||now<(player.nextAutoDodgeAt||0)||now<(player.dodgeUntil||0))return false;
+ let dx=player.x-Number(threat.x||0),dz=player.z-Number(threat.z||0),length=Math.hypot(dx,dz);
+ if(!Number.isFinite(length)||length<.001){dx=1;dz=0;length=1;}
+ dx/=length;dz/=length;
+ const sideX=-dz,sideZ=dx;
+ let best=null,bestDistance=-Infinity;
+ for(const side of [1,-1]){
+  const landing=resolveDungeonMovement(player.x,player.z,player.x+sideX*1.75*side,player.z+sideZ*1.75*side);
+  const moved=Math.hypot(landing.x-player.x,landing.z-player.z);
+  if(moved<.45)continue;
+  const separation=Math.hypot(landing.x-threat.x,landing.z-threat.z);
+  if(separation>bestDistance){best=landing;bestDistance=separation;}
+ }
+ if(!best)return false;
+ player.x=best.x;player.z=best.z;player.nextAutoDodgeAt=now+5200;player.dodgeUntil=now+820;
+ if(myPlayer){myPlayer.position.set(player.x,getDungeonFloorHeight(player.x,player.z),player.z);myPlayer.userData.dodgeFlashUntil=performance.now()+240;}
+ showNotice('↔ ESQUIVA LATERAL AUTOMÁTICA!');
+ return true;
 }
 function stepOfflineSimulation() {
   if (!offlineMode || !offlineState || !started || !myPlayer) return;
@@ -4340,6 +4360,7 @@ function stepOfflineSimulation() {
           if (!monster.attackWarnAt) {
             monster.attackWarnAt = now;
             monster.trainingWarningUntil = now + 720;
+            tryOfflineAutomaticDodge(player,monster,now);
           } else if (now - monster.attackWarnAt >= 720) {
             monster.attackAnimAt = now;
             monster.attackWarnAt = 0;
@@ -4378,22 +4399,30 @@ function stepOfflineSimulation() {
       if (monster.stunnedUntil > now || invisible) continue;
       const dx = player.x - monster.x, dz = player.z - monster.z;
       const distance = Math.hypot(dx,dz);
-      if (distance > 1.35) {
+      if (distance > 1.35 && !monster.attackWarnAt) {
         const speed = (monster.kind === 'brute' ? .22 : .34) * (now < (player.ogreHasteUntil || 0) || now < (player.monkSpeedUntil || 0) ? .78 : 1);
         monster.x += dx / Math.max(distance,.001) * speed;
         monster.z += dz / Math.max(distance,.001) * speed;
-      } else if (now - (monster.lastAttack || 0) > 1500) {
-        monster.lastAttack = now;
-        const incomingDamage = monster.kind === 'brute' ? 8 : 4;
-        let damageMultiplier = 1;
-        if (offlineHasSkill('iron_skin')) damageMultiplier *= .8;
-        if (offlineHasSkill('second_wind') && player.hp <= player.maxHp * .3) damageMultiplier *= .8;
-        if (player.shielded) damageMultiplier *= .35;
-        player.hp = Math.max(0, player.hp - Math.max(1,Math.round(incomingDamage*damageMultiplier)));
-        showNotice(player.shielded ? '🛡️ Seu escudo absorveu parte do dano!' : 'Um monstro acertou você!');
-        if (player.hp <= 0 && !offlineDefeatNoticeShown) {
-          offlineDefeatNoticeShown = true;
-          showNotice('Você foi derrotado. Saia da partida para recomeçar a prévia.');
+      } else if (!monster.attackWarnAt && now >= (monster.nextAttackAt || 0)) {
+        monster.attackWarnAt=now;
+        tryOfflineAutomaticDodge(player,monster,now);
+        showNotice('⚠ O monstro prepara um golpe!');
+      } else if (monster.attackWarnAt && now-monster.attackWarnAt>=460) {
+        monster.attackWarnAt=0;monster.nextAttackAt=now+1500;
+        if(Math.hypot(player.x-monster.x,player.z-monster.z)<=2.1){
+          const incomingDamage = monster.kind === 'brute' ? 8 : 4;
+          let damageMultiplier = 1;
+          if (offlineHasSkill('iron_skin')) damageMultiplier *= .8;
+          if (offlineHasSkill('second_wind') && player.hp <= player.maxHp * .3) damageMultiplier *= .8;
+          if (player.shielded) damageMultiplier *= .35;
+          if(now>=(player.dodgeUntil||0)){
+            player.hp = Math.max(0, player.hp - Math.max(1,Math.round(incomingDamage*damageMultiplier)));
+            showNotice(player.shielded ? '🛡️ Seu escudo absorveu parte do dano!' : 'Um monstro acertou você!');
+          }else showNotice('Esquiva perfeita! O monstro errou o golpe.');
+          if (player.hp <= 0 && !offlineDefeatNoticeShown) {
+            offlineDefeatNoticeShown = true;
+            showNotice('Você foi derrotado. Saia da partida para recomeçar a prévia.');
+          }
         }
       }
     }
