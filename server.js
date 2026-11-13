@@ -631,7 +631,7 @@ function state(room) {
   for (const p of room.players.values()) {
     if (p.hp > 0 && (p.mana ?? 100) < (p.maxMana ?? 100) && now >= (p.nextManaRegenAt || 0)) {
       p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + 1);
-      p.nextManaRegenAt = now + 2500;
+      p.nextManaRegenAt = now + 1000;
     }
   }
   // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
