@@ -3595,6 +3595,29 @@ $('startMatchBtn').addEventListener('click', () => {
     const self = offlineState.players[0];
     if (!self.ready) { showNotice('Marque ESTOU PRONTO antes de começar.'); return; }
     offlineState.started = true;
+    // Recupera o estado visual completo ao sair do lobby: a prévia 3D usa scissor
+    // no mesmo renderer e não pode deixar a cena principal limitada a um viewport.
+    if (renderer) {
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, renderer.domElement.clientWidth || innerWidth, renderer.domElement.clientHeight || innerHeight);
+      renderer.autoClear = true;
+    }
+    if (environmentGroups?.dungeon) environmentGroups.dungeon.visible = true;
+    if (environmentGroups?.astral) environmentGroups.astral.visible = false;
+    if (environmentGroups?.eclipse) environmentGroups.eclipse.visible = false;
+    scene.background.setHex(0x090d14);
+    if (scene.fog) scene.fog.color.setHex(0x090d14);
+    currentRealmVisual = 0;
+    currentPhaseVisual = 0;
+    realmIntroTimer = 0;
+    appliedInitialServerPosition = false;
+    yaw = targetYaw = 0;
+    pitch = targetPitch = 0.25;
+    if (myPlayer) {
+      myPlayer.position.set(0, 0, 3);
+      myPlayer.visible = gameSettings.cameraMode !== 'first';
+    }
+    if (renderer) syncRendererSize(innerWidth, innerHeight);
     updateState(offlineState);
     if (offlineLoop) clearInterval(offlineLoop);
     offlineLoop = setInterval(stepOfflineSimulation, 220);
