@@ -1151,7 +1151,8 @@ wss.on('connection', ws => {
           player.x=Math.max(-12,Math.min(12,player.x-Math.sin(player.rot||0)*d));player.z=Math.max(-27,Math.min(-3,player.z-Math.cos(player.rot||0)*d));player.dodgeUntil=now+450;
           center={x:player.x,z:player.z};
           const t=nearest(4.2);if(t&&ability==='knight_dash'){hit(t,10,1.2,0,0,center);targets.push({x:t.x,z:t.z});}
-          text=ability==='knight_dash'?'↗ Avanço do cavaleiro!':ability==='monk_winged_steps'?'🪽 Passos Alados!':'🕳️ Deslocamento sombrio!';
+          if(ability==='monk_winged_steps'){const count=area(center,4.1,12,1.1,350);text='🪽 Passos Alados: avanço e impacto! '+count+' rival(is) atingido(s), 12 de dano.';}
+          else text=ability==='knight_dash'?'↗ Avanço do cavaleiro!':'🕳️ Deslocamento sombrio!';
         }else if(ability==='arrow_rain'||ability==='incendiary_arrows'){
           const t=nearest(10);
           if(t){
@@ -1429,13 +1430,13 @@ wss.on('connection', ws => {
         for (const enemy of enemies()) {
           const dx = enemy.x - center.x, dz = enemy.z - center.z;
           if (Math.hypot(dx, dz) > 4.2) continue;
-          damageEnemy(enemy, hasSkill(player, 'monk_openpalm') ? 11 : 8, 0, center, 2.7);
+          damageEnemy(enemy, hasSkill(player, 'monk_openpalm') ? 15 : 12, 0, center, 2.7);
           if (enemy.alive) {
             enemy.stunnedUntil = now + (hasSkill(player, 'monk_zen') ? 1600 : 1100);
             enemy.attackWarnAt = 0; enemy.attackTargetId = null;
           }
         }
-        text = '👊 Palma de Impacto! Onda de choque causa 8 de dano, empurra e atordoa inimigos próximos.';
+        text = '👊 Palma de Impacto! Onda de choque causa 12 de dano, empurra e atordoa inimigos próximos.';
       } else if (ability === 'monk_winged_steps') {
         const heading = Number(player.rot) || 0;
         const landing = resolveServerMovement(room, player, player.x - Math.sin(heading) * 3.1, player.z - Math.cos(heading) * 3.1);
@@ -1444,7 +1445,14 @@ wss.on('connection', ws => {
         player.dodgeUntil = now + 900;
         until = player.monkSpeedUntil;
         center = { x: player.x, z: player.z };
-        text = '🪽 Passos Alados! Avanço rápido, esquiva breve e velocidade aumentada por 5 segundos.';
+        let hitCount = 0;
+        for (const enemy of enemies()) {
+          if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > 4.1) continue;
+          damageEnemy(enemy, 12, 0, center, 1.1);
+          if (enemy.alive) enemy.stunnedUntil = Math.max(enemy.stunnedUntil || 0, now + 350);
+          hitCount++;
+        }
+        text = '🪽 Passos Alados! Avanço com impacto: ' + hitCount + ' inimigo(s) atingido(s), 12 de dano, esquiva e velocidade extra.';
       } else if (ability === 'ogre_slam') {
         center = { x: player.x, z: player.z };
         for (const enemy of enemies()) {
@@ -1462,7 +1470,7 @@ wss.on('connection', ws => {
       else if(ability==='goblin_shadow_strike'){const target=enemies().filter(enemy=>Math.hypot(enemy.x-player.x,enemy.z-player.z)<=9).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];if(target){damageEnemy(target,16);player.invisibleUntil=now+600;}text=target?'⟡ Golpe sombrio!':'Nenhum inimigo ao alcance.';}
       else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};for(const enemy of enemies())if(Math.hypot(enemy.x-player.x,enemy.z-player.z)<=5.8)damageEnemy(enemy,15,0,center,1.5);text='♨ Terremoto! O chão tremeu ao redor do Ogro.';}
       else if(ability==='healer_sanctuary'){let healed=0;for(const ally of room.players.values()){if(ally.connected===false||ally.hp<=0||Math.hypot(ally.x-player.x,ally.z-player.z)>7)continue;const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+25);ally.shieldUntil=Math.max(ally.shieldUntil||0,now+1800);if(ally.hp>before)healed++;}center={x:player.x,z:player.z};text='✚ Santuário! '+healed+' aliado(s) curado(s) e protegido(s).';}
-      else if(ability==='monk_spirit_wave'){const heading=Number(player.rot)||0;center={x:player.x-Math.sin(heading)*1.8,z:player.z-Math.cos(heading)*1.8};for(const enemy of enemies())if(Math.hypot(enemy.x-center.x,enemy.z-center.z)<=4.5)damageEnemy(enemy,13);text='☯ Onda espiritual liberada!';}
+      else if(ability==='monk_spirit_wave'){const heading=Number(player.rot)||0;center={x:player.x-Math.sin(heading)*1.8,z:player.z-Math.cos(heading)*1.8};let hits=0;for(const enemy of enemies())if(Math.hypot(enemy.x-center.x,enemy.z-center.z)<=4.5){damageEnemy(enemy,16,0,center,1.0);hits++;}text='☯ Onda espiritual: '+hits+' inimigo(s) atingido(s), 16 de dano.';}
       else if(ability==='golem_stone_guard'){player.shieldUntil=now+6500;until=player.shieldUntil;text='⬟ Guarda de pedra! Armadura reforçada por 6,5 segundos.';}
       broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text, rockFall });
       broadcast(room, state(room));
