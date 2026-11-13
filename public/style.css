@@ -5672,3 +5672,47 @@ html,body,#game{
 @media(prefers-reduced-motion:reduce){
   #lobby .lobby-editor,#lobby .class-card{scroll-behavior:auto!important;transition:none!important}
 }
+
+
+/* LOBBY FIX: painel de classes preso à área visível, sem reposicionar ao mudar de aba/rolar. */
+#lobby .lobby-editor{
+  top:max(8px,env(safe-area-inset-top))!important;
+  bottom:max(8px,env(safe-area-inset-bottom))!important;
+  left:50%!important;
+  right:auto!important;
+  transform:translateX(-50%)!important;
+  width:min(480px,calc(100vw - 16px))!important;
+  height:auto!important;
+  max-height:none!important;
+  min-height:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  contain:layout paint;
+}
+#lobby .lobby-editor-content{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overflow-anchor:none!important;
+  overscroll-behavior:contain!important;
+  scroll-behavior:auto!important;
+}
+#lobby .lobby-editor-section,
+#lobby .class-cards,
+#lobby .class-card{overflow-anchor:none!important;}
+#lobby .class-card,
+#lobby .class-card.selected{transform:none!important;animation:none!important;}
+@media(max-width:560px){
+  #lobby .lobby-editor{width:calc(100vw - 16px)!important;}
+  #lobby .lobby-editor-section[data-lobby-editor-panel="class"] .class-cards{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    align-items:stretch;
+  }
+  #lobby .lobby-editor-section[data-lobby-editor-panel="class"] .class-card{min-height:82px;}
+}
+@media(orientation:landscape) and (max-height:560px){
+  #lobby .lobby-editor{top:5px!important;bottom:5px!important;width:min(540px,calc(100vw - 18px))!important;}
+  #lobby .lobby-editor-section[data-lobby-editor-panel="class"] .class-cards{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  #lobby .lobby-editor-section[data-lobby-editor-panel="class"] .class-card{min-height:72px;}
+}
