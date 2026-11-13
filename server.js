@@ -1616,7 +1616,9 @@ wss.on('connection', ws => {
         const target=candidates[0]?.p;
         if(!target){ws.send(JSON.stringify({type:'notice',text:'Nenhum rival na direção da magia.'}));broadcast(room,{type:'spell',id:player.id,spell,x:player.x,z:player.z,targets:[]});broadcast(room,state(room));return;}
         const power=statsFor(player).spellPower*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1)*(hasSkill(player,'mana_surge')?1.25:1);
-        const damage=Math.max(1,Math.round((spell==='fire'?10:spell==='lightning'?8:spell==='arcane'?14:16)*power+(spell==='fire'&&hasSkill(player,'mage_ember')?1.5:0)));
+        const criticalRank=cleanLevelUpgrades(player.levelUpgrades).critical;
+        const criticalPower=criticalRank>0&&Math.random()<criticalRank*.02?1.7:1;
+        const damage=Math.max(1,Math.round(((spell==='fire'?10:spell==='lightning'?8:spell==='arcane'?14:16)*power+(spell==='fire'&&hasSkill(player,'mage_ember')?1.5:0))*criticalPower));
         const hitTargets=[];
         if(spell==='fire'){
           // Fireball explodes on impact; it should punish grouped rivals instead of acting like a basic attack.
@@ -1666,8 +1668,10 @@ wss.on('connection', ws => {
         const emberBonus = spell === 'fire' && hasSkill(player, 'mage_ember') ? 1.5 : 0;
         const bossBonus = enemy === room.boss && hasSkill(player, 'boss_hunter') ? 1.5 : 1;
         const executeBonus = enemy.hp / (enemy.maxHp || 1) <= .35 && hasSkill(player, 'executioner') ? 1.5 : 1;
-        const enemyHpBefore = enemy.hp;
-        enemy.hp = Math.max(0, (enemy.hp || 1) - amount * classPower * bossBonus * executeBonus - emberBonus);
+        const enemyHpBefore=enemy.hp;
+        const criticalRank=cleanLevelUpgrades(player.levelUpgrades).critical;
+        const criticalPower=criticalRank>0&&Math.random()<criticalRank*.02?1.7:1;
+        enemy.hp=Math.max(0,(enemy.hp||1)-amount*classPower*bossBonus*executeBonus*criticalPower-emberBonus);
         recordMonsterThreat(enemy, player, Math.max(0, enemyHpBefore - enemy.hp), Date.now());
         if (spell === 'fire' && enemy.hp > 0) {
           enemy.burnUntil = Date.now() + (hasSkill(player, 'ember_core') ? 5000 : 3000);
@@ -1676,6 +1680,7 @@ wss.on('connection', ws => {
         hitTargets.push({ x: enemy.x, z: enemy.z });
         if (enemy.hp <= 0) {
           enemy.alive = false;
+          awardExperience(player,enemy===room.boss?260+(room.realm||1)*60:enemy.cursed?52:16+(enemy.phase||room.phase)*3+(room.realm||1)*3,enemy===room.boss?'boss':enemy.cursed?'mini-boss':'monster');
           if (room.phase < 5 && Math.random() < dropChance(player, .25)) grantLoot(player, 'monster');
           if (room.phase === 5 && enemy === room.boss) {
             const dropped = grantLoot(player, 'boss');
@@ -1728,6 +1733,9 @@ wss.on('connection', ws => {
           .filter(e=>e.d<=range&&e.facing).sort((a,b)=>a.d-b.d);
         const target=candidates[0];let damage=isMonk?[0,2,3,5][monkCombo]:player.baseDamage+(player.damageBuffHits>0?player.damageBuff:0);
         if(isMonk&&player.damageBuffHits>0)damage+=player.damageBuff;
+        const criticalRank=cleanLevelUpgrades(player.levelUpgrades).critical;
+        const criticalHit=!!target&&criticalRank>0&&Math.random()<criticalRank*.02;
+        if(criticalHit)damage=Math.round(damage*1.7);
         if(target){if(target.isPlayer){if(target.entity.hp/(target.entity.maxHp||1)<=.35&&hasSkill(player,'executioner'))damage+=2;applyPvpPlayerDamage(room,player,target.entity,damage);}
           else{const m=target.entity;m.hp=Math.max(0,m.hp-damage);recordMonsterThreat(m,player,damage,now);if(m.hp<=0&&m.alive){m.alive=false;awardExperience(player,24,'pvp-monster');player.pvpMonsterKills=(player.pvpMonsterKills||0)+1;const owner=room.players.get(String(m.ownerId));if(owner?.ws?.readyState===WebSocket.OPEN)owner.ws.send(JSON.stringify({type:'notice',text:'Um monstro seu foi derrotado por '+player.name+'.'}));ws.send(JSON.stringify({type:'notice',text:'Monstro rival derrotado!'}));}}
           if(player.damageBuffHits>0){player.damageBuffHits--;if(player.damageBuffHits===0)player.damageBuff=0;}}
@@ -1740,6 +1748,8 @@ wss.on('connection', ws => {
           let damage = isMonk ? [0, 2, 3, 5][monkCombo] : player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0);
           if (isMonk && player.damageBuffHits > 0) damage += player.damageBuff;
           if (target.hp / (target.maxHp || 1) <= .35 && hasSkill(player, 'executioner')) damage += 2;
+          const criticalRank=cleanLevelUpgrades(player.levelUpgrades).critical;
+          if(criticalRank>0&&Math.random()<criticalRank*.02)damage=Math.round(damage*1.7);
           target.hp = Math.max(0, (target.hp || 1) - damage);
           recordMonsterThreat(target, player, damage, now);
           if (isMonk && target.hp > 0 && monkCombo >= 2) {
