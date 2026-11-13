@@ -635,7 +635,7 @@ function state(room) {
     type:'state',gameMode:room.gameMode||'coop',
     players:[...room.players.values()].filter(p=>p.connected!==false).map(p=>({
       id:p.id,name:p.name,x:p.x,z:p.z,rot:p.rot,color:p.color,hp:p.hp,maxHp:p.maxHp,mana:p.mana??100,maxMana:p.maxMana??100,
-      playerClass:p.playerClass,skin:p.skin,skills:p.skills,talentPoints:p.talentPoints,ready:!!p.ready,isHost:p.id===room.hostId,
+      playerClass:p.playerClass,skin:p.skin,skills:p.skills,talentPoints:p.talentPoints,unlockedSkins:p.unlockedSkins||[],equipmentDamage:p.equipmentDamage||0,ready:!!p.ready,isHost:p.id===room.hostId,
       pvpKills:p.pvpKills||0,pvpMonsterKills:p.pvpMonsterKills||0,pvpRespawnAt:p.pvpRespawnAt||0,
       invisible:Date.now()<(p.invisibleUntil||0),shielded:Date.now()<(p.shieldUntil||0),ogreHasteUntil:p.ogreHasteUntil||0
     })),
@@ -667,7 +667,7 @@ wss.on('connection', ws => {
   name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   hp: 130, maxHp: 130, mana: 100, maxMana: 100, nextManaRegenAt: Date.now() + 1000, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
-  playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, equipmentDamage: 0, nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
+  playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, equipmentDamage: 0, unlockedSkins:[], nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
   room: null,
   ready: false,
   lootDrops: [],
@@ -781,9 +781,38 @@ wss.on('connection', ws => {
           : Math.min(20, 5 + Math.max(0, room.phase - 1));
         player.secondWindUsed = false;
         player.x = 0; player.z = room.started ? -((room.phase - 1) * 32 + 1) : 3; player.ready = false;
-        player.damageBuff = 0; player.damageBuffHits = 0; player.nextAttackAt = 0;
+        player.damageBuff=0;player.damageBuffHits=0;player.nextAttackAt=0;
         player.nextDodgeAt=0;player.dodgeUntil=0;player.pvpKills=0;player.pvpMonsterKills=0;
-        player.pvpRespawnAt=0;player.pvpMonsterCooldownAt=0;refreshPlayerStats(player,true);room.players.set(player.id,player);
+        player.pvpRespawnAt=0;player.pvpMonsterCooldownAt=0;
+        // O perfil do aparelho é validado aqui antes de entrar no estado autoritativo do servidor.
+        const profile=msg.profile&&typeof msg.profile==='object'&&!Array.isArray(msg.profile)?msg.profile:{};
+        const freeSkins=['default','shadow','ember'],chestSkins=['rune','celestial','bloodmoon','frostguard','draconic','voidwalker','verdant'];
+        player.unlockedSkins=Array.isArray(profile.unlockedSkins)?[...new Set(profile.unlockedSkins.filter(id=>chestSkins.includes(id)))]:[];
+        const requestedProfileClass=['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(profile.playerClass)?profile.playerClass:null;
+        if(requestedProfileClass)player.playerClass=requestedProfileClass;
+        const requestedProfileSkin=String(profile.skin||'default');
+        player.skin=freeSkins.includes(requestedProfileSkin)||player.unlockedSkins.includes(requestedProfileSkin)?requestedProfileSkin:'default';
+        player.equipmentDamage=Math.max(0,Math.min(18,Math.floor(Number(profile.equipmentDamage)||0)));
+        const savedInventory=profile.inventory&&typeof profile.inventory==='object'?profile.inventory:{};
+        player.inventory=Object.fromEntries(['comum','incomum','raro','épico','lendário'].map(rarity=>[rarity,Math.max(0,Math.min(9999,Math.floor(Number(savedInventory[rarity])||0)))]));
+        const validLootNames=new Set(Object.values(LOOT_TABLES).flat().map(item=>item.name));
+        const legacyLootNames={'Moeda da Masmorra':'Moeda Antiga','Relíquia Antiga':'Equipamento Antigo','Fragmento Astral':'Fragmento Monocromático'};
+        player.lootDrops=(Array.isArray(profile.lootDrops)?profile.lootDrops:[]).slice(-100).map(item=>{
+          if(!item||typeof item!=='object')return null;
+          const name=legacyLootNames[String(item.name||'')]||String(item.name||'');
+          if(!validLootNames.has(name))return null;
+          const rarity=['comum','incomum','raro','épico','lendário'].includes(item.rarity)?item.rarity:'comum';
+          return{id:String(item.id||crypto.randomBytes(6).toString('hex')).slice(0,80),name,rarity,power:Math.max(1,Math.min(5,Number(item.power)||1)),source:['monster','boss','chest'].includes(item.source)?item.source:'chest'};
+        }).filter(Boolean);
+        player.talentPoints=Math.max(0,Math.min(99,Math.floor(Number(profile.skillPoints??player.talentPoints)||0)));
+        player.skills=[];
+        const proposedSkills=Array.isArray(profile.skills)?[...new Set(profile.skills)].slice(0,15):[];
+        for(const skillId of proposedSkills){
+          if(!VALID_SKILLS.has(skillId)|| (CLASS_PERSONAL_SKILL_CLASS[skillId]&&CLASS_PERSONAL_SKILL_CLASS[skillId]!==player.playerClass))continue;
+          if(player.talentPoints<=0||!canUnlockSkill(player,skillId))continue;
+          player.skills.push(skillId);player.talentPoints--;
+        }
+        refreshPlayerStats(player,true);room.players.set(player.id,player);
         if(room.gameMode==='pvp_rpg'&&!room.started){const i=[...room.players.keys()].indexOf(player.id),p=PVP_SPAWNS[Math.max(0,i)%4];player.x=p.x;player.z=p.z;}
       }
 
@@ -893,7 +922,9 @@ wss.on('connection', ws => {
       broadcast(room,state(room));
     } else if (msg.type === 'loadout') {
       const wantedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
-      const wantedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(msg.skin) ? msg.skin : player.skin;
+      const freeSkins=['default','shadow','ember'],chestSkins=['rune','celestial','bloodmoon','frostguard','draconic','voidwalker','verdant'];
+      const requestedSkin=String(msg.skin||player.skin);
+      const wantedSkin=freeSkins.includes(requestedSkin)||chestSkins.includes(requestedSkin)&&player.unlockedSkins?.includes(requestedSkin)?requestedSkin:player.skin;
       if (room.started && (wantedClass !== player.playerClass || wantedSkin !== player.skin)) return;
       if (!room.started && wantedClass !== player.playerClass) {
         const previousSkillCount = player.skills.length;
@@ -1603,13 +1634,19 @@ wss.on('connection', ws => {
         return;
       }
       chest.openedBy.push(player.id);
-      if (Math.random() < 0.25) {
-        chest.cursed = true;
-        room.cursedBoss = { id:'cursed-'+chest.id, kind:'brute', x:chest.x, z:chest.z, hp:30+room.phase*8, maxHp:30+room.phase*8, alive:true, spawned:true, phase:room.phase, cursed:true, attackAt:0 };
+      const hiddenSkins=['rune','celestial','bloodmoon','frostguard','draconic','voidwalker','verdant'].filter(id=>!(player.unlockedSkins||[]).includes(id));
+      if(Math.random()<.25){
+        chest.cursed=true;
+        room.cursedBoss={id:'cursed-'+chest.id,kind:'brute',x:chest.x,z:chest.z,hp:30+room.phase*8,maxHp:30+room.phase*8,alive:true,spawned:true,phase:room.phase,cursed:true,attackAt:0};
         broadcast(room,{type:'notice',text:'☠ BAÚ AMALDIÇOADO! Um mini-chefe apareceu. Derrote-o para ganhar um item lendário!'});
-      } else {
-        const dropped = grantLoot(player, 'chest');
-      ws.send(JSON.stringify({ type: 'notice', text: 'Baú: ' + dropped.name + ' (' + dropped.rarity + ')' }));
+      }else if(hiddenSkins.length&&Math.random()<.22){
+        const skin=hiddenSkins[Math.floor(Math.random()*hiddenSkins.length)];
+        player.unlockedSkins=[...(player.unlockedSkins||[]),skin];
+        ws.send(JSON.stringify({type:'skinUnlock',skin,unlockedSkins:player.unlockedSkins}));
+        ws.send(JSON.stringify({type:'notice',text:'✦ Nova skin desbloqueada: '+skin+'!'}));
+      }else{
+        const dropped=grantLoot(player,'chest');
+        ws.send(JSON.stringify({type:'notice',text:'Baú: '+dropped.name+' ('+dropped.rarity+')'}));
       }
       broadcast(room, state(room));
     } else if (msg.type === 'leave') {
