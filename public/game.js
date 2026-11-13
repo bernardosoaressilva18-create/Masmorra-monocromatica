@@ -5308,7 +5308,7 @@ function rendererPointerSetup() {
     lastX = e.clientX;
     lastY = e.clientY;
     targetYaw -= dx * .008 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0036 * gameSettings.verticalSensitivity, -.52, .52);
+    targetPitch = THREE.MathUtils.clamp(targetPitch - dy * .0036 * gameSettings.verticalSensitivity, -.52, .52);
   });
 
   const end = e => {
@@ -5997,7 +5997,7 @@ function animate() {
     const viewPitch = THREE.MathUtils.clamp(pitch, -.52, .52);
     const viewCos = Math.cos(viewPitch);
     const viewForwardX = -Math.sin(yaw) * viewCos;
-    const viewForwardY = -Math.sin(viewPitch);
+    const viewForwardY = Math.sin(viewPitch);
     const viewForwardZ = -Math.cos(yaw) * viewCos;
     if (gameSettings.cameraMode === 'first') {
       // 1ª pessoa: a mira usa o mesmo ângulo de yaw/pitch das outras perspectivas.
@@ -6018,7 +6018,7 @@ function animate() {
       const verticalOffset = Math.sin(viewPitch) * distance;
       cameraPositionScratch.set(
         target.x + Math.sin(yaw) * horizontalDistance,
-        Math.max(.65, target.y + verticalOffset),
+        Math.max(.45, target.y - verticalOffset),
         target.z + Math.cos(yaw) * horizontalDistance
       );
       camera.position.lerp(cameraPositionScratch, cameraSmooth);
