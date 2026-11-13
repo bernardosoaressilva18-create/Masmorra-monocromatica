@@ -1372,7 +1372,7 @@ wss.on('connection', ws => {
         dx=-Math.sin(heading);dz=-Math.cos(heading);
       }
       const length=Math.hypot(dx,dz)||1;dx/=length;dz/=length;
-      const distance=3.0+(hasSkill(player,'dodge_mastery')?.35:0)+(hasSkill(player,'phantom_step')?.45:0);
+      const distance=3.0+(hasSkill(player,'dodge_mastery') ? .35 : 0)+(hasSkill(player,'phantom_step') ? .45 : 0);
       const landing=resolveServerMovement(room,player,player.x+dx*distance,player.z+dz*distance);
       if(Math.hypot(landing.x-player.x,landing.z-player.z)<.35){
         ws.send(JSON.stringify({type:'notice',text:'Não há espaço livre para o dash.'}));
