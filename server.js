@@ -804,9 +804,10 @@ wss.on('connection', ws => {
           const rarity=['comum','incomum','raro','épico','lendário'].includes(item.rarity)?item.rarity:'comum';
           return{id:String(item.id||crypto.randomBytes(6).toString('hex')).slice(0,80),name,rarity,power:Math.max(1,Math.min(5,Number(item.power)||1)),source:['monster','boss','chest'].includes(item.source)?item.source:'chest'};
         }).filter(Boolean);
-        player.talentPoints=Math.max(0,Math.min(99,Math.floor(Number(profile.skillPoints??player.talentPoints)||0)));
         player.skills=[];
         const proposedSkills=Array.isArray(profile.skills)?[...new Set(profile.skills)].slice(0,15):[];
+        // O perfil guarda os pontos restantes; devolve o custo dos talentos já comprados antes de validá-los.
+        player.talentPoints=Math.max(0,Math.min(99,Math.floor(Number(profile.skillPoints??5)||0)+proposedSkills.length));
         for(const skillId of proposedSkills){
           if(!VALID_SKILLS.has(skillId)|| (CLASS_PERSONAL_SKILL_CLASS[skillId]&&CLASS_PERSONAL_SKILL_CLASS[skillId]!==player.playerClass))continue;
           if(player.talentPoints<=0||!canUnlockSkill(player,skillId))continue;
