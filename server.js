@@ -1191,7 +1191,7 @@ wss.on('connection', ws => {
           }
         }else if(ability==='ogre_slam'){
           center={x:player.x,z:player.z};
-          const count=area(center,hasSkill(player,'ogre_aftershock')?6.2:5.2,hasSkill(player,'ogre_berserker')?9:7,1.6);
+          const count=area(center,hasSkill(player,'ogre_aftershock')?6.2:5.2,hasSkill(player,'ogre_berserker')?7:5,1.6);
           text='💥 Impacto em área: '+count+' rival(is) atingido(s)!';
         }else if(ability==='ogre_haste'){player.ogreHasteUntil=now+(hasSkill(player,'ogre_longrage')?7000:5000);text='💨 Velocidade aumentada!';}
         else if(ability==='healer_cure'){const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+(hasSkill(player,'healer_blessing')?70:50));player.shieldUntil=Math.max(player.shieldUntil||0,now+900);text='🌿 Cura: +'+(player.hp-before)+' vida.';}
