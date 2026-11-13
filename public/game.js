@@ -4337,7 +4337,7 @@ function rendererPointerSetup() {
     lastX = e.clientX;
     lastY = e.clientY;
     targetYaw -= dx * .008 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0045 * gameSettings.verticalSensitivity, -.18, .95);
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0065 * gameSettings.verticalSensitivity, -.62, 1.12);
   });
 
   const end = e => {
