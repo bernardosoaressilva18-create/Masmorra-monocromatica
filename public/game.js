@@ -79,7 +79,11 @@ const LEVEL_UPGRADE_UI=[
  {id:'xp',name:'Conhecimento',desc:'+5% de XP ganho por ponto',max:8},
  {id:'critical',name:'Acerto crítico',desc:'+2% de chance de crítico por ponto',max:8},
  {id:'movement',name:'Passos velozes',desc:'+3% de velocidade de movimento por ponto',max:6},
- {id:'cooldown',name:'Recarga de habilidade',desc:'Reduz até 20% das recargas especiais',max:8}
+ {id:'cooldown',name:'Recarga de habilidade',desc:'Reduz até 20% das recargas especiais',max:8},
+ {id:'loot',name:'Sorte do explorador',desc:'+3,5% de chance de encontrar itens por ponto',max:8},
+ {id:'manaRegen',name:'Fluxo de mana',desc:'+0,25 mana por segundo por ponto',max:8},
+ {id:'range',name:'Alcance aprimorado',desc:'+2,5% de alcance de ataques por ponto',max:8},
+ {id:'trapGuard',name:'Resistência a armadilhas',desc:'Reduz 6% do dano de armadilhas por ponto',max:8}
 ];
 let levelUpgradeCardsBuilt=false,lastSavedLevelSignature='';
 const world = { width: 30, depth: 190 };
@@ -640,6 +644,25 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
         const base=new THREE.Mesh(new THREE.CylinderGeometry(.29,.34,.12,5),gold);base.position.set(thorn.position.x,.12,thorn.position.z);parent.add(base);
       }
       const warning=new THREE.Mesh(new THREE.RingGeometry(.82,1.0,20),hazardGlow);warning.rotation.x=-Math.PI/2;warning.position.set(spike.x,.16,spike.z);parent.add(warning);
+    }
+    // Três perigos ambientais extras por região, com avisos visuais claros no chão.
+    const environmentalHazards=[
+      {type:'miasma',x:i%2===0?-8.2:8.2,z:center+2.5,r:1.35,color:0x77d65c},
+      {type:'rune',x:i%2===0?8.2:-8.2,z:center-11,r:1.15,color:accentColors[i%accentColors.length]},
+      {type:'crumble',x:i%2===0?-5.7:5.7,z:center-13,r:1.25,color:0xe6a65d}
+    ];
+    for(const field of environmentalHazards){
+      const disk=new THREE.Mesh(new THREE.CircleGeometry(field.r,20),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.12,side:THREE.DoubleSide,depthWrite:false}));
+      disk.rotation.x=-Math.PI/2;disk.position.set(field.x,.035,field.z);parent.add(disk);
+      const warning=new THREE.Mesh(new THREE.TorusGeometry(field.r*.88,.045,5,24),new THREE.MeshStandardMaterial({color:field.color,emissive:field.color,emissiveIntensity:.75,transparent:true,opacity:.86,roughness:.38,metalness:.22}));
+      warning.rotation.x=Math.PI/2;warning.position.set(field.x,.11,field.z);parent.add(warning);
+      if(field.type==='miasma'){
+        for(let puff=0;puff<4;puff++){const mote=new THREE.Mesh(new THREE.OctahedronGeometry(.12,0),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.48}));mote.position.set(field.x+Math.cos(puff*Math.PI/2)*.62,.32+(puff%2)*.18,field.z+Math.sin(puff*Math.PI/2)*.62);parent.add(mote);}
+      }else if(field.type==='rune'){
+        for(let rune=0;rune<4;rune++){const mark=new THREE.Mesh(new THREE.BoxGeometry(.08,.025,.58),gold);mark.position.set(field.x, .09, field.z);mark.rotation.y=rune*Math.PI/4;parent.add(mark);}
+      }else{
+        for(let crack=0;crack<4;crack++){const line=new THREE.Mesh(new THREE.BoxGeometry(.055,.025,field.r*1.35),stoneDark);line.position.set(field.x,.09,field.z);line.rotation.y=crack*Math.PI/4;parent.add(line);}
+      }
     }
     // Boca do poço e fundo. A tampa esconde o buraco até alguém pisar na placa.
     const pitGroup=new THREE.Group();
