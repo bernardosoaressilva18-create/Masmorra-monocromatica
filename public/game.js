@@ -1275,11 +1275,65 @@ function partitionDungeonPhaseGroups(root){
   const group=new THREE.Group();group.name='dungeon-phase-'+(index+1);group.userData.phaseIndex=index;return group;
  });
  const shared=new THREE.Group();shared.name='dungeon-shared-geometry';
+
+ // Divide instanced geometry that spans the whole dungeon into one batch per
+ // room. This keeps one draw call per material per visible room, not all five.
+ const instanced=[];
+ root.traverse(node=>{if(node.isInstancedMesh&&node.count>1)instanced.push(node);});
+ const splitWideInstances=(mesh)=>{
+  try{
+   mesh.updateWorldMatrix(true,false);
+   if(typeof mesh.computeBoundingBox==='function')mesh.computeBoundingBox();
+   const bounds=new THREE.Box3().setFromObject(mesh);
+   if(bounds.isEmpty()||bounds.getSize(new THREE.Vector3()).z<=41)return false;
+   const buckets=MAP_ZONE_CENTERS.map(()=>[]);
+   const outside=[];
+   const local=new THREE.Matrix4(),worldPosition=new THREE.Vector3(),worldQuaternion=new THREE.Quaternion(),worldScale=new THREE.Vector3(),worldMatrix=new THREE.Matrix4();
+   const color=new THREE.Color();
+   for(let i=0;i<mesh.count;i++){
+    mesh.getMatrixAt(i,local);
+    local.decompose(worldPosition,worldQuaternion,worldScale);
+    worldPosition.applyMatrix4(mesh.matrixWorld);
+    let nearest=0,nearestDistance=Infinity;
+    for(let zone=0;zone<MAP_ZONE_CENTERS.length;zone++){
+     const distance=Math.abs(worldPosition.z-MAP_ZONE_CENTERS[zone]);
+     if(distance<nearestDistance){nearestDistance=distance;nearest=zone;}
+    }
+    const entry={matrix:local.clone(),color:null};
+    if(mesh.instanceColor){mesh.getColorAt(i,color);entry.color=color.clone();}
+    if(nearestDistance<=MAP_ZONE_DEPTHS[nearest]*.72)buckets[nearest].push(entry);
+    else outside.push(entry);
+   }
+   const makeBatch=(entries,name,parent,phaseIndex=null)=>{
+    if(!entries.length)return;
+    const batch=new THREE.InstancedMesh(mesh.geometry,mesh.material,entries.length);
+    batch.name=name;batch.count=entries.length;
+    batch.matrixAutoUpdate=false;batch.matrix.copy(mesh.matrixWorld);batch.matrixWorldNeedsUpdate=true;
+    batch.castShadow=mesh.castShadow;batch.receiveShadow=mesh.receiveShadow;
+    batch.frustumCulled=mesh.frustumCulled;batch.renderOrder=mesh.renderOrder;
+    batch.userData={...mesh.userData};
+    if(phaseIndex!==null)batch.userData.phaseIndex=phaseIndex;
+    entries.forEach((entry,index)=>{
+     batch.setMatrixAt(index,entry.matrix);
+     if(entry.color)batch.setColorAt(index,entry.color);
+    });
+    batch.instanceMatrix.needsUpdate=true;
+    if(batch.instanceColor)batch.instanceColor.needsUpdate=true;
+    parent.add(batch);
+   };
+   buckets.forEach((entries,index)=>makeBatch(entries,mesh.name+'-phase-'+(index+1),zones[index],index));
+   makeBatch(outside,mesh.name+'-shared',shared,null);
+   mesh.parent?.remove(mesh);
+   return true;
+  }catch{return false;}
+ };
+ for(const mesh of instanced)splitWideInstances(mesh);
+
+ root.updateMatrixWorld(true);
  const children=[...root.children];
  for(const child of children){
   if(child===shared||zones.includes(child))continue;
   try{
-   if(child.isInstancedMesh&&typeof child.computeBoundingBox==='function')child.computeBoundingBox();
    child.updateWorldMatrix(true,true);
    const bounds=new THREE.Box3().setFromObject(child);
    if(bounds.isEmpty()){shared.add(child);continue;}
@@ -1290,8 +1344,6 @@ function partitionDungeonPhaseGroups(root){
     const distance=Math.abs(center.z-MAP_ZONE_CENTERS[i]);
     if(distance<nearestDistance){nearestDistance=distance;nearest=i;}
    }
-   // Large instanced meshes spanning many regions remain one draw call;
-   // local geometry is grouped per phase and hidden outside current/next.
    const crossesZones=size.z>41||nearestDistance>MAP_ZONE_DEPTHS[nearest]*.58;
    (crossesZones?shared:zones[nearest]).add(child);
   }catch{shared.add(child);}
@@ -2452,7 +2504,7 @@ function makeStoneFragment(color=0x858d91){
   return g;
 }
 
-function makeMonster(kind = 'stalker', phase = 1) {
+function makeMonster(kind = 'stalker', phase = 1, variant = {}) {
   // Distinct monster silhouettes: predator, plant, specter, brute, inferno, abyss and assassin.
   const g=new THREE.Group();
   const contactShadow = addSoftContactShadow(g, kind === 'brute' ? .85 : kind === 'wraith' || kind === 'abyss' ? .50 : .62, .55);
@@ -2676,6 +2728,21 @@ function makeMonster(kind = 'stalker', phase = 1) {
   g.userData.kind=kind;g.userData.eyeMaterial=glow;g.userData.coreMesh=core;g.userData.attackRing=ring;g.userData.ringColor=eyeColor;
   g.userData.animatedLimbs=animatedLimbs;g.userData.walkPhase=Math.random()*Math.PI*2;g.userData.eyePulseOffset=Math.random()*Math.PI*2;
   g.userData.lastX=undefined;g.userData.lastZ=undefined;g.userData.walking=false;g.userData.baseY=0;
+  if(Number(variant.eliteTier)>0){
+    const accentByAffix={champion:0xffbd68,armored:0xe8cb83,swift:0x78eaff,mana_leech:0xb99aff,vampiric:0xff7b9d,venomous:0x9df06b};
+    const accent=accentByAffix[variant.affix]||0xffc77e;
+    const eliteMaterial=new THREE.MeshStandardMaterial({color:accent,emissive:accent,emissiveIntensity:1.05,metalness:.42,roughness:.28});
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(Number(variant.eliteTier)>1?.82:.68,.045,5,22),eliteMaterial);
+    ring.rotation.x=Math.PI/2;ring.position.y=.075;g.add(ring);
+    if(Number(variant.eliteTier)>1){
+      const crest=new THREE.Mesh(new THREE.OctahedronGeometry(.22,1),eliteMaterial);
+      crest.position.set(0,2.05,0);crest.scale.set(.8,1.25,.8);g.add(crest);
+      const leftHorn=new THREE.Mesh(new THREE.ConeGeometry(.11,.42,5),eliteMaterial);
+      leftHorn.position.set(-.32,1.84,0);leftHorn.rotation.z=.42;g.add(leftHorn);
+      const rightHorn=leftHorn.clone();rightHorn.position.x=.32;rightHorn.rotation.z=-.42;g.add(rightHorn);
+    }
+    g.userData.eliteRing=ring;g.userData.eliteAffix=String(variant.affix||'champion');
+  }
   attachHealthBar(g);
   return g;
 }
@@ -5077,7 +5144,10 @@ function updateState(m) {
     }
   }
   latestChests = isPvpRpg ? [] : (m.chests || []);
-  const nearbyChest = latestChests.find(chest => !chest.opened && myPlayer && Math.hypot(chest.x - myPlayer.position.x, chest.z - myPlayer.position.z) <= 3.4);
+  const chestClaimedByLocal=chest=>Array.isArray(chest.openedBy)
+    ? chest.openedBy.some(id=>String(id)===String(playerId))
+    : !!chest.opened;
+  const nearbyChest = latestChests.find(chest => !chestClaimedByLocal(chest) && myPlayer && Math.hypot(chest.x - myPlayer.position.x, chest.z - myPlayer.position.z) <= 3.4);
   const chestButton = $('chestBtn');
   if (chestButton) {
     chestButton.classList.toggle('hidden', !nearbyChest);
@@ -5089,12 +5159,12 @@ function updateState(m) {
     let obj = chestMeshes.get(chest.id);
     if (!obj) {
       obj = makeChest(realm);
-      obj.position.set(chest.x, 0, chest.z);
       scene.add(obj);
       chestMeshes.set(chest.id, obj);
     }
     obj.userData.chestId = chest.id;
-    obj.visible = !chest.opened;
+    obj.position.set(chest.x,getDungeonFloorHeight(chest.x,chest.z),chest.z);
+    obj.visible = !chestClaimedByLocal(chest);
   }
 
   let alive = 0;
@@ -5112,7 +5182,7 @@ function updateState(m) {
       const summonClass = mtr.pvpSummoned && ['goblin','skeleton','golem_clone'].includes(mtr.summonClass) ? mtr.summonClass : null;
       obj = summonClass
         ? makeHero(mtr.color || null, summonClass, mtr.skin || 'default')
-        : makeMonster(mtr.kind || 'stalker', mtr.phase || phase);
+        : makeMonster(mtr.kind || 'stalker', mtr.phase || phase, mtr);
       if (summonClass) obj.userData.pvpSummonHero = true;
       scene.add(obj);
       monsterMeshes.set(mtr.id, obj);
@@ -5123,6 +5193,9 @@ function updateState(m) {
     obj.userData.targetY = mtr.trapId ? -2.55 : getDungeonFloorHeight(mtr.x,mtr.z);
     obj.userData.trapId = mtr.trapId || null;
     obj.userData.kind = mtr.kind || 'stalker';
+    obj.userData.name = mtr.name || (mtr.upperElite?'Guardião do Andar Superior':'');
+    obj.userData.eliteTier = Number(mtr.eliteTier)||0;
+    obj.userData.eliteAffix = String(mtr.affix||'');
     obj.userData.trainingDummy = !!mtr.trainingDummy;
     obj.userData.trainingAttacker = !!mtr.trainingAttacker;
     obj.userData.trainingWarningUntil = Number(mtr.trainingWarningUntil) || 0;
