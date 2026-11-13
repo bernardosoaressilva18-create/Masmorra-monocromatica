@@ -4153,6 +4153,89 @@ const CLASS_ABILITY_CONFIG = {
     { ability: 'golem_stone_guard', icon: '⬟', label: 'GUARDA DE PEDRA', description: 'Endurece a armadura e reduz o dano recebido.', cooldown: 20 }
   ]
 };
+const CLASS_DEMO_VISUALS = {
+  knight:{glyph:'⚔',accent:'#e9c477',tag:'DEFESA E COMBATE'},
+  mage:{glyph:'✧',accent:'#a78bfa',tag:'MAGIA ARCANA'},
+  archer:{glyph:'➶',accent:'#82e7a7',tag:'PRECISÃO E AGILIDADE'},
+  goblin:{glyph:'⟡',accent:'#b6ef70',tag:'FURTIVIDADE'},
+  ogre:{glyph:'⚒',accent:'#ffad70',tag:'FORÇA BRUTA'},
+  healer:{glyph:'✚',accent:'#70e8c3',tag:'CURA E SUPORTE'},
+  necromancer:{glyph:'☠',accent:'#c7a0ff',tag:'INVOCAR E CONTROLAR'},
+  monk:{glyph:'✊',accent:'#f4cf85',tag:'MOBILIDADE'},
+  golem:{glyph:'⬟',accent:'#aeb9c2',tag:'DEFESA TITÂNICA'}
+};
+const CLASS_DEMO_STEP_MS = 3200;
+let classDemoStartedAt = performance.now();
+let classDemoPausedAt = 0;
+let classDemoPaused = false;
+let classDemoLastSignature = '';
+let classDemoLastUiAt = 0;
+function updateClassAbilityDemo(reset = false) {
+  const root = $('classDemoPreview');
+  if (!root || !root.getClientRects().length) return;
+  if (reset) {
+    classDemoStartedAt = performance.now();
+    classDemoLastSignature = '';
+  }
+  const now = classDemoPaused ? classDemoPausedAt : performance.now();
+  const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
+  const visual = CLASS_DEMO_VISUALS[selectedClass] || CLASS_DEMO_VISUALS.knight;
+  const elapsed = Math.max(0, now - classDemoStartedAt);
+  const index = Math.floor(elapsed / CLASS_DEMO_STEP_MS) % abilities.length;
+  const ability = abilities[index];
+  const signature = selectedClass + ':' + index;
+  if (signature !== classDemoLastSignature) {
+    classDemoLastSignature = signature;
+    root.dataset.class = selectedClass;
+    root.style.setProperty('--demo-accent', visual.accent);
+    const character = $('classDemoCharacter');
+    const icon = $('classDemoSkillIcon');
+    const name = $('classDemoAbilityName');
+    const description = $('classDemoAbilityDescription');
+    const classTag = $('classDemoClassTag');
+    if (character) character.textContent = visual.glyph;
+    if (icon) icon.textContent = ability.icon;
+    if (name) name.textContent = ability.label;
+    if (description) description.textContent = ability.description;
+    if (classTag) classTag.textContent = visual.tag;
+    const tabs = $('classDemoAbilityTabs');
+    if (tabs) {
+      tabs.replaceChildren();
+      abilities.forEach((entry, entryIndex) => {
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.className = 'class-demo-tab' + (entryIndex === index ? ' active' : '');
+        tab.textContent = (entryIndex + 1) + ' · ' + entry.label;
+        tab.setAttribute('aria-label', 'Ver prévia de ' + entry.label);
+        tab.addEventListener('click', () => {
+          classDemoPaused = false;
+          classDemoStartedAt = performance.now() - entryIndex * CLASS_DEMO_STEP_MS;
+          classDemoLastSignature = '';
+          const pauseButton = $('classDemoPauseBtn');
+          if (pauseButton) pauseButton.textContent = 'Ⅱ PAUSAR PRÉVIA';
+          updateClassAbilityDemo(false);
+        });
+        tabs.appendChild(tab);
+      });
+    }
+  }
+  const progress = $('classDemoProgress');
+  if (progress) progress.style.width = (classDemoPaused ? 100 : (elapsed % CLASS_DEMO_STEP_MS) / CLASS_DEMO_STEP_MS * 100) + '%';
+  root.classList.toggle('paused', classDemoPaused);
+}
+$('classDemoPauseBtn')?.addEventListener('click', () => {
+  const button = $('classDemoPauseBtn');
+  if (!classDemoPaused) {
+    classDemoPaused = true;
+    classDemoPausedAt = performance.now();
+  } else {
+    classDemoStartedAt += performance.now() - classDemoPausedAt;
+    classDemoPaused = false;
+    classDemoPausedAt = 0;
+  }
+  if (button) button.textContent = classDemoPaused ? '▶ CONTINUAR PRÉVIA' : 'Ⅱ PAUSAR PRÉVIA';
+  updateClassAbilityDemo(false);
+});
 let ogreHasteUntil = 0;
 function updateClassAbilityButtons() {
   const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
@@ -4974,6 +5057,10 @@ function animate() {
 
   const dt = Math.min(clock.getDelta(), 0.05), worldTime = clock.elapsedTime;
   updateDayNightCycle(worldTime);
+  if (!started && performance.now() - classDemoLastUiAt > 90) {
+    classDemoLastUiAt = performance.now();
+    updateClassAbilityDemo(false);
+  }
   const classFxNow = performance.now();
   for (let i = activeClassEffects.length - 1; i >= 0; i--) {
     const effect = activeClassEffects[i];
