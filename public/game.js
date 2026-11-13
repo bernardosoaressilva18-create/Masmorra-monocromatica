@@ -4378,8 +4378,63 @@ function refreshLobbySettingsUI() {
   $('lobbySfxVolume').value = String(gameSettings.sfxVolume);
   $('lobbySfxVolumeValue').textContent = Math.round(gameSettings.sfxVolume * 100) + '%';
 }
+
+let lobbyHudPreviewOrientation='landscape';
+let lobbyHudPreviewDrag=null;
+const LOBBY_HUD_PREVIEW_DEFAULTS={
+  landscape:{dodgeBtn:{x:.56,y:.76},chestBtn:{x:.70,y:.79},attackBtn:{x:.86,y:.72},fireBtn:{x:.86,y:.40},lightningBtn:{x:.86,y:.20},ability3Btn:{x:.72,y:.40}},
+  portrait:{dodgeBtn:{x:.50,y:.82},chestBtn:{x:.68,y:.82},attackBtn:{x:.84,y:.82},fireBtn:{x:.84,y:.61},lightningBtn:{x:.84,y:.43},ability3Btn:{x:.65,y:.54}}
+};
+function renderLobbyHudPreview(){
+  const stage=$('lobbyHudPreview');if(!stage)return;
+  stage.dataset.orientation=lobbyHudPreviewOrientation;
+  const saved=hudLayout[lobbyHudPreviewOrientation]||{},defaults=LOBBY_HUD_PREVIEW_DEFAULTS[lobbyHudPreviewOrientation];
+  stage.querySelectorAll('[data-hud-preview]').forEach(el=>{
+    const id=el.dataset.hudPreview,pos=saved[id]||defaults[id]||{x:.8,y:.8};
+    const maxX=Math.max(0,stage.clientWidth-el.offsetWidth),maxY=Math.max(0,stage.clientHeight-el.offsetHeight);
+    el.style.left=Math.round(Math.max(0,Math.min(1,pos.x))*maxX)+'px';
+    el.style.top=Math.round(Math.max(0,Math.min(1,pos.y))*maxY)+'px';
+  });
+  document.querySelectorAll('[data-hud-preview-orientation]').forEach(btn=>btn.classList.toggle('active',btn.dataset.hudPreviewOrientation===lobbyHudPreviewOrientation));
+  const status=$('lobbyHudPreviewStatus');if(status)status.textContent='Layout '+(lobbyHudPreviewOrientation==='landscape'?'paisagem':'retrato')+' · salvo automaticamente.';
+}
+document.querySelectorAll('[data-hud-preview-orientation]').forEach(btn=>btn.addEventListener('click',()=>{
+  lobbyHudPreviewOrientation=btn.dataset.hudPreviewOrientation==='portrait'?'portrait':'landscape';
+  renderLobbyHudPreview();
+}));
+const lobbyHudPreview=$('lobbyHudPreview');
+lobbyHudPreview?.addEventListener('pointerdown',event=>{
+  const el=event.target.closest('[data-hud-preview]');if(!el)return;
+  event.preventDefault();event.stopPropagation();
+  const stageRect=lobbyHudPreview.getBoundingClientRect(),rect=el.getBoundingClientRect();
+  lobbyHudPreviewDrag={el,pointerId:event.pointerId,dx:event.clientX-rect.left,dy:event.clientY-rect.top,stageRect};
+  try{el.setPointerCapture(event.pointerId);}catch{}
+});
+lobbyHudPreview?.addEventListener('pointermove',event=>{
+  if(!lobbyHudPreviewDrag||event.pointerId!==lobbyHudPreviewDrag.pointerId)return;
+  event.preventDefault();
+  const {el,dx,dy,stageRect}=lobbyHudPreviewDrag;
+  const x=Math.max(0,Math.min(lobbyHudPreview.clientWidth-el.offsetWidth,event.clientX-stageRect.left-dx));
+  const y=Math.max(0,Math.min(lobbyHudPreview.clientHeight-el.offsetHeight,event.clientY-stageRect.top-dy));
+  el.style.left=Math.round(x)+'px';el.style.top=Math.round(y)+'px';
+});
+function finishLobbyHudPreviewDrag(event){
+  if(!lobbyHudPreviewDrag||(event&&event.pointerId!==lobbyHudPreviewDrag.pointerId))return;
+  const {el}=lobbyHudPreviewDrag,stageRect=lobbyHudPreview.getBoundingClientRect(),rect=el.getBoundingClientRect();
+  const maxX=Math.max(1,lobbyHudPreview.clientWidth-el.offsetWidth),maxY=Math.max(1,lobbyHudPreview.clientHeight-el.offsetHeight);
+  if(!hudLayout[lobbyHudPreviewOrientation])hudLayout[lobbyHudPreviewOrientation]={};
+  hudLayout[lobbyHudPreviewOrientation][el.dataset.hudPreview]={x:Math.max(0,Math.min(1,(rect.left-stageRect.left)/maxX)),y:Math.max(0,Math.min(1,(rect.top-stageRect.top)/maxY))};
+  saveHudLayout();lobbyHudPreviewDrag=null;
+  const status=$('lobbyHudPreviewStatus');if(status)status.textContent='Posição salva! O jogo usará este layout.';
+}
+lobbyHudPreview?.addEventListener('pointerup',finishLobbyHudPreviewDrag);
+lobbyHudPreview?.addEventListener('pointercancel',finishLobbyHudPreviewDrag);
+$('lobbyHudResetBtn')?.addEventListener('click',()=>{
+  delete hudLayout[lobbyHudPreviewOrientation];saveHudLayout();renderLobbyHudPreview();
+  const status=$('lobbyHudPreviewStatus');if(status)status.textContent='Layout restaurado para '+(lobbyHudPreviewOrientation==='landscape'?'paisagem':'retrato')+'.';
+});
 function openLobbyEditor(tab) {
-  const allowedTabs = ['class', 'skin', 'config', 'skills'];
+  const allowedTabs=['class','skin','config','skills','hud'];
   if (!allowedTabs.includes(tab)) return;
   const editor = $('lobbyEditor');
   const backdrop = $('lobbyEditorBackdrop');
@@ -4388,7 +4443,7 @@ function openLobbyEditor(tab) {
     closeLobbyEditor();
     return;
   }
-  const titles = {class:'ESCOLHA SUA CLASSE',skin:'ESCOLHA SUA SKIN',config:'CONFIGURAÇÕES',skills:'ÁRVORE DE SKILLS'};
+  const titles={class:'ESCOLHA SUA CLASSE',skin:'ESCOLHA SUA SKIN',config:'CONFIGURAÇÕES',skills:'ÁRVORE DE SKILLS',hud:'PERSONALIZAR HUD'};
   $('lobbyEditorTitle').textContent = titles[tab];
   document.querySelectorAll('#lobby [data-lobby-editor-panel]').forEach(panel => {
     panel.classList.toggle('hidden', panel.dataset.lobbyEditorPanel !== tab);
@@ -4399,8 +4454,9 @@ function openLobbyEditor(tab) {
   editor.dataset.activeTab = tab;
   editor.classList.remove('hidden');
   backdrop.classList.remove('hidden');
-  if (tab === 'config') refreshLobbySettingsUI();
-  if (tab === 'skills') renderSkillTrees();
+  if(tab==='config')refreshLobbySettingsUI();
+  if(tab==='skills')renderSkillTrees();
+  if(tab==='hud'){lobbyHudPreviewOrientation=hudOrientationKey();renderLobbyHudPreview();}
 }
 document.querySelectorAll('#lobby [data-lobby-editor]').forEach(btn => {
   btn.addEventListener('click', () => {
