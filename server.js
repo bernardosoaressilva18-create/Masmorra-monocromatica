@@ -53,9 +53,13 @@ const server = http.createServer((req, res) => {
     }
     const ext = path.extname(filePath);
     const types = {
-      '.html': 'text/html; charset=utf-8',
-      '.css': 'text/css; charset=utf-8',
-      '.js': 'text/javascript; charset=utf-8'
+      '.html':'text/html; charset=utf-8',
+      '.css':'text/css; charset=utf-8',
+      '.js':'text/javascript; charset=utf-8',
+      '.svg':'image/svg+xml',
+      '.webmanifest':'application/manifest+json; charset=utf-8',
+      '.json':'application/json; charset=utf-8',
+      '.png':'image/png'
     };
     res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream' });
     res.end(data);
@@ -652,8 +656,6 @@ function applyMapHazards(room,player,now){
  if(!player||player.hp<=0||room.gameMode==='pvp_rpg'||now<(player.mapTrapDamageAt||0))return;
  let hazard=null;
  for(const spike of SERVER_SPIKES)if(Math.hypot(player.x-spike.x,player.z-spike.z)<spike.r){hazard=spike;break;}
- const pit=(room.openTraps||[]).map(id=>SERVER_PITS.find(item=>item.id===id)).find(item=>item&&Math.hypot(player.x-item.pitX,player.z-item.pitZ)<1.88);
- if(pit&&!hazard)hazard={id:'pit-floor-'+pit.id,damage:16};
  if(!hazard)return;
  player.mapTrapDamageAt=now+(pit?850:1050);
  const applied=takeDamage(room,player,hazard.damage);
