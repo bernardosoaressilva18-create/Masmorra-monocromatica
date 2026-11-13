@@ -1262,6 +1262,26 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       tail.rotation.z=side*-.12;capeTails.push(tail);
     }
   }
+  // Silhueta v3: placas, rebites e emblema central, mantendo poucas geometrias no mobile.
+  const chestEmblemColor=heroClass==='healer'?0x83ffe0:heroClass==='mage'||heroClass==='necromancer'?0xd18bff:heroClass==='goblin'?0xd6f77b:heroClass==='ogre'?0xffa46b:heroClass==='golem'||heroClass==='golem_clone'?0xd8ffab:0x79e7ff;
+  const chestEmblemMat=new THREE.MeshStandardMaterial({color:chestEmblemColor,emissive:chestEmblemColor,emissiveIntensity:.62,metalness:.34,roughness:.3});
+  if(heroClass!=='ogre'&&heroClass!=='golem'&&heroClass!=='golem_clone'){
+    const crest=add(new THREE.OctahedronGeometry(.105,0),chestEmblemMat,0,1.22,-.405,.9,1.15,.48);
+    crest.rotation.z=Math.PI/4;
+    const belt=add(new THREE.BoxGeometry(.43,.075,.045),dark,0,.91,-.345);
+    add(new THREE.BoxGeometry(.095,.105,.055),trim,0,.91,-.38);
+  }else{
+    const crest=add(new THREE.DodecahedronGeometry(.105,0),chestEmblemMat,0,1.26,-.47,.9,1.05,.5);
+    crest.rotation.y=.2;
+  }
+  for(const side of [-1,1]){
+    // Marcas de ombro identificam a classe sem aumentar o volume do personagem.
+    const shoulderMark=add(new THREE.OctahedronGeometry(.065,0),chestEmblemMat,side*(bulky?.56:.46),1.47,-.18,.9,1.1,.55);
+    shoulderMark.rotation.z=side*.28;
+    if(heroClass!=='golem'&&heroClass!=='golem_clone'){
+      add(new THREE.BoxGeometry(.11,.19,.035),trim,side*.245,.42,-.145,.82,1,.7);
+    }
+  }
   const ringColor=heroClass==='healer'?0x74ffd8:heroClass==='mage'||heroClass==='necromancer'?0xb697ff:heroClass==='golem'||heroClass==='golem_clone'?0xc4d0cf:heroClass==='ogre'?0xff9862:heroClass==='goblin'?0xc8f06b:heroClass==='archer'?0x88ffb4:0x75dfff;
   const ring=new THREE.Mesh(new THREE.RingGeometry(.43,.50,36),new THREE.MeshBasicMaterial({color:ringColor,transparent:true,opacity:.62,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2;ring.position.y=.025;g.add(ring);
