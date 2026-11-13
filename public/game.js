@@ -552,7 +552,12 @@ for (let z = -30; z <= 8; z += 6) {
     const stone = mat(0x656d7b, .72, .25), runeMat = new THREE.MeshStandardMaterial({ color: 0x56e6ff, emissive: 0x1aa5df, emissiveIntensity: 2.2, metalness: .2, roughness: .3 });
     for (const x of [-3.1, 3.1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(.42, 4.4, .55), stone); post.position.set(x, 2.2, 0); gate.add(post); }
     const lintel = new THREE.Mesh(new THREE.BoxGeometry(6.6, .5, .65), stone); lintel.position.y = 4.35; gate.add(lintel);
-    const ring = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 3.8), new THREE.MeshBasicMaterial({ color: 0x23b9ff, transparent: true, opacity: .25, side: THREE.DoubleSide, depthWrite: false })); ring.position.set(0, 2.1, 0); gate.add(ring);
+    const ring=new THREE.Mesh(new THREE.PlaneGeometry(5.7,3.8),new THREE.MeshBasicMaterial({color:0x23b9ff,transparent:true,opacity:.25,side:THREE.DoubleSide,depthWrite:false}));ring.position.set(0,2.1,0);gate.add(ring);
+    const barrierMat=new THREE.MeshBasicMaterial({color:0x4bcfff,transparent:true,opacity:.34,side:THREE.DoubleSide,depthWrite:false});
+    const barrier=new THREE.Mesh(new THREE.PlaneGeometry(26.2,4.55),barrierMat);barrier.position.set(0,2.28,.12);barrier.renderOrder=12;gate.add(barrier);
+    const barrierLines=new THREE.Group();
+    for(let x=-12;x<=12;x+=3){const runeLine=new THREE.Mesh(new THREE.BoxGeometry(.035,3.85,.025),new THREE.MeshBasicMaterial({color:0x9af2ff,transparent:true,opacity:.32}));runeLine.position.set(x,0,.035);barrierLines.add(runeLine);}
+    barrierLines.position.y=2.28;barrierLines.position.z=.15;gate.add(barrierLines);
     const bars = new THREE.Group();
     for (let x = -2.5; x <= 2.51; x += 1) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 3.7, .18), runeMat); bar.position.set(x, 1.95, -.05); bars.add(bar); }
     const portalMat = new THREE.MeshBasicMaterial({ color: 0x3edcff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
@@ -560,7 +565,7 @@ for (let z = -30; z <= 8; z += 6) {
     portal.position.set(0, 2.05, -.12); gate.add(portal);
     const portalRim = new THREE.Mesh(new THREE.TorusGeometry(1.42,.055,8,48), new THREE.MeshStandardMaterial({color:0x77edff,emissive:0x159dcc,emissiveIntensity:1.8,metalness:.35,roughness:.25}));
     portalRim.position.set(0,2.05,-.2); portalRim.scale.set(1.55,1.25,1); gate.add(portalRim);
-    gate.add(bars); gate.position.z = z; gate.userData.bars = bars; gate.userData.ring = ring; gate.userData.portal = portal; gate.userData.portalRim = portalRim; gate.userData.open = false; activeEnvironmentGroup.add(gate); gateMeshes.push(gate);
+    gate.add(bars);gate.position.z=z;gate.userData.bars=bars;gate.userData.ring=ring;gate.userData.portal=portal;gate.userData.portalRim=portalRim;gate.userData.barrier=barrier;gate.userData.open=false;activeEnvironmentGroup.add(gate);gateMeshes.push(gate);
   }
   // Cristais, braseiros e fragmentos decorativos para dar profundidade.
   for (const z of [-5, -10, -18, -23, -36, -42, -50, -58, -68, -74, -84, -90, -100, -106, -116, -122, -134, -142, -158, -166]) {
@@ -1356,7 +1361,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.silhouetteProfile={heroClass};
   g.userData.faceEyes=faceEyes;
   g.userData.faceBrows=faceBrows;
-  g.userData.visualModelRevision = 'humanoid-silhouette-v2';
+  g.userData.visualModelRevision='humanoid-silhouette-v3';
   attachHealthBar(g);
   return g;
 }
@@ -1529,20 +1534,27 @@ function renderInventory() {
   if (lootSort === 'power') recent.sort((a,b) => (Number(b.power)||1) - (Number(a.power)||1));
   else if (lootSort === 'rarity') recent.sort((a,b) => rarityOrder.indexOf(b.rarity) - rarityOrder.indexOf(a.rarity));
   else recent.reverse();
-  recent = recent.filter(item => (lootFilter === 'all' || item.rarity === lootFilter)).slice(0,8);
+  recent=recent.filter(item=>(lootFilter==='all'||item.rarity===lootFilter)).slice(0,20);
   if (selectedItemId && !recent.some(item => String(item.id) === String(selectedItemId))) selectedItemId = recent.length ? String(recent[0].id) : null;
   if (!selectedItemId && recent.length) selectedItemId = String(recent[0].id);
-  $('recentLoot').innerHTML = recent.length ? recent.map(item => '<button type="button" class="loot-item select-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + (String(item.id) === String(selectedItemId) ? ' selected' : '') + '" data-item-id="' + escapeHTML(item.id) + '"><span>' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ' · Poder ' + (item.power || 1) + '/5)</small></span><b>' + (String(item.id) === String(selectedItemId) ? '✓' : '+') + '</b></button>').join('') : '<small>Nenhum item coletado ainda.</small>';
+  $('recentLoot').innerHTML=recent.length?recent.map(item=>'<div class="loot-entry"><button type="button" class="loot-item select-item rarity-'+item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'')+(String(item.id)===String(selectedItemId)?' selected':'')+'" data-item-id="'+escapeHTML(item.id)+'"><span>'+escapeHTML(item.name)+' <small>('+escapeHTML(item.rarity)+' · Poder '+(item.power||1)+'/5)</small></span><b>'+(String(item.id)===String(selectedItemId)?'✓':'+')+'</b></button><button type="button" class="loot-use-button" data-use-item="'+escapeHTML(item.id)+'" '+(!started||!myPlayer||myPlayer.userData.serverHp<=0?'disabled':'')+'>USAR</button></div>').join(''):'<small>Nenhum item coletado ainda.</small>';
   const chosen = lootDrops.find(item => String(item.id) === String(selectedItemId));
   $('selectedItemLabel').textContent = chosen ? chosen.name + ' · ' + chosen.rarity + ' · PODER ' + (chosen.power || 1) + '/5' : 'Nenhum item selecionado';
   $('useSelectedItemBtn').textContent=chosen&&['Equipamento Antigo','Relíquia Monocromática','Coroa do Abismo'].includes(chosen.name)?'EQUIPAR':'USAR ITEM';
   $('useSelectedItemBtn').disabled = !chosen || !started;
 }
-function useSelectedItem() {
-  if (!started || !selectedItemId || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
-  const item = lootDrops.find(entry => String(entry.id) === String(selectedItemId));
-  if (!item) { showNotice('Selecione um item primeiro.'); return; }
-  send({ type: 'useItem', id: item.id });
+function useItemById(itemId){
+  if(!started||!myPlayer||(myPlayer.userData.serverHp??100)<=0){showNotice('Entre na partida e esteja vivo para usar itens.');return;}
+  const item=lootDrops.find(entry=>String(entry.id)===String(itemId));
+  if(!item){showNotice('Este item não está mais no inventário.');renderInventory();return;}
+  selectedItemId=String(item.id);
+  if(offlineMode){offlineUseItem(item.id);return;}
+  if(!ws||ws.readyState!==WebSocket.OPEN){showNotice('Conexão perdida. Aguarde reconectar para usar o item.');return;}
+  send({type:'useItem',id:String(item.id)});
+}
+function useSelectedItem(){
+  if(!selectedItemId){showNotice('Selecione um item primeiro.');return;}
+  useItemById(selectedItemId);
 }
 
 function interactChest() {
@@ -1683,6 +1695,15 @@ function makeMonster(kind = 'stalker', phase = 1) {
     brow.rotation.z=side*(kind==='brute'?.20:kind==='assassin'?-.18:.08);
   }
   g.userData.eyePairs=eyePairs;
+  // Detalhes de armadura adicionais só no preset alto, sem aumentar o custo no modo móvel equilibrado.
+  if(gameSettings.graphicsQuality==='high'){
+    const detailMat=new THREE.MeshStandardMaterial({color:kind==='inferno'?0xffb05c:kind==='thorn'?0xbce77b:kind==='wraith'?0x9beeff:kind==='abyss'?0xd3a6ff:0xbac8d6,metalness:.52,roughness:.32,emissive:eyeColor,emissiveIntensity:.16});
+    for(const side of [-1,1]){
+      const plate=new THREE.Mesh(new THREE.DodecahedronGeometry(.13,0),detailMat);
+      plate.position.set(side*(kind==='brute'?.56:.39),kind==='brute'?1.45:1.08,-.08);
+      plate.scale.set(1.25,.55,.72);plate.rotation.z=side*.18;g.add(plate);
+    }
+  }
   // Jaw and teeth are kept low-poly so they remain readable on phones.
   if(kind==='stalker'||kind==='brute'||kind==='inferno'||kind==='assassin'){
     const jaw=add(new THREE.BoxGeometry(kind==='brute'?.30:.22,.09,.12),dark,0,headY-.15,-faceZ+.015,1,.8,1);
@@ -2757,6 +2778,45 @@ function spawnOfflineWave(phase,realm){
   });
   offlineState.monsters=[...(offlineState.monsters||[]).filter(monster=>monster.alive),...batch];
   offlineState.portalOpen=false;
+}
+function offlineUseItem(itemId){
+  const index=lootDrops.findIndex(entry=>String(entry.id)===String(itemId));
+  if(index<0){showNotice('Este item não está mais no inventário.');renderInventory();return;}
+  const player=offlineState?.players?.[0];
+  if(!player||player.hp<=0){showNotice('Você precisa estar vivo para usar itens.');return;}
+  const item=lootDrops[index];
+  const effects={
+    comum:{potion:.30,coin:.10,powderHeal:.15,powderDamage:1,powderHits:3,fragmentDamage:1,fragmentHits:4,coreDamage:2,coreHits:4,gearDamage:1,heart:.40,ancientDamage:3,ancientHits:5},
+    incomum:{potion:.45,coin:.15,powderHeal:.25,powderDamage:2,powderHits:4,fragmentDamage:2,fragmentHits:5,coreDamage:3,coreHits:5,gearDamage:2,heart:.55,ancientDamage:5,ancientHits:7},
+    raro:{potion:.60,coin:.25,powderHeal:.35,powderDamage:3,powderHits:5,fragmentDamage:3,fragmentHits:6,coreDamage:5,coreHits:7,gearDamage:3,heart:.70,ancientDamage:7,ancientHits:9},
+    épico:{potion:.80,coin:.35,powderHeal:.50,powderDamage:5,powderHits:7,fragmentDamage:5,fragmentHits:8,coreDamage:7,coreHits:9,gearDamage:5,heart:.85,ancientDamage:10,ancientHits:12},
+    lendário:{potion:1,coin:.50,powderHeal:.70,powderDamage:8,powderHits:10,fragmentDamage:8,fragmentHits:12,coreDamage:10,coreHits:12,gearDamage:8,heart:1,ancientDamage:15,ancientHits:16}
+  };
+  const tier=effects[item.rarity]||effects.comum,maxHp=Math.max(1,Number(player.maxHp)||130);
+  const heal=fraction=>Math.max(1,Math.round(maxHp*fraction));
+  let message='';
+  if(['Poção de Vida','Moeda Antiga','Coração do Guardião'].includes(item.name)){
+    const key=item.name==='Poção de Vida'?'potion':item.name==='Moeda Antiga'?'coin':'heart';
+    if(player.hp>=maxHp){showNotice('Sua vida já está cheia. Guarde este item para depois.');return;}
+    const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier[key]));message='Vida +'+(player.hp-before)+'.';
+  }else if(item.name==='Pó de Cristal'){
+    const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier.powderHeal));
+    player.damageBuff=Math.max(player.damageBuff||0,tier.powderDamage);player.damageBuffHits=Math.max(player.damageBuffHits||0,tier.powderHits);
+    message='Vida +'+(player.hp-before)+' e dano +'+tier.powderDamage+' por '+tier.powderHits+' golpes.';
+  }else if(['Fragmento Monocromático','Núcleo Sombrio','Cristal Ancestral'].includes(item.name)){
+    const damage=item.name==='Cristal Ancestral'?tier.ancientDamage:item.name==='Núcleo Sombrio'?tier.coreDamage:tier.fragmentDamage;
+    const hits=item.name==='Cristal Ancestral'?tier.ancientHits:item.name==='Núcleo Sombrio'?tier.coreHits:tier.fragmentHits;
+    player.damageBuff=Math.max(player.damageBuff||0,damage);player.damageBuffHits=Math.max(player.damageBuffHits||0,hits);
+    message='Dano +'+damage+' por '+hits+' golpes.';
+  }else if(['Equipamento Antigo','Relíquia Monocromática'].includes(item.name)){
+    equipmentDamage=Math.min(18,(equipmentDamage||0)+tier.gearDamage);player.equipmentDamage=equipmentDamage;
+    message='Equipado! Ataque permanente +'+tier.gearDamage+'.';
+  }else if(item.name==='Coroa do Abismo'){
+    player.hp=maxHp;equipmentDamage=Math.min(18,(equipmentDamage||0)+tier.gearDamage);player.equipmentDamage=equipmentDamage;
+    message='Vida restaurada e ataque permanente +'+tier.gearDamage+'.';
+  }else{showNotice('Este item ainda não possui um efeito utilizável.');return;}
+  lootDrops.splice(index,1);inventoryData[item.rarity]=Math.max(0,(inventoryData[item.rarity]||0)-1);
+  selectedItemId=null;saveSharedProfile();renderInventory();showNotice(item.name+': '+message);playSfx('loot');
 }
 function handleOfflineAction(data) {
   if (!offlineState || !data) return;
@@ -3925,11 +3985,13 @@ $('pvpSummonBtn')?.addEventListener('click', () => {
 });
 $('lootFilter')?.addEventListener('change', renderInventory);
 $('lootSort')?.addEventListener('change', renderInventory);
-$('recentLoot').addEventListener('click', e => {
-  const row = e.target.closest('.select-item');
-  if (!row) return;
-  selectedItemId = row.dataset.itemId;
-  renderInventory();
+$('recentLoot').addEventListener('click',e=>{
+  const useButton=e.target.closest('[data-use-item]');
+  if(useButton){useItemById(useButton.dataset.useItem);return;}
+  const row=e.target.closest('.select-item');
+  if(!row)return;
+  selectedItemId=String(row.dataset.itemId||'');
+  saveSharedProfile();renderInventory();
 });
 $('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 
@@ -4111,7 +4173,7 @@ function setHudEditMode(enabled) {
 }
 document.addEventListener('pointerdown', event => {
   if (!hudEditMode) return;
-  const el = event.target.closest('#joystick, #chestBtn, #dodgeBtn, #attackBtn, #fireBtn, #lightningBtn');
+  const el=event.target.closest('#joystick, #chestBtn, #dodgeBtn, #attackBtn, #fireBtn, #lightningBtn, #ability3Btn');
   if (!el || !hud.contains(el)) return;
   const rect = el.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
@@ -5161,15 +5223,20 @@ function animate() {
     bossMesh.userData.coreMesh.rotation.x=Math.sin(worldTime*1.5)*.12;
     if (bossMesh.userData.coreHalo) bossMesh.userData.coreHalo.rotation.z+=entityDt*.35;
   }
-  // Anima os portões: as grades somem ao liberar a passagem.
-  for (const gate of gateMeshes) {
-    const targetScale = gate.userData.open ? 0 : 1;
-    gate.userData.bars.scale.x = THREE.MathUtils.lerp(gate.userData.bars.scale.x, targetScale, 1 - Math.exp(-5 * entityDt));
-    gate.userData.bars.visible = gate.userData.bars.scale.x > .04;
-    gate.userData.ring.material.opacity = gate.userData.open ? .08 : .3;
-    gate.userData.portal.material.opacity = THREE.MathUtils.lerp(gate.userData.portal.material.opacity, gate.userData.open ? .32 : 0, 1 - Math.exp(-2.8 * entityDt));
-    gate.userData.portalRim.rotation.z += entityDt * (gate.userData.open ? .65 : .12);
-    gate.userData.portalRim.material.emissiveIntensity = gate.userData.open ? 2.8 : 1.0;
+  // Portão fechado projeta uma parede rúnica de energia; ao liberar, ela sobe e desaparece.
+  for(const gate of gateMeshes){
+    const open=!!gate.userData.open,targetScale=open?0:1;
+    gate.userData.bars.scale.x=THREE.MathUtils.lerp(gate.userData.bars.scale.x,targetScale,1-Math.exp(-5*entityDt));
+    gate.userData.bars.visible=gate.userData.bars.scale.x>.04;
+    gate.userData.ring.material.opacity=open?.08:.3;
+    gate.userData.portal.material.opacity=THREE.MathUtils.lerp(gate.userData.portal.material.opacity,open?.32:0,1-Math.exp(-2.8*entityDt));
+    gate.userData.portalRim.rotation.z+=entityDt*(open?.65:.12);
+    gate.userData.portalRim.material.emissiveIntensity=open?2.8:1.0;
+    if(gate.userData.barrier){
+      gate.userData.barrier.position.y=THREE.MathUtils.lerp(gate.userData.barrier.position.y,open?5.25:2.28,1-Math.exp(-3.4*entityDt));
+      gate.userData.barrier.material.opacity=THREE.MathUtils.lerp(gate.userData.barrier.material.opacity,open?.045:.34,1-Math.exp(-3.4*entityDt));
+      gate.userData.barrier.visible=gate.userData.barrier.material.opacity>.02;
+    }
   }
   }
   // Efeitos de impacto compartilham o loop principal para evitar RAF por efeito.
