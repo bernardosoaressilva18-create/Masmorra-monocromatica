@@ -2958,6 +2958,20 @@ function installSkillTreePinch(root) {
     }
   }, {passive:false});
 }
+const skillTreeScrollMemory = {
+  lobby: { top: 0, left: 0 },
+  hud: { top: 0, left: 0 }
+};
+function rememberSkillTreeScroll(event) {
+  const board = event.target?.closest?.('.skill-rpg-scroll');
+  if (!board) return;
+  const root = board.closest('#skillTreeLobby') ? 'lobby' : board.closest('#skillTreeHud') ? 'hud' : null;
+  if (!root) return;
+  skillTreeScrollMemory[root].top = board.scrollTop;
+  skillTreeScrollMemory[root].left = board.scrollLeft;
+}
+$('skillTreeLobby')?.addEventListener('scroll', rememberSkillTreeScroll, { passive: true, capture: true });
+$('skillTreeHud')?.addEventListener('scroll', rememberSkillTreeScroll, { passive: true, capture: true });
 function renderSkillTrees() {
   const lobbyEditorScroll = document.querySelector('#lobby .lobby-editor-content');
   const skillPanelScroll = $('skillPanel');
@@ -2965,11 +2979,11 @@ function renderSkillTrees() {
   const hudBoardBefore = $('skillTreeHud')?.querySelector('.skill-rpg-scroll');
   const scrollSnapshot = {
     lobbyEditorTop: lobbyEditorScroll?.scrollTop || 0,
-    lobbyBoardTop: lobbyBoardBefore?.scrollTop || 0,
-    lobbyBoardLeft: lobbyBoardBefore?.scrollLeft || 0,
+    lobbyBoardTop: lobbyBoardBefore?.scrollTop || skillTreeScrollMemory.lobby.top,
+    lobbyBoardLeft: lobbyBoardBefore?.scrollLeft || skillTreeScrollMemory.lobby.left,
     skillPanelTop: skillPanelScroll?.scrollTop || 0,
-    hudBoardTop: hudBoardBefore?.scrollTop || 0,
-    hudBoardLeft: hudBoardBefore?.scrollLeft || 0
+    hudBoardTop: hudBoardBefore?.scrollTop || skillTreeScrollMemory.hud.top,
+    hudBoardLeft: hudBoardBefore?.scrollLeft || skillTreeScrollMemory.hud.left
   };
   const branches = getCurrentSkillBranches();
   const allSkills = branches.flatMap(branch => branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index})));
@@ -3532,6 +3546,9 @@ function handleSkillClick(event) {
   };
   event.preventDefault();
   event.stopPropagation();
+  // Desfoca o botão ANTES de reconstruir o HTML: desfocar o nó antigo depois
+  // da renderização podia provocar um salto de rolagem no navegador móvel.
+  button.blur();
   unlockedSkills.add(skill.id);
   skillPoints--;
   lastSkillSignature = '';
@@ -3551,7 +3568,6 @@ function handleSkillClick(event) {
     if(hb&&scrollState.hudBoard){hb.scrollLeft=scrollState.hudBoard.left;hb.scrollTop=scrollState.hudBoard.top;}
   };
   requestAnimationFrame(()=>{restoreSkillScroll();requestAnimationFrame(restoreSkillScroll);});
-  button.blur();
   sendLoadout();
   vibrateGame(18);
   showNotice('✦ ' + skill.name + ' desbloqueada!');
