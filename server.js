@@ -626,12 +626,12 @@ function resolveServerMovement(room, player, nextX, nextZ) {
 }
 
 function state(room) {
-  // Regeneração lenta de mana: força escolhas táticas entre as habilidades.
+  // Regeneração de mana online: 2 pontos por segundo, em pulsos de meio segundo.
   const now = Date.now();
   for (const p of room.players.values()) {
     if (p.hp > 0 && (p.mana ?? 100) < (p.maxMana ?? 100) && now >= (p.nextManaRegenAt || 0)) {
       p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + 1);
-      p.nextManaRegenAt = now + 1000;
+      p.nextManaRegenAt = now + 500;
     }
   }
   // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
@@ -1191,7 +1191,7 @@ wss.on('connection', ws => {
           }
         }else if(ability==='ogre_slam'){
           center={x:player.x,z:player.z};
-          const count=area(center,hasSkill(player,'ogre_aftershock')?6.2:5.2,hasSkill(player,'ogre_berserker')?14:12,1.6);
+          const count=area(center,hasSkill(player,'ogre_aftershock')?6.2:5.2,hasSkill(player,'ogre_berserker')?9:7,1.6);
           text='💥 Impacto em área: '+count+' rival(is) atingido(s)!';
         }else if(ability==='ogre_haste'){player.ogreHasteUntil=now+(hasSkill(player,'ogre_longrage')?7000:5000);text='💨 Velocidade aumentada!';}
         else if(ability==='healer_cure'){const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+(hasSkill(player,'healer_blessing')?70:50));player.shieldUntil=Math.max(player.shieldUntil||0,now+900);text='🌿 Cura: +'+(player.hp-before)+' vida.';}
@@ -1221,7 +1221,7 @@ wss.on('connection', ws => {
         else if(ability==='knight_whirlwind'){center={x:player.x,z:player.z};const count=area(center,4.6,11,0);text='✥ Giro de aço! '+count+' rival(is) atingido(s).';}
         else if(ability==='archer_piercing_shot'){const target=nearest(14);if(target){hit(target,16,0,0,0);targets.push({x:target.x,z:target.z});}text=target?'➶ Flecha perfurante!':'Nenhum rival no alcance da flecha.';}
         else if(ability==='goblin_shadow_strike'){const target=nearest(9);if(target){hit(target,17,1,250);player.invisibleUntil=now+500;targets.push({x:target.x,z:target.z});}text=target?'⟡ Golpe sombrio!':'Nenhum rival no alcance.';}
-        else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};const count=area(center,5.8,15,1.5);text='♨ Terremoto! '+count+' rival(is) atingido(s).';}
+        else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};const count=area(center,5.8,8,1.5);text='♨ Terremoto! '+count+' rival(is) atingido(s).';}
         else if(ability==='healer_sanctuary'){let healed=0;for(const ally of room.players.values()){if(ally.connected===false||ally.hp<=0||Math.hypot(ally.x-player.x,ally.z-player.z)>7)continue;const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+25);ally.shieldUntil=Math.max(ally.shieldUntil||0,now+1600);if(ally.hp>before)healed++;}center={x:player.x,z:player.z};text='✚ Santuário! '+healed+' aliado(s) receberam cura e proteção.';}
         else if(ability==='monk_spirit_wave'){center={x:player.x-Math.sin(player.rot||0)*1.8,z:player.z-Math.cos(player.rot||0)*1.8};const count=area(center,4.5,13,1.0);text='☯ Onda espiritual! '+count+' rival(is) atingido(s).';}
         else if(ability==='golem_stone_guard'){player.shieldUntil=now+6500;text='⬟ Guarda de pedra! Armadura reforçada por 6,5 segundos.';}
@@ -1457,7 +1457,7 @@ wss.on('connection', ws => {
         center = { x: player.x, z: player.z };
         for (const enemy of enemies()) {
           if (Math.hypot(enemy.x - center.x, enemy.z - center.z) > (hasSkill(player, 'ogre_aftershock') ? 6.2 : 5.2)) continue;
-          damageEnemy(enemy, hasSkill(player, 'ogre_berserker') ? 11 : 8, 0, center, 2.4);
+          damageEnemy(enemy, hasSkill(player, 'ogre_berserker') ? 7 : 5, 0, center, 2.4);
         }
         text = '💥 Soco no chão! Dano em área e inimigos repelidos.';
       } else if (ability === 'ogre_haste') {
@@ -1468,7 +1468,7 @@ wss.on('connection', ws => {
       else if(ability==='knight_whirlwind'){center={x:player.x,z:player.z};for(const enemy of enemies())if(Math.hypot(enemy.x-player.x,enemy.z-player.z)<=4.6)damageEnemy(enemy,11);text='✥ Giro de aço! Inimigos ao redor foram atingidos.';}
       else if(ability==='archer_piercing_shot'){const target=enemies().filter(enemy=>Math.hypot(enemy.x-player.x,enemy.z-player.z)<=14).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];if(target)damageEnemy(target,18);text=target?'➶ Flecha perfurante disparada!':'Nenhum inimigo ao alcance.';}
       else if(ability==='goblin_shadow_strike'){const target=enemies().filter(enemy=>Math.hypot(enemy.x-player.x,enemy.z-player.z)<=9).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];if(target){damageEnemy(target,16);player.invisibleUntil=now+600;}text=target?'⟡ Golpe sombrio!':'Nenhum inimigo ao alcance.';}
-      else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};for(const enemy of enemies())if(Math.hypot(enemy.x-player.x,enemy.z-player.z)<=5.8)damageEnemy(enemy,15,0,center,1.5);text='♨ Terremoto! O chão tremeu ao redor do Ogro.';}
+      else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};for(const enemy of enemies())if(Math.hypot(enemy.x-player.x,enemy.z-player.z)<=5.8)damageEnemy(enemy,8,0,center,1.5);text='♨ Terremoto! O chão tremeu ao redor do Ogro.';}
       else if(ability==='healer_sanctuary'){let healed=0;for(const ally of room.players.values()){if(ally.connected===false||ally.hp<=0||Math.hypot(ally.x-player.x,ally.z-player.z)>7)continue;const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+25);ally.shieldUntil=Math.max(ally.shieldUntil||0,now+1800);if(ally.hp>before)healed++;}center={x:player.x,z:player.z};text='✚ Santuário! '+healed+' aliado(s) curado(s) e protegido(s).';}
       else if(ability==='monk_spirit_wave'){const heading=Number(player.rot)||0;center={x:player.x-Math.sin(heading)*1.8,z:player.z-Math.cos(heading)*1.8};let hits=0;for(const enemy of enemies())if(Math.hypot(enemy.x-center.x,enemy.z-center.z)<=4.5){damageEnemy(enemy,16,0,center,1.0);hits++;}text='☯ Onda espiritual: '+hits+' inimigo(s) atingido(s), 16 de dano.';}
       else if(ability==='golem_stone_guard'){player.shieldUntil=now+6500;until=player.shieldUntil;text='⬟ Guarda de pedra! Armadura reforçada por 6,5 segundos.';}
