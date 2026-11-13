@@ -289,7 +289,7 @@ let nextId = 1;
 const CLASS_STATS = {
   knight: { hp: 130, damage: 2, range: 3.6, attackMs: 520, spellPower: 1, reduction: .18 },
   mage: { hp: 92, damage: 1, range: 3.1, attackMs: 460, spellPower: 1.55, reduction: 0 },
-  archer: { hp: 108, damage: 1, range: 4.8, attackMs: 310, spellPower: 1, reduction: .03 },
+  archer: { hp: 108, damage: 1, range: 8.2, attackMs: 310, spellPower: 1, reduction: .03 },
   goblin: { hp: 95, damage: 1, range: 3.2, attackMs: 285, spellPower: .85, reduction: 0 },
   ogre: { hp: 180, damage: 4, range: 3.5, attackMs: 760, spellPower: .7, reduction: .20 },
   healer: { hp: 100, damage: 2, range: 8.2, attackMs: 620, spellPower: 1.1, reduction: .02 },
@@ -1986,7 +1986,10 @@ wss.on('connection', ws => {
       }
       if (room.phase < 5) {
         const attackRange = statsFor(player).range + (player.playerClass === 'archer' && hasSkill(player, 'longshot') ? 2 : 0);
-        const target = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])].find(m => m.alive && m.spawned && Math.hypot(m.x - player.x, m.z - player.z) < attackRange);
+        const target = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])]
+          .filter(m => m.alive && m.spawned && canMonsterTargetPlayer(room,m,player,now)
+            && Math.hypot(m.x - player.x, m.z - player.z) < attackRange)
+          .sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];
         if (target) {
           let damage = isMonk ? [0, 2, 3, 5][monkCombo] : player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0);
           if (isMonk && player.damageBuffHits > 0) damage += player.damageBuff;
@@ -2428,7 +2431,13 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
         }
       }
       const monsterNow = Date.now();
-      if (target && nearest <= 3.05) {
+      // Ataque corpo a corpo só começa quando o alvo está realmente próximo.
+      // O alcance anterior de 3,05 somado ao tempo de preparação permitia golpes "no ar".
+      const monsterMeleeReach = target?.isSummon ? 2.05 : (['brute','abyss'].includes(String(monster.kind||'')) ? 2.25 : 1.95);
+      const currentTargetDistance = target ? Math.hypot((target.isSummon && target.sourceSummon ? target.sourceSummon.x : target.x)-monster.x,
+        (target.isSummon && target.sourceSummon ? target.sourceSummon.z : target.z)-monster.z) : Infinity;
+      if (target && currentTargetDistance <= monsterMeleeReach) {
+        nearest = currentTargetDistance;
         if (monsterNow < (monster.nextAttackAt || 0)) {
           monster.attackWarnAt = 0;
           monster.attackTargetId = null;
@@ -2437,7 +2446,9 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
           monster.attackTargetId = target.id;
           broadcast(room, { type: 'monsterWindup', id: monster.id, targetId: target.id, duration: 460 });
           if (!target.isSummon && target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
-        } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460) {
+        } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460
+          && Math.hypot((target.isSummon && target.sourceSummon ? target.sourceSummon.x : target.x)-monster.x,
+            (target.isSummon && target.sourceSummon ? target.sourceSummon.z : target.z)-monster.z) <= monsterMeleeReach + 0.22) {
           monster.attackAt = monsterNow;
           monster.nextAttackAt = monsterNow + (room.gameMode === 'pvp_rpg' ? (monster.attackMs || 1200) : (monster.attackMs || (monster.kind === 'brute' ? 1750 : 1350)));
           monster.attackWarnAt = 0;
