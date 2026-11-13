@@ -586,10 +586,6 @@ const STATIC_DUNGEON_COLLIDERS = (() => {
   for (const z of [-31.8, -63.8, -95.8, -127.8]) {
     for (const x of [-3.4, 3.4]) list.push({ x, z, r: 0.48 });
   }
-  for (let i = 0; i < 6; i++) {
-    const a = i * Math.PI / 3;
-    list.push({ x: Math.cos(a) * 2, z: -16 + Math.sin(a) * 2, r: 0.38 });
-  }
   return list;
 })();
 function isServerPositionBlocked(room, x, z) {
