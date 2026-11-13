@@ -5195,6 +5195,12 @@ function animate() {
     if (!obj.visible || obj === bossMesh) continue;
     const offset=obj.userData.eyePulseOffset||0;
     if (obj.userData.eyeMaterial) obj.userData.eyeMaterial.emissiveIntensity=1.1+(Math.sin(worldTime*2.6+offset)+1)*.42;
+    // Microanimação dos olhos: brilho e pequenas mudanças de foco sem luzes extras.
+    for(const eye of obj.userData.eyePairs||[]){
+      const focus=Math.sin(worldTime*.72+offset+eye.side*.35)*.012;
+      if(eye.pupil)eye.pupil.position.x=eye.eye.position.x+focus;
+      if(eye.glint)eye.glint.material.opacity=.72+Math.sin(worldTime*2.1+offset)*.2;
+    }
     if (obj.userData.coreMesh) {
       obj.userData.coreMesh.rotation.y += entityDt * (obj.userData.kind === 'brute' ? .24 : .42);
       obj.userData.coreMesh.rotation.x = Math.sin(worldTime * 1.2 + offset) * .12;
@@ -5203,6 +5209,8 @@ function animate() {
     }
   }
   if (bossMesh && bossMesh.userData.coreMesh) {
+    if(bossMesh.userData.eyeMaterial)bossMesh.userData.eyeMaterial.emissiveIntensity=2.1+(Math.sin(worldTime*2.2)+1)*.55;
+    for(const spine of bossMesh.userData.backSpines||[])spine.rotation.z=Math.sin(worldTime*1.25+spine.position.x)*.035;
     bossMesh.userData.coreMesh.rotation.y+=entityDt*.55;
     bossMesh.userData.coreMesh.rotation.x=Math.sin(worldTime*1.5)*.12;
     if (bossMesh.userData.coreHalo) bossMesh.userData.coreHalo.rotation.z+=entityDt*.35;
