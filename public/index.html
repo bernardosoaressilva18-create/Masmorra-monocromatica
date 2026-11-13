@@ -70,6 +70,7 @@
     <button class="lobby-nav-btn" type="button" data-lobby-editor="skin"><span>◈</span> SKIN</button>
     <button class="lobby-nav-btn" type="button" data-lobby-editor="config"><span>⚙</span> CONFIG</button>
     <button class="lobby-nav-btn" type="button" data-lobby-editor="skills"><span>✦</span> ÁRV. SKILLS</button>
+    <button class="lobby-nav-btn" type="button" data-lobby-editor="hud"><span>⌗</span> HUD</button>
   </nav>
 
   <main class="lobby-layout">
@@ -162,6 +163,29 @@
           <p class="diagnostics-note">A memória total do aparelho não fica disponível nesta leitura.</p>
         </section>
         <p class="lobby-editor-tip">As configurações são compartilhadas com as opções durante a partida e ficam salvas neste dispositivo.</p>
+      </section>
+
+      <section class="lobby-editor-section hidden" data-lobby-editor-panel="hud">
+        <label>PERSONALIZAR CONTROLES</label>
+        <p class="lobby-editor-tip">Arraste os botões para organizar o HUD antes de começar. O layout fica salvo neste aparelho e vale para o jogo. O analógico permanece fixo no canto inferior esquerdo para evitar deslocamentos acidentais.</p>
+        <div class="hud-preview-orientations">
+          <button type="button" data-hud-preview-orientation="landscape">↔ PAISAGEM</button>
+          <button type="button" data-hud-preview-orientation="portrait">↕ RETRATO</button>
+        </div>
+        <div id="lobbyHudPreview" class="hud-preview-stage" data-orientation="landscape" aria-label="Prévia do HUD. Arraste os controles para alterar a posição.">
+          <div class="hud-preview-scenery"><span>O ÚLTIMO LEGADO</span><i></i></div>
+          <div class="hud-preview-joystick" aria-hidden="true"><span></span></div>
+          <button type="button" class="hud-preview-control preview-dodge" data-hud-preview="dodgeBtn" aria-label="Esquiva">➤<small>ESQ.</small></button>
+          <button type="button" class="hud-preview-control preview-chest" data-hud-preview="chestBtn" aria-label="Baú">▣<small>BAÚ</small></button>
+          <button type="button" class="hud-preview-control preview-attack" data-hud-preview="attackBtn" aria-label="Atacar">⚔<small>ATACAR</small></button>
+          <button type="button" class="hud-preview-control preview-fire" data-hud-preview="fireBtn" aria-label="Habilidade 1">🔥<small>1</small></button>
+          <button type="button" class="hud-preview-control preview-lightning" data-hud-preview="lightningBtn" aria-label="Habilidade 2">ϟ<small>2</small></button>
+          <button type="button" class="hud-preview-control preview-special" data-hud-preview="ability3Btn" aria-label="Habilidade 3">✦<small>3</small></button>
+        </div>
+        <div class="hud-preview-footer">
+          <span id="lobbyHudPreviewStatus" aria-live="polite">Arraste os controles. As posições são salvas automaticamente.</span>
+          <button id="lobbyHudResetBtn" type="button">RESTAURAR HUD</button>
+        </div>
       </section>
 
       <section class="lobby-editor-section hidden" data-lobby-editor-panel="skills">
