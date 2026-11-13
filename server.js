@@ -553,7 +553,7 @@ function enterAstralRealm(room){
 function enterEclipseRealm(room){
  room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+6000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
  room.chests=[{id:'e0',x:8,z:-12,openedBy:[]},{id:'e1',x:-8,z:-44,openedBy:[]},{id:'e2',x:8,z:-76,openedBy:[]},{id:'e3',x:-8,z:-108,openedBy:[]},{id:'e4',x:8,z:-140,openedBy:[]}];
- for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ MUNDO III! Você chegou ao Eclipse Selvagem: inimigos mais fortes, novo guardião e +3 pontos de skill.'}));}
+ for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ PORTAL DO MUNDO INVERTIDO! Você chegou ao Eclipse Selvagem: inimigos mais fortes, armadilhas corrompidas, novo guardião e +3 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 
