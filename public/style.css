@@ -5120,3 +5120,92 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
   .training-metrics-panel header{margin-bottom:4px}
   .training-metrics-panel button{margin-top:3px;padding:3px 6px}
 }
+
+
+/* POLIMENTO VISUAL GLOBAL — O Último Legado */
+:root{
+  --visual-cyan:#7cecff;
+  --visual-gold:#f0ca7b;
+  --visual-edge:rgba(151,218,239,.28);
+  --visual-glass:rgba(8,15,25,.88);
+}
+#game canvas{
+  filter:saturate(1.12) contrast(1.035) brightness(1.035);
+}
+.screen{
+  background:
+    radial-gradient(ellipse at 50% 18%,rgba(48,91,119,.22),transparent 46%),
+    radial-gradient(ellipse at 12% 82%,rgba(77,47,119,.13),transparent 42%),
+    linear-gradient(180deg,rgba(4,8,15,.78),rgba(4,7,13,.96));
+}
+.panel,.lobby-panel,.lobby-editor-section{
+  border-color:var(--visual-edge);
+  background:
+    linear-gradient(145deg,rgba(21,34,49,.96),rgba(7,12,21,.97));
+  box-shadow:0 18px 55px rgba(0,0,0,.52),inset 0 1px rgba(255,255,255,.055),0 0 24px rgba(75,190,225,.055);
+  border-radius:14px;
+}
+.panel input,.panel select,.panel textarea{
+  border-color:rgba(133,191,214,.34);
+  background:linear-gradient(180deg,#0b1420,#070c13);
+  box-shadow:inset 0 2px 9px rgba(0,0,0,.32);
+}
+.panel input:focus,.panel select:focus,.panel textarea:focus{
+  border-color:var(--visual-cyan);
+  box-shadow:0 0 0 3px rgba(124,236,255,.11),0 0 18px rgba(63,194,230,.12);
+}
+.primary,.start-button,.start-match{
+  border:1px solid rgba(255,239,192,.58);
+  background:linear-gradient(115deg,#bd914d 0%,#ffe7a9 46%,#d6ad65 100%);
+  color:#17130d;
+  text-shadow:0 1px rgba(255,255,255,.3);
+  box-shadow:0 7px 22px rgba(224,177,91,.19),inset 0 1px rgba(255,255,255,.65),inset 0 -2px rgba(104,68,25,.18);
+  transition:filter .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+.primary:hover,.start-button:hover,.start-match:not(:disabled):hover{
+  filter:brightness(1.08);
+  box-shadow:0 9px 28px rgba(224,177,91,.28),inset 0 1px rgba(255,255,255,.7);
+}
+button:not(.primary):not(.start-button):not(.start-match):not(.leave):not(.lobby-leave){
+  transition:filter .15s ease,border-color .15s ease,background .15s ease,transform .15s ease;
+}
+button:not(:disabled):active{filter:brightness(1.14)}
+.brand h1,.start-title{
+  text-shadow:0 4px 20px rgba(0,0,0,.9),0 0 34px rgba(94,194,229,.15);
+}
+.eyebrow,.skill-head>label{
+  color:#8feaff;
+  text-shadow:0 0 13px rgba(94,216,245,.2);
+}
+.objective,.inventory-panel,.boss-panel,.badge,.stats,.leave,.player-chip{
+  border-color:rgba(151,218,239,.26);
+  background-color:rgba(6,13,23,.88);
+  box-shadow:0 9px 26px rgba(0,0,0,.36),inset 0 1px rgba(255,255,255,.035);
+}
+.inventory-panel,.boss-panel{backdrop-filter:blur(13px) saturate(1.18)}
+.player-chip{border-radius:7px}
+.boss-health i{filter:drop-shadow(0 0 5px rgba(255,72,105,.42))}
+.joystick{box-shadow:inset 0 0 25px rgba(0,0,0,.52),0 0 22px rgba(85,206,235,.08)}
+.attack,.chest-btn{
+  box-shadow:0 0 0 5px rgba(5,10,17,.55),0 8px 22px rgba(0,0,0,.4),0 0 22px rgba(233,164,84,.14);
+}
+.lobby-player{
+  border-color:rgba(133,191,214,.24);
+  background:linear-gradient(120deg,rgba(17,31,44,.96),rgba(8,14,23,.96));
+  box-shadow:inset 0 1px rgba(255,255,255,.035);
+}
+.lobby-player.ready{
+  border-color:rgba(116,255,190,.34);
+  box-shadow:inset 0 0 18px rgba(86,229,157,.055);
+}
+.phase-transition{
+  background:
+    radial-gradient(ellipse at center,rgba(45,145,184,.5),rgba(20,14,38,.88) 52%,rgba(3,6,14,.97) 78%);
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
+@media(max-width:700px){
+  #game canvas{filter:saturate(1.09) contrast(1.025) brightness(1.025)}
+  .panel,.lobby-panel,.lobby-editor-section{box-shadow:0 12px 32px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.045)}
+}
