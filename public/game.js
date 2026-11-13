@@ -50,7 +50,15 @@ let bossMesh = null, bossData = null;
 const bossPortalMeshes = new Map();
 const bossTelegraphMeshes = new Map();
 let currentPhaseVisual = 0, lastSafeZoneTimestamp = 0, appliedInitialServerPosition = false;
-let latestChests = [], inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 }, lootDrops = [], selectedItemId = null;
+const SHARED_PROFILE_KEY='ultimoLegadoSharedProfileV2';
+const FREE_LOBBY_SKINS=['default','shadow','ember'];
+const CHEST_ONLY_SKINS=['rune','celestial','bloodmoon','frostguard','draconic','voidwalker','verdant'];
+let sharedProfileSeed={};try{sharedProfileSeed=JSON.parse(localStorage.getItem(SHARED_PROFILE_KEY)||'{}')||{};}catch{}
+const EMPTY_INVENTORY={comum:0,incomum:0,raro:0,'épico':0,'lendário':0};
+let latestChests=[],inventoryData=(()=>{const saved=sharedProfileSeed.inventory&&typeof sharedProfileSeed.inventory==='object'?sharedProfileSeed.inventory:{};return Object.fromEntries(Object.keys(EMPTY_INVENTORY).map(k=>[k,Math.max(0,Math.min(9999,Number(saved[k])||0))]));})(),
+lootDrops=(Array.isArray(sharedProfileSeed.lootDrops)?sharedProfileSeed.lootDrops:[]).slice(-100),selectedItemId=sharedProfileSeed.selectedItemId?String(sharedProfileSeed.selectedItemId):null;
+let equipmentDamage=Math.max(0,Math.min(18,Number(sharedProfileSeed.equipmentDamage)||0));
+let sharedProgress={realm:Math.max(1,Math.min(3,Number(sharedProfileSeed.realm)||1)),phase:Math.max(1,Math.min(5,Number(sharedProfileSeed.phase)||1))};
 const world = { width: 30, depth: 190 };
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
 
@@ -1664,12 +1672,13 @@ const classDescriptions = {
   monk: 'Monge: 110 de vida, combo de três golpes, atordoamento e mobilidade.',
   golem: 'Golem de Pedra: 220 de vida, divisão em três e arremesso de pedras em área.'
 };
-let savedCharacterChoice = {};
-try { savedCharacterChoice = JSON.parse(localStorage.getItem('mmCharacterChoice') || '{}') || {}; } catch {}
-let selectedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(savedCharacterChoice.playerClass) ? savedCharacterChoice.playerClass : 'knight';
-let selectedSkin = ['default','shadow','ember','rune','celestial','bloodmoon'].includes(savedCharacterChoice.skin) ? savedCharacterChoice.skin : 'default';
-let skillPoints = 5;
-const unlockedSkills = new Set();
+let savedCharacterChoice={};try{savedCharacterChoice=JSON.parse(localStorage.getItem('mmCharacterChoice')||'{}')||{};}catch{}
+let selectedClass=['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(sharedProfileSeed.playerClass||savedCharacterChoice.playerClass)?(sharedProfileSeed.playerClass||savedCharacterChoice.playerClass):'knight';
+let unlockedSkins=new Set(['default','shadow','ember',...(Array.isArray(sharedProfileSeed.unlockedSkins)?sharedProfileSeed.unlockedSkins.filter(id=>CHEST_ONLY_SKINS.includes(id)):[])]);
+let skinCandidate=sharedProfileSeed.skin||savedCharacterChoice.skin||'default';
+let selectedSkin=[...FREE_LOBBY_SKINS,...CHEST_ONLY_SKINS].includes(skinCandidate)&&(FREE_LOBBY_SKINS.includes(skinCandidate)||unlockedSkins.has(skinCandidate))?skinCandidate:'default';
+let skillPoints=Math.max(0,Math.min(99,Number(sharedProfileSeed.skillPoints??5)));
+const unlockedSkills=new Set(Array.isArray(sharedProfileSeed.skills)?sharedProfileSeed.skills.filter(id=>typeof id==='string').slice(0,15):[]);
 let lastSkillSignature = '';
 let activeSkillFilter = 'all';
 let activeSkillSearch = '';
@@ -1808,13 +1817,17 @@ function syncLoadoutUI() {
   lastSkillSignature = signature;
   renderSkillTrees();
 }
+
+function getSharedProfileData(){return{version:2,playerClass:selectedClass,skin:selectedSkin,unlockedSkins:Array.from(unlockedSkins),skills:Array.from(unlockedSkills).slice(0,15),skillPoints:Math.max(0,Math.min(99,Number(skillPoints)||0)),equipmentDamage:Math.max(0,Math.min(18,Number(equipmentDamage)||0)),inventory:{...inventoryData},lootDrops:lootDrops.slice(-100).map(item=>({...item})),selectedItemId:selectedItemId?String(selectedItemId):null,realm:sharedProgress.realm,phase:sharedProgress.phase};}
+function saveSharedProfile(){try{const p=getSharedProfileData();localStorage.setItem(SHARED_PROFILE_KEY,JSON.stringify(p));sharedProfileSeed=p;}catch(error){showNotice('Não foi possível salvar o perfil neste aparelho.');}}
 function sendLoadout() {
+  saveSharedProfile();
   if (offlineMode && offlineState?.players?.[0]) {
     const player = offlineState.players[0];
     player.playerClass = selectedClass;
     player.skin = selectedSkin;
     player.skills = Array.from(unlockedSkills);
-    player.talentPoints = skillPoints;
+    player.talentPoints = skillPoints;player.equipmentDamage=equipmentDamage;
     return;
   }
   if (ws && ws.readyState === WebSocket.OPEN && playerId) {
@@ -2244,6 +2257,7 @@ let quickMatchRequested = false;
 function sendJoin(code) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   activeConnectCode = code || activeConnectCode || roomCode || '';
+  saveSharedProfile();
   send({
     type: quickMatchRequested ? 'joinPublic' : 'join',
     resumeToken,
@@ -2254,7 +2268,8 @@ function sendJoin(code) {
     talentPoints: skillPoints,
     code,
     gameMode: selectedGameMode,
-    public: joiningPublicRoom
+    public: joiningPublicRoom,
+    profile:getSharedProfileData()
   });
   joiningPublicRoom = false;
   quickMatchRequested = false;
@@ -2273,7 +2288,7 @@ function createOfflineState() {
     name: $('playerName')?.value.trim() || 'Aventureiro',
     x: 0, z: 3, rot: 0, hp: 130, maxHp: 130, mana: 100, maxMana: 100,
     playerClass: selectedClass, skin: selectedSkin,
-    skills: Array.from(unlockedSkills), talentPoints: skillPoints,
+    skills: Array.from(unlockedSkills), talentPoints: skillPoints, equipmentDamage,
     ready: true, isHost: true, color: 0x72e6ff
   };
   const kinds = ['stalker','stalker','brute','wraith','thorn'];
@@ -2297,13 +2312,7 @@ function createOfflineState() {
 }
 
 function startOfflineExploration() {
-  offlineReturnSnapshot = {
-    inventory: { ...inventoryData },
-    loot: lootDrops.map(item => ({ ...item })),
-    selectedItemId,
-    unlockedSkills: Array.from(unlockedSkills),
-    skillPoints
-  };
+  saveSharedProfile();
   if (ws) {
     try { ws.close(); } catch {}
     ws = null;
@@ -2320,12 +2329,8 @@ function startOfflineExploration() {
   $('menu').classList.add('hidden');
   $('lobby').classList.add('hidden');
   $('loading').classList.add('hidden');
-  // Cada exploração offline é temporária: começa sem recuperar partidas anteriores.
+  // O modo offline usa o mesmo inventário, talentos, equipamentos e skins do online.
   offlineState = createOfflineState();
-  inventoryData = { comum: 0, incomum: 0, raro: 0, 'épico': 0, 'lendário': 0 };
-  lootDrops = [];
-  selectedItemId = null;
-  try { localStorage.removeItem('ultimoLegadoOfflineSaveV1'); } catch {}
   // A prévia offline sempre permite retomar a exploração após uma derrota anterior.
   const offlinePlayer = offlineState?.players?.[0];
   if (offlinePlayer) {
@@ -2358,7 +2363,8 @@ function startOfflineExploration() {
   $('roomLabel').textContent = 'OFFLINE';
   $('lobbyRoomCode').textContent = 'OFFLINE';
   openLobbyEditor('class');
-  showNotice('Modo offline · escolha sua classe e toque em INICIAR PARTIDA. O progresso não é salvo.');
+  saveSharedProfile();
+  showNotice('Modo offline · perfil compartilhado com o online neste aparelho.');
   if (offlineLoop) clearInterval(offlineLoop);
   offlineLoop = null;
 }
@@ -3664,15 +3670,7 @@ inventoryToggleBtn?.addEventListener('click', () => {
 applyInventoryVisibility();
 
 function leaveRoomToMenu() {
-  if (offlineMode && offlineReturnSnapshot) {
-    inventoryData = offlineReturnSnapshot.inventory;
-    lootDrops = offlineReturnSnapshot.loot;
-    selectedItemId = offlineReturnSnapshot.selectedItemId;
-    unlockedSkills.clear();
-    offlineReturnSnapshot.unlockedSkills.forEach(id => unlockedSkills.add(id));
-    skillPoints = offlineReturnSnapshot.skillPoints;
-    offlineReturnSnapshot = null;
-  }
+  saveSharedProfile();offlineReturnSnapshot=null;
   if (offlineLoop) clearInterval(offlineLoop);
   offlineLoop = null;
   offlineMode = false;
