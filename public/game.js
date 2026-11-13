@@ -982,7 +982,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     mage:{armor:0x5f59cf,dark:0x271b58,trim:0xe9ca77,glow:0xd18bff,cloth:0x34246e,skin:0xd5a986},
     archer:{armor:0x3f8758,dark:0x263d31,trim:0xd7b66e,glow:0x8af7c4,cloth:0x174d36,skin:0xc99673},
     goblin:{armor:0x77b943,dark:0x293522,trim:0xeec85e,glow:0xffe77a,cloth:0x426528,skin:0x91b94a},
-    ogre:{armor:0xa95739,dark:0x4a2b24,trim:0xd6b172,glow:0xffa46b,cloth:0x6b3427,skin:0x8a9d45},
+    ogre:{armor:0xa95739,dark:0x4a2b24,trim:0xd6b172,glow:0xffa46b,cloth:0x6b3427,skin:0x987755},
     healer:{armor:0xe6e7dd,dark:0x315b64,trim:0xe7c879,glow:0x83ffe0,cloth:0x2e6471,skin:0xd9b496},
     necromancer:{armor:0x483650,dark:0x17121f,trim:0x9d7ac4,glow:0xd17cff,cloth:0x302035,skin:0xa59aa7},
     monk:{armor:0xc67b3c,dark:0x53332a,trim:0xf0d7a1,glow:0xffe18b,cloth:0x9c3d32,skin:0xc99770},
@@ -997,7 +997,11 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     ember:{armor:0x9a482c,dark:0x371b18,trim:0xf0aa62,glow:0xff6b43,cloth:0x58271f},
     rune:{armor:0x246b85,dark:0x102b3b,trim:0x6feaf0,glow:0x67fff1,cloth:0x173f55},
     celestial:{armor:0xc8b778,dark:0x29364b,trim:0xfff0bb,glow:0xfff2bd,cloth:0x61748b},
-    bloodmoon:{armor:0x8c2948,dark:0x270d20,trim:0xf07a9c,glow:0xff527e,cloth:0x461329}
+    bloodmoon:{armor:0x8c2948,dark:0x270d20,trim:0xf07a9c,glow:0xff527e,cloth:0x461329},
+    frostguard:{armor:0x669eb9,dark:0x203144,trim:0xc9efff,glow:0x91eaff,cloth:0x2b526e},
+    draconic:{armor:0x963d33,dark:0x32191c,trim:0xffc56c,glow:0xff654d,cloth:0x572329},
+    voidwalker:{armor:0x56417f,dark:0x1d1830,trim:0xb796ff,glow:0xdf9bff,cloth:0x2d234b},
+    verdant:{armor:0x477c4a,dark:0x1c3228,trim:0xc4d97a,glow:0x90f28c,cloth:0x2c583e}
   };
   const p = skins[skin] || skins.default;
   const isStoneBody = heroClass === 'golem' || heroClass === 'golem_clone';
@@ -1060,9 +1064,19 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     }
   }else{
     const torsoGeometry = heroClass === 'ogre'
-      ? new THREE.CapsuleGeometry(.43,.53,7,12)
+      ? new THREE.CapsuleGeometry(.34,.39,7,12)
       : new THREE.CylinderGeometry(heroClass === 'monk' ? .31 : .35, heroClass === 'monk' ? .25 : .245, .62, isMobileDevice ? 8 : 12, 1);
-    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.14,0,heroClass==='ogre'?1.28:1.0,heroClass==='ogre'?1.1:1,heroClass==='ogre'?1.02:.9);
+    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?.98:1.0,heroClass==='ogre'?.98:1,heroClass==='ogre'?.92:.9);
+    if(heroClass==='ogre'){
+      const chestPlate=add(new THREE.BoxGeometry(.56,.32,.10),armor,0,1.21,-.34,1,.9,.7);
+      chestPlate.rotation.z=-.035;
+      add(new THREE.BoxGeometry(.10,.46,.035),trim,0,1.18,-.415);
+      for(const side of [-1,1]){
+        const pauldron=add(new THREE.DodecahedronGeometry(.19,0),armor,side*.45,1.43,0,1.15,.92,.95);
+        pauldron.rotation.z=side*-.12;
+        add(new THREE.BoxGeometry(.16,.055,.04),trim,side*.45,1.44,-.17);
+      }
+    }
     if(clothClasses.includes(heroClass)){
       add(new THREE.ConeGeometry(heroClass==='healer'?.42:.39,.78,8),cloth,0,.77,.02,1,1,.9);
       add(new THREE.BoxGeometry(.055,.51,.035),trim,0,.91,-.36);
@@ -1982,7 +1996,7 @@ function refreshLobby3DPreview() {
   if (!lobbyPreviewScene) return;
   if (lobbyPreviewHero) { lobbyPreviewScene.remove(lobbyPreviewHero); disposeObject3D(lobbyPreviewHero); lobbyPreviewHero = null; }
   lobbyPreviewHero = makeHero(null, selectedClass || 'knight', selectedSkin || 'default');
-  lobbyPreviewHero.scale.setScalar(1.24);
+  lobbyPreviewHero.scale.setScalar(selectedClass==='ogre'||selectedClass==='golem'?1.02:.98);
   lobbyPreviewHero.position.set(0,0,0);
   lobbyPreviewHero.rotation.y = Math.PI;
   if (lobbyPreviewHero.userData.healthBar) lobbyPreviewHero.userData.healthBar.visible = false;
@@ -2141,9 +2155,9 @@ function renderLobby3DPreview() {
     });
   }
   lobbyPreviewCamera.aspect = previewWidth/previewHeight;
-  lobbyPreviewCamera.position.z = portrait ? 5.15 : 5.45;
+  lobbyPreviewCamera.position.z = portrait ? 7.15 : 6.15;
   lobbyPreviewCamera.updateProjectionMatrix();
-  lobbyPreviewCamera.lookAt(.42,1.28,0);
+  lobbyPreviewCamera.lookAt(0,1.12,0);
   renderer.autoClear = false;
   renderer.setScissorTest(true);
   renderer.setViewport(left,bottom,previewWidth,previewHeight);
@@ -3542,15 +3556,8 @@ $('startBtn').addEventListener('click', async () => {
   // a orientação escolhida pelo jogador. O jogo continua podendo alternar
   // para paisagem pelo botão de orientação durante a partida.
   if (isMobileDevice) {
-    try {
-      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
-      }
-    } catch (_) {}
-    setTimeout(() => {
-      onResize();
-      updateOrientationToggleLabel();
-    }, 120);
+    // Não solicitar tela cheia por código: isso mostra a notificação nativa do Android/Chrome.
+    setTimeout(() => { onResize(); updateOrientationToggleLabel(); }, 120);
   }
   $('startScreen').classList.add('hidden');
   menu.classList.remove('hidden');
