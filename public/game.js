@@ -2781,7 +2781,6 @@ function handleOfflineAction(data) {
       showNotice('✦ Fase '+offlineState.phase+'/5! Uma nova horda surgiu.');
     }else if(requestedZ<gateZ&&phase===5&&realm<3){
       offlineState.realm=realm+1;offlineState.phase=1;player.x=0;player.z=3;
-      currentRealmVisual=offlineState.realm;
       spawnOfflineWave(1,offlineState.realm);
       showNotice(offlineState.realm===2?'✦ PORTAL ABERTO! Bem-vindo ao Vale Astral.':'✦ PORTAL ABERTO! Você chegou ao Eclipse Selvagem.');
     }else if(requestedZ<gateZ&&phase===5&&realm===3){
