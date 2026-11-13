@@ -1,10 +1,10 @@
 {
   "id": "./",
-  "name": "Last Legacy",
-  "short_name": "Last Legacy",
-  "description": "RPG 3D de fantasia com classes, mundos, monstros e chefes cooperativos.",
+  "name": "O Último Legado",
+  "short_name": "Último Legado",
+  "description": "RPG 3D de fantasia com classes, mundos, monstros, chefes e exploração.",
   "lang": "pt-BR",
-  "start_url": "./",
+  "start_url": "./?app=20261113",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
@@ -12,16 +12,10 @@
   "theme_color": "#090c12",
   "icons": [
     {
-      "src": "./icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
+      "src": "./icon.svg?v=20261113",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
-    },
-    {
-      "src": "./icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
     }
   ]
 }
