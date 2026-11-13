@@ -688,25 +688,34 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
 }
 
 function addBiomeDetailInstances(parent,palette,realmKey=1){
+ // Densidade adaptativa: mais cenário em PC, sem sobrecarregar celulares de entrada.
  const perZone=isMobileDevice
-  ?(gameSettings.graphicsQuality==='low'?10:gameSettings.graphicsQuality==='high'?26:18)
-  :(gameSettings.graphicsQuality==='low'?34:gameSettings.graphicsQuality==='high'?80:52);
- const capacity=perZone*MAP_ZONE_CENTERS.length;
+  ?(gameSettings.graphicsQuality==='low'?12:gameSettings.graphicsQuality==='high'?34:22)
+  :(gameSettings.graphicsQuality==='low'?52:gameSettings.graphicsQuality==='high'?125:88);
+ const capacity=(perZone+1)*MAP_ZONE_CENTERS.length;
  const materials=[
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:.96,metalness:.06,}),
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:.92,metalness:.08,}),
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:.3,metalness:.22,emissive:0x151a22,emissiveIntensity:.34,}),
-  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7,metalness:.28,transparent:true,opacity:.72,side:THREE.DoubleSide,depthWrite:false})
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7,metalness:.28,transparent:true,opacity:.72,side:THREE.DoubleSide,depthWrite:false}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.96,metalness:.08}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.86,metalness:.22}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.82,metalness:.04,emissive:0x101c10,emissiveIntensity:.22}),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:.88,metalness:.10})
  ];
  const batches=[
   new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.27,0),materials[0],capacity),
   new THREE.InstancedMesh(new THREE.ConeGeometry(.16,.62,5),materials[1],capacity),
   new THREE.InstancedMesh(new THREE.OctahedronGeometry(.21,0),materials[2],capacity),
-  new THREE.InstancedMesh(new THREE.TorusGeometry(.17,.018,5,12),materials[3],capacity)
+  new THREE.InstancedMesh(new THREE.TorusGeometry(.17,.018,5,12),materials[3],capacity),
+  new THREE.InstancedMesh(new THREE.BoxGeometry(.86,.34,.52),materials[4],capacity),
+  new THREE.InstancedMesh(new THREE.CylinderGeometry(.22,.38,1.55,6),materials[5],capacity),
+  new THREE.InstancedMesh(new THREE.ConeGeometry(.23,.82,6),materials[6],capacity),
+  new THREE.InstancedMesh(new THREE.CylinderGeometry(.12,.18,1.45,6),materials[7],capacity)
  ];
- const names=['biome-stone-scatter','biome-root-and-spire-scatter','biome-crystal-scatter','biome-rune-inlays'];
+ const names=['biome-stone-scatter','biome-root-and-spire-scatter','biome-crystal-scatter','biome-rune-inlays','biome-ruin-slabs','biome-broken-monoliths','biome-glow-flora','biome-fallen-roots'];
  const dummy=new THREE.Object3D();
- const counts=[0,0,0,0];
+ const counts=[0,0,0,0,0,0,0,0];
  const fract=value=>value-Math.floor(value);
  for(let zone=0;zone<MAP_ZONE_CENTERS.length;zone++){
   const center=MAP_ZONE_CENTERS[zone],poly=MAP_ZONE_POLYGONS[zone],accent=new THREE.Color(palette[zone%palette.length]);
@@ -748,14 +757,38 @@ function addBiomeDetailInstances(parent,palette,realmKey=1){
    dummy.position.set(x*.94,.025,z+.55);dummy.rotation.set(-Math.PI/2,0,fract(Math.sin(n*6.3+zone)*21)*Math.PI);
    const runeScale=.72+fract(Math.sin(n*4.7+zone)*37)*.8;
    dummy.scale.set(runeScale,runeScale*.7,1);dummy.updateMatrix();batches[3].setMatrixAt(counts[3],dummy.matrix);batches[3].setColorAt(counts[3],accent);counts[3]++;
+   // Lajes quebradas com orientação irregular para quebrar a repetição dos pisos.
+   dummy.position.set(x*.99,.18,z-.48);dummy.rotation.set(.02,fract(Math.sin(n*7.1+zone)*13)*Math.PI,fract(Math.sin(n*2.1+zone)*9)*.12);
+   const slabScale=.48+fract(Math.sin(n*13.1+zone)*17)*.86;dummy.scale.set(slabScale,slabScale,slabScale);
+   dummy.updateMatrix();batches[4].setMatrixAt(counts[4],dummy.matrix);batches[4].setColorAt(counts[4],color.clone().multiplyScalar(.72));counts[4]++;
+   // Monólitos partidos nas laterais, sem invadir a faixa de combate central.
+   dummy.position.set(x*.985,.78,z+.42);dummy.rotation.set(fract(Math.sin(n*4.2+zone)*7)*.12,fract(Math.sin(n*8.1+zone)*11)*Math.PI,fract(Math.sin(n*3.7+zone)*13)*.08);
+   const monolithScale=.48+fract(Math.sin(n*9.3+zone)*19)*.68;dummy.scale.set(monolithScale,monolithScale*(1.1+zone*.04),monolithScale);
+   dummy.updateMatrix();batches[5].setMatrixAt(counts[5],dummy.matrix);batches[5].setColorAt(counts[5],accent.clone().multiplyScalar(.62+zone*.06));counts[5]++;
+   // Flora luminosa de cada bioma: tons mudam por reino e região.
+   dummy.position.set(x*.96,.38,z-.66);dummy.rotation.set(0,fract(Math.sin(n*5.8+zone)*17)*Math.PI,fract(Math.sin(n*6.4+zone)*13)*.1);
+   const floraScale=.58+fract(Math.sin(n*10.2+zone)*23)*.9;dummy.scale.set(floraScale,floraScale*(.75+zone*.08),floraScale);
+   dummy.updateMatrix();batches[6].setMatrixAt(counts[6],dummy.matrix);batches[6].setColorAt(counts[6],accent.clone().multiplyScalar(1.05));counts[6]++;
+   // Raízes e troncos baixos criam silhuetas diferentes sem bloquear o jogador.
+   dummy.position.set(x*.94,.16,z+.82);dummy.rotation.set(fract(Math.sin(n*2.9+zone)*11)*.18,fract(Math.sin(n*7.2+zone)*19)*Math.PI,Math.PI/2+fract(Math.sin(n*3.8+zone)*7)*.16);
+   const rootLogScale=.52+fract(Math.sin(n*12.8+zone)*29)*.72;dummy.scale.set(rootLogScale,rootLogScale,rootLogScale);
+   dummy.updateMatrix();batches[7].setMatrixAt(counts[7],dummy.matrix);batches[7].setColorAt(counts[7],color.clone().multiplyScalar(.82));counts[7]++;
   }
+  // Um marco monumental por zona serve como ponto de referência visual e orientação.
+  const landmarkX=zone%2===0?-8.55:8.55,landmarkZ=center+11.1;
+  dummy.position.set(landmarkX,1.18,landmarkZ);dummy.rotation.set(0,zone*.47,0);dummy.scale.set(1.65,2.75,1.65);
+  dummy.updateMatrix();batches[5].setMatrixAt(counts[5],dummy.matrix);batches[5].setColorAt(counts[5],accent.clone().multiplyScalar(.88));counts[5]++;
+  dummy.position.set(landmarkX,3.12,landmarkZ);dummy.rotation.set(.12,zone*.7,.08);dummy.scale.set(1.48,1.9,1.48);
+  dummy.updateMatrix();batches[2].setMatrixAt(counts[2],dummy.matrix);batches[2].setColorAt(counts[2],accent.clone().multiplyScalar(1.35));counts[2]++;
+  dummy.position.set(landmarkX,.035,landmarkZ);dummy.rotation.set(-Math.PI/2,0,zone*.31);dummy.scale.set(2.25,1.8,1);
+  dummy.updateMatrix();batches[3].setMatrixAt(counts[3],dummy.matrix);batches[3].setColorAt(counts[3],accent);counts[3]++;
  }
  for(let i=0;i<batches.length;i++){
   const mesh=batches[i];mesh.count=counts[i];mesh.instanceMatrix.needsUpdate=true;
   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
   mesh.name=names[i]+'-realm-'+realmKey;parent.add(mesh);
  }
- parent.userData.biomeDetailCount=counts.reduce((sum,value)=>sum+value,0);
+ parent.userData.biomeDetailCount=counts.reduce((sum,value)=>sum+value,0);parent.userData.biomeDetailBatches=counts.length;parent.userData.biomeDetailInstances=counts.slice();
 }
 
 function buildDungeon() {
