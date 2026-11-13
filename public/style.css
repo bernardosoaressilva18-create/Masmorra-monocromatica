@@ -4643,3 +4643,48 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 /* O editor de HUD também reconhece a terceira habilidade */
 #hud.hud-edit-mode #ability3Btn{outline:2px dashed #8deeff!important;outline-offset:3px!important;box-shadow:0 0 0 5px #47d8ff30,0 0 25px #47d8ff60!important}
 #hud.hud-edit-mode #ability3Btn:after{content:"MOVER";position:absolute;left:50%;top:-18px;transform:translateX(-50%);padding:2px 5px;border-radius:3px;background:#063141;color:#d7fbff;font-size:8px;font-weight:900;white-space:nowrap;pointer-events:none}
+
+/* Inventário de uso direto: selecionar e consumir deixam de depender do painel inferior. */
+#hud .loot-entry{display:grid;grid-template-columns:minmax(0,1fr) 52px;align-items:stretch;gap:5px;margin:4px 0}
+#hud .loot-entry .loot-item{min-width:0;width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:7px 8px;border:1px solid #435565;border-radius:9px;background:linear-gradient(135deg,#132233,#0a131e);color:#e7f3fa;text-align:left;touch-action:manipulation}
+#hud .loot-entry .loot-item.selected{border-color:#80e7f2;background:linear-gradient(100deg,#19495a,#10202d);box-shadow:inset 0 0 0 1px #80e7f233}
+#hud .loot-entry .loot-item span{min-width:0;font-size:10px;line-height:1.35;overflow-wrap:anywhere}
+#hud .loot-entry .loot-item small{display:block;margin-top:2px;font-size:8px;opacity:.78}
+#hud .loot-entry .loot-use-button{min-width:52px;min-height:48px;padding:4px;border:1px solid #7ccfd6;border-radius:9px;background:linear-gradient(145deg,#1b6570,#12323d);color:#eaffff;font-size:9px;font-weight:900;letter-spacing:.3px;touch-action:manipulation}
+#hud .loot-entry .loot-use-button:disabled{opacity:.38;filter:grayscale(1)}
+#hud .loot-entry .loot-use-button:active{transform:scale(.96);filter:brightness(1.2)}
+#hud .recent-loot{max-height:min(34dvh,330px);overflow-y:auto;overscroll-behavior:contain}
+#hud .inventory-panel{scrollbar-width:thin;scrollbar-color:#5c8190 #0b1420}
+
+/* Editor do HUD dentro do lobby: prévia ajustável por arraste */
+#lobby .hud-preview-orientations{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0}
+#lobby .hud-preview-orientations button,#lobby .hud-preview-footer button{min-height:38px;padding:8px 10px;border:1px solid #496477;border-radius:8px;background:#142432;color:#dceef8;font-size:10px;font-weight:850;letter-spacing:.4px}
+#lobby .hud-preview-orientations button.active{border-color:#81e6ef;background:linear-gradient(120deg,#174d5b,#142b3a);color:#eaffff;box-shadow:0 0 0 1px #7ce7f333}
+#lobby .hud-preview-stage{position:relative;width:100%;max-width:560px;margin:10px auto 12px;aspect-ratio:1.72;overflow:hidden;border:1px solid #68899b;border-radius:13px;background:radial-gradient(ellipse at 50% 42%,#28465a,#101b2b 58%,#07111b);box-shadow:inset 0 0 45px #0009,0 9px 26px #0006;touch-action:none;user-select:none}
+#lobby .hud-preview-stage:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.8%,#8bc5d522 50%,transparent 50.2%),linear-gradient(0deg,transparent 49.8%,#8bc5d522 50%,transparent 50.2%);background-size:32px 32px;opacity:.65;pointer-events:none}
+#lobby .hud-preview-stage[data-orientation="portrait"]{width:min(100%,250px);aspect-ratio:.72}
+#lobby .hud-preview-scenery{position:absolute;inset:0;display:grid;place-items:center;color:#b8d4e2;font:900 10px Cinzel,serif;letter-spacing:2px;opacity:.32;pointer-events:none}
+#lobby .hud-preview-scenery i{position:absolute;left:43%;top:43%;width:14%;aspect-ratio:1;border:2px solid #a6d8e6;border-radius:50%;box-shadow:0 0 22px #80d9ec44}
+#lobby .hud-preview-joystick{position:absolute;left:5%;bottom:7%;width:23%;aspect-ratio:1;border:2px solid #c5d9e366;border-radius:50%;background:#b0d1e217;pointer-events:none}
+#lobby .hud-preview-joystick span{position:absolute;left:30%;top:30%;width:40%;height:40%;border-radius:50%;background:#c8e6f366;border:1px solid #e7f6ff88}
+#lobby .hud-preview-control{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:48px;height:48px;padding:3px;border:1px solid #b8e3ebaa;border-radius:50%;background:linear-gradient(145deg,#253e50ed,#101e2aed);box-shadow:0 3px 12px #0009;color:#f3fbff;font-size:20px;line-height:1;touch-action:none;user-select:none}
+#lobby .hud-preview-control small{font-size:6px;font-weight:900;letter-spacing:.2px;pointer-events:none}
+#lobby .hud-preview-control:active{border-color:#a7f0f1;filter:brightness(1.25)}
+#lobby .preview-attack{width:54px;height:54px;border-color:#e6c47b;background:linear-gradient(145deg,#805a2c,#382719)}
+#lobby .preview-chest{width:42px;height:42px;border-color:#ddbd74}
+#lobby .preview-dodge{width:42px;height:42px;border-color:#8fc5f2}
+#lobby .preview-fire{border-color:#ff9d5d;color:#ffd2a4}
+#lobby .preview-lightning{border-color:#85baff;color:#d2e7ff}
+#lobby .preview-special{border-color:#bba1ff;color:#e3d6ff}
+#lobby .hud-preview-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+#lobby .hud-preview-footer span{flex:1;min-width:130px;font-size:9px;line-height:1.35;color:#a9bfce}
+#lobby .hud-preview-footer button{border-color:#b49a67;color:#ffe7ad}
+@media(max-width:520px){
+  #lobby .lobby-nav{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+  #lobby .lobby-nav-btn{min-width:0;padding:8px 3px;font-size:8px;letter-spacing:0}
+  #lobby .lobby-nav-btn span{margin-right:2px}
+  #lobby .hud-preview-stage{aspect-ratio:1.48}
+  #lobby .hud-preview-control{width:42px;height:42px;font-size:18px}
+  #lobby .preview-attack{width:48px;height:48px}
+  #lobby .preview-chest,#lobby .preview-dodge{width:38px;height:38px}
+}
