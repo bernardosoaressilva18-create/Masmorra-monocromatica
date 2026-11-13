@@ -4582,15 +4582,35 @@ $('dodgeBtn').addEventListener('pointerdown', e => {
 });
 
 addEventListener('keydown', e => {
-  if (e.target && e.target.closest && e.target.closest('input,textarea,select') && e.code !== 'Escape') return;
-  if (['Space','KeyE','KeyR','KeyQ','ShiftLeft','ShiftRight'].includes(e.code)) e.preventDefault();
-  keys[e.code] = true;
-  if (e.code === 'Space') attack();
-  if (e.code === 'KeyE') interactChest();
-  if (e.code === 'KeyR') useSelectedItem();
-  if (e.code === 'KeyQ' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') dodge();
+  // Não rouba teclas enquanto o jogador escreve ou altera uma configuração.
+  if (e.target && e.target.closest && e.target.closest('input,textarea,select,button[contenteditable="true"]')) return;
+  if (e.repeat) return;
+  const code = e.code;
+  if (['Space','KeyE','KeyR','KeyQ','Digit1','Digit2','Digit3','KeyI','KeyK','KeyG','Escape'].includes(code)) e.preventDefault();
+  keys[code] = true;
+
+  // Controles de combate no PC: atalhos acionam as mesmas funções dos botões do HUD.
+  if (!started) {
+    if (code === 'Escape' && $('lobbyEditor') && !$('lobbyEditor').classList.contains('hidden')) closeLobbyEditor();
+    return;
+  }
+  if (code === 'Space') attack();
+  else if (code === 'Digit1' || code === 'Numpad1') activateClassAbility(0);
+  else if (code === 'Digit2' || code === 'Numpad2') activateClassAbility(1);
+  else if (code === 'Digit3' || code === 'Numpad3') activateClassAbility(2);
+  else if (code === 'KeyE') interactChest();
+  else if (code === 'KeyR') useSelectedItem();
+  else if (code === 'KeyQ') dodge();
+  else if (code === 'KeyI') $('inventoryToggleBtn')?.click();
+  else if (code === 'KeyK') $('skillToggleBtn')?.click();
+  else if (code === 'KeyG') $('settingsBtn')?.click();
+  else if (code === 'Escape') {
+    if ($('skillPanel') && !$('skillPanel').classList.contains('hidden')) $('skillCloseBtn')?.click();
+    else if ($('settingsPanel') && !$('settingsPanel').classList.contains('hidden')) $('settingsCloseBtn')?.click();
+    else $('settingsBtn')?.click();
+  }
 });
-addEventListener('keyup', e => keys[e.code] = false);
+addEventListener('keyup', e => { keys[e.code] = false; });
 
 // Joystick de toque
 const joyEl = $('joystick'), stick = $('stick');
