@@ -295,7 +295,7 @@ let adaptiveDetailTier = 0;
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x101a29, isMobileDevice ? .0036 : .0042);
+  scene.fog = new THREE.FogExp2(0x172638, isMobileDevice ? .00265 : .00305);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
   renderer = new THREE.WebGLRenderer({
@@ -342,7 +342,7 @@ function init3D() {
   if (!isMobileDevice) scene.add(warmRimLight);
   // Luz ambiente global também no celular: sem ela, áreas sem luz direta ficam quase pretas.
   // AmbientLight é barata e ilumina personagens, chão e cenário sem criar sombras extras.
-  const ambientFill = new THREE.AmbientLight(0x9bb8d8, isMobileDevice ? 0.82 : 0.34);
+  const ambientFill = new THREE.AmbientLight(0xb5cce2, isMobileDevice ? 1.18 : 0.58);
   scene.add(ambientFill);
   const cryptLight = new THREE.PointLight(0x62cfff, 10, 20, 2);
   cryptLight.position.set(-8, 2.6, 1);
@@ -388,20 +388,20 @@ function updateDayNightCycle(worldTime) {
   const realmTint = currentRealmVisual === 3 ? 0.12 : currentRealmVisual === 2 ? 0.07 : 0;
 
   dayNightSunLight.position.set(Math.cos(sunAngle) * 18, Math.max(-3, Math.sin(sunAngle) * 15 + 1), 4);
-  dayNightSunLight.intensity = (isMobileDevice ? 0.42 : 0.18) + daylight * (isMobileDevice ? 1.28 : 1.18);
+  dayNightSunLight.intensity = (isMobileDevice ? 0.70 : 0.34) + daylight * (isMobileDevice ? 1.35 : 1.22);
   dayNightSunLight.color.setRGB(
     0.42 + daylight * 0.58,
     0.52 + daylight * 0.42,
     0.78 - daylight * 0.12
   );
-  dayNightHemisphereLight.intensity = (isMobileDevice ? 1.28 : 0.62) + daylight * (isMobileDevice ? 1.55 : 1.72);
-  dayNightHemisphereLight.color.setRGB(0.16 + daylight * 0.62, 0.22 + daylight * 0.58, 0.48 + daylight * 0.46);
-  dayNightHemisphereLight.groundColor.setRGB(0.025 + daylight * 0.15, 0.035 + daylight * 0.13, 0.075 + daylight * 0.10);
+  dayNightHemisphereLight.intensity = (isMobileDevice ? 1.78 : 1.02) + daylight * (isMobileDevice ? 1.32 : 1.38);
+  dayNightHemisphereLight.color.setRGB(0.34 + daylight * 0.48, 0.39 + daylight * 0.42, 0.54 + daylight * 0.38);
+  dayNightHemisphereLight.groundColor.setRGB(0.10 + daylight * 0.14, 0.105 + daylight * 0.13, 0.15 + daylight * 0.10);
   if (dayNightMoonLight) dayNightMoonLight.intensity = isMobileDevice ? 0 : 0.08 + night * 0.82;
 
-  const skyR = (isMobileDevice ? 0.026 : 0.012) + daylight * (0.075 - realmTint * 0.08);
-  const skyG = (isMobileDevice ? 0.034 : 0.018) + daylight * (0.135 - realmTint * 0.18);
-  const skyB = (isMobileDevice ? 0.062 : 0.038) + daylight * (0.23 + realmTint * 0.24);
+  const skyR = (isMobileDevice ? 0.075 : 0.055) + daylight * (0.10 - realmTint * 0.05);
+  const skyG = (isMobileDevice ? 0.095 : 0.075) + daylight * (0.16 - realmTint * 0.08);
+  const skyB = (isMobileDevice ? 0.15 : 0.12) + daylight * (0.25 + realmTint * 0.14);
   if (scene.background?.isColor) scene.background.setRGB(skyR, skyG, skyB);
   if (scene.fog) scene.fog.color.setRGB(skyR, skyG, skyB);
 }
@@ -2047,6 +2047,18 @@ function installSkillTreePinch(root) {
   }, {passive:false});
 }
 function renderSkillTrees() {
+  const lobbyEditorScroll = document.querySelector('#lobby .lobby-editor-content');
+  const skillPanelScroll = $('skillPanel');
+  const lobbyBoardBefore = $('skillTreeLobby')?.querySelector('.skill-rpg-scroll');
+  const hudBoardBefore = $('skillTreeHud')?.querySelector('.skill-rpg-scroll');
+  const scrollSnapshot = {
+    lobbyEditorTop: lobbyEditorScroll?.scrollTop || 0,
+    lobbyBoardTop: lobbyBoardBefore?.scrollTop || 0,
+    lobbyBoardLeft: lobbyBoardBefore?.scrollLeft || 0,
+    skillPanelTop: skillPanelScroll?.scrollTop || 0,
+    hudBoardTop: hudBoardBefore?.scrollTop || 0,
+    hudBoardLeft: hudBoardBefore?.scrollLeft || 0
+  };
   const branches = getCurrentSkillBranches();
   const allSkills = branches.flatMap(branch => branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index})));
   const activeBranches = new Set(allSkills.filter(skill=>unlockedSkills.has(skill.id)).map(skill=>skill.branch));
@@ -2111,6 +2123,16 @@ function renderSkillTrees() {
   setSkillTreeZoom(skillTreeZoom);
   installSkillTreePinch(lobbyTree);
   installSkillTreePinch(hudTree);
+  requestAnimationFrame(() => {
+    const editor = document.querySelector('#lobby .lobby-editor-content');
+    const panel = $('skillPanel');
+    const lobbyBoard = $('skillTreeLobby')?.querySelector('.skill-rpg-scroll');
+    const hudBoard = $('skillTreeHud')?.querySelector('.skill-rpg-scroll');
+    if (editor) editor.scrollTop = scrollSnapshot.lobbyEditorTop;
+    if (panel) panel.scrollTop = scrollSnapshot.skillPanelTop;
+    if (lobbyBoard) lobbyBoard.scrollTo({left:scrollSnapshot.lobbyBoardLeft,top:scrollSnapshot.lobbyBoardTop,behavior:'instant'});
+    if (hudBoard) hudBoard.scrollTo({left:scrollSnapshot.hudBoardLeft,top:scrollSnapshot.hudBoardTop,behavior:'instant'});
+  });
   if($('skillPoints'))$('skillPoints').textContent=String(skillPoints);
   if($('skillPointsHud'))$('skillPointsHud').textContent=String(skillPoints);
   if($('skillCountLobby'))$('skillCountLobby').textContent=activeCount+'/15';
@@ -2593,14 +2615,8 @@ function handleSkillClick(event) {
   sendLoadout();
   vibrateGame(18);
   showNotice('✦ ' + skill.name + ' desbloqueada!');
-  // Keep the selected branch in view on narrow screens after the tree re-renders.
-  const matchingNodes = document.querySelectorAll('[data-skill="' + skill.id + '"]');
-  matchingNodes.forEach(node => {
-    const branchNode = node.closest('.skill-path-branch');
-    const board = node.closest('.skill-rpg-scroll');
-    if (board && !matchMedia('(pointer:coarse)').matches) board.scrollTo({left:Math.max(0,node.offsetLeft - board.clientWidth/2),behavior:'auto'});
-    node.focus({preventScroll:true});
-  });
+  // A árvore foi recriada, mas a rolagem anterior é restaurada por renderSkillTrees().
+  // Não mover o foco para cópias do nó no grimório ou no painel oculto.
 }
 $('skillTreeLobby')?.addEventListener('click', handleSkillClick);
 $('skillTreeHud')?.addEventListener('click', handleSkillClick);
@@ -3195,7 +3211,7 @@ function stepOfflineSimulation() {
   const player = offlineState.players[0];
   const now = Date.now();
   if (player.hp > 0) {
-    if (player.mana < (player.maxMana || 100)) player.mana = Math.min(player.maxMana || 100, player.mana + 1.1);
+    if (player.mana < (player.maxMana || 100)) player.mana = Math.min(player.maxMana || 100, player.mana + 0.09);
     const invisible = now < (player.invisibleUntil || 0);
     player.invisible = invisible;
     player.shielded = now < (player.shieldUntil || 0);
