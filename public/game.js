@@ -153,13 +153,29 @@ function getDungeonFloorHeight(x,z) {
   }
   return 0;
 }
-function syncMapHazardLayout(hazards=[]) {
-  const byId=new Map((Array.isArray(hazards)?hazards:[]).map(item=>[String(item.id),item]));
-  for(const visual of environmentalHazardVisuals){
-    const live=byId.get(visual.id);if(!live)continue;
-    visual.group.position.x=Number(live.x)||0;
-    visual.group.position.z=Number(live.z)||0;
+function syncMapHazardLayout(hazards=[]){
+ const list=Array.isArray(hazards)?hazards:[];
+ const byId=new Map(list.map(item=>[String(item.id),item]));
+ const roots=[['dungeon',environmentGroups.dungeon],['astral',environmentGroups.astral],['eclipse',environmentGroups.eclipse]].filter(([,root])=>!!root);
+ for(const hazard of list){
+  const id=String(hazard.id),existing=environmentalHazardVisuals.find(v=>v.id===id&&v.realm==='dungeon');
+  if(!existing)continue;
+  for(const [realm,root] of roots){
+   if(realm==='dungeon')continue;
+   if(environmentalHazardVisuals.some(v=>v.id===id&&v.realm===realm))continue;
+   const clone=existing.group.clone(true);
+   clone.name='hazard-'+id+'-'+realm;
+   const phaseIndex=MAP_ZONE_CENTERS.reduce((best,center,index)=>Math.abs(center-Number(hazard.z))<Math.abs(MAP_ZONE_CENTERS[best]-Number(hazard.z))?index:best,0);
+   const phaseGroup=root.getObjectByName('dungeon-phase-'+(phaseIndex+1))||root;
+   phaseGroup.add(clone);
+   environmentalHazardVisuals.push({id,type:hazard.type,group:clone,realm});
   }
+ }
+ for(const visual of environmentalHazardVisuals){
+  const live=byId.get(visual.id);if(!live)continue;
+  visual.group.position.x=Number(live.x)||0;
+  visual.group.position.z=Number(live.z)||0;
+ }
 }
 function syncUnderworldVisuals(pits=[]) {
   const open=Array.isArray(pits)?pits.filter(pit=>pit&&pit.open):[];
@@ -520,6 +536,8 @@ function init3D() {
   buildDungeon();
   buildDungeonVisualPass();
   partitionDungeonPhaseGroups(environmentGroups.dungeon);
+  partitionDungeonPhaseGroups(environmentGroups.astral);
+  partitionDungeonPhaseGroups(environmentGroups.eclipse);
   updateDungeonPhaseVisibility(currentPhaseVisual||1);
   createPlayer();
   initLobby3DPreview();
@@ -719,7 +737,7 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
     for(const field of environmentalHazards){
       const fieldGroup=new THREE.Group();fieldGroup.name='hazard-'+field.id;
       fieldGroup.position.set(field.x,0,field.z);parent.add(fieldGroup);
-      environmentalHazardVisuals.push({id:field.id,type:field.type,group:fieldGroup});
+      environmentalHazardVisuals.push({id:field.id,type:field.type,group:fieldGroup,realm:'dungeon'});
       const disk=new THREE.Mesh(new THREE.CircleGeometry(field.r,20),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
       disk.rotation.x=-Math.PI/2;disk.position.y=.035;fieldGroup.add(disk);
       const warning=new THREE.Mesh(new THREE.TorusGeometry(field.r*.88,.055,6,28),new THREE.MeshStandardMaterial({color:field.color,emissive:field.color,emissiveIntensity:.95,transparent:true,opacity:.94,roughness:.32,metalness:.25}));
@@ -4980,6 +4998,7 @@ function updateState(m) {
   }
 
   const phase = m.phase || 1, phaseLabel = $('phaseLabel');
+  updateDungeonPhaseVisibility(phase);
   if (phase !== currentPhaseVisual) {
     const previousPhase = currentPhaseVisual;
     currentPhaseVisual = phase;
