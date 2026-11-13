@@ -1883,7 +1883,8 @@ function chooseClass(className) {
 }
 document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => chooseClass(card.dataset.class)));
 function chooseSkin(skinName) {
-  if (!['default','shadow','ember','rune','celestial','bloodmoon'].includes(skinName)) return;
+  if (![...FREE_LOBBY_SKINS,...CHEST_ONLY_SKINS].includes(skinName)) return;
+  if(!FREE_LOBBY_SKINS.includes(skinName)&&!unlockedSkins.has(skinName)){showNotice('Essa skin secreta só pode ser encontrada em baús!');return;}
   selectedSkin = skinName;
   try { localStorage.setItem('mmCharacterChoice', JSON.stringify({ playerClass: selectedClass, skin: selectedSkin })); } catch {}
   document.querySelectorAll('.skin-pick').forEach(el => el.classList.toggle('selected', el.dataset.skin === selectedSkin));
@@ -1894,10 +1895,24 @@ function chooseSkin(skinName) {
     offlineState.players[0].playerClass = selectedClass;
     if (!offlineState.started) updateState(offlineState);
   }
-  sendLoadout();
+  sendLoadout();saveSharedProfile();
   closeLobbyEditor();
 }
 document.querySelectorAll('.skin-pick').forEach(card => card.addEventListener('click', () => chooseSkin(card.dataset.skin)));
+function refreshSkinPicker(){
+  const root=document.querySelector('#lobby [data-lobby-editor-panel="skin"] .skin-picks');if(!root)return;
+  root.querySelectorAll('[data-chest-skin="true"]').forEach(node=>node.remove());
+  const labels={rune:['Runas','Arcana','rune'],celestial:['Celestial','Lendária','celestial'],bloodmoon:['Lua Sangrenta','Sombria','bloodmoon'],frostguard:['Guarda Glacial','Gelo','frostguard'],draconic:['Dracônica','Dragão','draconic'],voidwalker:['Andarilho do Vazio','Mística','voidwalker'],verdant:['Verdejante','Natureza','verdant']};
+  CHEST_ONLY_SKINS.filter(id=>unlockedSkins.has(id)).forEach(id=>{
+    const info=labels[id];if(!info)return;
+    const button=document.createElement('button');button.type='button';button.className='skin-pick';button.dataset.skin=id;button.dataset.chestSkin='true';
+    const swatch=document.createElement('span');swatch.className='skin-swatch '+info[2];
+    const title=document.createElement('b');title.textContent=info[0];
+    const subtitle=document.createElement('small');subtitle.textContent=info[1]+' · BAÚ';
+    button.append(swatch,title,subtitle);button.addEventListener('click',()=>chooseSkin(id));root.appendChild(button);
+  });
+  root.querySelectorAll('.skin-pick').forEach(node=>node.classList.toggle('selected',node.dataset.skin===selectedSkin));
+}
 function updateHeroShowcase() {
   const classInfo = {
     knight:{name:'Cavaleiro',glyph:'🛡️',desc:'Vida elevada · defesa natural · espada'},
@@ -1910,7 +1925,9 @@ function updateHeroShowcase() {
     monk:{name:'Monge',glyph:'🥋',desc:'Combo de três golpes · impacto e mobilidade'},
     golem:{name:'Golem de Pedra',glyph:'🪨',desc:'220 de vida · divisão em três · pedra em área'}
   }[selectedClass] || {name:'Cavaleiro',glyph:'🛡️',desc:'Defesa elevada'};
-  const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'},rune:{label:'SKIN RUNAS',cls:'skin-rune'},celestial:{label:'SKIN CELESTIAL',cls:'skin-celestial'},bloodmoon:{label:'SKIN LUA SANGRENTA',cls:'skin-bloodmoon'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
+  const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'},rune:{label:'SKIN RUNAS',cls:'skin-rune'},celestial:{label:'SKIN CELESTIAL',cls:'skin-celestial'},bloodmoon:{label:'SKIN LUA SANGRENTA',cls:'skin-bloodmoon'},frostguard:{label:'GUARDA GLACIAL',cls:'skin-frostguard'},draconic:{label:'SKIN DRACÔNICA',cls:'skin-draconic'},voidwalker:{label:'ANDARILHO DO VAZIO',cls:'skin-voidwalker'},verdant:{label:'SKIN VERDEJANTE',cls:'skin-verdant'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
+  refreshSkinPicker();
+  const skinCount=$('unlockedSkinCount');if(skinCount)skinCount.textContent=unlockedSkins.size+'/7 DESBLOQUEADAS';
   const avatar=$('heroPreviewAvatar');
   if(avatar){avatar.className='hero-preview-avatar '+skinInfo.cls+' class-'+selectedClass;}
   if($('heroPreviewGlyph')) { $('heroPreviewGlyph').textContent=classInfo.glyph; $('heroPreviewGlyph').setAttribute('aria-hidden','true'); }
@@ -3247,17 +3264,20 @@ function updateState(m) {
     incoming.add(p.id);
 
     if (p.id === playerId) {
-      const incomingSkills = Array.isArray(p.skills) ? p.skills : [];
-      const changed = selectedClass !== (p.playerClass || 'knight') || selectedSkin !== (p.skin || 'default') || skillPoints !== (p.talentPoints ?? 5) || incomingSkills.slice().sort().join(',') !== Array.from(unlockedSkills).sort().join(',');
-      selectedClass = p.playerClass || selectedClass;
-      selectedSkin = p.skin || selectedSkin;
-      updateClassAbilityButtons();
-      skillPoints = Number.isFinite(p.talentPoints) ? p.talentPoints : skillPoints;
-      unlockedSkills.clear(); incomingSkills.forEach(id => unlockedSkills.add(id));
+      const incomingSkills=Array.isArray(p.skills)?p.skills:[];
+      const incomingSkins=Array.isArray(p.unlockedSkins)?p.unlockedSkins.filter(id=>CHEST_ONLY_SKINS.includes(id)):[];
+      const skinSetChanged=incomingSkins.slice().sort().join(',')!==Array.from(unlockedSkins).filter(id=>CHEST_ONLY_SKINS.includes(id)).sort().join(',');
+      const changed=selectedClass!==(p.playerClass||'knight')||selectedSkin!==(p.skin||'default')||skillPoints!==(p.talentPoints??5)||incomingSkills.slice().sort().join(',')!==Array.from(unlockedSkills).sort().join(',');
+      selectedClass=p.playerClass||selectedClass;selectedSkin=p.skin||selectedSkin;
+      unlockedSkins=new Set(['default','shadow','ember',...incomingSkins]);
+      equipmentDamage=Math.max(0,Math.min(18,Number(p.equipmentDamage)||equipmentDamage));
+      updateClassAbilityButtons();skillPoints=Number.isFinite(p.talentPoints)?p.talentPoints:skillPoints;
+      unlockedSkills.clear();incomingSkills.forEach(id=>unlockedSkills.add(id));
       document.querySelectorAll('.class-card').forEach(el => el.classList.toggle('selected', el.dataset.class === selectedClass));
       if ($('classDescription')) $('classDescription').textContent = classDescriptions[selectedClass] || classDescriptions.knight;
       updateHeroShowcase();
       if (changed) { lastSkillSignature = ''; syncLoadoutUI(); }
+      if(changed||skinSetChanged)saveSharedProfile();
       if (myPlayer) {
         myPlayer.userData.serverX = p.x;
         myPlayer.userData.serverZ = p.z;
