@@ -534,6 +534,30 @@ function box(w, h, d, material, x, y, z) {
 }
 
 
+function addVoidBackdrop(parent,baseColor=0x101827,rockColor=0x39485b){
+ const base=new THREE.Mesh(new THREE.PlaneGeometry(118,238),new THREE.MeshStandardMaterial({color:baseColor,roughness:1,metalness:.04,emissive:baseColor,emissiveIntensity:.12,side:THREE.DoubleSide}));
+ base.rotation.x=-Math.PI/2;base.position.set(0,-8,-84);base.name='deep-abyss-floor';parent.add(base);
+ const count=isMobileDevice?38:76,geometry=new THREE.DodecahedronGeometry(.72,0);
+ const material=new THREE.MeshStandardMaterial({color:rockColor,roughness:.97,metalness:.05});
+ const rocks=new THREE.InstancedMesh(geometry,material,count),dummy=new THREE.Object3D();
+ for(let i=0;i<count;i++){
+  const side=i%2===0?-1:1;
+  dummy.position.set(side*(15+Math.random()*28),-4.2-Math.random()*3,-180+Math.random()*196);
+  dummy.rotation.set(Math.random()*.5,Math.random()*Math.PI,Math.random()*.5);
+  const scale=.75+Math.random()*1.7;dummy.scale.set(scale,scale*(.55+Math.random()*.5),scale*(.8+Math.random()*.55));
+  dummy.updateMatrix();rocks.setMatrixAt(i,dummy.matrix);
+ }
+ rocks.instanceMatrix.needsUpdate=true;rocks.name='floating-abyss-rocks';parent.add(rocks);
+ const mistMaterial=new THREE.MeshBasicMaterial({color:0x7899b7,transparent:true,opacity:.075,depthWrite:false,side:THREE.DoubleSide});
+ const mistCount=isMobileDevice?10:18,mist=new THREE.InstancedMesh(new THREE.CircleGeometry(1,10),mistMaterial,mistCount);
+ for(let i=0;i<mistCount;i++){
+  const side=i%2===0?-1:1;
+  dummy.position.set(side*(14+Math.random()*24),-6.4,-180+Math.random()*194);
+  dummy.rotation.set(-Math.PI/2,0,Math.random()*Math.PI);
+  const scale=2+Math.random()*4;dummy.scale.set(scale,scale*.7,1);dummy.updateMatrix();mist.setMatrixAt(i,dummy.matrix);
+ }
+ mist.instanceMatrix.needsUpdate=true;mist.name='abyss-mist-clouds';parent.add(mist);
+}
 function addOrganicZoneFloor(center, index, sideMaterial, topMaterial, height = -.5) {
   const points=MAP_ZONE_POLYGONS[index];
   const shape=new THREE.Shape();
@@ -671,6 +695,7 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
 
 function buildDungeon() {
   const dungeonGroup=new THREE.Group();dungeonGroup.name='environment-monochrome';scene.add(dungeonGroup);activeEnvironmentGroup=dungeonGroup;
+  addVoidBackdrop(dungeonGroup,0x0e1725,0x354356);
 
   // Uma única textura partilhada mantém o detalhe visual sem criar materiais por objeto.
   const dungeonTexture = surfaceTexture.clone();
@@ -1110,6 +1135,7 @@ function buildDungeonVisualPass() {
 
 function buildAstralWorld(){
   const astral=new THREE.Group();astral.name='environment-vale-astral';scene.add(astral);activeEnvironmentGroup=astral;
+  addVoidBackdrop(astral,0x17132d,0x453b68);
   const deepStone=new THREE.MeshStandardMaterial({color:0x17132f,roughness:.82,metalness:.12});
   const islandTop=new THREE.MeshStandardMaterial({color:0x29224b,roughness:.75,metalness:.2,emissive:0x110c2c,emissiveIntensity:.38});
   const islandEdge=new THREE.MeshStandardMaterial({color:0x251b42,roughness:.92,metalness:.08});
@@ -1186,8 +1212,8 @@ function buildEclipseWorld(){
 }
 function showRealmTransition(realm){
   const overlay=$('phaseTransition');if(!overlay)return;
-  $('phaseTransitionTitle').textContent=realm===3?'ECLIPSE SELVAGEM':realm===2?'VALE ASTRAL':'MUNDO MONOCROMÁTICO';
-  $('phaseTransitionSub').textContent=realm===3?'MUNDO III · CINCO REGIÕES · O SOBERANO DO ECLIPSE':realm===2?'MUNDO II · CINCO REGIÕES · UM NOVO GUARDIÃO':'MUNDO I · CINCO REGIÕES · SOBREVIVA À MASMORRA';
+  $('phaseTransitionTitle').textContent=realm===3?'MUNDO INVERTIDO':realm===2?'VALE ASTRAL':'MUNDO MONOCROMÁTICO';
+  $('phaseTransitionSub').textContent=realm===3?'MUNDO III · CINCO REGIÕES · O ECLIPSE INVERTIDO':realm===2?'MUNDO II · CINCO REGIÕES · UM NOVO GUARDIÃO':'MUNDO I · CINCO REGIÕES · SOBREVIVA À MASMORRA';
   overlay.dataset.realm=String(realm);
   overlay.classList.remove('hidden','phase-out');overlay.classList.add('phase-in');
   setTimeout(()=>{overlay.classList.remove('phase-in');overlay.classList.add('phase-out');},2300);
@@ -4634,11 +4660,11 @@ function updateState(m) {
     if(offlineMode&&phase===5&&m.portalOpen)phaseObjective.textContent=realm<3?'PORTAL ABERTO! Atravesse para o próximo mundo':'TRÊS MUNDOS CONQUISTADOS! Exploração concluída';
     else if(isPvpRpg) phaseObjective.textContent='PvP RPG · Derrote rivais e invoque monstros aliados';
     else if(phase===5&&m.boss&&!m.boss.alive&&realm===1){const nearGate=myPlayer&&Math.hypot(myPlayer.position.x,myPlayer.position.z+168)<16;phaseObjective.textContent=nearGate?'PORTÃO ABERTO! Atravesse para o Vale Astral':'Siga pelo Abismo até o portão do Vale Astral';}
-    else if(phase===5&&m.boss&&!m.boss.alive&&realm===2)phaseObjective.textContent='Guardião Astral derrotado! Vale conquistado';
-    else if(phase===5)phaseObjective.textContent=realm===2?'Derrote o Guardião Astral':'Derrote o Guardião Supremo';
-    else phaseObjective.textContent=realm===2?'Derrote os inimigos astrais e avance':'Derrote os monstros e atravesse o portão da região';
+    else if(phase===5&&m.boss&&!m.boss.alive&&realm===2)phaseObjective.textContent='PORTAL DO MUNDO INVERTIDO LIBERADO! Atravesse a passagem';
+    else if(phase===5)phaseObjective.textContent=realm===2?'Derrote o Guardião Astral':realm===3?'Derrote o Soberano do Mundo Invertido':'Derrote o Guardião Supremo';
+    else phaseObjective.textContent=realm===2?'Derrote os inimigos astrais e avance':realm===3?'MUNDO INVERTIDO · Sobreviva às regiões corrompidas':'Derrote os monstros e atravesse o portão da região';
   }
-  if(phaseLabel)phaseLabel.textContent=isPvpRpg?'⚔ ARENA LIVRE · PRIMEIRO A 10 KOs':realm===2?'VALE ASTRAL · FASE '+phase+' / 5':'MUNDO MONOCROMÁTICO · FASE '+phase+' / 5';
+  if(phaseLabel)phaseLabel.textContent=isPvpRpg?'⚔ ARENA LIVRE · PRIMEIRO A 10 KOs':realm===3?'MUNDO INVERTIDO · FASE '+phase+' / 5':realm===2?'VALE ASTRAL · FASE '+phase+' / 5':'MUNDO MONOCROMÁTICO · FASE '+phase+' / 5';
   const bossPanel = $('bossPanel');
   if (bossPanel) bossPanel.classList.toggle('hidden', isPvpRpg || phase !== 5 || !m.boss || !m.boss.alive);
   bossData = m.boss || null;
@@ -4646,7 +4672,7 @@ function updateState(m) {
   syncBossTelegraphs(bossData && bossData.alive ? bossData.telegraphs : []);
   if (bossData && bossData.alive) {
     const bossTitle=document.querySelector('.boss-title');
-    if(bossTitle)bossTitle.textContent=realm===2?'GUARDIÃO ASTRAL':'GUARDIÃO DO ABISMO';
+    if(bossTitle)bossTitle.textContent=realm===3?'SOBERANO DO MUNDO INVERTIDO':realm===2?'GUARDIÃO ASTRAL':'GUARDIÃO DO ABISMO';
     if (!bossMesh) { bossMesh = makeBoss(); scene.add(bossMesh); }
     bossMesh.visible = true; bossMesh.userData.targetX = bossData.x; bossMesh.userData.targetZ = bossData.z;
     bossMesh.userData.serverHp = Number(bossData.hp) || 0;
