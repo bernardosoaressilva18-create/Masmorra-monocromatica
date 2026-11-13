@@ -251,6 +251,17 @@
     <button id="leaveBtn" class="leave">SAIR</button>
   </div>
   <div id="manaHud" class="mana-hud" aria-label="Mana"><div class="mana-label"><span>✦ MANA</span><b id="manaText">100 / 100</b></div><div class="mana-track"><i id="manaFill"></i></div></div>
+  <div class="level-hud" aria-label="Nível e experiência">
+    <button id="levelToggleBtn" type="button" class="level-toggle">✦ NÍVEL <b id="levelText">1</b><span id="levelPointsBadge">0 PONTOS</span></button>
+    <div class="level-xp-track"><i id="xpFill"></i></div>
+    <small id="xpText">0 / 100 XP</small>
+  </div>
+  <section id="levelPanel" class="level-panel hidden" aria-label="Melhorias por nível">
+    <header class="level-panel-head"><div><small>PROGRESSÃO DO AVENTUREIRO</small><strong>ÁRVORE DE ATRIBUTOS</strong></div><button id="levelCloseBtn" type="button" aria-label="Fechar melhorias">×</button></header>
+    <div class="level-summary"><b>Nível <span id="levelPanelNumber">1</span></b><span id="levelPointsText">0 pontos disponíveis</span></div>
+    <p>Ganhe XP derrotando monstros e chefes. Cada nível concede 1 ponto para melhorar seu personagem.</p>
+    <div id="levelUpgradeList" class="level-upgrade-list"></div>
+  </section>
   <div id="settingsPanel" class="settings-panel hidden" aria-label="Configurações do jogo">
     <div class="settings-head"><strong>⚙ CONFIGURAÇÕES</strong><button id="settingsCloseBtn" type="button" aria-label="Fechar configurações">✕</button></div>
     <label class="setting-range" for="lookSensitivity">Sensibilidade horizontal <output id="lookSensitivityValue">1,2×</output></label>
