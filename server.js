@@ -361,7 +361,10 @@ function takeDamage(room, player, amount) {
   if (!Number.isFinite(incomingDamage) || incomingDamage <= 0) return 0;
   // A esquiva é validada pelo servidor e concede uma janela curta contra dano.
   if (Date.now() < (player.dodgeUntil || 0)) return 0;
-  let damage = incomingDamage * (1 - (statsFor(player).reduction || 0));
+  const rawReduction = Number(statsFor(player).reduction) || 0;
+  // Nenhuma combinação de atributos pode zerar o dano recebido permanentemente.
+  const cappedReduction = Math.min(0.65, Math.max(0, rawReduction));
+  let damage = incomingDamage * (1 - cappedReduction);
   if (hasSkill(player, 'iron_skin')) damage *= .8;
   if (hasSkill(player, 'knight_fortress')) damage *= .96;
   if (hasSkill(player, 'ogre_blood')) damage *= .96;
@@ -495,7 +498,7 @@ function advancePhase(room) {
     if (player.hp > 0) player.hp = Math.min(player.maxHp || 100, player.hp + 15);
     if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 20 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
   }
-  room.monsters = createWave(room.phase, room.realm || 1, room.safeZoneUntil + 700);
+  room.monsters = createWave(room.phase, room.realm || 1, room.safeZoneUntil + 120);
   room.boss = null;
   if (room.phase === 5) {
     room.monsters = [];
@@ -514,13 +517,13 @@ function advancePhase(room) {
 }
 
 function enterAstralRealm(room){
- room.realm=2;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,2,room.safeZoneUntil+700);room.boss=null;room.cursedBoss=null;
+ room.realm=2;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,2,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
  room.chests=[{id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},{id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}];
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 function enterEclipseRealm(room){
- room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+18000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil+700);room.boss=null;room.cursedBoss=null;
+ room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+18000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
  room.chests=[{id:'e0',x:8,z:-12,openedBy:[]},{id:'e1',x:-8,z:-44,openedBy:[]},{id:'e2',x:8,z:-76,openedBy:[]},{id:'e3',x:-8,z:-108,openedBy:[]},{id:'e4',x:8,z:-140,openedBy:[]}];
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ MUNDO III! Você chegou ao Eclipse Selvagem: inimigos mais fortes, novo guardião e +3 pontos de skill.'}));}
  broadcast(room,state(room));
@@ -924,7 +927,7 @@ wss.on('connection', ws => {
       } else {
         room.safeZoneUntil=Date.now()+12000;
         room.nextSafeBroadcast=0;
-        room.monsters=createWave(1,room.realm||1,room.safeZoneUntil+700);
+        room.monsters=createWave(1,room.realm||1,room.safeZoneUntil + 120);
         broadcast(room,{type:'notice',text:'Zona segura inicial por 12 segundos! Prepare seu personagem. Os monstros vão surgir depois, um de cada vez.'});
       }
       broadcast(room,state(room));
