@@ -588,8 +588,14 @@ const STATIC_DUNGEON_COLLIDERS = (() => {
   }
   return list;
 })();
-function isServerPositionBlocked(room, x, z) {
-  const playerRadius = 0.43;
+function isServerPositionBlocked(room,x,z){
+  const playerRadius=.43;
+  if(room.started&&room.gameMode!=='pvp_rpg'){
+    const phase=Math.max(1,Math.min(5,Number(room.phase)||1));
+    const gateZ=phase<5?-(30+(phase-1)*32):-163.2;
+    const enemiesAlive=phase===5?!!room.boss?.alive:(room.monsters||[]).some(monster=>monster.alive);
+    if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
+  }
   // Colisores de pilares são exclusivos do mundo original.
   if ((room.realm || 1) === 1) {
     for (const obstacle of STATIC_DUNGEON_COLLIDERS) {
@@ -994,7 +1000,11 @@ wss.on('connection', ws => {
       broadcast(room, { type: 'dodge', id: player.id, x: player.x, z: player.z, until: player.dodgeUntil });
       broadcast(room, state(room));
     } else if (msg.type === 'useItem') {
-      if (!room.started || player.hp <= 0) return;
+      if(!room.started||player.hp<=0){
+        ws.send(JSON.stringify({type:'notice',text:!room.started?'Entre na partida para usar itens.':'Você precisa estar vivo para usar itens.'}));
+        return;
+      }
+      player.lootDrops=Array.isArray(player.lootDrops)?player.lootDrops:[];
       const requestedItemId=String(msg.id??'');
       const itemIndex=player.lootDrops.findIndex(item=>String(item.id)===requestedItemId);
       if (itemIndex < 0) { ws.send(JSON.stringify({ type: 'notice', text: 'Esse item não está mais no inventário.' })); return; }
@@ -1003,14 +1013,12 @@ wss.on('connection', ws => {
       const maxHp = player.maxHp || 100;
       const heal = fraction => Math.max(1, Math.round(maxHp * fraction));
       let effect = '';
-      if (item.name === 'Poção de Vida') {
-        if (player.hp >= maxHp) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
-        const before = player.hp; player.hp = Math.min(maxHp, player.hp + heal(tier.potion));
-        effect = 'Vida +' + (player.hp - before) + ' (' + item.rarity + ' · nível ' + rarityMultiplier(item.rarity) + '/5).';
-      } else if (item.name === 'Moeda Antiga') {
-        if (player.hp >= maxHp) { ws.send(JSON.stringify({ type: 'notice', text: 'Sua vida já está cheia!' })); return; }
-        const before = player.hp; player.hp = Math.min(maxHp, player.hp + heal(tier.coin));
-        effect = 'Moeda ' + item.rarity + ': +' + (player.hp - before) + ' de vida.';
+      if(item.name==='Poção de Vida'){
+        if(player.hp>=maxHp){const before=player.mana||0;player.mana=Math.min(player.maxMana||100,before+Math.round((player.maxMana||100)*.2));effect='Vida cheia: mana +'+(player.mana-before)+'.';}
+        else{const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier.potion));effect='Vida +'+(player.hp-before)+' ('+item.rarity+' · nível '+rarityMultiplier(item.rarity)+'/5).';}
+      }else if(item.name==='Moeda Antiga'){
+        if(player.hp>=maxHp){player.damageBuff=Math.max(player.damageBuff||0,1);player.damageBuffHits=Math.max(player.damageBuffHits||0,2);effect='Bônus de dano +1 por 2 golpes.';}
+        else{const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier.coin));effect='Moeda '+item.rarity+': +'+(player.hp-before)+' de vida.';}
       } else if (item.name === 'Pó de Cristal') {
         const before = player.hp; player.hp = Math.min(maxHp, player.hp + heal(tier.powderHeal));
         player.damageBuff = Math.max(player.damageBuff, tier.powderDamage);
@@ -1028,9 +1036,10 @@ wss.on('connection', ws => {
         player.equipmentDamage = Math.min(18, (player.equipmentDamage || 0) + tier.gearDamage);
         refreshPlayerStats(player, false);
         effect = 'Equipado! +' + tier.gearDamage + ' ataque permanente (' + item.rarity + '). Ataque total: ' + player.baseDamage + '.';
-      } else if (item.name === 'Coração do Guardião') {
-        const before = player.hp; player.hp = Math.min(maxHp, player.hp + heal(tier.heart));
-        effect = 'Coração ' + item.rarity + ': +' + (player.hp - before) + ' de vida.';
+      }else if(item.name==='Coração do Guardião'){
+        const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier.heart));
+        if(player.hp===before)player.shieldUntil=Math.max(player.shieldUntil||0,Date.now()+2500);
+        effect=player.hp>before?'Coração '+item.rarity+': +'+(player.hp-before)+' de vida.':'Vida cheia: escudo de emergência por 2,5 segundos.';
       } else if (item.name === 'Cristal Ancestral') {
         player.damageBuff = Math.max(player.damageBuff, tier.ancientDamage);
         player.damageBuffHits = Math.max(player.damageBuffHits, tier.ancientHits);
