@@ -612,7 +612,7 @@ function ensureRoomHost(room) {
 const SERVER_MAP_CENTERS=[-14,-46,-78,-110,-153];
 const SERVER_MAP_POLYGONS=[
 [[-4.8,-17],[4.8,-17],[8,-13],[11.4,-8],[13.1,-2],[13.2,3],[10.4,9],[7,13],[4.5,17],[-4.5,17],[-7,13],[-10.4,9],[-13.2,3],[-13.1,-2],[-11.4,-8],[-8,-13]],
-[[-4.6,-15],[4.6,-15],[8.4,-12],[12.2,-7],[13,-1],[11.6,6],[8,11],[4.2,15],[-4.2,15],[-8,11],[-11.6,6],[-13,1],[-12.2,-7],[-8.4,-12]],
+[[-4.6,-15],[4.6,-15],[8.4,-12],[12.2,-7],[13,-1],[11.6,6],[8,11],[4.2,15],[-4.2,15],[-8,11],[-11.6,6],[-13,-1],[-12.2,-7],[-8.4,-12]],
 [[-4.5,-15],[4.5,-15],[7.2,-11],[12,-8],[13,-2],[11,4],[8.5,9],[4,15],[-4,15],[-8.5,9],[-11,4],[-13,-2],[-12,-8],[-7.2,-11]],
 [[-4.6,-15],[4.6,-15],[8.8,-11],[12.5,-6],[11.2,0],[13,5],[8,11],[4,15],[-4,15],[-8,11],[-13,5],[-11.2,0],[-12.5,-6],[-8.8,-11]],
 [[-5.5,-20],[5.5,-20],[9.2,-16],[13,-10],[13.5,-3],[12,5],[8,13],[4.5,20],[-4.5,20],[-8,13],[-12,5],[-13.5,-3],[-13,-10],[-9.2,-16]]
@@ -655,13 +655,23 @@ function processPressurePlate(room,player,now){
 function applyMapHazards(room,player,now){
  if(!player||player.hp<=0||room.gameMode==='pvp_rpg'||now<(player.mapTrapDamageAt||0))return;
  let hazard=null;
- for(const spike of SERVER_SPIKES)if(Math.hypot(player.x-spike.x,player.z-spike.z)<spike.r){hazard=spike;break;}
+ for(const spike of SERVER_SPIKES){
+  if(Math.hypot(player.x-spike.x,player.z-spike.z)<spike.r){hazard=spike;break;}
+ }
+ const activePit=(room.openTraps||[]).map(id=>SERVER_PITS.find(item=>item.id===id))
+  .find(item=>item&&Math.hypot(player.x-item.pitX,player.z-item.pitZ)<1.88);
+ if(!hazard&&activePit&&Math.hypot(player.x-activePit.pitX,player.z-activePit.pitZ)<.78){
+  hazard={id:'pit-center-'+activePit.id,damage:9};
+ }
  if(!hazard)return;
- player.mapTrapDamageAt=now+(pit?850:1050);
+ const insidePit=String(hazard.id).startsWith('pit-');
+ player.mapTrapDamageAt=now+(insidePit?850:1050);
  const applied=takeDamage(room,player,hazard.damage);
- if(applied&&player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:pit?'✹ Espinho no fundo do poço! -'+applied+' HP.':'✹ Espinhos no caminho! -'+applied+' HP.'}));
+ if(applied&&player.ws?.readyState===WebSocket.OPEN){
+  player.ws.send(JSON.stringify({type:'notice',text:insidePit?'✹ Espinho no fundo do poço! -'+applied+' HP.':'✹ Espinhos no caminho! -'+applied+' HP.'}));
+ }
 }
-const LEVEL_UPGRADE_RULES={health:{max:10},power:{max:10},mana:{max:10},defense:{max:8},magic:{max:8},attack:{max:8},recovery:{max:8},item:{max:8},autoDodge:{max:1},xp:{max:8},critical:{max:8}};
+const LEVEL_UPGRADE_RULES={health:{max:10},power:{max:10},mana:{max:10},defense:{max:8},magic:{max:8},attack:{max:8},recovery:{max:8},item:{max:8},autoDodge:{max:1},xp:{max:8},critical:{max:8},movement:{max:6},cooldown:{max:8}};
 function defaultLevelUpgrades(){return Object.fromEntries(Object.keys(LEVEL_UPGRADE_RULES).map(key=>[key,0]));}
 function levelXpNeeded(level){return Math.round(100+Math.max(0,level-1)*32+Math.pow(Math.max(0,level-1),1.16)*4);}
 function cleanLevelUpgrades(value){
@@ -1237,7 +1247,7 @@ wss.on('connection', ws => {
         + (ability.startsWith('goblin_') && hasSkill(player, 'goblin_trickster') ? 2500 : 0)
         + (ability === 'necromancer_dive' && hasSkill(player, 'necromancer_shadowstep') ? 2500 : 0)
         + (ability === 'golem_rock_toss' && hasSkill(player, 'golem_mountaincore') ? 2000 : 0);
-      player.abilityCooldowns[ability]=now+Math.max(4500,cooldownMs[ability]-cooldownReduction);
+      const levelCooldownFactor=1-Math.min(.20,cleanLevelUpgrades(player.levelUpgrades).cooldown*.025);player.abilityCooldowns[ability]=now+Math.max(4500,Math.round((cooldownMs[ability]-cooldownReduction)*levelCooldownFactor));
       if(room.gameMode==='pvp_rpg'){
         const rivals=()=>[...room.players.values()].filter(p=>p.connected!==false&&String(p.id)!==String(player.id)&&p.hp>0&&now>=(p.invisibleUntil||0));
         const nearest=(range=12,origin=player)=>rivals()
@@ -1666,7 +1676,7 @@ wss.on('connection', ws => {
       const hitTargets = [];
       const applyDamage = (enemy, amount) => {
         if (!enemy || !enemy.alive) return;
-        const classPower=(player.playerClass==='mage'?statsFor(player).spellPower:1)*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1)*(hasSkill(player,'mana_surge')?1.25:1);
+        const magicRank=cleanLevelUpgrades(player.levelUpgrades).magic;const classPower=(player.playerClass==='mage'?statsFor(player).spellPower:1+magicRank*.08)*(hasSkill(player,'mage_focus')?1.18:1)*(hasSkill(player,'mage_mana')?1.15:1)*(hasSkill(player,'mana_surge')?1.25:1);
         const emberBonus = spell === 'fire' && hasSkill(player, 'mage_ember') ? 1.5 : 0;
         const bossBonus = enemy === room.boss && hasSkill(player, 'boss_hunter') ? 1.5 : 1;
         const executeBonus = enemy.hp / (enemy.maxHp || 1) <= .35 && hasSkill(player, 'executioner') ? 1.5 : 1;
