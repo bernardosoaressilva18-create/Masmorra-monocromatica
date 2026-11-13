@@ -1908,7 +1908,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }
   // Core torso: robe silhouettes for casters, hard angular masses for tanks.
   if(heroClass==='golem'||heroClass==='golem_clone'){
-    torso=add(new THREE.BoxGeometry(.78,.66,.58),armor,0,1.12,0,1.0,1.04,.92);
+    torso=add(new THREE.BoxGeometry(.72,.66,.50),armor,0,1.12,0,1.0,1.04,.92);
     torso.rotation.z=.035;
     torso.rotation.y=.025;
     add(new THREE.BoxGeometry(.54,.42,.20),dark,0,1.12,-.42,1,1,.75);
@@ -1924,9 +1924,9 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }else{
     // Tronco mais anatômico e afunilado: evita a silhueta de barriga arredondada.
     const torsoGeometry=heroClass==='ogre'
-      ?new THREE.CylinderGeometry(.30,.225,.70,isMobileDevice?8:12,1)
-      :new THREE.CylinderGeometry(heroClass==='monk'?.285:.29,heroClass==='monk'?.235:.235,.68,isMobileDevice?8:12,1);
-    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?1.02:1.0,1.04,heroClass==='ogre'?.84:.82);
+      ?new THREE.CylinderGeometry(.265,.18,.70,isMobileDevice?8:12,1)
+      :new THREE.CylinderGeometry(heroClass==='monk'?.25:.255,heroClass==='monk'?.18:.185,.68,isMobileDevice?8:12,1);
+    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?.94:1.0,1.04,heroClass==='ogre'?.74:.78);
     if(heroClass==='ogre'){
       const chestPlate=add(new THREE.BoxGeometry(.56,.32,.10),armor,0,1.21,-.34,1,.9,.7);
       chestPlate.rotation.z=-.035;
@@ -3303,9 +3303,8 @@ function refreshLobby3DPreview() {
   lobbyPreviewHero = makeHero(null, selectedClass || 'knight', selectedSkin || 'default');
   const baseScale = selectedClass==='ogre'||selectedClass==='golem'?1.02:.98;
   lobbyPreviewHero.userData.lobbyEntryBaseScale = baseScale;
-  lobbyPreviewHero.userData.lobbyEntryStartedAt = now;
-  lobbyPreviewHero.scale.setScalar(.035);
-  lobbyPreviewHero.position.set(0,-.28,0);
+  lobbyPreviewHero.scale.setScalar(baseScale);
+  lobbyPreviewHero.position.set(0,0,0);
   lobbyPreviewHero.rotation.y = Math.PI;
   if (lobbyPreviewHero.userData.healthBar) lobbyPreviewHero.userData.healthBar.visible = false;
   lobbyPreviewScene.add(lobbyPreviewHero);
@@ -3376,11 +3375,9 @@ function renderLobby3DPreview() {
       lobbyPreviewExitingHero = null;
     }
   }
-  const entryProgress = THREE.MathUtils.clamp((now - lobbyPreviewHero.userData.lobbyEntryStartedAt) / 560, 0, 1);
-  const entryEase = 1 + 1.45 * Math.pow(entryProgress - 1, 3) + .45 * Math.pow(entryProgress - 1, 2);
-  const entryScale = entryProgress >= 1 ? 1 : Math.max(.035, entryEase);
-  lobbyPreviewHero.scale.setScalar(lobbyPreviewHero.userData.lobbyEntryBaseScale * entryScale);
-  lobbyPreviewHero.position.y = (1 - entryProgress) * -.28;
+  // Prévia estável: sem crescer do zero nem quicar ao entrar no lobby.
+  lobbyPreviewHero.scale.setScalar(lobbyPreviewHero.userData.lobbyEntryBaseScale || 1);
+  lobbyPreviewHero.position.y = 0;
   lobbyPreviewHero.visible = true;
   const heroClass = lobbyPreviewHero.userData.heroClass || selectedClass || 'knight';
   const idle = time * (heroClass === 'mage' ? 1.35 : heroClass === 'archer' ? 1.7 : 1.05);
