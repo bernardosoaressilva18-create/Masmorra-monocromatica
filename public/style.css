@@ -5209,3 +5209,38 @@ button:not(:disabled):active{filter:brightness(1.14)}
   #game canvas{filter:saturate(1.09) contrast(1.025) brightness(1.025)}
   .panel,.lobby-panel,.lobby-editor-section{box-shadow:0 12px 32px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.045)}
 }
+
+/* Nova capa cinematográfica e identidade em português */
+.start-screen{background-image:linear-gradient(180deg,rgba(5,9,17,.20),rgba(5,9,17,.82) 72%,rgba(5,9,17,.96)),url('./cover.svg?v=20261113');background-size:cover;background-position:center 48%;isolation:isolate}
+.start-screen:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 43%,transparent 12%,rgba(2,6,13,.25) 68%,rgba(2,5,10,.62));pointer-events:none;z-index:-1}
+.start-screen .start-title{font-size:clamp(42px,8vw,82px);letter-spacing:.075em;line-height:.88;text-shadow:0 8px 30px #000,0 0 28px rgba(118,212,255,.25)}
+.start-screen .start-title span{color:#f0d18b}
+.start-screen .start-copy{max-width:520px;text-shadow:0 2px 12px #000}
+.start-screen .cover-credit{opacity:.62}
+.level-hud{position:fixed;z-index:18;top:66px;right:14px;width:min(190px,38vw);padding:7px 9px;border:1px solid rgba(137,206,255,.27);border-radius:12px;background:rgba(5,12,23,.82);backdrop-filter:blur(9px);box-shadow:0 8px 24px rgba(0,0,0,.26);pointer-events:auto}
+.level-toggle{display:flex;align-items:center;justify-content:space-between;gap:7px;width:100%;padding:2px 1px;border:0;background:transparent;color:#e9f5ff;font-size:11px;font-weight:900;letter-spacing:.07em}
+.level-toggle b{color:#ffdc91;font-size:17px}
+.level-toggle span{color:#9bd9ff;font-size:9px;white-space:nowrap}
+.level-xp-track{height:5px;margin-top:5px;border-radius:99px;background:#1d2b40;overflow:hidden}
+.level-xp-track i{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#49baff,#d2b2ff);box-shadow:0 0 10px rgba(107,196,255,.55);transition:width .25s}
+.level-hud>small{display:block;margin-top:4px;text-align:right;color:#a7bdcf;font-size:9px;font-variant-numeric:tabular-nums}
+.level-panel{position:fixed;z-index:60;top:112px;right:14px;width:min(430px,calc(100vw - 28px));max-height:min(72vh,680px);overflow:auto;padding:14px;border:1px solid rgba(133,205,255,.36);border-radius:17px;background:linear-gradient(155deg,rgba(17,28,46,.98),rgba(7,12,22,.98));box-shadow:0 18px 55px rgba(0,0,0,.52);color:#edf6ff}
+.level-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.level-panel-head small{display:block;color:#85cce9;font-size:9px;letter-spacing:.16em}
+.level-panel-head strong{display:block;margin-top:3px;color:#f6d99a;font:800 17px Cinzel,serif}
+.level-panel-head button{width:34px;height:34px;border:1px solid #50647d;border-radius:10px;background:#15243a;color:#fff;font-size:22px}
+.level-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 7px;padding:9px 11px;border-radius:10px;background:rgba(80,133,180,.17)}
+.level-summary b{color:#ffdc91}.level-summary span{color:#aee2ff;font-size:11px}
+.level-panel>p{margin:7px 1px 12px;color:#b6c9d9;font-size:11px;line-height:1.45}
+.level-upgrade-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.level-upgrade-card{min-width:0;padding:9px;border:1px solid rgba(132,164,195,.22);border-radius:11px;background:rgba(20,34,52,.9)}
+.level-upgrade-card strong{display:block;color:#f1d497;font-size:12px}
+.level-upgrade-card small{display:block;min-height:28px;margin:4px 0;color:#aebfd0;font-size:9px;line-height:1.4}
+.level-upgrade-card .level-rank{display:inline-block;margin-bottom:6px;color:#81dcf7;font-size:10px;font-weight:800}
+.level-upgrade-card button{width:100%;padding:7px 5px;border:1px solid rgba(123,202,244,.4);border-radius:8px;background:linear-gradient(100deg,#235575,#384273);color:white;font-size:10px;font-weight:900}
+.level-upgrade-card button:disabled{opacity:.38;filter:grayscale(1)}
+.realm-inverted .objective{border-color:rgba(190,134,255,.55)}
+.realm-inverted .level-hud{border-color:rgba(197,133,255,.5)}
+.realm-inverted .level-toggle b{color:#d7b5ff}
+@media(max-width:720px){.start-screen .start-title{font-size:clamp(38px,12vw,64px)}.level-hud{top:62px;right:8px;width:150px;padding:6px 8px}.level-panel{top:104px;right:8px;width:calc(100vw - 16px);max-height:74vh;padding:11px}.level-upgrade-list{gap:6px}.level-upgrade-card{padding:7px}}
+@media(max-height:430px) and (orientation:landscape){.level-hud{top:54px;right:8px;width:138px}.level-panel{top:92px;max-height:74vh}.start-screen{padding:10px}.start-screen .start-emblem{display:none}.start-screen .eyebrow{margin:6px 0}}
