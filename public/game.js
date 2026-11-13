@@ -4982,7 +4982,6 @@ function animate() {
   } else if (myPlayer) {
     const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
-    const dist=cameraDistance+introBlend*2.8;
     if (gameSettings.cameraMode === 'first') {
       // Primeira pessoa: câmera centralizada na altura dos olhos, sem deslocamento lateral.
       cameraPositionScratch.set(target.x + Math.sin(yaw) * 0.06, 1.62, target.z + Math.cos(yaw) * 0.06);
