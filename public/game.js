@@ -75,7 +75,7 @@ const LEVEL_UPGRADE_UI=[
  {id:'attack',name:'Ataque passivo',desc:'+3,5% de velocidade e +0,35 dano por ponto',max:8},
  {id:'recovery',name:'Recuperação',desc:'+1 HP de regeneração a cada 2,5 s por ponto',max:8},
  {id:'item',name:'Item especial',desc:'+10% de cura de itens por ponto',max:8},
- {id:'autoDodge',name:'Esquiva automática',desc:'Desvia de um golpe automaticamente; recarga de 5,2 s',max:1},
+ {id:'autoDodge',name:'Esquiva automática',desc:'Desvia para o lado quando um monstro prepara o golpe; recarga de 5,2 s',max:1},
  {id:'xp',name:'Conhecimento',desc:'+5% de XP ganho por ponto',max:8},
  {id:'critical',name:'Acerto crítico',desc:'+2% de chance de crítico por ponto',max:8},
  {id:'movement',name:'Passos velozes',desc:'+3% de velocidade de movimento por ponto',max:6},
@@ -86,16 +86,16 @@ const LEVEL_UPGRADE_UI=[
  {id:'trapGuard',name:'Resistência a armadilhas',desc:'Reduz 6% do dano de armadilhas por ponto',max:8}
 ];
 let levelUpgradeCardsBuilt=false,lastSavedLevelSignature='';
-const world = { width: 30, depth: 190 };
+const world = { width: 36, depth: 190 };
 
 const MAP_ZONE_CENTERS = [-14, -46, -78, -110, -153];
 const MAP_ZONE_DEPTHS = [34, 30, 30, 30, 40];
 const MAP_ZONE_POLYGONS = [
-  [[-4.8,-17],[4.8,-17],[8.0,-13],[11.4,-8],[13.1,-2],[13.2,3],[10.4,9],[7.0,13],[4.5,17],[-4.5,17],[-7.0,13],[-10.4,9],[-13.2,3],[-13.1,-2],[-11.4,-8],[-8.0,-13]],
-  [[-4.6,-15],[4.6,-15],[8.4,-12],[12.2,-7],[13.0,-1],[11.6,6],[8.0,11],[4.2,15],[-4.2,15],[-8.0,11],[-11.6,6],[-13.0,-1],[-12.2,-7],[-8.4,-12]],
-  [[-4.5,-15],[4.5,-15],[7.2,-11],[12.0,-8],[13.0,-2],[11.0,4],[8.5,9],[4.0,15],[-4.0,15],[-8.5,9],[-11.0,4],[-13.0,-2],[-12.0,-8],[-7.2,-11]],
-  [[-4.6,-15],[4.6,-15],[8.8,-11],[12.5,-6],[11.2,0],[13.0,5],[8.0,11],[4.0,15],[-4.0,15],[-8.0,11],[-13.0,5],[-11.2,0],[-12.5,-6],[-8.8,-11]],
-  [[-5.5,-20],[5.5,-20],[9.2,-16],[13.0,-10],[13.5,-3],[12.0,5],[8.0,13],[4.5,20],[-4.5,20],[-8.0,13],[-12.0,5],[-13.5,-3],[-13.0,-10],[-9.2,-16]]
+  [[-2.8,-17],[4.6,-16.4],[9.4,-13.6],[12.8,-8.1],[13.2,-1.8],[11.7,5.4],[7.6,12.1],[2.0,16.7],[-4.6,16.2],[-10.2,11.8],[-13.1,5.4],[-13.4,-2.1],[-10.8,-9.4],[-6.1,-14.7]],
+  [[-2.5,-15],[5.0,-14.5],[10.0,-11.0],[13.0,-5.0],[12.3,2.0],[9.8,8.0],[4.8,13.8],[-2.0,15.2],[-8.3,12.0],[-12.7,6.0],[-13.0,-1.0],[-11.0,-8.0],[-6.0,-13.5]],
+  [[-3.2,-15],[3.8,-15.2],[9.0,-12.3],[12.6,-7.0],[13.4,-.2],[10.6,6.8],[6.2,12.7],[-.8,15.1],[-7.5,12.4],[-12.0,7.2],[-13.2,.5],[-10.1,-7.8],[-6.3,-13.0]],
+  [[-2.1,-15],[4.7,-14.8],[9.5,-11.3],[12.7,-5.7],[11.9,1.5],[12.8,6.4],[7.1,12.8],[.8,15.0],[-6.0,13.7],[-11.6,8.0],[-13.3,1.0],[-11.0,-7.4],[-6.9,-12.9]],
+  [[-4.0,-20],[3.5,-19.8],[9.3,-16.2],[13.2,-10.1],[13.8,-2.0],[12.0,6.4],[8.1,13.6],[2.5,19.4],[-4.6,19.5],[-10.3,14.0],[-13.7,6.2],[-14.0,-2.2],[-11.2,-11.0],[-7.0,-17.0]]
 ];
 const MAP_PIT_LAYOUT = MAP_ZONE_CENTERS.map((z, index) => ({
   id: 'pit-' + (index + 1),
@@ -112,6 +112,8 @@ const MAP_SPIKE_HAZARDS = MAP_ZONE_CENTERS.flatMap((z,index) => [
   {id:'spike-'+index+'-R',x:6.7,z:z-5.5,r:.92,damage:12},
   ...[-1,1].map(side=>({id:'pit-spike-'+index+'-'+side,x:(index%2===0?5.2:-5.2)+side*1.36,z:z+4,r:.62,damage:16}))
 ]);
+const UPPER_ROOM_POLYGON=[[-3.6,-7.1],[-3.7,-9.8],[-1.9,-12.0],[.9,-12.5],[3.2,-11.2],[4.35,-8.4],[4.1,-5.8],[2.5,-4.0],[.9,-3.5],[-.9,-3.55],[-2.8,-4.1],[-4.2,-5.7]];
+const MAP_WIDTH_SCALE=1.16;
 const pressureTrapVisuals = [];
 const environmentalHazardVisuals = [];
 const mapStairSpecs = [];
@@ -119,7 +121,8 @@ const openMapTraps = new Set();
 let liveUnderworldPits = [];
 const underworldVisuals = new Map();
 const dungeonPhaseGroups = [];
-function pointInMapPolygon(x, zOffset, polygon) {
+function pointInMapPolygon(x, zOffset, polygon, widthScale=1) {
+  x /= widthScale;
   let inside = false;
   for (let i=0,j=polygon.length-1;i<polygon.length;j=i++) {
     const xi=polygon[i][0], yi=polygon[i][1], xj=polygon[j][0], yj=polygon[j][1];
@@ -130,10 +133,10 @@ function pointInMapPolygon(x, zOffset, polygon) {
 }
 function isInsideMapFloor(x,z) {
   for(let i=0;i<MAP_ZONE_CENTERS.length;i++) {
-    if(pointInMapPolygon(x,z-MAP_ZONE_CENTERS[i],MAP_ZONE_POLYGONS[i]))return true;
+    if(pointInMapPolygon(x,z-MAP_ZONE_CENTERS[i],MAP_ZONE_POLYGONS[i],MAP_WIDTH_SCALE))return true;
   }
   if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
-  return mapStairSpecs.some(stair=>Math.abs(x-stair.x)<3.62&&z<=stair.roomStartZ&&z>=stair.roomEndZ)
+  return mapStairSpecs.some(stair=>pointInMapPolygon(x-stair.x,z-stair.center,UPPER_ROOM_POLYGON))
     ||mapStairSpecs.some(stair=>Math.abs(x-stair.x)<2.1&&z<=stair.startZ&&z>=stair.endZ);
 }
 function getDungeonFloorHeight(x,z) {
@@ -144,6 +147,7 @@ function getDungeonFloorHeight(x,z) {
     if(openMapTraps.has(pit.id)&&Math.hypot(x-pit.pitX,z-pit.pitZ)<1.98)return -2.65;
   }
   for(const stair of mapStairSpecs) {
+    if(pointInMapPolygon(x-stair.x,z-stair.center,UPPER_ROOM_POLYGON))return stair.height;
     if(Math.abs(x-stair.x)<1.95&&z<=stair.startZ&&z>=stair.endZ) {
       const progress=THREE.MathUtils.clamp((stair.startZ-z)/(stair.startZ-stair.endZ),0,1);
       return progress*stair.height;
@@ -440,7 +444,7 @@ function isDungeonPositionBlocked(x,z){
   return false;
 }
 function resolveDungeonMovement(fromX, fromZ, nextX, nextZ) {
-  const x = THREE.MathUtils.clamp(nextX, -13, 13);
+  const x = THREE.MathUtils.clamp(nextX, -15.6, 15.6);
   const z = THREE.MathUtils.clamp(nextZ, -174, 8);
   // Resolve each axis independently so a corner collision doesn't trap the player.
   const canMoveX = !isDungeonPositionBlocked(x, fromZ);
@@ -648,8 +652,8 @@ function addVoidBackdrop(parent,baseColor=0x101827,rockColor=0x39485b){
 function addOrganicZoneFloor(center, index, sideMaterial, topMaterial, height = -.5) {
   const points=MAP_ZONE_POLYGONS[index];
   const shape=new THREE.Shape();
-  shape.moveTo(points[0][0],-points[0][1]);
-  for(let i=1;i<points.length;i++)shape.lineTo(points[i][0],-points[i][1]);
+  shape.moveTo(points[0][0]*MAP_WIDTH_SCALE,-points[0][1]);
+  for(let i=1;i<points.length;i++)shape.lineTo(points[i][0]*MAP_WIDTH_SCALE,-points[i][1]);
   shape.closePath();
   const pit=MAP_PIT_LAYOUT[index];
   const hole=new THREE.Path();
@@ -667,7 +671,7 @@ function addOrganicZoneFloor(center, index, sideMaterial, topMaterial, height = 
 function addCliffEdgeDetails(parent){
  const geometry=new THREE.DodecahedronGeometry(1,0);
  const material=new THREE.MeshStandardMaterial({color:0x343c4c,roughness:.98,metalness:.04});
- const count=isMobileDevice?(gameSettings.graphicsQuality==='low'?100:140):180;
+ const count=isMobileDevice?(gameSettings.graphicsQuality==='low'?70:95):120;
  const cliffs=new THREE.InstancedMesh(geometry,material,count);
  const dummy=new THREE.Object3D();
  let index=0;
@@ -678,7 +682,7 @@ function addCliffEdgeDetails(parent){
    const midX=(x+next[0])*.5,midZ=(offset+next[1])*.5;
    for(const [px,pz,variant] of [[x,offset,0],[midX,midZ,1]]){
     if(index>=count)break;
-    dummy.position.set(px,-.88-(variant*.18),center+pz);
+    dummy.position.set(px*MAP_WIDTH_SCALE,-.88-(variant*.18),center+pz);
     dummy.rotation.set((zone+variant)*.17,point*.42,(point%3-1)*.18);
     const size=.8+(point%4)*.18;
     dummy.scale.set(1.2*size,.72*size,1.0*size);
@@ -689,14 +693,14 @@ function addCliffEdgeDetails(parent){
  cliffs.count=index;cliffs.instanceMatrix.needsUpdate=true;
  cliffs.name='organic-cliff-edge-rocks';parent.add(cliffs);
  const crystalMaterial=new THREE.MeshStandardMaterial({color:0x8cd9ee,emissive:0x276c9c,emissiveIntensity:.55,roughness:.3,metalness:.18});
- const crystalCount=isMobileDevice?18:34;
+ const crystalCount=isMobileDevice?12:20;
  const crystals=new THREE.InstancedMesh(new THREE.OctahedronGeometry(.25,0),crystalMaterial,crystalCount);
  let crystalIndex=0;
  for(let z=0;z<MAP_ZONE_CENTERS.length&&crystalIndex<crystalCount;z++){
   const center=MAP_ZONE_CENTERS[z],poly=MAP_ZONE_POLYGONS[z];
   for(let n=0;n<poly.length&&crystalIndex<crystalCount;n+=2){
    const p=poly[n],side=p[0]<0?-1:1;
-   dummy.position.set(p[0]*.91,-.06,center+p[1]*.91);
+   dummy.position.set(p[0]*.91*MAP_WIDTH_SCALE,-.06,center+p[1]*.91);
    dummy.rotation.set(.2,n*.4,.15*side);
    dummy.scale.set(.45,.9+(n%3)*.25,.45);dummy.updateMatrix();
    crystals.setMatrixAt(crystalIndex++,dummy.matrix);
@@ -749,18 +753,18 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
       const warning=new THREE.Mesh(new THREE.TorusGeometry(field.r*.88,.055,6,28),new THREE.MeshStandardMaterial({color:field.color,emissive:field.color,emissiveIntensity:.95,transparent:true,opacity:.94,roughness:.32,metalness:.25}));
       warning.rotation.x=Math.PI/2;warning.position.y=.11;fieldGroup.add(warning);
       if(field.type==='miasma'){
-        for(let puff=0;puff<7;puff++){
+        for(let puff=0;puff<3;puff++){
           const mote=new THREE.Mesh(new THREE.IcosahedronGeometry(.14+(puff%3)*.035,0),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.56}));
           mote.position.set(Math.cos(puff*Math.PI*2/7)*(.45+(puff%2)*.42),.28+(puff%3)*.16,Math.sin(puff*Math.PI*2/7)*(.45+(puff%2)*.42));fieldGroup.add(mote);
         }
         const core=new THREE.Mesh(new THREE.TorusKnotGeometry(.33,.055,36,6,2,3),new THREE.MeshStandardMaterial({color:0xafff81,emissive:0x4f9d39,emissiveIntensity:.8,transparent:true,opacity:.72}));
         core.position.y=.22;fieldGroup.add(core);
       }else if(field.type==='rune'){
-        for(let rune=0;rune<6;rune++){const mark=new THREE.Mesh(new THREE.BoxGeometry(.075,.035,.72),gold);mark.position.y=.09;mark.rotation.y=rune*Math.PI/3;fieldGroup.add(mark);}
+        for(let rune=0;rune<3;rune++){const mark=new THREE.Mesh(new THREE.BoxGeometry(.075,.035,.72),gold);mark.position.y=.09;mark.rotation.y=rune*Math.PI/3;fieldGroup.add(mark);}
         const core=new THREE.Mesh(new THREE.OctahedronGeometry(.23,0),new THREE.MeshStandardMaterial({color:field.color,emissive:field.color,emissiveIntensity:1.35}));
         core.position.y=.23;fieldGroup.add(core);
       }else{
-        for(let crack=0;crack<5;crack++){const line=new THREE.Mesh(new THREE.BoxGeometry(.07,.035,field.r*1.55),stoneDark);line.position.y=.09;line.rotation.y=crack*Math.PI/5;fieldGroup.add(line);}
+        for(let crack=0;crack<3;crack++){const line=new THREE.Mesh(new THREE.BoxGeometry(.07,.035,field.r*1.55),stoneDark);line.position.y=.09;line.rotation.y=crack*Math.PI/5;fieldGroup.add(line);}
         const teeth=new THREE.Mesh(new THREE.ConeGeometry(.24,.54,5),hazardGlow);teeth.position.y=.32;fieldGroup.add(teeth);
       }
     }
@@ -797,35 +801,53 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
       const edge=new THREE.Mesh(new THREE.BoxGeometry(3.25,.035,.07),gold);
       edge.position.set(stairX,level+.01,stairStart-step*1.0-.48);parent.add(edge);
     }
-    const platform=new THREE.Mesh(new THREE.BoxGeometry(4.35,.28,4.15),stoneDark);
-    platform.position.set(stairX,height-.14,center-8.25);parent.add(platform);
-    // Salão superior de verdade: piso largo, paredes laterais, fundo, teto abobadado e iluminação.
-    const upperFloor=new THREE.Mesh(new THREE.BoxGeometry(7.35,.34,12.35),stoneDark);
-    upperFloor.position.set(stairX,height-.17,center-14.25);parent.add(upperFloor);
-    const upperWallMat=new THREE.MeshStandardMaterial({color:accentColors[i%accentColors.length],roughness:.76,metalness:.24});
+    const platform=new THREE.Mesh(new THREE.BoxGeometry(4.45,.30,3.6),stoneDark);
+    platform.position.set(stairX,height-.15,center-7.6);parent.add(platform);
+    // Sala superior pentagonal irregular: piso fechado, entrada pela escada, paredes, teto e relevos.
+    const roomShape=new THREE.Shape();
+    roomShape.moveTo(UPPER_ROOM_POLYGON[0][0],-UPPER_ROOM_POLYGON[0][1]);
+    for(let point=1;point<UPPER_ROOM_POLYGON.length;point++)roomShape.lineTo(UPPER_ROOM_POLYGON[point][0],-UPPER_ROOM_POLYGON[point][1]);
+    roomShape.closePath();
+    const roomFloorGeo=new THREE.ExtrudeGeometry(roomShape,{depth:.34,bevelEnabled:false,steps:1,curveSegments:8});
+    const roomFloor=new THREE.Mesh(roomFloorGeo,stoneDark);
+    roomFloor.rotation.x=-Math.PI/2;roomFloor.position.set(stairX,height-.34,center);parent.add(roomFloor);
+    const upperWallMat=new THREE.MeshStandardMaterial({color:accentColors[i%accentColors.length],roughness:.84,metalness:.16});
+    const wallCapMat=new THREE.MeshStandardMaterial({color:0x9b8054,roughness:.48,metalness:.38});
+    for(let edge=0;edge<UPPER_ROOM_POLYGON.length;edge++){
+      const a=UPPER_ROOM_POLYGON[edge],b=UPPER_ROOM_POLYGON[(edge+1)%UPPER_ROOM_POLYGON.length];
+      const dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);
+      const midX=(a[0]+b[0])*.5,midZ=(a[1]+b[1])*.5;
+      if(Math.abs(midX)<1.35&&midZ>-4.5)continue;
+      const wall=new THREE.Mesh(new THREE.BoxGeometry(length,2.55,.22),upperWallMat);
+      wall.position.set(stairX+midX,height+1.26,center+midZ);
+      wall.rotation.y=Math.atan2(-dz,dx);parent.add(wall);
+      const cap=new THREE.Mesh(new THREE.BoxGeometry(length,.16,.34),wallCapMat);
+      cap.position.set(stairX+midX,height+2.56,center+midZ);
+      cap.rotation.y=Math.atan2(-dz,dx);parent.add(cap);
+    }
     for(const side of [-1,1]){
-      const sideWall=new THREE.Mesh(new THREE.BoxGeometry(.20,2.9,12.4),upperWallMat);
-      sideWall.position.set(stairX+side*3.58,height+1.43,center-14.25);parent.add(sideWall);
-      const wallCap=new THREE.Mesh(new THREE.BoxGeometry(.34,.16,12.55),gold);
-      wallCap.position.set(stairX+side*3.58,height+2.9,center-14.25);parent.add(wallCap);
-      for(let post=0;post<4;post++){
-        const pil=new THREE.Mesh(new THREE.DodecahedronGeometry(.34,0),stone);
-        pil.position.set(stairX+side*3.2,height+1.52,center-9.5-post*3.0);pil.scale.set(.9,2.5,.9);parent.add(pil);
+      for(const zOffset of [-8.1,-10.7]){
+        const column=new THREE.Group();
+        const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.25,.34,2.7,7),stone);shaft.position.y=1.35;column.add(shaft);
+        const base=new THREE.Mesh(new THREE.CylinderGeometry(.43,.48,.22,7),gold);base.position.y=.12;column.add(base);
+        const capital=new THREE.Mesh(new THREE.CylinderGeometry(.40,.28,.22,7),gold);capital.position.y=2.64;column.add(capital);
+        column.position.set(stairX+side*3.05,height,center+zOffset);parent.add(column);
       }
     }
-    const backWall=new THREE.Mesh(new THREE.BoxGeometry(7.35,2.9,.22),upperWallMat);
-    backWall.position.set(stairX,height+1.43,center-20.35);parent.add(backWall);
-    const upperRoof=new THREE.Mesh(new THREE.SphereGeometry(1,18,9,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x273a4b,roughness:.68,metalness:.18,transparent:true,opacity:.82,side:THREE.BackSide,depthWrite:false}));
-    upperRoof.scale.set(3.72,2.45,6.35);upperRoof.position.set(stairX,height+1.0,center-14.25);parent.add(upperRoof);
-    const upperRune=new THREE.Mesh(new THREE.RingGeometry(1.0,1.12,32),hazardGlow);
-    upperRune.rotation.x=-Math.PI/2;upperRune.position.set(stairX,height+.025,center-14.25);parent.add(upperRune);
-    for(const side of [-1,1]){
-      const rail=new THREE.Mesh(new THREE.BoxGeometry(.12,.82,8.4),gold);
-      rail.position.set(stairX+side*1.78,height*.48,center-2.4);parent.add(rail);
-      const torch=new THREE.Mesh(new THREE.IcosahedronGeometry(.2,1),hazardGlow);
-      torch.position.set(stairX+side*3.25,height+2.0,center-12.2);parent.add(torch);
+    for(let relief=0;relief<3;relief++){
+      const slab=new THREE.Mesh(new THREE.DodecahedronGeometry(.52,0),stone);
+      slab.position.set(stairX+(relief-1)*1.05,height+.10,center-11.35+(relief%2)*.7);
+      slab.scale.set(1.25,.28,.72);slab.rotation.y=relief*.62;parent.add(slab);
     }
-    if(registerHeight)mapStairSpecs.push({x:stairX,startZ:stairStart,endZ:stairEnd,platformZ:center-8.25,height,roomStartZ:center-8.0,roomEndZ:center-20.5});
+    const upperRoof=new THREE.Mesh(new THREE.SphereGeometry(1,22,12,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x26394a,roughness:.82,metalness:.10,transparent:true,opacity:.86,side:THREE.BackSide,depthWrite:false}));
+    upperRoof.scale.set(4.55,2.85,4.95);upperRoof.position.set(stairX,height+1.15,center-8.1);parent.add(upperRoof);
+    const upperRune=new THREE.Mesh(new THREE.RingGeometry(.9,1.05,28),hazardGlow);
+    upperRune.rotation.x=-Math.PI/2;upperRune.position.set(stairX,height+.012,center-8.2);parent.add(upperRune);
+    for(const side of [-1,1]){
+      const torch=new THREE.Mesh(new THREE.IcosahedronGeometry(.17,1),hazardGlow);
+      torch.position.set(stairX+side*3.55,height+2.05,center-8.7);parent.add(torch);
+    }
+    if(registerHeight)mapStairSpecs.push({x:stairX,center,startZ:stairStart,endZ:stairEnd,platformZ:center-7.6,height});
     // Arcos laterais menores diferenciam os cinco trechos do mapa.
     const marker=new THREE.Mesh(new THREE.OctahedronGeometry(.48,0),hazardGlow);
     marker.position.set(stairX,height+.5,center-8.25);marker.scale.set(.75,1.55,.75);parent.add(marker);
@@ -835,8 +857,8 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
 function addBiomeDetailInstances(parent,palette,realmKey=1){
  // Densidade adaptativa: mais cenário em PC, sem sobrecarregar celulares de entrada.
  const perZone=isMobileDevice
-  ?(gameSettings.graphicsQuality==='low'?12:gameSettings.graphicsQuality==='high'?34:22)
-  :(gameSettings.graphicsQuality==='low'?52:gameSettings.graphicsQuality==='high'?125:88);
+  ?(gameSettings.graphicsQuality==='low'?8:gameSettings.graphicsQuality==='high'?18:12)
+  :(gameSettings.graphicsQuality==='low'?24:gameSettings.graphicsQuality==='high'?56:40);
  const capacity=perZone+1;
  const materials=[
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:.96,metalness:.06,}),
@@ -870,7 +892,7 @@ function addBiomeDetailInstances(parent,palette,realmKey=1){
    let point=null;
    for(let attempt=0;attempt<36&&!point;attempt++){
     const seed=(zone+1)*97+(n+1)*31+(attempt+1)*17+realmKey*113;
-    const x=(fract(Math.sin(seed*12.9898)*43758.5453)*2-1)*12.3;
+    const x=(fract(Math.sin(seed*12.9898)*43758.5453)*2-1)*14.8;
     const offset=(fract(Math.sin(seed*78.233)*19341.173)*2-1)*(zone===4?18.7:14.2);
     if(!pointInMapPolygon(x,offset,poly))continue;
     if(Math.abs(x)<4.65)continue;
@@ -997,7 +1019,7 @@ stoneDark.needsUpdate = true;
     const roofMat=new THREE.MeshStandardMaterial({color:[0x26384a,0x292b4d,0x244336,0x513025,0x38233c][zone.id-1],roughness:.82,metalness:.12,transparent:true,opacity:.72,side:THREE.BackSide,depthWrite:false});
     const roof=new THREE.Mesh(roofGeo,roofMat);
     roof.name='dungeon-room-roof-'+zone.id;
-    roof.scale.set(13.6,5.6,zone.depth*.59);
+    roof.scale.set(16.1,5.6,zone.depth*.59);
     roof.position.set(0,2.0,zone.z);
     roof.userData.phaseIndex=zone.id-1;
     activeEnvironmentGroup.add(roof);
@@ -1014,8 +1036,8 @@ stoneDark.needsUpdate = true;
   let tileIndex = 0;
   for (const zone of worldZones) {
     for (let z = zone.z-zone.depth/2+1.5; z <= zone.z+zone.depth/2-1.5; z += 3) {
-      for (let x=-12; x<=12; x+=3) {
-        if (!pointInMapPolygon(x,z-zone.z,MAP_ZONE_POLYGONS[zone.id-1]) || Math.random() <= .28) continue;
+      for (let x=-14; x<=14; x+=4) {
+        if (!pointInMapPolygon(x,z-zone.z,MAP_ZONE_POLYGONS[zone.id-1]) || Math.random() <= .50) continue;
         tileDummy.position.set(x,.008,z);
         tileDummy.rotation.set(0,Math.random()*.04,0);
         const scale = .94 + Math.random()*.08;
@@ -1033,7 +1055,7 @@ stoneDark.needsUpdate = true;
   const groutMat = mat(0x252c36,.98);
   for (const zone of worldZones) {
     for (let z=zone.z-zone.depth/2+2; z<=zone.z+zone.depth/2-2; z+=4) {
-      if(pointInMapPolygon(0,z-zone.z,MAP_ZONE_POLYGONS[zone.id-1]))box(19.2,.012,.06,groutMat,0,-.009,z);
+      if(pointInMapPolygon(0,z-zone.z,MAP_ZONE_POLYGONS[zone.id-1]))box(21.8,.012,.06,groutMat,0,-.009,z);
     }
   }
   for (const z of [-30.5,-62,-94,-130]) {
@@ -1042,14 +1064,14 @@ stoneDark.needsUpdate = true;
   }
 
   // Portões de fundo, início e limites externos do conjunto.
-  box(30,5,.8,wall,0,2,-180);
-  box(30,5,.8,wall,0,2,13);
+  box(36,5,.8,wall,0,2,-180);
+  box(36,5,.8,wall,0,2,13);
 
   for (const zone of worldZones) {
     const minZ = zone.z-zone.depth/2+6, maxZ = zone.z+zone.depth/2-6;
     for (let z=minZ; z<=maxZ; z+=5) {
       for (const side of [-1,1]) {
-        const x=side*11.6;
+        const x=side*13.6;
         if(!pointInMapPolygon(x,z-zone.z,MAP_ZONE_POLYGONS[zone.id-1]))continue;
         const orb=new THREE.Mesh(new THREE.OctahedronGeometry(.2),crystal);
         orb.position.set(x,.9,z);
@@ -1067,11 +1089,11 @@ stoneDark.needsUpdate = true;
 
 // Detalhes de pedra nas paredes
 for (let z = -30; z <= 8; z += 6) {
-  box(0.12, 0.18, 2.2, stoneLight, -14.55, 1.2, z);
-  box(0.12, 0.12, 1.5, stoneDark, -14.55, 2.8, z + 2);
+  box(0.12, 0.18, 2.2, stoneLight, -17.0, 1.2, z);
+  box(0.12, 0.12, 1.5, stoneDark, -17.0, 2.8, z + 2);
 
-  box(0.12, 0.18, 2.2, stoneLight, 14.55, 1.2, z);
-  box(0.12, 0.12, 1.5, stoneDark, 14.55, 2.8, z + 2);
+  box(0.12, 0.18, 2.2, stoneLight, 17.0, 1.2, z);
+  box(0.12, 0.12, 1.5, stoneDark, 17.0, 2.8, z + 2);
 }
   // O perímetro de fundo e início foi criado acima; não duplicar as mesmas paredes.
 
@@ -1880,7 +1902,7 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }
   // Core torso: robe silhouettes for casters, hard angular masses for tanks.
   if(heroClass==='golem'||heroClass==='golem_clone'){
-    torso=add(new THREE.BoxGeometry(.88,.66,.62),armor,0,1.12,0,1.05,1.08,.98);
+    torso=add(new THREE.BoxGeometry(.78,.66,.58),armor,0,1.12,0,1.0,1.04,.92);
     torso.rotation.z=.035;
     torso.rotation.y=.025;
     add(new THREE.BoxGeometry(.54,.42,.20),dark,0,1.12,-.42,1,1,.75);
@@ -1895,9 +1917,9 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
     }
   }else{
     const torsoGeometry=heroClass==='ogre'
-      ?new THREE.CapsuleGeometry(.40,.43,7,12)
-      :new THREE.CylinderGeometry(heroClass==='monk'?.36:.40,heroClass==='monk'?.30:.33,.64,isMobileDevice?8:12,1);
-    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?1.32:1.27,heroClass==='ogre'?1.08:1.06,heroClass==='ogre'?1.16:1.12);
+      ?new THREE.CapsuleGeometry(.34,.43,7,12)
+      :new THREE.CylinderGeometry(heroClass==='monk'?.30:.32,heroClass==='monk'?.25:.27,.64,isMobileDevice?8:12,1);
+    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?1.12:1.04,1.04,heroClass==='ogre'?1.0:.96);
     if(heroClass==='ogre'){
       const chestPlate=add(new THREE.BoxGeometry(.56,.32,.10),armor,0,1.21,-.34,1,.9,.7);
       chestPlate.rotation.z=-.035;
@@ -1919,16 +1941,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       add(new THREE.TorusGeometry(.16,.018,5,18),trim,0,1.22,-.36).rotation.x=Math.PI/2;
     }
   }
-  // Abdômen arredondado e ombros um pouco mais largos: silhueta robusta, sem olhos saltados.
-  let abdomenBulge=null;
-  if(heroClass==='ogre'){
-    abdomenBulge=add(new THREE.SphereGeometry(.31,12,10),skinMat,0,1.00,-.41,1.12,.98,.66);
-  }else if(isStoneBody){
-    abdomenBulge=add(new THREE.SphereGeometry(.30,10,8),armor,0,1.02,-.37,1.17,.90,.62);
-  }else{
-    const abdomenMaterial=clothClasses.includes(heroClass)?cloth:armor;
-    abdomenBulge=add(new THREE.SphereGeometry(.29,12,9),abdomenMaterial,0,.94,-.39,1.12,.91,.65);
-  }
+  // O tronco usa a própria armadura/roupa, sem esfera abdominal saliente.
+  const abdomenBulge=null;
   // Neck and collar connect the head to the torso instead of leaving a floating round head.
   if (!isStoneBody) {
     add(new THREE.CylinderGeometry(.085,.11,.18,8),skinMat,0,1.52,-.005);
@@ -2997,21 +3011,11 @@ function renderSkillTrees() {
   const filterBar = '<div class="skill-tree-tools"><label class="skill-search-label">⌕ <input class="skill-search" data-skill-search type="search" maxlength="40" placeholder="Buscar talento..." aria-label="Buscar talento" value="'+esc(activeSkillSearch)+'"></label>'+
     '<div class="skill-tree-filters" role="group" aria-label="Filtrar talentos">'+
     [['all','TODOS'],['available','DISPONÍVEIS'],['unlocked','DESBLOQUEADOS']].map(([id,label])=>'<button type="button" class="skill-filter '+(activeSkillFilter===id?'active':'')+'" data-skill-filter="'+id+'" aria-pressed="'+(activeSkillFilter===id?'true':'false')+'">'+label+'</button>').join('')+'</div></div>';
-  const positions=[12,31,50,69,88], yLevels=[270,360,450,540,630],nodeOffsets=[0,-31,25,-31,0];
-  const rootLines=positions.map(x=>'<path class="skill-rpg-root-link" d="M 500 93 C 500 155 '+(x*10)+' 175 '+(x*10)+' 255"></path>').join('');
-  let branchLabels='', branchNodes='', branchLinks='';
-  branches.forEach((branch,branchIndex)=>{
-    const x=positions[branchIndex]*10;
+  const branchCards=branches.map(branch=>{
     const skills=branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index}));
     const unlockedCount=skills.filter(skill=>unlockedSkills.has(skill.id)).length;
     const glyph=branch.icon||({attack:'⚔️',defense:'🛡️',arcane:'✦',mobility:'💨',support:'✚'}[branch.id]||'✦');
-    branchLabels+='<div class="skill-rpg-branch-label" style="left:'+positions[branchIndex]+'%;top:174px"><span>'+esc(glyph)+'</span><strong>'+esc(branch.title.replace(/^\S+\s*/,''))+'</strong><small>'+unlockedCount+'/'+skills.length+' · TALENTOS</small></div>';
-    for(let level=1;level<skills.length;level++){
-      const fromX=x+nodeOffsets[level-1],toX=x+nodeOffsets[level];
-      const fromY=yLevels[level-1]+28,toY=yLevels[level]-28,midY=(fromY+toY)/2;
-      branchLinks+='<path class="skill-rpg-line" d="M '+fromX+' '+fromY+' C '+fromX+' '+midY+' '+toX+' '+midY+' '+toX+' '+toY+'"></path>';
-    }
-    skills.forEach((skill,index)=>{
+    const nodes=skills.map((skill,index)=>{
       const unlocked=unlockedSkills.has(skill.id),canBuy=canUnlock(skill);
       const required=skill.req?allSkills.find(item=>item.id===skill.req)?.name:'';
       const matchesFilter=activeSkillFilter==='all'||(activeSkillFilter==='unlocked'&&unlocked)||(activeSkillFilter==='available'&&canBuy);
@@ -3022,17 +3026,14 @@ function renderSkillTrees() {
         activeCount>=15?'LIMITE DE 15 TALENTOS':(!activeBranches.has(branch.id)&&activeBranches.size>=3)?'LIMITE DE 3 RAMOS':
         skillPoints<1?'SEM PONTOS':'BLOQUEADA';
       const stateClass=unlocked?'unlocked':canBuy?'available':'locked';
-      const req=skill.req?'Pré-requisito: '+(required||'talento anterior'):'Talento inicial do caminho';
-      branchNodes+='<button type="button" class="skill-rpg-node '+stateClass+(hidden?' skill-filtered-out':'')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" style="left:calc('+positions[branchIndex]+'% + '+nodeOffsets[index]+'px);top:'+yLevels[index]+'px" aria-label="'+esc(skill.name+'. '+skill.desc+'. '+status)+'" '+(canBuy?'':'disabled')+'>'+
-        '<span class="skill-rpg-node-icon">'+esc(skill.icon)+'</span><span class="skill-rpg-node-copy"><strong>'+esc(skill.name)+'</strong><small>NÍVEL '+(index+1)+' · 1 PONTO</small><em>'+esc(unlocked?'✓ APRENDIDA':canBuy?'TOQUE PARA APRENDER':status)+'</em></span></button>';
-    });
-  });
+      return '<button type="button" class="skill-rpg-node '+stateClass+(hidden?' skill-filtered-out':'')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" aria-label="'+esc(skill.name+'. '+skill.desc+'. '+status)+'" '+(canBuy?'':'disabled')+'>'+
+        '<span class="skill-rpg-node-icon">'+esc(skill.icon)+'</span><span class="skill-rpg-node-copy"><strong>'+esc(skill.name)+'</strong><small>NÍVEL '+(index+1)+' · 1 PONTO</small><em>'+esc(unlocked?'✓ APRENDIDA':canBuy?'TOQUE PARA APRENDER':status)+'</em><span class="skill-rpg-node-desc">'+esc(skill.desc)+'</span></span><span class="skill-rpg-node-state">'+(unlocked?'✓':index+1)+'</span></button>';
+    }).join('');
+    return '<section class="skill-rpg-branch-card" data-skill-branch="'+esc(branch.id)+'"><header class="skill-rpg-branch-head"><span>'+esc(glyph)+'</span><div><strong>'+esc(branch.title.replace(/^\S+\s*/,''))+'</strong><small>'+unlockedCount+'/'+skills.length+' talentos aprendidos · sequência de 5 níveis</small></div></header><div class="skill-rpg-branch-nodes">'+nodes+'</div></section>';
+  }).join('');
   const overallPct=Math.min(100,Math.round(activeCount/15*100));
   const core='<div class="skill-tree-core skill-tree-core-redesign"><span class="skill-tree-core-icon">'+classGlyph+'</span><span><strong>'+esc(CLASS_NAMES_UI[selectedClass]||'CLASSE')+'</strong><small>ÁRVORE DE HABILIDADES · '+skillPoints+' PONTOS · '+activeCount+'/15 TALENTOS</small><span class="skill-tree-overall-progress" role="progressbar" aria-label="Progresso total de talentos" aria-valuemin="0" aria-valuemax="15" aria-valuenow="'+activeCount+'"><span style="width:'+overallPct+'%"></span></span></span></div>';
-  const svg='<svg class="skill-rpg-links" viewBox="0 0 1000 720" preserveAspectRatio="none" aria-hidden="true">'+rootLines+branchLinks+'</svg>';
-  const tree='<div class="skill-rpg-scroll"><div class="skill-rpg-canvas">'+svg+
-    '<div class="skill-rpg-root" style="left:50%;top:52px"><span>'+classGlyph+'</span><strong>'+esc(CLASS_NAMES_UI[selectedClass]||'CLASSE')+'</strong><small>NÚCLEO DO AVENTUREIRO</small></div>'+
-    branchLabels+branchNodes+'</div></div>';
+  const tree='<div class="skill-rpg-scroll"><div class="skill-rpg-grid">'+branchCards+'</div></div>';
   const catalog='<section class="skill-description-catalog"><h3>📖 GRIMÓRIO DE TALENTOS</h3><p>Leia os efeitos antes de gastar seus pontos. Cada caminho possui cinco níveis; escolha até três caminhos.</p>'+
     branches.map(branch=>'<section class="skill-description-branch"><h4>'+esc(branch.title)+'</h4><div class="skill-description-list">'+
       branch.skills.map(skill=>{
@@ -3042,13 +3043,11 @@ function renderSkillTrees() {
         return '<button type="button" class="skill-description-card '+(unlocked?'unlocked':canBuy?'available':'locked')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" '+(canBuy?'':'disabled')+'><span class="skill-description-icon">'+esc(skill.icon)+'</span><span class="skill-description-copy"><strong>'+esc(skill.name)+'</strong><p>'+esc(skill.desc)+'</p><small>'+esc(state)+'</small></span></button>';
       }).join('')+'</div></section>').join('')+'</section>';
   const html=core+filterBar+'<div class="skill-rpg-heading"><strong>CAMINHOS DE ESPECIALIZAÇÃO</strong><span>O núcleo se divide em cinco trilhas. Desbloqueie cada nível em sequência.</span></div>'+tree+
-    '<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Deslize para os lados para ver todos os caminhos.</p>'+catalog;
+    '<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Desça a página para ver todas as trilhas.</p>'+catalog;
   const lobbyTree=$('skillTreeLobby'),hudTree=$('skillTreeHud');
   if(lobbyTree)lobbyTree.innerHTML=html;
-  if(hudTree)hudTree.innerHTML=core+filterBar+'<div class="skill-rpg-heading"><strong>CAMINHOS DE ESPECIALIZAÇÃO</strong><span>O núcleo se divide em cinco trilhas. Desbloqueie cada nível em sequência.</span></div>'+tree+'<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Deslize para os lados para ver todos os caminhos.</p>';
-  setSkillTreeZoom(skillTreeZoom);
-  installSkillTreePinch(lobbyTree);
-  installSkillTreePinch(hudTree);
+  if(hudTree)hudTree.innerHTML=core+filterBar+'<div class="skill-rpg-heading"><strong>CAMINHOS DE ESPECIALIZAÇÃO</strong><span>O núcleo se divide em cinco trilhas. Desbloqueie cada nível em sequência.</span></div>'+tree+'<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Desça a página para ver todas as trilhas.</p>';
+  // Trilhas em fluxo vertical: sem canvas fixo e sem zoom que altere a posição da página.
   requestAnimationFrame(() => {
     const editor = document.querySelector('#lobby .lobby-editor-content');
     const panel = $('skillPanel');
@@ -3536,6 +3535,12 @@ function handleSkillClick(event) {
   }
   // Guardar TODOS os níveis de rolagem: painel, editor do lobby e as duas árvores.
   // A árvore é reconstruída ao comprar; restaurar só a árvore do HUD fazia o lobby saltar ao topo.
+  const scrollChain=[];
+  for(let node=button;node&&node!==document.body;node=node.parentElement){
+    if(node.scrollHeight>node.clientHeight+1||node.scrollWidth>node.clientWidth+1)
+      scrollChain.push({node,top:node.scrollTop,left:node.scrollLeft});
+  }
+  const pageScroll={x:window.scrollX||0,y:window.scrollY||0};
   const scrollState = {
     editor: document.querySelector('#lobby .lobby-editor-content')?.scrollTop || 0,
     panel: $('skillPanel')?.scrollTop || 0,
@@ -3554,6 +3559,7 @@ function handleSkillClick(event) {
   lastSkillSignature = '';
   syncLoadoutUI();
   const restoreSkillScroll = () => {
+    for(const item of scrollChain){if(item.node?.isConnected){item.node.scrollTop=item.top;item.node.scrollLeft=item.left;}}
     const editor=document.querySelector('#lobby .lobby-editor-content');
     const panel=$('skillPanel');
     const lobby=$('skillTreeLobby');
@@ -3567,7 +3573,7 @@ function handleSkillClick(event) {
     if(lb&&scrollState.lobbyBoard){lb.scrollLeft=scrollState.lobbyBoard.left;lb.scrollTop=scrollState.lobbyBoard.top;}
     if(hb&&scrollState.hudBoard){hb.scrollLeft=scrollState.hudBoard.left;hb.scrollTop=scrollState.hudBoard.top;}
   };
-  requestAnimationFrame(()=>{restoreSkillScroll();requestAnimationFrame(restoreSkillScroll);});
+  requestAnimationFrame(()=>{restoreSkillScroll();requestAnimationFrame(()=>{restoreSkillScroll();window.scrollTo(pageScroll.x,pageScroll.y);});});
   sendLoadout();
   vibrateGame(18);
   showNotice('✦ ' + skill.name + ' desbloqueada!');
@@ -4241,7 +4247,11 @@ function stepOfflineSimulation() {
   const player = offlineState.players[0];
   const now = Date.now();
   if (player.hp > 0) {
-    if (player.mana < (player.maxMana || 100)) player.mana = Math.min(player.maxMana || 100, player.mana + 0.09);
+    const previousManaAt=Number(player.manaRegenLastAt);
+    const manaElapsed=Number.isFinite(previousManaAt)&&previousManaAt>0?Math.max(0,Math.min(1.5,(now-previousManaAt)/1000)):.22;
+    player.manaRegenLastAt=now;
+    const manaBonus=Math.max(0,Number(player.levelUpgrades?.manaRegen)||0)*.25;
+    if(player.mana<(player.maxMana||100))player.mana=Math.min(player.maxMana||100,player.mana+manaElapsed*(2+manaBonus));
     if (offlineState.trainingMode) updateTrainingMetricsPanel();
     const invisible = now < (player.invisibleUntil || 0);
     player.invisible = invisible;
@@ -5347,23 +5357,31 @@ function moveInput() {
   return { x, y };
 }
 
-let dodgeTimer = 0;
-function dodge() {
-  if (!started || dodgeTimer > 0 || !myPlayer || (myPlayer.userData.serverHp ?? 100) <= 0) return;
-  dodgeTimer = Math.max(1.5, 2.6 - (unlockedSkills.has('quick_recovery') ? .65 : 0));
-  myPlayer.userData.dodgeAnim = .22;
-  const distance = 2.2 + (unlockedSkills.has('dodge_mastery') ? .55 : 0) + (unlockedSkills.has('phantom_step') ? .75 : 0);
-  const landing = resolveDungeonMovement(myPlayer.position.x, myPlayer.position.z,
-    myPlayer.position.x - Math.sin(yaw) * distance,
-    myPlayer.position.z - Math.cos(yaw) * distance
-  );
-  myPlayer.position.x = landing.x;
-  myPlayer.position.z = landing.z;
-  if (offlineMode && offlineState?.trainingMode) offlineState.players[0].dodgeUntil = Date.now() + 900;
-  send({ type: 'dodge', rot: yaw });
-  vibrateGame(24);
-  playSfx('dodge');
-  showNotice('↗ ESQUIVA');
+let dashTimer = 0;
+function dash() {
+  if (!started || dashTimer > 0 || !myPlayer || (myPlayer.userData.serverHp ?? 100) <= 0) return;
+  dashTimer = Math.max(1.8, 3.0 - (unlockedSkills.has('quick_recovery') ? .55 : 0));
+  const input=moveInput();
+  const forwardX=-Math.sin(yaw),forwardZ=-Math.cos(yaw);
+  const rightX=Math.cos(yaw),rightZ=-Math.sin(yaw);
+  let dx=rightX*input.x-forwardX*input.y;
+  let dz=rightZ*input.x-forwardZ*input.y;
+  let length=Math.hypot(dx,dz);
+  if(length<.08){dx=forwardX;dz=forwardZ;length=1;}
+  dx/=length;dz/=length;
+  const distance=3.0+(unlockedSkills.has('dodge_mastery')?.35:0)+(unlockedSkills.has('phantom_step')?.45:0);
+  const landing=resolveDungeonMovement(myPlayer.position.x,myPlayer.position.z,
+    myPlayer.position.x+dx*distance,myPlayer.position.z+dz*distance);
+  if(Math.hypot(landing.x-myPlayer.position.x,landing.z-myPlayer.position.z)<.35){
+    showNotice('Não há espaço para avançar com o dash.');
+    dashTimer=.35;
+    return;
+  }
+  myPlayer.position.x=landing.x;myPlayer.position.z=landing.z;
+  myPlayer.userData.dodgeAnim=.24;
+  if(offlineMode&&offlineState?.players?.[0])offlineState.players[0].dodgeUntil=Date.now()+250;
+  send({type:'dash',dx,dz});
+  vibrateGame(24);playSfx('dodge');showNotice('⚡ DASH');
 }
 
 function attack() {
@@ -6652,7 +6670,7 @@ $('attackBtn').addEventListener('pointerdown', e => {
 });
 $('dodgeBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
-  dodge();
+  dash();
 });
 
 addEventListener('keydown', e => {
@@ -6660,7 +6678,7 @@ addEventListener('keydown', e => {
   if (e.target && e.target.closest && e.target.closest('input,textarea,select,button[contenteditable="true"]')) return;
   if (e.repeat) return;
   const code = e.code;
-  if (['Space','KeyE','KeyR','KeyQ','Digit1','Digit2','Digit3','KeyI','KeyK','KeyG','Escape'].includes(code)) e.preventDefault();
+  if (['Space','KeyE','KeyR','KeyQ','KeyX','Digit1','Digit2','Digit3','KeyI','KeyK','KeyG','Escape'].includes(code)) e.preventDefault();
   keys[code] = true;
 
   // Controles de combate no PC: atalhos acionam as mesmas funções dos botões do HUD.
@@ -6674,7 +6692,7 @@ addEventListener('keydown', e => {
   else if (code === 'Digit3' || code === 'Numpad3') activateClassAbility(2);
   else if (code === 'KeyE') interactChest();
   else if (code === 'KeyR') useSelectedItem();
-  else if (code === 'KeyQ') dodge();
+  else if (code === 'KeyQ' || code === 'KeyX') dash();
   else if (code === 'KeyI') $('inventoryToggleBtn')?.click();
   else if (code === 'KeyK') $('skillToggleBtn')?.click();
   else if (code === 'KeyG') $('settingsBtn')?.click();
@@ -6986,14 +7004,14 @@ function animate() {
   fireCooldown=Math.max(0,fireCooldown-dt);
   lightningCooldown=Math.max(0,lightningCooldown-dt);
   thirdCooldown=Math.max(0,thirdCooldown-dt);
-  dodgeTimer = Math.max(0, dodgeTimer - dt);
+  dashTimer = Math.max(0, dashTimer - dt);
   const dodgeLabel = $('dodgeCooldown');
   if (dodgeLabel) {
-    const dodgeText = dodgeTimer > 0 ? dodgeTimer.toFixed(1) + 's' : 'OK';
+    const dodgeText = dashTimer > 0 ? dashTimer.toFixed(1) + 's' : 'OK';
     if (dodgeLabel.textContent !== dodgeText) dodgeLabel.textContent = dodgeText;
   }
   const dodgeBtn = $('dodgeBtn');
-  if (dodgeBtn) dodgeBtn.classList.toggle('cooling', dodgeTimer > 0);
+  if (dodgeBtn) dodgeBtn.classList.toggle('cooling', dashTimer > 0);
   const fireLabel=$('fireCooldown'),lightningLabel=$('lightningCooldown'),thirdLabel=$('ability3Cooldown');
   // Evita escritas repetidas no DOM a cada frame; os rótulos só mudam quando o texto muda.
   if (fireLabel) {
