@@ -558,10 +558,12 @@ for (let z = -30; z <= 8; z += 6) {
     for (const x of [-3.1, 3.1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(.42, 4.4, .55), stone); post.position.set(x, 2.2, 0); gate.add(post); }
     const lintel = new THREE.Mesh(new THREE.BoxGeometry(6.6, .5, .65), stone); lintel.position.y = 4.35; gate.add(lintel);
     const ring=new THREE.Mesh(new THREE.PlaneGeometry(5.7,3.8),new THREE.MeshBasicMaterial({color:0x23b9ff,transparent:true,opacity:.25,side:THREE.DoubleSide,depthWrite:false}));ring.position.set(0,2.1,0);gate.add(ring);
-    const barrierMat=new THREE.MeshBasicMaterial({color:0x4bcfff,transparent:true,opacity:.34,side:THREE.DoubleSide,depthWrite:false});
+    const barrierMat=new THREE.MeshBasicMaterial({color:0x35cfff,transparent:true,opacity:.52,side:THREE.DoubleSide,depthWrite:false});
     const barrier=new THREE.Mesh(new THREE.PlaneGeometry(26.2,4.55),barrierMat);barrier.position.set(0,2.28,.12);barrier.renderOrder=12;gate.add(barrier);
     const barrierLines=new THREE.Group();
-    for(let x=-12;x<=12;x+=3){const runeLine=new THREE.Mesh(new THREE.BoxGeometry(.035,3.85,.025),new THREE.MeshBasicMaterial({color:0x9af2ff,transparent:true,opacity:.32}));runeLine.position.set(x,0,.035);barrierLines.add(runeLine);}
+    const barrierLineMat=new THREE.MeshBasicMaterial({color:0xb8f7ff,transparent:true,opacity:.42,depthWrite:false});
+    for(let x=-12;x<=12;x+=3){const runeLine=new THREE.Mesh(new THREE.BoxGeometry(.035,3.85,.025),barrierLineMat);runeLine.position.set(x,0,.035);barrierLines.add(runeLine);}
+    for(let y=-1.25;y<=1.26;y+=1.25){const cross=new THREE.Mesh(new THREE.BoxGeometry(25.5,.025,.025),barrierLineMat);cross.position.set(0,y,.04);barrierLines.add(cross);}
     barrierLines.position.y=2.28;barrierLines.position.z=.15;gate.add(barrierLines);
     const bars = new THREE.Group();
     for (let x = -2.5; x <= 2.51; x += 1) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 3.7, .18), runeMat); bar.position.set(x, 1.95, -.05); bars.add(bar); }
