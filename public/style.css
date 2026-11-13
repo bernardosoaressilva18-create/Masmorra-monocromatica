@@ -4107,3 +4107,106 @@ button:focus-visible { outline-offset: 3px; }
  #lobby .hero-preview-avatar{flex-basis:116px;width:116px;height:144px}
  #lobby .hero-showcase-info{padding-left:0}
 }
+
+
+/* Pacote de melhorias gerais 01 — 50 polimentos seguros de interface */
+/* 01 · tipografia consistente nas telas */
+button,input,select,textarea{font:inherit}
+/* 02 · transições curtas sem animação excessiva */
+button,.panel,.lobby-player,.class-card,.select-item{transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease}
+/* 03 · foco acessível geral */
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #9cecff;outline-offset:3px}
+/* 04 · botões desativados claros */
+button:disabled{cursor:not-allowed;filter:saturate(.45);opacity:.58}
+/* 05 · campos com contraste */
+input,select,textarea{color:#e7f2f7}
+/* 06 · placeholder legível */
+input::placeholder,textarea::placeholder{color:#8299a8;opacity:1}
+/* 07 · seleção textual */
+::selection{background:#5bcde866;color:#fff}
+/* 08 · rolagem suave em painéis */
+.settings-panel,.skill-panel,.inventory-panel,.lobby-editor-content{scroll-behavior:smooth;overscroll-behavior:contain}
+/* 09 · barras de rolagem discretas */
+.settings-panel,.skill-panel,.inventory-panel{scrollbar-color:#52798a #0b1420;scrollbar-width:thin}
+/* 10 · painel de configurações em camadas */
+#settingsPanel{z-index:80;border:1px solid #8bd9ef55;box-shadow:0 18px 55px #000b,inset 0 1px #fff1}
+/* 11 · cabeçalho das configurações */
+.settings-head{position:sticky;top:0;z-index:2;background:#0b1522f2;backdrop-filter:blur(8px)}
+/* 12 · controles deslizantes */
+input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
+/* 13 · alternadores de configuração */
+.setting-toggle{min-height:40px;align-items:center;gap:10px}
+/* 14 · selects de configuração */
+.settings-select{width:100%;min-height:42px;padding:8px 12px;border:1px solid #547184;border-radius:9px;background:#0b1622;color:#e4f1f6}
+/* 15 · HUD sem seleção acidental */
+#hud{user-select:none;-webkit-user-select:none}
+/* 16 · etiquetas pequenas com leitura */
+#hud small,.hud-label{letter-spacing:.5px;text-shadow:0 1px 3px #000}
+/* 17 · painel de mana */
+#manaHud{border:1px solid #68d5f34a;border-radius:10px;background:linear-gradient(110deg,#071522df,#101a2be8);box-shadow:0 6px 18px #0005}
+/* 18 · barra de mana */
+#manaFill{background:linear-gradient(90deg,#247fcb,#79e5ff);box-shadow:0 0 12px #45c8ff77}
+/* 19 · progresso da fase */
+#progressFill{background:linear-gradient(90deg,#c89a4d,#f7df9b);box-shadow:0 0 10px #d7ad5c55}
+/* 20 · lista de jogadores */
+#playersList{display:flex;flex-wrap:wrap;gap:6px}
+/* 21 · cada jogador */
+#playersList>*{border:1px solid #79c9df35;border-radius:8px;background:#0a1520d9;padding:5px 8px}
+/* 22 · painel do chefe */
+#bossPanel{border:1px solid #e49a6b66;border-radius:12px;background:linear-gradient(145deg,#21151bdc,#0b111ceF);box-shadow:0 8px 26px #0007}
+/* 23 · vida do chefe */
+#bossHealthFill{background:linear-gradient(90deg,#9c283b,#f06b70);box-shadow:0 0 10px #ed526c77}
+/* 24 · texto da fase do chefe */
+#bossPhaseText{color:#f2d49c;letter-spacing:1px}
+/* 25 · painel de habilidades */
+#skillPanel{border:1px solid #7cd8ed55;border-radius:14px;background:linear-gradient(155deg,#101d2cf5,#070d16f7);box-shadow:0 18px 50px #000a}
+/* 26 · cabeçalho de habilidades */
+#skillPanel .panel-head{position:sticky;top:0;z-index:3;background:#0d1927f5}
+/* 27 · árvore de habilidades com toque */
+#skillTreeHud,#skillTreeLobby{touch-action:pan-x pan-y;overscroll-behavior:contain}
+/* 28 · botão de habilidades */
+#skillToggleBtn{border:1px solid #8be4f277;box-shadow:0 6px 20px #0007}
+/* 29 · pontos de habilidade */
+#skillPointsHud,#skillPoints{color:#f3d18d;font-weight:900}
+/* 30 · painel de inventário */
+.inventory-panel{border:1px solid #d7bd8650;border-radius:14px;background:linear-gradient(155deg,#111b29f5,#080e17f7);box-shadow:0 15px 42px #0009}
+/* 31 · lista do inventário */
+#inventoryList{overscroll-behavior:contain;scrollbar-width:thin}
+/* 32 · itens selecionáveis */
+.select-item{border:1px solid #7894a333;border-radius:9px;background:#101b29}
+/* 33 · item selecionado */
+.select-item.selected{border-color:#8be4f2;box-shadow:inset 0 0 0 1px #8be4f255,0 0 14px #52cbe522}
+/* 34 · filtros do inventário */
+#lootFilter,#lootSort{min-height:40px;border-radius:8px}
+/* 35 · botão usar item */
+#useSelectedItemBtn{min-height:44px;border-radius:9px;font-weight:900}
+/* 36 · botão de abrir/fechar inventário */
+#inventoryToggleBtn{min-height:42px;border-radius:10px}
+/* 37 · botões de combate mantêm resposta rápida */
+#attackBtn,#dodgeBtn,#fireBtn,#lightningBtn{touch-action:none;-webkit-tap-highlight-color:transparent}
+/* 38 · ataque com feedback de pressionar */
+#attackBtn:active{filter:brightness(1.2);transform:scale(.97)}
+/* 39 · esquiva com feedback */
+#dodgeBtn:active{filter:brightness(1.2);transform:scale(.96)}
+/* 40 · botões de magia */
+#fireBtn:active,#lightningBtn:active{filter:brightness(1.22);transform:scale(.96)}
+/* 41 · baú com alvo de toque */
+#chestBtn{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* 42 · tela de morte */
+#deathScreen{z-index:100;background:radial-gradient(ellipse at center,#24121bea,#05080ef5)}
+/* 43 · botão sair da morte */
+#deathLeaveBtn{min-height:48px;border-radius:10px}
+/* 44 · botão de sair da partida */
+#leaveBtn{min-height:38px;border-radius:9px}
+/* 45 · botão de configurações */
+#settingsBtn{width:48px;height:48px;border:1px solid #78cce455;border-radius:13px;background:#0b1624}
+/* 46 · botão de orientação */
+#orientationToggleBtn{min-height:42px;border-radius:10px}
+/* 47 · estado de conexão */
+#roomLabel{padding:5px 8px;border:1px solid #7bdcf044;border-radius:8px;background:#091521;color:#a9e9f2}
+/* 48 · botões do lobby */
+#readyBtn,#startMatchBtn{min-height:48px;border-radius:10px}
+/* 49 · lista de salas vazia */
+#publicRoomsList:empty:after{content:"Nenhuma sala disponível no momento.";display:block;padding:14px;color:#9fb4c1;text-align:center}
+/* 50 · preferência por movimento reduzido */
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
