@@ -5615,3 +5615,35 @@ html,body,#game{
   #skillTreeLobby .skill-description-list,
   #skillTreeHud .skill-description-list{min-height:0}
 }
+
+
+/* Last Legacy — evitar saltos da árvore durante atualização de talentos. */
+#skillTreeLobby,
+#skillTreeHud,
+#skillPanel,
+#lobby .lobby-editor-content,
+#hud {
+  overflow-anchor: none;
+  scroll-behavior: auto;
+}
+#skillTreeLobby,
+#skillTreeHud,
+.skill-rpg-grid,
+.skill-rpg-branch-card {
+  min-width: 0;
+  max-width: 100%;
+}
+.skill-rpg-node:focus-visible,
+.skill-description-card:focus-visible {
+  outline: 2px solid #f3d99f;
+  outline-offset: 2px;
+}
+@media (max-width: 700px) {
+  .skill-rpg-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px;
+  }
+  .skill-rpg-branch-card { border-radius: 12px; }
+  .skill-rpg-node,
+  .skill-description-card { max-width: 100%; min-width: 0; }
+}

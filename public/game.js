@@ -2965,18 +2965,37 @@ function rememberSkillTreeScroll(event) {
 }
 $('skillTreeLobby')?.addEventListener('scroll', rememberSkillTreeScroll, { passive: true, capture: true });
 $('skillTreeHud')?.addEventListener('scroll', rememberSkillTreeScroll, { passive: true, capture: true });
+function captureSkillTreeScrollChain(root) {
+  const saved = [];
+  for (let node = root; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+    if (node.scrollHeight > node.clientHeight + 1 || node.scrollWidth > node.clientWidth + 1) {
+      saved.push({ node, top: node.scrollTop, left: node.scrollLeft });
+    }
+  }
+  return saved;
+}
+function restoreSkillTreeScrollChain(saved) {
+  for (const item of saved || []) {
+    if (!item.node?.isConnected) continue;
+    item.node.scrollTop = item.top;
+    item.node.scrollLeft = item.left;
+  }
+}
 function renderSkillTrees() {
   const lobbyEditorScroll = document.querySelector('#lobby .lobby-editor-content');
   const skillPanelScroll = $('skillPanel');
   const lobbyBoardBefore = $('skillTreeLobby')?.querySelector('.skill-rpg-scroll');
   const hudBoardBefore = $('skillTreeHud')?.querySelector('.skill-rpg-scroll');
   const scrollSnapshot = {
+    documentTop: document.scrollingElement?.scrollTop ?? window.scrollY ?? 0,
+    lobbyChain: captureSkillTreeScrollChain($('skillTreeLobby')),
+    hudChain: captureSkillTreeScrollChain($('skillTreeHud')),
     lobbyEditorTop: lobbyEditorScroll?.scrollTop || 0,
-    lobbyBoardTop: lobbyBoardBefore?.scrollTop || skillTreeScrollMemory.lobby.top,
-    lobbyBoardLeft: lobbyBoardBefore?.scrollLeft || skillTreeScrollMemory.lobby.left,
+    lobbyBoardTop: lobbyBoardBefore?.scrollTop ?? skillTreeScrollMemory.lobby.top,
+    lobbyBoardLeft: lobbyBoardBefore?.scrollLeft ?? skillTreeScrollMemory.lobby.left,
     skillPanelTop: skillPanelScroll?.scrollTop || 0,
-    hudBoardTop: hudBoardBefore?.scrollTop || skillTreeScrollMemory.hud.top,
-    hudBoardLeft: hudBoardBefore?.scrollLeft || skillTreeScrollMemory.hud.left,
+    hudBoardTop: hudBoardBefore?.scrollTop ?? skillTreeScrollMemory.hud.top,
+    hudBoardLeft: hudBoardBefore?.scrollLeft ?? skillTreeScrollMemory.hud.left,
     lobbyCatalogTop: $('skillTreeLobby')?.querySelector('.skill-description-catalog')?.scrollTop || 0,
     hudCatalogTop: $('skillTreeHud')?.querySelector('.skill-description-catalog')?.scrollTop || 0
   };
@@ -3029,19 +3048,27 @@ function renderSkillTrees() {
   if(lobbyTree)lobbyTree.innerHTML=html;
   if(hudTree)hudTree.innerHTML=core+filterBar+'<div class="skill-rpg-heading"><strong>CAMINHOS DE ESPECIALIZAÇÃO</strong><span>O núcleo se divide em cinco trilhas. Desbloqueie cada nível em sequência.</span></div>'+tree+'<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Desça a página para ver todas as trilhas.</p>';
   // Trilhas em fluxo vertical: sem canvas fixo e sem zoom que altere a posição da página.
-  requestAnimationFrame(() => {
+  const restoreTreePosition = () => {
+    if (document.scrollingElement) document.scrollingElement.scrollTop = scrollSnapshot.documentTop;
+    restoreSkillTreeScrollChain(scrollSnapshot.lobbyChain);
+    restoreSkillTreeScrollChain(scrollSnapshot.hudChain);
     const editor = document.querySelector('#lobby .lobby-editor-content');
     const panel = $('skillPanel');
     const lobbyBoard = $('skillTreeLobby')?.querySelector('.skill-rpg-scroll');
     const hudBoard = $('skillTreeHud')?.querySelector('.skill-rpg-scroll');
     if (editor) editor.scrollTop = scrollSnapshot.lobbyEditorTop;
     if (panel) panel.scrollTop = scrollSnapshot.skillPanelTop;
-    if (lobbyBoard) { lobbyBoard.scrollLeft=scrollSnapshot.lobbyBoardLeft; lobbyBoard.scrollTop=scrollSnapshot.lobbyBoardTop; }
-    if (hudBoard) { hudBoard.scrollLeft=scrollSnapshot.hudBoardLeft; hudBoard.scrollTop=scrollSnapshot.hudBoardTop; }
+    if (lobbyBoard) { lobbyBoard.scrollLeft = scrollSnapshot.lobbyBoardLeft; lobbyBoard.scrollTop = scrollSnapshot.lobbyBoardTop; }
+    if (hudBoard) { hudBoard.scrollLeft = scrollSnapshot.hudBoardLeft; hudBoard.scrollTop = scrollSnapshot.hudBoardTop; }
     const lobbyCatalog = $('skillTreeLobby')?.querySelector('.skill-description-catalog');
     const hudCatalog = $('skillTreeHud')?.querySelector('.skill-description-catalog');
     if (lobbyCatalog) lobbyCatalog.scrollTop = scrollSnapshot.lobbyCatalogTop;
     if (hudCatalog) hudCatalog.scrollTop = scrollSnapshot.hudCatalogTop;
+    if (typeof window.scrollTo === 'function') window.scrollTo(0, scrollSnapshot.documentTop);
+  };
+  requestAnimationFrame(() => {
+    restoreTreePosition();
+    requestAnimationFrame(restoreTreePosition);
   });
   if($('skillPoints'))$('skillPoints').textContent=String(skillPoints);
   if($('skillPointsHud'))$('skillPointsHud').textContent=String(skillPoints);
@@ -4149,6 +4176,10 @@ function handleOfflineClassAbility(data) {
   handleClassAbilityMessage({type:'classAbility',id:player.id,ability,x:player.x,z:player.z,center,targets,until,text});
   showNotice(text);
 }
+const OFFLINE_CLASS_ATTACK_RANGES = Object.freeze({
+  knight: 3.0, mage: 7.2, archer: 8.2, goblin: 2.55, ogre: 2.9,
+  healer: 8.0, necromancer: 7.6, monk: 2.35, golem: 2.8
+});
 function handleOfflineAction(data) {
   if (!offlineState || !data) return;
   const player = offlineState.players[0];
@@ -4195,8 +4226,12 @@ function handleOfflineAction(data) {
     const now = Date.now();
     if (now - offlineLastHit < (offlineHasSkill('battle_focus') ? 220 : 300)) return;
     offlineLastHit = now;
+    const baseAttackRange = OFFLINE_CLASS_ATTACK_RANGES[selectedClass] || 3.0;
+    const rangeRank = Math.max(0, Number(player.levelUpgrades?.range) || 0);
+    const attackRange = baseAttackRange * (1 + rangeRank * 0.025)
+      + (selectedClass === 'archer' && offlineHasSkill('longshot') ? 2 : 0);
     const target = offlineState.monsters
-      .filter(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2)
+      .filter(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) <= attackRange)
       .sort((a,b) => Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];
     if (target) {
       const damage=(selectedClass==='ogre'||selectedClass==='golem'?12:selectedClass==='archer'||selectedClass==='goblin'?9:8)+(equipmentDamage||0)+(player.damageBuffHits>0?(player.damageBuff||0):0)+(offlineHasSkill('hunter_instinct')||offlineHasSkill('knight_royal_oath')||offlineHasSkill('goblin_poison')||offlineHasSkill('ogre_crusher')||offlineHasSkill('necromancer_reaper')||offlineHasSkill('monk_zen')?1:0);
