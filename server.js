@@ -2078,7 +2078,7 @@ setInterval(() => {
           if(!teammatesInside){
             pit.open=false;
             room.monsters=room.monsters.filter(enemy=>enemy.underworldPitId!==pit.id);
-            room.chests=room.chests.filter(chest=>!chest.underground||chest.id!=='under-chest-'+pit.ownerId+'-'+(String(chest.id).split('-').pop()));
+            room.chests=room.chests.filter(chest=>!(chest.underground&&String(chest.id).startsWith('under-chest-'+pit.ownerId+'-')));
           }
         }
         if(p.ws?.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'Você saiu da câmara subterrânea.'}));
