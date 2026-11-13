@@ -5598,3 +5598,20 @@ html,body,#game{
   #lobby #skillTreeLobby .skill-rpg-node,#hud #skillTreeHud .skill-rpg-node{min-height:60px;padding:7px}
   .skill-rpg-node-copy .skill-rpg-node-desc{font-size:8px}
 }
+
+
+/* Last Legacy — manter a posição do grimório após desbloquear uma skill no celular. */
+@media(max-width:700px) and (pointer:coarse){
+  #skillTreeLobby .skill-description-catalog,
+  #skillTreeHud .skill-description-catalog{
+    min-height:0;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior-y:contain;
+    overflow-anchor:none;
+    -webkit-overflow-scrolling:touch;
+    scroll-behavior:auto;
+  }
+  #skillTreeLobby .skill-description-list,
+  #skillTreeHud .skill-description-list{min-height:0}
+}
