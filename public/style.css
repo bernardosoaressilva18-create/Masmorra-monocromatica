@@ -4422,3 +4422,13 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 @media(prefers-reduced-motion:reduce){
  #startScreen *,#menu *,#lobby *{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
+
+/* Skins: três escolhas iniciais e sete recompensas de baú */
+#lobby .skin-chest-info{margin-top:14px;padding:12px;border:1px solid #b99b5b55;border-radius:12px;background:linear-gradient(140deg,#1c2330,#0b121c)}
+#lobby .skin-chest-info strong{color:#efd18f;font:800 11px Cinzel,serif;letter-spacing:1.4px}
+#lobby .skin-chest-info p{margin:7px 0;color:#b5c7d2;font-size:11px;line-height:1.5}
+#lobby .skin-chest-info small{color:#8fe7cf;font-size:9px;letter-spacing:1px}
+#lobby .skin-picks{grid-template-columns:repeat(3,minmax(0,1fr))}
+#lobby .skin-pick{min-width:0}
+#lobby .hero-showcase{min-height:clamp(230px,38vh,340px)}
+@media(max-width:600px){#lobby .skin-chest-info{padding:10px}#lobby .hero-showcase{min-height:250px}}
