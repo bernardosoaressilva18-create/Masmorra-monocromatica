@@ -4980,3 +4980,35 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
  #hud .chest-btn{right:92px!important;bottom:10px!important}
  #hud .dodge-btn{right:92px!important;bottom:68px!important}
 }
+
+
+/* Last Legacy: capa de fantasia medieval integrada à tela inicial e ao menu. */
+#startScreen.start-screen,
+#menu {
+  background:
+    linear-gradient(180deg, rgba(3,8,13,.16) 0%, rgba(3,8,13,.36) 45%, rgba(3,8,13,.88) 100%),
+    linear-gradient(90deg, rgba(3,8,13,.50), rgba(3,8,13,.06) 52%, rgba(3,8,13,.48)),
+    url('https://images.pexels.com/photos/14516327/pexels-photo-14516327.jpeg?auto=compress&dpr=1&h=750&w=1260') center 48% / cover no-repeat;
+}
+#startScreen .start-title,
+#menu .brand h1 {
+  text-shadow: 0 4px 12px #000, 0 10px 36px #000;
+}
+#startScreen .start-emblem,
+#menu .sigil { filter: drop-shadow(0 4px 12px #000); }
+#menu .panel {
+  background: linear-gradient(145deg, rgba(10,20,30,.94), rgba(5,10,17,.95));
+  border-color: #b4d6e35c;
+  backdrop-filter: blur(10px);
+}
+.cover-credit {
+  display: block;
+  margin-top: 8px;
+  color: #d2dde4a8;
+  font-size: 8px;
+  letter-spacing: .4px;
+  text-shadow: 0 2px 8px #000;
+}
+@media (max-height: 500px) {
+  #startScreen.start-screen { background-position: center 43%; }
+}
