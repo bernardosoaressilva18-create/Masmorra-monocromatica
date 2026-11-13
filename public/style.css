@@ -5415,3 +5415,58 @@ html, body, #game { width:100%; height:100%; min-width:0; min-height:0; }
   #hud .attack { width:78px; height:78px; }
   #hud .spell-btn { width:54px; height:54px; }
 }
+
+
+/* PATCH r10 — composição real do lobby em paisagem: personagem e equipe lado a lado. */
+@media (orientation:landscape) and (max-height:600px) {
+  #lobby .lobby-header { flex:0 0 40px; min-height:40px; height:40px; padding:4px 12px; }
+  #lobby .lobby-nav { flex:0 0 auto; min-height:34px; height:34px; display:flex; align-items:center; justify-content:center; gap:6px; padding:2px 8px; }
+  #lobby .lobby-nav-btn { min-height:28px; height:28px; padding:4px 10px; font-size:9px; }
+  #lobby .lobby-layout {
+    position:absolute; inset:76px 0 6px; display:flex; flex-direction:row;
+    align-items:stretch; gap:10px; width:100%; max-width:none; min-height:0;
+    margin:0; padding:6px 10px; overflow-x:hidden; overflow-y:auto;
+    pointer-events:auto; box-sizing:border-box;
+  }
+  #lobby .lobby-stage {
+    position:relative; inset:auto; flex:1 1 auto; display:flex; flex-direction:row;
+    align-items:center; justify-content:space-between; gap:10px; width:100%;
+    min-width:0; min-height:0; height:auto; margin:0; padding:18px 0 0;
+  }
+  #lobby .lobby-stage-top { position:absolute; top:0; left:0; transform:none; font-size:7px; }
+  #lobby .hero-showcase {
+    position:relative; inset:auto; flex:1 1 auto; display:flex; flex-direction:row;
+    align-items:center; justify-content:center; gap:10px; width:auto; height:auto;
+    min-width:0; min-height:0; margin:0; padding:8px; border-radius:12px;
+    pointer-events:none;
+  }
+  #lobby .hero-preview-avatar { display:grid; flex:0 0 auto; width:clamp(72px,18vh,116px); height:clamp(82px,25vh,145px); }
+  #lobby .hero-showcase-info {
+    position:relative; inset:auto; flex:1 1 auto; width:auto; max-width:270px;
+    min-width:0; margin:0; padding:8px 10px; text-align:left;
+  }
+  #lobby .hero-showcase-info>strong { font-size:clamp(14px,3vh,21px); }
+  #lobby .hero-showcase-info p { font-size:8px; margin:3px 0 5px; }
+  #lobby .hero-showcase-tags { gap:3px; }
+  #lobby .hero-showcase-tags span { font-size:6px; padding:3px 4px; }
+  #lobby .lobby-team-box {
+    position:relative; inset:auto; flex:0 0 clamp(170px,28vw,260px);
+    width:auto; max-width:none; min-width:0; max-height:100%;
+    margin:0; padding:8px; overflow-y:auto; align-self:center;
+  }
+  #lobby .lobby-players { grid-template-columns:1fr; max-height:28vh; overflow-y:auto; }
+  #lobby .lobby-player { min-height:32px; padding:5px 7px; }
+  #lobby .lobby-bottom-bar { position:relative; }
+  #lobby .lobby-editor { width:min(520px,calc(100vw - 24px)); max-height:calc(100dvh - 16px); }
+  #lobby .lobby-editor-content { max-height:calc(100dvh - 68px); }
+}
+@media (orientation:landscape) and (max-height:430px) {
+  #lobby .lobby-header { flex-basis:34px; min-height:34px; height:34px; }
+  #lobby .lobby-nav { min-height:28px; height:28px; }
+  #lobby .lobby-nav-btn { min-height:24px; height:24px; padding:2px 7px; font-size:8px; }
+  #lobby .lobby-layout { inset:64px 0 4px; padding:4px 7px; }
+  #lobby .lobby-stage { padding-top:14px; }
+  #lobby .lobby-team-box { flex-basis:clamp(150px,27vw,220px); padding:6px; }
+  #lobby .hero-showcase { padding:5px; }
+  #lobby .hero-preview-avatar { width:72px; height:82px; }
+}
