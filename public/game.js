@@ -2733,18 +2733,59 @@ function handleOfflineSpell(spell) {
   }
   saveSharedProfile();
 }
+
+function spawnOfflineWave(phase,realm){
+  if(!offlineState)return;
+  const kindSets={
+    1:['stalker','stalker','brute','wraith','thorn'],
+    2:['wraith','thorn','assassin','stalker','brute'],
+    3:['assassin','wraith','abyss','thorn','brute'],
+    4:['abyss','assassin','brute','inferno','wraith'],
+    5:['inferno','abyss','brute','assassin','inferno']
+  };
+  const kinds=kindSets[phase]||kindSets[5],baseZ=-((phase-1)*32+10);
+  const healthScale=1+(phase-1)*.18+(realm-1)*.28;
+  const batch=kinds.map((kind,index)=>{
+    const base=kind==='brute'?34:kind==='abyss'||kind==='inferno'?27:kind==='thorn'?22:16;
+    const hp=Math.round(base*healthScale);
+    return{id:'offline-r'+realm+'-p'+phase+'-'+Date.now()+'-'+index,kind,phase,realm,
+      x:-8+index*4,z:baseZ-(index%2)*2.4,alive:true,hp,maxHp:hp,spawned:true,moveSpeed:kind==='brute'?.23:kind==='assassin'?.37:.30};
+  });
+  offlineState.monsters=[...(offlineState.monsters||[]).filter(monster=>monster.alive),...batch];
+  offlineState.portalOpen=false;
+}
 function handleOfflineAction(data) {
   if (!offlineState || !data) return;
   const player = offlineState.players[0];
-  if (data.type === 'move' && player.hp > 0) {
-    const requestedX = Number.isFinite(Number(data.x)) ? Number(data.x) : player.x;
-    const requestedZ = Number.isFinite(Number(data.z)) ? Number(data.z) : player.z;
-    const boundedX = THREE.MathUtils.clamp(requestedX, -13, 13);
-    const boundedZ = THREE.MathUtils.clamp(requestedZ, -174, 8);
-    const resolved = resolveDungeonMovement(player.x, player.z, boundedX, boundedZ);
-    player.x = resolved.x;
-    player.z = resolved.z;
-    if (Number.isFinite(Number(data.rot))) player.rot = Number(data.rot);
+  if(data.type==='move'&&player.hp>0){
+    const requestedX=Number.isFinite(Number(data.x))?Number(data.x):player.x;
+    const requestedZ=THREE.MathUtils.clamp(Number.isFinite(Number(data.z))?Number(data.z):player.z,-174,8);
+    const boundedX=THREE.MathUtils.clamp(requestedX,-13,13);
+    const phase=Math.max(1,Math.min(5,Number(offlineState.phase)||1));
+    const realm=Math.max(1,Math.min(3,Number(offlineState.realm)||1));
+    const gateZ=phase<5?-(30+(phase-1)*32):-168;
+    const living=offlineLivingMonsters().length;
+    if(requestedZ<gateZ&&living>0){
+      const resolved=resolveDungeonMovement(player.x,player.z,boundedX,Math.max(requestedZ,gateZ+.85));
+      player.x=resolved.x;player.z=Math.max(resolved.z,gateZ+.85);
+      if(Date.now()-(player.lastGateNotice||0)>1800){player.lastGateNotice=Date.now();showNotice('O portão está selado! Derrote os inimigos desta fase.');}
+    }else if(requestedZ<gateZ&&phase<5){
+      offlineState.phase=phase+1;
+      const resolved=resolveDungeonMovement(player.x,player.z,boundedX,gateZ-.8);
+      player.x=resolved.x;player.z=Math.min(resolved.z,gateZ-.8);
+      spawnOfflineWave(offlineState.phase,realm);
+      showNotice('✦ Fase '+offlineState.phase+'/5! Uma nova horda surgiu.');
+    }else if(requestedZ<gateZ&&phase===5&&realm<3){
+      offlineState.realm=realm+1;offlineState.phase=1;player.x=0;player.z=3;
+      currentRealmVisual=offlineState.realm;
+      spawnOfflineWave(1,offlineState.realm);
+      showNotice(offlineState.realm===2?'✦ PORTAL ABERTO! Bem-vindo ao Vale Astral.':'✦ PORTAL ABERTO! Você chegou ao Eclipse Selvagem.');
+    }else{
+      const resolved=resolveDungeonMovement(player.x,player.z,boundedX,boundedX===player.x?requestedZ:requestedZ);
+      player.x=resolved.x;player.z=resolved.z;
+    }
+    offlineState.portalOpen=offlineState.phase===5&&offlineLivingMonsters().length===0;
+    if(Number.isFinite(Number(data.rot)))player.rot=Number(data.rot);
   } else if (data.type === 'attack' && player.hp > 0) {
     const now = Date.now();
     if (now - offlineLastHit < (offlineHasSkill('battle_focus') ? 220 : 300)) return;
@@ -3376,8 +3417,10 @@ function updateState(m) {
         setHeroInvisible(myPlayer, !!p.invisible);
         setHeroShielded(myPlayer, !!p.shielded);
         $('hpText').textContent = String(Math.round(myPlayer.userData.serverHp));
-        const currentMana = Math.max(0, Number(p.mana ?? 100));
-        const maximumMana = Math.max(1, Number(p.maxMana ?? 100));
+        const currentMana=Math.max(0,Number(p.mana??100));
+        const maximumMana=Math.max(1,Number(p.maxMana??100));
+        myPlayer.userData.serverMana=currentMana;
+        myPlayer.userData.serverMaxMana=maximumMana;
         const manaFill = $('manaFill');
         const manaText = $('manaText');
         if (manaFill) { manaFill.style.width = (Math.max(0, Math.min(1, currentMana / maximumMana)) * 100) + '%'; manaFill.classList.toggle('low-mana', currentMana <= maximumMana * .2); }
@@ -4349,6 +4392,9 @@ function castSpell(kind) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
   const spec=Object.values(CLASS_ABILITY_CONFIG).flat().find(item=>(item.spellType||item.ability)===kind||item.ability===kind);
   const slot=(CLASS_ABILITY_CONFIG[selectedClass]||[]).findIndex(item=>(item.spellType||item.ability)===kind||item.ability===kind);
+  const manaCost={fire:20,lightning:15,arcane:18,bone:16}[kind]||15;
+  const currentMana=offlineMode?Number(offlineState?.players?.[0]?.mana??100):Number(myPlayer?.userData.serverMana??100);
+  if(currentMana<manaCost){showNotice('✦ Mana insuficiente! Espere regenerar.');return;}
   const cooldown=slot===0?fireCooldown:slot===1?lightningCooldown:thirdCooldown;
   if(cooldown>0)return;
   const value=spec?.cooldown??(kind==='fire'?4:kind==='lightning'?3.5:9);
@@ -4379,8 +4425,12 @@ function castSpell(kind) {
 function activateClassAbility(slot) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
   const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
-  const spec = abilities[slot];
-  if (!spec) return;
+  const spec=abilities[slot];
+  if(!spec)return;
+  const activeManaCosts={knight_shield:12,knight_dash:16,knight_whirlwind:21,arrow_rain:18,incendiary_arrows:22,archer_piercing_shot:22,goblin_invis:16,goblin_summon:24,goblin_shadow_strike:18,ogre_slam:20,ogre_haste:14,ogre_earthquake:28,healer_cure:18,healer_guardian_spirits:25,healer_sanctuary:24,necromancer_summon:24,necromancer_dive:18,monk_impact_palm:16,monk_winged_steps:18,monk_spirit_wave:22,golem_split:24,golem_rock_toss:20,golem_stone_guard:20};
+  const needed=activeManaCosts[spec.ability]||16;
+  const available=offlineMode?Number(offlineState?.players?.[0]?.mana??100):Number(myPlayer?.userData.serverMana??100);
+  if(!spec.spell&&available<needed){showNotice('✦ Mana insuficiente! Custo: '+needed+'.');return;}
   if(spec.spell){
     castSpell(spec.spellType||spec.ability);
     return;
