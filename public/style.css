@@ -4532,3 +4532,71 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 #lobby .skin-pick[data-chest-skin="true"] b{color:#b5f3dc}
 #lobby .skin-pick[data-chest-skin="true"] small{color:#8dd8ca}
 #hud .selected-item button:not(:disabled):active{transform:translateY(1px);filter:brightness(1.15)}
+
+/* Pacote 03 — redesign do lobby e presença dos personagens */
+#lobby .lobby-layout{display:flex;flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
+#lobby .lobby-stage{display:flex;flex-direction:column;justify-content:flex-start;gap:12px;min-height:0;min-width:0;width:100%;padding:12px clamp(10px,2vw,24px) 18px}
+#lobby .lobby-stage-top{order:0;align-self:center;margin:0 0 2px;padding:9px 15px;border:1px solid #e1c47b35;border-radius:999px;background:linear-gradient(120deg,#101f2d,#0a121d);color:#dce9ef;box-shadow:0 5px 18px #0005}
+#lobby .lobby-team-box{order:1;position:relative;inset:auto;z-index:4;width:100%;max-width:none;margin:0;padding:12px 14px;border:1px solid #79c6db38;border-radius:15px;background:linear-gradient(120deg,#0d1b29f2,#09131ff2);box-shadow:0 10px 24px #0006}
+#lobby .lobby-players{grid-template-columns:repeat(2,minmax(0,1fr));max-height:112px}
+#lobby .hero-showcase{order:2;position:relative;inset:auto;display:block;isolation:isolate;overflow:hidden;width:100%;height:clamp(340px,42vh,490px);min-height:340px;margin:0;padding:0;border:1px solid #7ccddd47;border-radius:20px;background:radial-gradient(ellipse at 50% 38%,#214a5a66,transparent 58%),linear-gradient(145deg,#111e2b,#080f19 72%);box-shadow:0 15px 35px #0008,inset 0 1px #ffffff12;pointer-events:none}
+#lobby .hero-showcase:before{content:"";position:absolute;inset:0;z-index:0;border-radius:inherit;background:linear-gradient(180deg,#ffffff04,transparent 30%,#040a13aa 100%);pointer-events:none}
+#lobby .hero-showcase:after{content:"";position:absolute;left:12%;right:12%;bottom:21%;height:1px;background:linear-gradient(90deg,transparent,#70d8eb88,transparent);box-shadow:0 0 18px #65d8f344;pointer-events:none}
+#lobby .hero-preview-avatar{display:none}
+#lobby .hero-showcase-info{position:absolute;left:12px;right:12px;bottom:10px;z-index:3;width:auto;max-width:100%;margin:0;padding:11px 14px;border:1px solid #8dd9eb44;border-left:3px solid #e7c77e;border-radius:13px;background:linear-gradient(100deg,#061321f2,#091422e8);box-shadow:0 8px 24px #0008;backdrop-filter:blur(8px);pointer-events:none}
+#lobby .hero-showcase-info>small{font-size:8px;letter-spacing:2px;color:#90e5ed}
+#lobby .hero-showcase-info>strong{display:block;margin:4px 0 2px;font:800 clamp(19px,4vw,26px)/1.1 Cinzel,serif;color:#f3d99c;text-shadow:0 3px 12px #000}
+#lobby .hero-showcase-info p{margin:5px 0 8px;color:#cedce4;font-size:10px;line-height:1.4}
+#lobby .hero-showcase-tags{display:flex;flex-wrap:wrap;gap:6px}
+#lobby .hero-showcase-tags span{padding:5px 8px;border:1px solid #9acbdc35;border-radius:999px;background:#0d1c2b;color:#b8dbe3;font-size:8px;letter-spacing:.65px}
+#lobby .lobby-team-box .lobby-section-title>span{font-size:10px;letter-spacing:1.6px;color:#e7cc8b}
+#lobby .lobby-team-box .lobby-section-title>small{color:#9eb7c7;font-variant-numeric:tabular-nums}
+#lobby .lobby-player{border-radius:10px;background:linear-gradient(140deg,#15283a,#0a1521)}
+#lobby .lobby-player.is-self{border-color:#75d9d1;background:linear-gradient(140deg,#123a39,#0b1e29)}
+#lobby .lobby-empty{margin:4px 0;color:#a9bfce;font-size:11px}
+#lobby .class-cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+#lobby .class-card{position:relative;min-height:112px;justify-content:center;gap:6px;padding:12px 7px;border:1px solid #67879b55;border-radius:14px;background:linear-gradient(150deg,#15283a,#0a1520);box-shadow:inset 0 1px #ffffff0c,0 6px 16px #0005;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+#lobby .class-card:before{content:"";position:absolute;top:0;left:12%;right:12%;height:2px;border-radius:0 0 9px 9px;background:var(--class-accent,#88dceb);opacity:.7}
+#lobby .class-card.selected{border-color:var(--class-accent,#e7c77e)!important;background:linear-gradient(145deg,color-mix(in srgb,var(--class-accent,#6fd7e8) 20%,#172738),#09131f);box-shadow:0 0 0 2px color-mix(in srgb,var(--class-accent,#6fd7e8) 22%,transparent),0 10px 24px #0007}
+#lobby .class-card:active{transform:translateY(1px) scale(.99)}
+#lobby .class-card b{font:800 9px/1.2 Cinzel,serif;letter-spacing:.55px;color:#f0e4c2}
+#lobby .class-card small{max-width:100%;font-size:8px;line-height:1.35;color:#aebfce}
+#lobby .class-icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:1px;border:1px solid color-mix(in srgb,var(--class-accent,#8beaff) 60%,transparent);border-radius:13px;background:radial-gradient(circle at 32% 25%,color-mix(in srgb,var(--class-accent,#8beaff) 25%,#24384b),#0a1521 75%);box-shadow:inset 0 1px #ffffff26,0 5px 12px #0006;color:var(--class-accent,#9deaff);font:700 25px/1 Georgia,serif;text-shadow:0 0 13px color-mix(in srgb,var(--class-accent,#9deaff) 40%,transparent)}
+#lobby .class-card[data-class="knight"]{--class-accent:#e7c779}
+#lobby .class-card[data-class="mage"]{--class-accent:#b99aff}
+#lobby .class-card[data-class="archer"]{--class-accent:#8ee6a4}
+#lobby .class-card[data-class="goblin"]{--class-accent:#b9e56b}
+#lobby .class-card[data-class="ogre"]{--class-accent:#f0a46f}
+#lobby .class-card[data-class="healer"]{--class-accent:#73e5c5}
+#lobby .class-card[data-class="necromancer"]{--class-accent:#c59ce8}
+#lobby .class-card[data-class="monk"]{--class-accent:#f1c78b}
+#lobby .class-card[data-class="golem"]{--class-accent:#b2c5c6}
+#lobby .class-description{margin:10px 0 0;padding:10px 12px;border:1px solid #7aacc144;border-radius:10px;background:#0c1a27;color:#bed1db;font-size:10px;line-height:1.45}
+#lobby .lobby-bottom-bar{border-top:1px solid #8fc4d52b;background:linear-gradient(180deg,#09121ce8,#070d15fa);backdrop-filter:blur(10px)}
+@media(max-width:700px){
+ #lobby .lobby-layout{display:block;flex:1 1 auto;min-height:0;padding:10px 10px calc(14px + env(safe-area-inset-bottom));overflow-y:auto}
+ #lobby .lobby-stage{min-height:0;padding:4px 0 8px;gap:10px}
+ #lobby .lobby-stage-top{font-size:8px;letter-spacing:1.1px;max-width:100%;white-space:nowrap}
+ #lobby .lobby-team-box{padding:10px 11px}
+ #lobby .lobby-players{grid-template-columns:1fr;max-height:106px}
+ #lobby .lobby-player{min-height:40px;padding:7px 9px}
+ #lobby .hero-showcase{height:clamp(340px,39vh,470px);min-height:340px;border-radius:17px}
+ #lobby .hero-showcase-info{left:9px;right:9px;bottom:8px;padding:9px 11px}
+ #lobby .hero-showcase-info>strong{font-size:20px}
+ #lobby .hero-showcase-info p{font-size:9px;margin:4px 0 6px}
+ #lobby .hero-showcase-tags span{font-size:7px;padding:4px 7px}
+ #lobby .class-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ #lobby .class-card{min-height:100px;padding:10px 6px}
+ #lobby .class-icon{width:38px;height:38px;font-size:23px}
+ #lobby .lobby-bottom-bar{gap:7px;padding:9px 10px calc(9px + env(safe-area-inset-bottom))}
+}
+@media(max-width:380px){
+ #lobby .class-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #lobby .class-card{min-height:94px}
+ #lobby .hero-showcase{height:340px}
+}
+@media(orientation:landscape) and (max-height:520px){
+ #lobby .lobby-layout{overflow-y:auto}
+ #lobby .hero-showcase{height:300px;min-height:300px}
+ #lobby .lobby-team-box{max-width:none}
+}
