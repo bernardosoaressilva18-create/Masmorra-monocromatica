@@ -724,6 +724,12 @@ function openUnderworldPit(room,player,hazard,now){
 }
 function applyMapHazards(room,player,now){
  if(!player||player.hp<=0||room.gameMode==='pvp_rpg'||now<(player.mapTrapDamageAt||0)||now<(player.underworldUntil||0))return;
+ const occupiedPit=(room.underworldPits||[]).find(pit=>pit.open&&Math.hypot(player.x-pit.x,player.z-pit.z)<4.45);
+ if(occupiedPit){
+  player.underworldReturnX=occupiedPit.x;player.underworldReturnZ=occupiedPit.z;
+  player.underworldUntil=occupiedPit.until;player.mapTrapDamageAt=occupiedPit.until;
+  return;
+ }
  let hazard=null;
  for(const spike of SERVER_SPIKES){
   if(Math.hypot(player.x-spike.x,player.z-spike.z)<spike.r){hazard={...spike,type:'spike',cooldown:1050};break;}
@@ -2064,7 +2070,17 @@ setInterval(() => {
     }
     for (const p of players) {
       if(p.underworldUntil&&now>=p.underworldUntil){
-        p.x=p.underworldReturnX;p.z=p.underworldReturnZ;p.underworldUntil=0;
+        const exitX=p.underworldReturnX,exitZ=p.underworldReturnZ;
+        p.x=exitX;p.z=exitZ;p.underworldUntil=0;
+        const pit=room.underworldPits.find(item=>item.open&&item.x===exitX&&item.z===exitZ);
+        if(pit){
+          const teammatesInside=players.some(other=>other.underworldUntil>now&&other.underworldReturnX===exitX&&other.underworldReturnZ===exitZ);
+          if(!teammatesInside){
+            pit.open=false;
+            room.monsters=room.monsters.filter(enemy=>enemy.underworldPitId!==pit.id);
+            room.chests=room.chests.filter(chest=>!chest.underground||chest.id!=='under-chest-'+pit.ownerId+'-'+(String(chest.id).split('-').pop()));
+          }
+        }
         if(p.ws?.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'Você saiu da câmara subterrânea.'}));
       }
       if(p.poisonUntil&&now>=p.poisonUntil){p.poisonUntil=0;p.poisonNextAt=0;}
