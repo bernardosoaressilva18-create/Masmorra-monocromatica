@@ -917,6 +917,20 @@ wss.on('connection', ws => {
         return;
       }
       room.started=true;
+      // Talentos e recargas são exclusivos de cada partida.
+      for (const participant of room.players.values()) {
+        participant.skills = [];
+        participant.talentPoints = 5;
+        participant.abilityCooldowns = {};
+        participant.shieldUntil = 0;
+        participant.invisibleUntil = 0;
+        participant.ogreHasteUntil = 0;
+        participant.monkSpeedUntil = 0;
+        participant.guardianSpiritsUntil = 0;
+        participant.deathLocked = false;
+        participant.mana = participant.maxMana || 100;
+        refreshPlayerStats(participant, true);
+      }
       if(room.gameMode==='pvp_rpg'){
         room.phase=1;room.realm=1;room.monsters=[];room.summons=[];room.boss=null;room.cursedBoss=null;room.chests=[];room.safeZoneUntil=0;room.pvpRoundEndAt=0;
         [...room.players.values()].filter(p=>p.connected!==false).forEach((p,i)=>{
