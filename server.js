@@ -856,7 +856,7 @@ function awardKillExperience(room,target,killer,baseAmount,source='monster'){
 
 
 const STATIC_DUNGEON_COLLIDERS=SERVER_PILLAR_COLLIDERS;
-function isServerPositionBlocked(room,x,z){
+function isServerPositionBlocked(room,x,z,playerId=null){
  const playerRadius=.43;
  if(room.gameMode!=='pvp_rpg'&&!serverIsWalkableFloor(x,z,room))return true;
  if(room.started&&room.gameMode!=='pvp_rpg'){
@@ -865,16 +865,16 @@ function isServerPositionBlocked(room,x,z){
   if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
  }
  for(const obstacle of STATIC_DUNGEON_COLLIDERS)if(Math.hypot(x-obstacle.x,z-obstacle.z)<playerRadius+obstacle.r)return true;
- for(const chest of room.chests||[])if(Math.hypot(x-chest.x,z-chest.z)<playerRadius+.62)return true;
+ for(const chest of room.chests||[]){if(Array.isArray(chest.openedBy)&&chest.openedBy.some(id=>String(id)===String(playerId)))continue;if(Math.hypot(x-chest.x,z-chest.z)<playerRadius+.62)return true;}
  return false;
 }
 function resolveServerMovement(room, player, nextX, nextZ) {
   const x = Math.max(-13, Math.min(13, nextX));
   const z = Math.max(-174, Math.min(8, nextZ));
-  const canMoveX = !isServerPositionBlocked(room, x, player.z);
-  const canMoveZ = !isServerPositionBlocked(room, player.x, z);
+  const canMoveX = !isServerPositionBlocked(room, x, player.z, player.id);
+  const canMoveZ = !isServerPositionBlocked(room, player.x, z, player.id);
   if (canMoveX && canMoveZ) {
-    if (!isServerPositionBlocked(room, x, z)) return { x, z };
+    if (!isServerPositionBlocked(room, x, z, player.id)) return { x, z };
     if (Math.abs(x - player.x) >= Math.abs(z - player.z)) return { x, z: player.z };
     return { x: player.x, z };
   }
@@ -1152,7 +1152,7 @@ wss.on('connection', ws => {
       const clickDistance = Math.hypot(requestedX - oldX, requestedZ - oldZ);
       const angle = clickDistance > 0.001 ? Math.atan2(requestedZ - oldZ, requestedX - oldX) : (player.rot || 0);
       let landing = null;
-      if (clickDistance >= minDiveDistance && !isServerPositionBlocked(room, requestedX, requestedZ)) {
+      if (clickDistance >= minDiveDistance && !isServerPositionBlocked(room, requestedX, requestedZ, player.id)) {
         landing = { x: requestedX, z: requestedZ };
       } else {
         // Procura primeiro uma área segura próxima à direção escolhida; nunca
@@ -1165,7 +1165,7 @@ wss.on('connection', ws => {
             const z = Math.max(-168, Math.min(5, oldZ + Math.sin(a) * radius));
             const candidate = { x, z };
             const distance = landingDistance(candidate);
-            if (distance < minDiveDistance - 0.5 || isServerPositionBlocked(room, x, z)) continue;
+            if (distance < minDiveDistance - 0.5 || isServerPositionBlocked(room, x, z, player.id)) continue;
             const score = Math.hypot(x - requestedX, z - requestedZ) + Math.abs(distance - Math.max(minDiveDistance, clickDistance)) * 0.18;
             if (score < bestScore) {
               bestScore = score;
