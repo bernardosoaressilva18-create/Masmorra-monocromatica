@@ -2734,25 +2734,25 @@ function handleOfflineClassAbility(data) {
   if (!player || player.hp <= 0) return;
   const ability = String(data.ability || '');
   const classByAbility = {
-    knight_shield:'knight',knight_dash:'knight',arrow_rain:'archer',incendiary_arrows:'archer',
-    goblin_invis:'goblin',goblin_summon:'goblin',ogre_slam:'ogre',ogre_haste:'ogre',
-    healer_cure:'healer',healer_guardian_spirits:'healer',necromancer_summon:'necromancer',
-    necromancer_dive:'necromancer',monk_impact_palm:'monk',monk_winged_steps:'monk',
-    golem_split:'golem',golem_rock_toss:'golem'
+    knight_shield:'knight',knight_dash:'knight',knight_whirlwind:'knight',arrow_rain:'archer',incendiary_arrows:'archer',archer_piercing_shot:'archer',
+    goblin_invis:'goblin',goblin_summon:'goblin',goblin_shadow_strike:'goblin',ogre_slam:'ogre',ogre_haste:'ogre',ogre_earthquake:'ogre',
+    healer_cure:'healer',healer_guardian_spirits:'healer',healer_sanctuary:'healer',necromancer_summon:'necromancer',
+    necromancer_dive:'necromancer',necromancer_bone_bolt:'necromancer',monk_impact_palm:'monk',monk_winged_steps:'monk',monk_spirit_wave:'monk',
+    golem_split:'golem',golem_rock_toss:'golem',golem_stone_guard:'golem'
   };
   if (classByAbility[ability] !== (player.playerClass || selectedClass)) {
     showNotice('Esta habilidade não pertence à sua classe.');
     return;
   }
-  const cooldowns = {knight_shield:12000,knight_dash:9000,arrow_rain:8000,incendiary_arrows:12000,
-    goblin_invis:14000,goblin_summon:20000,ogre_slam:10000,ogre_haste:15000,
-    healer_cure:23000,healer_guardian_spirits:40000,necromancer_summon:30000,necromancer_dive:15000,
-    monk_impact_palm:18000,monk_winged_steps:15000,golem_split:26000,golem_rock_toss:14500};
+  const cooldowns = {knight_shield:12000,knight_dash:9000,knight_whirlwind:14000,arrow_rain:8000,incendiary_arrows:12000,archer_piercing_shot:9500,
+    goblin_invis:14000,goblin_summon:20000,goblin_shadow_strike:11000,ogre_slam:10000,ogre_haste:15000,ogre_earthquake:17000,
+    healer_cure:23000,healer_guardian_spirits:40000,healer_sanctuary:24000,necromancer_summon:30000,necromancer_dive:15000,necromancer_bone_bolt:8500,
+    monk_impact_palm:18000,monk_winged_steps:15000,monk_spirit_wave:13000,golem_split:26000,golem_rock_toss:14500,golem_stone_guard:20000};
   const now=Date.now();
   player.abilityCooldowns=player.abilityCooldowns||{};
   const remaining=(player.abilityCooldowns[ability]||0)-now;
   if(remaining>0){showNotice('Habilidade recarregando: '+Math.ceil(remaining/1000)+'s.');return;}
-  const manaCosts={knight_shield:12,knight_dash:16,arrow_rain:18,incendiary_arrows:22,goblin_invis:16,goblin_summon:24,ogre_slam:20,ogre_haste:14,healer_cure:18,healer_guardian_spirits:25,necromancer_summon:24,necromancer_dive:18,monk_impact_palm:16,monk_winged_steps:18,golem_split:24,golem_rock_toss:20};
+  const manaCosts={knight_shield:12,knight_dash:16,knight_whirlwind:21,arrow_rain:18,incendiary_arrows:22,archer_piercing_shot:22,goblin_invis:16,goblin_summon:24,goblin_shadow_strike:18,ogre_slam:20,ogre_haste:14,ogre_earthquake:28,healer_cure:18,healer_guardian_spirits:25,healer_sanctuary:24,necromancer_summon:24,necromancer_dive:18,necromancer_bone_bolt:16,monk_impact_palm:16,monk_winged_steps:18,monk_spirit_wave:22,golem_split:24,golem_rock_toss:20,golem_stone_guard:20};
   const manaCost=manaCosts[ability]||16;
   if((Number(player.mana)||0)<manaCost){showNotice('✦ Mana insuficiente! Aguarde regenerar.');return;}
   player.mana=Math.max(0,(Number(player.mana)||0)-manaCost);
@@ -2762,7 +2762,7 @@ function handleOfflineClassAbility(data) {
     (ability==='golem_rock_toss'&&offlineHasSkill('golem_mountaincore')?2000:0);
   const spec=(CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[]).find(item=>item.ability===ability);
   player.abilityCooldowns[ability]=now+Math.max(4500,(cooldowns[ability]||12000)-reduction);
-  if(spec){if((CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[])[0]?.ability===ability)fireCooldown=spec.cooldown;else lightningCooldown=spec.cooldown;}
+  if(spec){const slot=(CLASS_ABILITY_CONFIG[player.playerClass||selectedClass]||[]).findIndex(item=>item.ability===ability);if(slot===0)fireCooldown=spec.cooldown;else if(slot===1)lightningCooldown=spec.cooldown;else if(slot===2)thirdCooldown=spec.cooldown;}
   let center={x:player.x,z:player.z},targets=[],notice='Habilidade ativada!',until=0,rockFall=null;
   const nearby=()=>offlineNearestMonster(14);
   if(ability==='knight_shield'){
@@ -2828,6 +2828,20 @@ function handleOfflineClassAbility(data) {
     targets=offlineDamageArea(center.x,center.z,radius,offlineHasSkill('golem_quake')?18:15,0,1.1);
     rockFall={x:center.x,z:center.z,radius,stones:Array.from({length:6},(_,i)=>({x:center.x+Math.cos(i*Math.PI/3)*2.5,z:center.z+Math.sin(i*Math.PI/3)*2.5}))};
     notice='☄️ Pedra titânica! Impacto e estilhaços!';
+  }else if(ability==='knight_whirlwind'){
+    targets=offlineDamageArea(player.x,player.z,4.6,10,0,0);notice='⚔️ Redemoinho de aço! Inimigos ao redor foram atingidos.';
+  }else if(ability==='archer_piercing_shot'){
+    const target=nearby();if(target){targets=[{x:target.x,z:target.z}];offlineDamageMonster(target,18);}notice='➶ Flecha perfurante disparada!';
+  }else if(ability==='goblin_shadow_strike'){
+    const target=nearby();if(target){offlineDamageMonster(target,16);offlineMoveForward(1.7);targets=[{x:target.x,z:target.z}];}player.invisibleUntil=now+600;notice='⟡ Golpe sombrio!';
+  }else if(ability==='ogre_earthquake'){
+    targets=offlineDamageArea(player.x,player.z,5.8,15,0,1.5);notice='♨ Terremoto! Uma onda de choque se espalhou pelo chão.';
+  }else if(ability==='healer_sanctuary'){
+    const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+25);player.shieldUntil=now+2000;targets=[{x:player.x,z:player.z}];notice='✚ Santuário! Cura e proteção ativadas.';
+  }else if(ability==='monk_spirit_wave'){
+    const heading=Number(player.rot)||0;center={x:player.x-Math.sin(heading)*1.8,z:player.z-Math.cos(heading)*1.8};targets=offlineDamageArea(center.x,center.z,4.5,13,0,0);notice='☯ Onda espiritual!';
+  }else if(ability==='golem_stone_guard'){
+    player.shieldUntil=now+6500;until=player.shieldUntil;notice='⬟ Guarda de pedra! Sua armadura ficou reforçada.';
   }
   handleClassAbilityMessage({type:'classAbility',id:playerId,ability,x:player.x,z:player.z,center,targets,until,text:notice,rockFall});
 }
