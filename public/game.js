@@ -1922,10 +1922,11 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
       hipPlate.rotation.z=side*.06;
     }
   }else{
+    // Tronco mais anatômico e afunilado: evita a silhueta de barriga arredondada.
     const torsoGeometry=heroClass==='ogre'
-      ?new THREE.CapsuleGeometry(.34,.43,7,12)
-      :new THREE.CylinderGeometry(heroClass==='monk'?.30:.32,heroClass==='monk'?.25:.27,.64,isMobileDevice?8:12,1);
-    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?1.12:1.04,1.04,heroClass==='ogre'?1.0:.96);
+      ?new THREE.CylinderGeometry(.30,.225,.70,isMobileDevice?8:12,1)
+      :new THREE.CylinderGeometry(heroClass==='monk'?.285:.29,heroClass==='monk'?.235:.235,.68,isMobileDevice?8:12,1);
+    torso=add(torsoGeometry,heroClass==='ogre'?skinMat:armor,0,1.10,0,heroClass==='ogre'?1.02:1.0,1.04,heroClass==='ogre'?.84:.82);
     if(heroClass==='ogre'){
       const chestPlate=add(new THREE.BoxGeometry(.56,.32,.10),armor,0,1.21,-.34,1,.9,.7);
       chestPlate.rotation.z=-.035;
@@ -2950,34 +2951,6 @@ const SKILL_BRANCHES = [
 ];
 const CLASS_PERSONAL_SKILLS_UI = {"knight":[{"id":"knight_fortress","icon":"🛡","name":"Coração de fortaleza","desc":"+15 vida e 4% menos dano."},{"id":"knight_aegis","icon":"✨","name":"Égide duradoura","desc":"Escudo +2 s.","req":"knight_fortress"},{"id":"knight_charge","icon":"⚔","name":"Carga destruidora","desc":"Avanço +3 dano.","req":"knight_aegis"},{"id":"knight_vanguard","icon":"💨","name":"Vanguarda","desc":"Ataques mais rápidos.","req":"knight_charge"},{"id":"knight_royal_oath","icon":"👑","name":"Juramento real","desc":"+1 dano base.","req":"knight_vanguard"}],"mage":[{"id":"mage_focus","icon":"🔮","name":"Foco arcano","desc":"+18% poder mágico."},{"id":"mage_ember","icon":"🔥","name":"Brasa persistente","desc":"Fogo e queimadura fortalecidos.","req":"mage_focus"},{"id":"mage_chain","icon":"⚡","name":"Tempestade encadeada","desc":"Raio atinge até 5 alvos.","req":"mage_ember"},{"id":"mage_mana","icon":"💠","name":"Reserva arcana","desc":"+15% poder mágico.","req":"mage_chain"},{"id":"mage_starseer","icon":"🌌","name":"Vidente estelar","desc":"Bola de fogo +1 dano.","req":"mage_mana"}],"archer":[{"id":"archer_hawkeye","icon":"🎯","name":"Olho de falcão","desc":"+1,15 alcance e +5 vida."},{"id":"archer_volley","icon":"🏹","name":"Chuva concentrada","desc":"Chuva maior e +2 dano.","req":"archer_hawkeye"},{"id":"archer_firetip","icon":"🔥","name":"Pontas incendiárias","desc":"Flechas queimam +2 s.","req":"archer_volley"},{"id":"archer_quiver","icon":"🪶","name":"Aljava veloz","desc":"Recarga -1,5 s.","req":"archer_firetip"},{"id":"archer_hunter","icon":"🐺","name":"Caçador de elite","desc":"+1 dano base.","req":"archer_quiver"}],"goblin":[{"id":"goblin_agility","icon":"💨","name":"Reflexos goblins","desc":"+5 vida e ataques rápidos."},{"id":"goblin_shadow","icon":"👻","name":"Manto das sombras","desc":"Invisibilidade +2 s.","req":"goblin_agility"},{"id":"goblin_pack","icon":"👺","name":"Matilha surpresa","desc":"3 goblins por 16 s.","req":"goblin_shadow"},{"id":"goblin_poison","icon":"☠","name":"Lâminas venenosas","desc":"+1 dano base.","req":"goblin_pack"},{"id":"goblin_trickster","icon":"🌀","name":"Mestre da trapaça","desc":"Recargas -2,5 s.","req":"goblin_poison"}],"ogre":[{"id":"ogre_blood","icon":"🩸","name":"Sangue titânico","desc":"+20 vida e resistência."},{"id":"ogre_aftershock","icon":"🌋","name":"Abalo sísmico","desc":"Soco em área maior.","req":"ogre_blood"},{"id":"ogre_berserker","icon":"💥","name":"Fúria esmagadora","desc":"Soco +3 dano.","req":"ogre_aftershock"},{"id":"ogre_longrage","icon":"💨","name":"Fúria prolongada","desc":"Velocidade +2 s.","req":"ogre_berserker"},{"id":"ogre_crusher","icon":"🪨","name":"Esmagador","desc":"+1 dano base.","req":"ogre_longrage"}],"healer":[{"id":"healer_mercy","icon":"🌿","name":"Misericórdia","desc":"+10 vida."},{"id":"healer_blessing","icon":"💚","name":"Bênção maior","desc":"Cura até 70 vida.","req":"healer_mercy"},{"id":"healer_longspirits","icon":"🪽","name":"Espíritos persistentes","desc":"Espíritos +6 s.","req":"healer_blessing"},{"id":"healer_pulse","icon":"✨","name":"Pulso restaurador","desc":"Espíritos mais fortes.","req":"healer_longspirits"},{"id":"healer_sanctuary","icon":"🌟","name":"Santuário vivo","desc":"+1 dano base.","req":"healer_pulse"}],"necromancer":[{"id":"necromancer_soul","icon":"💀","name":"Alma resistente","desc":"+10 vida."},{"id":"necromancer_bone","icon":"🦴","name":"Ossos reforçados","desc":"Esqueletos mais fortes.","req":"necromancer_soul"},{"id":"necromancer_horde","icon":"☠","name":"Horda ampliada","desc":"7 esqueletos por 36 s.","req":"necromancer_bone"},{"id":"necromancer_shadowstep","icon":"🕳️","name":"Passo sombrio","desc":"Mergulho recarrega mais rápido.","req":"necromancer_horde"},{"id":"necromancer_reaper","icon":"⚰️","name":"Ceifador","desc":"+1 dano e +1 esqueleto.","req":"necromancer_shadowstep"}],"monk":[{"id":"monk_focus","icon":"🥋","name":"Postura focada","desc":"Ataques mais rápidos."},{"id":"monk_openpalm","icon":"👊","name":"Palma aberta","desc":"Palma +3 dano.","req":"monk_focus"},{"id":"monk_flow","icon":"🪽","name":"Fluxo contínuo","desc":"Passos Alados +2,5 s.","req":"monk_openpalm"},{"id":"monk_ironbody","icon":"🪨","name":"Corpo de ferro","desc":"+12 vida e resistência.","req":"monk_flow"},{"id":"monk_zen","icon":"☯️","name":"Zen perfeito","desc":"+1 dano e atordoamento.","req":"monk_ironbody"}],"golem":[{"id":"golem_granite","icon":"🪨","name":"Pele de granito","desc":"+20 vida e resistência."},{"id":"golem_shatter","icon":"💠","name":"Fragmentos resistentes","desc":"Golens menores mais fortes.","req":"golem_granite"},{"id":"golem_quake","icon":"🌋","name":"Tremor colossal","desc":"Pedra e estilhaços mais fortes.","req":"golem_shatter"},{"id":"golem_splitheart","icon":"🔱","name":"Coração dividido","desc":"Divisão +4 s e clones mais resistentes.","req":"golem_quake"},{"id":"golem_mountaincore","icon":"⛰️","name":"Núcleo da montanha","desc":"+25 vida, +1 dano, área maior.","req":"golem_splitheart"}]};
 const CLASS_NAMES_UI = {knight:'CAVALEIRO',mage:'MAGO',archer:'ARQUEIRO',goblin:'GOBLIN',ogre:'OGRO',healer:'CURANDEIRO',necromancer:'NECROMANTE',monk:'MONGE',golem:'GOLEM DE PEDRA'};
-let skillTreeZoom = matchMedia('(pointer: coarse)').matches ? 0.72 : 1;
-function setSkillTreeZoom(value) {
-  skillTreeZoom = THREE.MathUtils.clamp(Number(value) || 0.72, 0.45, 1.25);
-  document.querySelectorAll('.skill-rpg-canvas').forEach(canvas => { canvas.style.zoom = String(skillTreeZoom); });
-}
-function installSkillTreePinch(root) {
-  if (!root || root.dataset.pinchZoomReady === '1') return;
-  root.dataset.pinchZoomReady = '1';
-  let startDistance = 0, startZoom = skillTreeZoom;
-  const distance = touches => Math.hypot(touches[0].clientX-touches[1].clientX, touches[0].clientY-touches[1].clientY);
-  root.addEventListener('touchstart', event => {
-    if (event.touches.length === 2 && event.target.closest('.skill-rpg-scroll')) {
-      startDistance = Math.max(1, distance(event.touches)); startZoom = skillTreeZoom;
-    }
-  }, {passive:true});
-  root.addEventListener('touchmove', event => {
-    if (event.touches.length === 2 && startDistance && event.target.closest('.skill-rpg-scroll')) {
-      event.preventDefault();
-      setSkillTreeZoom(startZoom * distance(event.touches) / startDistance);
-    }
-  }, {passive:false});
-  root.addEventListener('touchend', event => { if (event.touches.length < 2) startDistance = 0; }, {passive:true});
-  root.addEventListener('wheel', event => {
-    if (event.ctrlKey && event.target.closest('.skill-rpg-scroll')) {
-      event.preventDefault(); setSkillTreeZoom(skillTreeZoom * (event.deltaY < 0 ? 1.08 : 0.92));
-    }
-  }, {passive:false});
-}
 const skillTreeScrollMemory = {
   lobby: { top: 0, left: 0 },
   hud: { top: 0, left: 0 }
@@ -3825,7 +3798,7 @@ function startOfflineExploration() {
   renderInventory();
   $('roomLabel').textContent = 'OFFLINE';
   $('lobbyRoomCode').textContent = 'OFFLINE';
-  openLobbyEditor('class');
+  // O painel de classes só abre quando o jogador toca no botão correspondente.
   saveSharedProfile();
   showNotice('Modo offline · perfil compartilhado com o online neste aparelho.');
   if (offlineLoop) clearInterval(offlineLoop);
