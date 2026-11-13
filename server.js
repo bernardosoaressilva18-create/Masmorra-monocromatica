@@ -656,7 +656,7 @@ function createRoomChests(realm=1){
   const side=Math.random()<.5?-1:1,upperSide=index%2===0?-1:1;
   return [
    {id:prefix+index,x:side*(5.8+Math.random()*2.0),z:center+(Math.random()-.5)*7.2,openedBy:[]},
-   {id:prefix+'u'+index,x:upperSide*8.25+(Math.random()-.5)*1.1,z:center-13.1-Math.random()*3.0,openedBy:[],upperFloor:true}
+   {id:prefix+'u'+index,x:upperSide*8.25+(Math.random()<.5?-1:1)*(2.1+Math.random()*.65),z:center-13.1-Math.random()*3.0,openedBy:[],upperFloor:true}
   ];
  });
 }
@@ -710,7 +710,7 @@ function processPressurePlate(room,player,now){
 function openUnderworldPit(room,player,hazard,now){
  room.underworldPits=Array.isArray(room.underworldPits)?room.underworldPits:[];
  if(room.underworldPits.some(pit=>pit.id===hazard.id&&pit.open))return;
- const pit={id:hazard.id,x:hazard.x,z:hazard.z,ownerId:player.id,open:true,until:now+22000};
+ const pit={id:hazard.id,x:hazard.x,z:hazard.z,ownerId:player.id,open:true,until:now+30000};
  room.underworldPits=room.underworldPits.filter(item=>item.id!==hazard.id);room.underworldPits.push(pit);
  player.underworldReturnX=hazard.x;player.underworldReturnZ=hazard.z;player.underworldUntil=pit.until;
  player.x=hazard.x;player.z=hazard.z;
@@ -718,7 +718,7 @@ function openUnderworldPit(room,player,hazard,now){
  const guards=[{kind:'abyss',name:'Sentinela Subterrânea',dx:-1.65,dz:-1.05,hp:72,damage:10},{kind:'assassin',name:'Caçador do Subsolo',dx:1.7,dz:-.8,hp:54,damage:9},{kind:'thorn',name:'Raiz Abissal',dx:0,dz:2,hp:64,damage:8}];
  guards.forEach((e,i)=>{const hp=Math.round(e.hp*factor);room.monsters.push({id:'under-'+player.id+'-'+now+'-'+i,kind:e.kind,name:e.name,x:hazard.x+e.dx,z:hazard.z+e.dz,phase:room.phase,realm:room.realm||1,spawned:true,spawnAt:now+i*350,alive:true,hp,maxHp:hp,damage:Math.round(e.damage*factor),attackAt:0,underworldPitId:hazard.id,underworldOnlyPlayerId:player.id});});
  room.chests.push({id:'under-chest-'+player.id+'-'+now,x:hazard.x+2.15,z:hazard.z+2.05,openedBy:[],underground:true});
- player.mapTrapDamageAt=now+22000;
+ player.mapTrapDamageAt=now+30000;
  if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'⬇ O PISO CEDEU! Você caiu na câmara subterrânea. Derrote os três guardiões e procure o baú.'}));
  broadcast(room,state(room));
 }
