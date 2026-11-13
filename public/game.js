@@ -61,6 +61,25 @@ let latestChests=[],inventoryData=(()=>{const saved=sharedProfileSeed.inventory&
 lootDrops=(Array.isArray(sharedProfileSeed.lootDrops)?sharedProfileSeed.lootDrops:[]).slice(-100),selectedItemId=sharedProfileSeed.selectedItemId?String(sharedProfileSeed.selectedItemId):null;
 let equipmentDamage=Math.max(0,Math.min(18,Number(sharedProfileSeed.equipmentDamage)||0));
 let sharedProgress={realm:Math.max(1,Math.min(3,Number(sharedProfileSeed.realm)||1)),phase:Math.max(1,Math.min(5,Number(sharedProfileSeed.phase)||1))};
+let levelProgress=(()=>{
+ const saved=sharedProfileSeed.levelProgress&&typeof sharedProfileSeed.levelProgress==='object'?sharedProfileSeed.levelProgress:{};
+ const upgrades=saved.upgrades&&typeof saved.upgrades==='object'?saved.upgrades:{};
+ return {level:Math.max(1,Math.min(100,Math.floor(Number(saved.level)||1))),xp:Math.max(0,Number(saved.xp)||0),xpToNext:Math.max(100,Number(saved.xpToNext)||100),levelPoints:Math.max(0,Math.floor(Number(saved.levelPoints)||0)),upgrades:{...upgrades}};
+})();
+const LEVEL_UPGRADE_UI=[
+ {id:'health',name:'Vida reforçada',desc:'+12 de vida máxima por ponto',max:10},
+ {id:'power',name:'Força',desc:'+1 de dano base por ponto',max:10},
+ {id:'mana',name:'Reserva de mana',desc:'+15 de mana máxima por ponto',max:10},
+ {id:'defense',name:'Defesa',desc:'Reduz 2,5% do dano recebido por ponto',max:8},
+ {id:'magic',name:'Magia especial',desc:'+8% de poder mágico por ponto',max:8},
+ {id:'attack',name:'Ataque passivo',desc:'+3,5% de velocidade e +0,35 dano por ponto',max:8},
+ {id:'recovery',name:'Recuperação',desc:'+1 HP de regeneração a cada 2,5 s por ponto',max:8},
+ {id:'item',name:'Item especial',desc:'+10% de cura de itens por ponto',max:8},
+ {id:'autoDodge',name:'Esquiva automática',desc:'Desvia de um golpe automaticamente; recarga de 5,2 s',max:1},
+ {id:'xp',name:'Conhecimento',desc:'+5% de XP ganho por ponto',max:8},
+ {id:'critical',name:'Acerto crítico',desc:'+2% de chance de crítico por ponto',max:8}
+];
+let levelUpgradeCardsBuilt=false,lastSavedLevelSignature='';
 const world = { width: 30, depth: 190 };
 
 const MAP_ZONE_CENTERS = [-14, -46, -78, -110, -153];
@@ -2519,7 +2538,7 @@ function syncLoadoutUI() {
   renderSkillTrees();
 }
 
-function getSharedProfileData(){return{version:2,playerClass:selectedClass,skin:selectedSkin,unlockedSkins:Array.from(unlockedSkins),skills:[],skillPoints:5,equipmentDamage:Math.max(0,Math.min(18,Number(equipmentDamage)||0)),inventory:{...inventoryData},lootDrops:lootDrops.slice(-100).map(item=>({...item})),selectedItemId:selectedItemId?String(selectedItemId):null,realm:sharedProgress.realm,phase:sharedProgress.phase};}
+function getSharedProfileData(){return{version:3,playerClass:selectedClass,skin:selectedSkin,unlockedSkins:Array.from(unlockedSkins),skills:[],skillPoints:5,equipmentDamage:Math.max(0,Math.min(18,Number(equipmentDamage)||0)),inventory:{...inventoryData},lootDrops:lootDrops.slice(-100).map(item=>({...item})),selectedItemId:selectedItemId?String(selectedItemId):null,realm:sharedProgress.realm,phase:sharedProgress.phase,levelProgress:{level:levelProgress.level,xp:levelProgress.xp,xpToNext:levelProgress.xpToNext,levelPoints:levelProgress.levelPoints,upgrades:{...levelProgress.upgrades}}};}
 function saveSharedProfile(){try{const p=getSharedProfileData();localStorage.setItem(SHARED_PROFILE_KEY,JSON.stringify(p));sharedProfileSeed=p;}catch(error){showNotice('Não foi possível salvar o perfil neste aparelho.');}}
 function sendLoadout() {
   saveSharedProfile();
@@ -3049,7 +3068,9 @@ function createOfflineState() {
   const player = {
     id: 'offline-player',
     name: $('playerName')?.value.trim() || 'Aventureiro',
-    x: 0, z: 3, rot: 0, hp: 130, maxHp: 130, mana: 100, maxMana: 100,
+    x:0,z:3,rot:0,hp:130+(Number(levelProgress.upgrades?.health)||0)*12,maxHp:130+(Number(levelProgress.upgrades?.health)||0)*12,
+    mana:100+(Number(levelProgress.upgrades?.mana)||0)*15,maxMana:100+(Number(levelProgress.upgrades?.mana)||0)*15,
+    level:levelProgress.level,xp:levelProgress.xp,xpToNext:levelProgress.xpToNext,levelPoints:levelProgress.levelPoints,levelUpgrades:{...levelProgress.upgrades},
     playerClass: selectedClass, skin: selectedSkin,
     skills: Array.from(unlockedSkills), talentPoints: skillPoints, equipmentDamage,
     ready: true, isHost: true, color: 0x72e6ff
@@ -3243,10 +3264,24 @@ function offlineLivingMonsters() {
   return (offlineState?.monsters || []).filter(monster => monster && monster.alive && monster.hp > 0);
 }
 
+function awardOfflineExperience(baseAmount){
+ const p=offlineState?.players?.[0];if(!p)return;
+ p.levelUpgrades=p.levelUpgrades||{};
+ const gained=Math.max(1,Math.round(baseAmount*(1+Math.min(.4,(Number(p.levelUpgrades.xp)||0)*.05))));
+ p.xp=(p.xp||0)+gained;p.level=p.level||1;p.levelPoints=p.levelPoints||0;
+ const need=()=>Math.round(100+Math.max(0,p.level-1)*32+Math.pow(Math.max(0,p.level-1),1.16)*4);
+ let levels=0;while(p.level<100&&p.xp>=need()){p.xp-=need();p.level++;p.levelPoints++;levels++;}
+ p.xpToNext=need();updateLevelHud(p);
+ if(levels)showNotice('✦ SUBIU DE NÍVEL! Nível '+p.level+' · +'+levels+' ponto(s) de melhoria.');
+ else showNotice('+'+gained+' XP por derrotar um inimigo.');
+}
 function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, pushDistance = 0) {
   if (!monster?.alive || !Number.isFinite(amount) || amount <= 0) return false;
   const previousHp = Math.max(0, Number(monster.hp || 0));
-  monster.hp = Math.max(0, previousHp - amount);
+  const levelUpgrades=offlineState?.players?.[0]?.levelUpgrades||{};
+  const attackBonus=1+(Number(levelUpgrades.power)||0)*.045+(Number(levelUpgrades.attack)||0)*.02;
+  const actualAmount=amount*attackBonus*(Math.random()<(Number(levelUpgrades.critical)||0)*.02?1.7:1);
+  monster.hp = Math.max(0, previousHp - actualAmount);
   if (burnMs > 0 && monster.hp > 0) {
     monster.burnUntil = Math.max(monster.burnUntil || 0, Date.now() + burnMs);
     monster.burnNextAt = Math.min(monster.burnNextAt || Date.now() + 1000, Date.now() + 1000);
@@ -3257,7 +3292,7 @@ function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, push
     monster.x += dx / distance * pushDistance;
     monster.z += dz / distance * pushDistance;
   }
-  const actualTrainingDamage = Math.min(previousHp,amount);
+  const actualTrainingDamage = Math.min(previousHp,actualAmount);
   if (monster.trainingDummy) recordTrainingDamage(actualTrainingDamage);
   if (monster.hp <= 0) {
     monster.alive = false;
@@ -3266,6 +3301,7 @@ function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, push
       monster.hp = 0;
       return true;
     }
+    awardOfflineExperience(monster.cursed?52:16+(monster.phase||1)*3+(offlineState?.realm||1)*3);
     if (Math.random() < (offlineHasSkill('loot_sense') ? .30 : .18)) {
       const roll=Math.random(),rarity=roll>.96?'lendário':roll>.84?'épico':roll>.58?'raro':roll>.28?'incomum':'comum';
       const names={comum:'Moeda Antiga',incomum:'Pó de Cristal',raro:'Fragmento Monocromático',épico:'Núcleo Sombrio',lendário:'Cristal Ancestral'};
@@ -3330,7 +3366,7 @@ function offlineMoveForward(distance) {
   const heading = Number(player.rot) || 0;
   player.x -= Math.sin(heading) * distance;
   player.z -= Math.cos(heading) * distance;
-  if (myPlayer) myPlayer.position.set(player.x,0,player.z);
+  if(myPlayer)myPlayer.position.set(player.x,getDungeonFloorHeight(player.x,player.z),player.z);
 }
 
 function handleOfflineSpell(spell) {
@@ -4017,6 +4053,15 @@ function handleMessage(m) {
     return;
   }
 
+  if(m.type==='experience'){
+    levelProgress={level:m.level||1,xp:m.xp||0,xpToNext:m.xpToNext||100,levelPoints:m.levelPoints||0,upgrades:{...levelProgress.upgrades}};
+    updateLevelHud();showNotice('+'+Math.max(0,Number(m.amount)||0)+' XP · '+(m.source==='boss'?'Chefe':m.source==='player'?'Jogador rival':'Monstro'));return;
+  }
+  if(m.type==='autoDodge'){
+    if(m.id===playerId&&myPlayer){myPlayer.position.set(m.x,getDungeonFloorHeight(m.x,m.z),m.z);myPlayer.userData.dodgeFlashUntil=performance.now()+240;}
+    else{const obj=remotePlayers.get(m.id);if(obj){obj.userData.targetX=m.x;obj.userData.targetZ=m.z;obj.userData.targetY=getDungeonFloorHeight(m.x,m.z);}}
+    return;
+  }
   if (m.type === 'notice') {
     showNotice(m.text);
     if (/acertou você|foi derrotado/i.test(m.text)) {
@@ -4196,9 +4241,72 @@ function setHeroShielded(hero, shielded) {
     delete hero.userData.shieldVisual;
   }
 }
+function updateLevelHud(source=null){
+ if(source&&typeof source==='object'){
+  levelProgress={level:Math.max(1,Math.min(100,Math.floor(Number(source.level)||1))),xp:Math.max(0,Number(source.xp)||0),xpToNext:Math.max(1,Number(source.xpToNext)||100),levelPoints:Math.max(0,Math.floor(Number(source.levelPoints)||0)),upgrades:source.levelUpgrades&&typeof source.levelUpgrades==='object'?{...source.levelUpgrades}:{...levelProgress.upgrades}};
+ }else if(offlineState?.players?.[0]){
+  const p=offlineState.players[0];
+  levelProgress={level:p.level||1,xp:p.xp||0,xpToNext:p.xpToNext||100,levelPoints:p.levelPoints||0,upgrades:{...(p.levelUpgrades||{})}};
+ }
+ const percent=Math.max(0,Math.min(100,levelProgress.xp/Math.max(1,levelProgress.xpToNext)*100));
+ const set=(id,value)=>{const el=$(id);if(el)el.textContent=String(value);};
+ set('levelText',levelProgress.level);set('levelPanelNumber',levelProgress.level);
+ set('levelPointsBadge',levelProgress.levelPoints+' PONTOS');
+ set('levelPointsText',levelProgress.levelPoints+' ponto(s) disponíveis');
+ set('xpText',Math.floor(levelProgress.xp)+' / '+levelProgress.xpToNext+' XP');
+ const fill=$('xpFill');if(fill)fill.style.width=percent+'%';
+ const toggle=$('levelToggleBtn');if(toggle)toggle.setAttribute('aria-expanded',String(!$('levelPanel')?.classList.contains('hidden')));
+ const list=$('levelUpgradeList');
+ if(list){
+  if(!levelUpgradeCardsBuilt){
+   list.replaceChildren();
+   for(const item of LEVEL_UPGRADE_UI){
+    const card=document.createElement('article');card.className='level-upgrade-card';card.dataset.upgrade=item.id;
+    const title=document.createElement('strong');title.textContent=item.name;
+    const description=document.createElement('small');description.textContent=item.desc;
+    const rank=document.createElement('span');rank.className='level-rank';rank.dataset.rank=item.id;
+    const button=document.createElement('button');button.type='button';button.textContent='MELHORAR · 1 PONTO';
+    button.addEventListener('click',()=>purchaseLevelUpgrade(item.id));
+    card.append(title,description,rank,button);list.appendChild(card);
+   }
+   levelUpgradeCardsBuilt=true;
+  }
+  for(const item of LEVEL_UPGRADE_UI){
+   const card=list.querySelector('[data-upgrade="'+item.id+'"]');if(!card)continue;
+   const rank=Math.max(0,Number(levelProgress.upgrades?.[item.id])||0);
+   const label=card.querySelector('[data-rank]'),button=card.querySelector('button');
+   if(label)label.textContent='NÍVEL '+rank+' / '+item.max;
+   if(button){button.disabled=levelProgress.levelPoints<=0||rank>=item.max;button.textContent=rank>=item.max?'NÍVEL MÁXIMO':item.id==='autoDodge'&&rank===0?'DESBLOQUEAR · 1 PONTO':'MELHORAR · 1 PONTO';}
+  }
+ }
+ const signature=JSON.stringify(levelProgress);
+ if(signature!==lastSavedLevelSignature){lastSavedLevelSignature=signature;saveSharedProfile();}
+}
+function purchaseLevelUpgrade(id){
+ const item=LEVEL_UPGRADE_UI.find(entry=>entry.id===id);if(!item)return;
+ if(levelProgress.levelPoints<=0){showNotice('Suba de nível para receber pontos de melhoria.');return;}
+ if((Number(levelProgress.upgrades?.[id])||0)>=item.max){showNotice('Essa melhoria já está no nível máximo.');return;}
+ if(offlineMode&&offlineState?.players?.[0]){
+  const p=offlineState.players[0];p.levelPoints=Math.max(0,(p.levelPoints||0)-1);
+  p.levelUpgrades=p.levelUpgrades||{};p.levelUpgrades[id]=(Number(p.levelUpgrades[id])||0)+1;
+  if(id==='health'){p.maxHp=(p.maxHp||100)+12;p.hp=Math.min(p.maxHp,(p.hp||0)+12);}
+  if(id==='mana')p.maxMana=(p.maxMana||100)+15;
+  if(id==='power')p.levelPower=(p.levelPower||0)+1;
+  if(id==='recovery')p.levelRecovery=(p.levelRecovery||0)+1;
+  updateLevelHud(p);showNotice('Melhoria aplicada: '+item.name+'.');return;
+ }
+ if(!ws||ws.readyState!==WebSocket.OPEN){showNotice('Conecte-se à partida para melhorar o personagem.');return;}
+ send({type:'levelUpgrade',upgrade:id});
+}
+$('levelToggleBtn')?.addEventListener('click',()=>{const panel=$('levelPanel');if(!panel)return;panel.classList.toggle('hidden');updateLevelHud();});
+$('levelCloseBtn')?.addEventListener('click',()=>{$('levelPanel')?.classList.add('hidden');updateLevelHud();});
+
 function updateState(m) {
   currentSafeZoneUntil = Math.max(0, Number(m.safeZoneUntil) || 0);
+  syncMapTrapVisuals(m.openTraps||[]);
   activeGameMode = m.gameMode === 'pvp_rpg' ? 'pvp_rpg' : 'coop';
+  const localLevelPlayer=(m.players||[]).find(p=>String(p.id)===String(playerId));
+  if(localLevelPlayer)updateLevelHud(localLevelPlayer);else if(offlineMode)updateLevelHud();
   const progressRealm=Math.max(1,Math.min(3,Number(m.realm)||1)),progressPhase=Math.max(1,Math.min(5,Number(m.phase)||1));
   if(sharedProgress.realm!==progressRealm||sharedProgress.phase!==progressPhase){sharedProgress={realm:progressRealm,phase:progressPhase};saveSharedProfile();}
   const isPvpRpg = activeGameMode === 'pvp_rpg';
@@ -4340,7 +4448,7 @@ function updateState(m) {
         // Ao entrar/reconectar, alinhar uma vez com a posição de spawn do servidor.
         // Depois disso, corrigimos só pequenos desvios para evitar teletransportes.
         if (!appliedInitialServerPosition) {
-          myPlayer.position.set(p.x, 0, p.z);
+          myPlayer.position.set(p.x,getDungeonFloorHeight(p.x,p.z),p.z);
           myPlayer.rotation.y = p.rot || 0;
           appliedInitialServerPosition = true;
         } else {
@@ -4349,6 +4457,7 @@ function updateState(m) {
           if (Math.abs(dx) > 1.6) myPlayer.position.x += dx * 0.12;
           if (Math.abs(dz) > 1.6) myPlayer.position.z += dz * 0.12;
         }
+        myPlayer.position.y=getDungeonFloorHeight(myPlayer.position.x,myPlayer.position.z);
       }
       continue;
     }
@@ -4363,6 +4472,7 @@ function updateState(m) {
 
     obj.userData.targetX = p.x;
     obj.userData.targetZ = p.z;
+    obj.userData.targetY = getDungeonFloorHeight(p.x,p.z);
     obj.userData.serverHp = p.hp ?? 100;
     setHealthBar(obj, obj.userData.serverHp, p.maxHp ?? p.maxHP ?? 100);
     setHeroInvisible(obj, !!p.invisible);
@@ -4414,6 +4524,7 @@ function updateState(m) {
     }
     obj.userData.targetX = summon.x;
     obj.userData.targetZ = summon.z;
+    obj.userData.targetY = getDungeonFloorHeight(summon.x,summon.z);
     obj.userData.targetRot = summon.rot || 0;
     obj.userData.name = summon.name || (isGuardianSpirit ? 'Espírito Guardião' : isGolemClone ? 'Fragmento de Golem' : isSkeleton ? 'Esqueleto aliado' : 'Goblin aliado');
     obj.userData.serverHp = summon.hp ?? 72;
@@ -4546,6 +4657,8 @@ function updateState(m) {
 
     obj.userData.targetX = mtr.x;
     obj.userData.targetZ = mtr.z;
+    obj.userData.targetY = mtr.trapId ? -2.55 : getDungeonFloorHeight(mtr.x,mtr.z);
+    obj.userData.trapId = mtr.trapId || null;
     obj.userData.kind = mtr.kind || 'stalker';
     obj.userData.trainingDummy = !!mtr.trainingDummy;
     obj.userData.trainingAttacker = !!mtr.trainingAttacker;
@@ -6470,6 +6583,7 @@ function animate() {
     obj.position.z = THREE.MathUtils.lerp(
       obj.position.z, obj.userData.targetZ, remoteSmooth
     );
+    obj.position.y=THREE.MathUtils.lerp(obj.position.y,Number(obj.userData.targetY)||0,remoteSmooth);
 
     const targetRot = obj.userData.targetRot ?? 0;
     const angleDiff = Math.atan2(
@@ -6558,6 +6672,7 @@ function animate() {
     const moving = distance > .045;
     obj.position.x = THREE.MathUtils.lerp(obj.position.x, obj.userData.targetX, monsterSmooth);
     obj.position.z = THREE.MathUtils.lerp(obj.position.z, obj.userData.targetZ, monsterSmooth);
+    obj.position.y=THREE.MathUtils.lerp(obj.position.y,Number(obj.userData.targetY)||0,monsterSmooth);
 
     if (obj.userData.spawnAnim > 0) {
       obj.userData.spawnAnim = Math.max(0, obj.userData.spawnAnim - entityDt);
@@ -6828,7 +6943,8 @@ function animate() {
     camera.position.lerp(lobbyCameraTarget, 1 - Math.exp(-3.8 * dt));
     camera.lookAt(Math.sin(lobbyTime * 0.16) * 0.12, 1.05, -0.25);
   } else if (myPlayer) {
-    const target = cameraFocusScratch.set(myPlayer.position.x, 1.2, myPlayer.position.z);
+    myPlayer.position.y=THREE.MathUtils.lerp(myPlayer.position.y,getDungeonFloorHeight(myPlayer.position.x,myPlayer.position.z),1-Math.exp(-18*dt));
+    const target = cameraFocusScratch.set(myPlayer.position.x,myPlayer.position.y+1.2,myPlayer.position.z);
     const introBlend=realmIntroTimer>0?Math.min(1,realmIntroTimer/3.2):0;
     const viewPitch = THREE.MathUtils.clamp(pitch, -.52, .52);
     const viewCos = Math.cos(viewPitch);
@@ -6837,11 +6953,11 @@ function animate() {
     const viewForwardZ = -Math.cos(yaw) * viewCos;
     if (gameSettings.cameraMode === 'first') {
       // 1ª pessoa: a mira usa o mesmo ângulo de yaw/pitch das outras perspectivas.
-      cameraPositionScratch.set(target.x, 1.62, target.z);
-      camera.position.lerp(cameraPositionScratch, 1 - Math.exp(-20 * dt));
+      cameraPositionScratch.set(target.x,target.y+.42,target.z);
+      camera.position.lerp(cameraPositionScratch,1-Math.exp(-20*dt));
       camera.lookAt(
         target.x + viewForwardX * 12,
-        1.62 + viewForwardY * 12,
+        target.y+.42 + viewForwardY * 12,
         target.z + viewForwardZ * 12
       );
     } else {
