@@ -525,7 +525,8 @@ function init3D() {
   scene.add(fillLight);
   const warmRimLight = new THREE.DirectionalLight(0xffd7a1, 0.78);
   warmRimLight.position.set(-3, 6, 10);
-  if (!isMobileDevice) scene.add(warmRimLight);
+  // Luz de recorte também no celular: separa a silhueta dos personagens do cenário sem sombras extras.
+  scene.add(warmRimLight);
   // Luz ambiente global também no celular: sem ela, áreas sem luz direta ficam quase pretas.
   // AmbientLight é barata e ilumina personagens, chão e cenário sem criar sombras extras.
   const ambientFill = new THREE.AmbientLight(0xb5cce2, isMobileDevice ? 1.18 : 0.58);
