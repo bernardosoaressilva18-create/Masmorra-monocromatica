@@ -1056,24 +1056,24 @@ wss.on('connection', ws => {
       }
       const ability = typeof msg.ability === 'string' ? msg.ability : '';
       const abilityClass = {
-        knight_shield: 'knight', knight_dash: 'knight',
-        arrow_rain: 'archer', incendiary_arrows: 'archer',
-        goblin_invis: 'goblin', goblin_summon: 'goblin',
-        ogre_slam: 'ogre', ogre_haste: 'ogre',
-        healer_cure: 'healer', healer_guardian_spirits: 'healer',
-        necromancer_summon: 'necromancer', necromancer_dive: 'necromancer',
-        monk_impact_palm: 'monk', monk_winged_steps: 'monk',
-        golem_split: 'golem', golem_rock_toss: 'golem'
+        knight_shield:'knight',knight_dash:'knight',knight_whirlwind:'knight',
+        arrow_rain:'archer',incendiary_arrows:'archer',archer_piercing_shot:'archer',
+        goblin_invis:'goblin',goblin_summon:'goblin',goblin_shadow_strike:'goblin',
+        ogre_slam:'ogre',ogre_haste:'ogre',ogre_earthquake:'ogre',
+        healer_cure:'healer',healer_guardian_spirits:'healer',healer_sanctuary:'healer',
+        necromancer_summon:'necromancer',necromancer_dive:'necromancer',necromancer_bone_bolt:'necromancer',
+        monk_impact_palm:'monk',monk_winged_steps:'monk',monk_spirit_wave:'monk',
+        golem_split:'golem',golem_rock_toss:'golem',golem_stone_guard:'golem'
       };
       const cooldownMs = {
-        knight_shield: 12000, knight_dash: 9000,
-        arrow_rain: 8000, incendiary_arrows: 12000,
-        goblin_invis: 14000, goblin_summon: 20000,
-        ogre_slam: 10000, ogre_haste: 15000,
-        healer_cure: 23000, healer_guardian_spirits: 40000,
-        necromancer_summon: 30000, necromancer_dive: 15000,
-        monk_impact_palm: 18000, monk_winged_steps: 15000,
-        golem_split: 26000, golem_rock_toss: 14500
+        knight_shield:12000,knight_dash:9000,knight_whirlwind:14000,
+        arrow_rain:8000,incendiary_arrows:12000,archer_piercing_shot:9500,
+        goblin_invis:14000,goblin_summon:20000,goblin_shadow_strike:11000,
+        ogre_slam:10000,ogre_haste:15000,ogre_earthquake:17000,
+        healer_cure:23000,healer_guardian_spirits:40000,healer_sanctuary:24000,
+        necromancer_summon:30000,necromancer_dive:15000,necromancer_bone_bolt:8500,
+        monk_impact_palm:18000,monk_winged_steps:15000,monk_spirit_wave:13000,
+        golem_split:26000,golem_rock_toss:14500,golem_stone_guard:20000
       };
       if (abilityClass[ability] !== player.playerClass) return;
       const now = Date.now();
@@ -1083,6 +1083,10 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'notice', text: 'Habilidade recarregando: ' + Math.ceil(remaining / 1000) + 's.' }));
         return;
       }
+      const manaCosts={knight_shield:12,knight_dash:16,knight_whirlwind:21,arrow_rain:18,incendiary_arrows:22,archer_piercing_shot:22,goblin_invis:16,goblin_summon:24,goblin_shadow_strike:18,ogre_slam:20,ogre_haste:14,ogre_earthquake:28,healer_cure:18,healer_guardian_spirits:25,healer_sanctuary:24,necromancer_summon:24,necromancer_dive:18,necromancer_bone_bolt:16,monk_impact_palm:16,monk_winged_steps:18,monk_spirit_wave:22,golem_split:24,golem_rock_toss:20,golem_stone_guard:20};
+      const manaCost=manaCosts[ability]||16;
+      if((Number(player.mana)||0)<manaCost){ws.send(JSON.stringify({type:'notice',text:'✦ Mana insuficiente! Custo: '+manaCost+'.'}));return;}
+      player.mana=Math.max(0,(Number(player.mana)||0)-manaCost);
       const cooldownReduction = (ability === 'arrow_rain' && hasSkill(player, 'archer_quiver') ? 1500 : 0)
         + (ability.startsWith('goblin_') && hasSkill(player, 'goblin_trickster') ? 2500 : 0)
         + (ability === 'necromancer_dive' && hasSkill(player, 'necromancer_shadowstep') ? 2500 : 0)
@@ -1181,6 +1185,13 @@ wss.on('connection', ws => {
           const count=area(center,4.2,hasSkill(player,'monk_openpalm')?11:9,1.3,hasSkill(player,'monk_zen')?1600:1100);
           text='👊 Palma de impacto: '+count+' rival(is) atingido(s)!';
         }
+        else if(ability==='knight_whirlwind'){center={x:player.x,z:player.z};const count=area(center,4.6,11,0);text='✥ Giro de aço! '+count+' rival(is) atingido(s).';}
+        else if(ability==='archer_piercing_shot'){const target=nearest(14);if(target){hit(target,16,0,0,0);targets.push({x:target.x,z:target.z});}text=target?'➶ Flecha perfurante!':'Nenhum rival no alcance da flecha.';}
+        else if(ability==='goblin_shadow_strike'){const target=nearest(9);if(target){hit(target,17,1,250);player.invisibleUntil=now+500;targets.push({x:target.x,z:target.z});}text=target?'⟡ Golpe sombrio!':'Nenhum rival no alcance.';}
+        else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};const count=area(center,5.8,15,1.5);text='♨ Terremoto! '+count+' rival(is) atingido(s).';}
+        else if(ability==='healer_sanctuary'){let healed=0;for(const ally of room.players.values()){if(ally.connected===false||ally.hp<=0||Math.hypot(ally.x-player.x,ally.z-player.z)>7)continue;const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+25);ally.shieldUntil=Math.max(ally.shieldUntil||0,now+1600);if(ally.hp>before)healed++;}center={x:player.x,z:player.z};text='✚ Santuário! '+healed+' aliado(s) receberam cura e proteção.';}
+        else if(ability==='monk_spirit_wave'){center={x:player.x-Math.sin(player.rot||0)*1.8,z:player.z-Math.cos(player.rot||0)*1.8};const count=area(center,4.5,13,1.0);text='☯ Onda espiritual! '+count+' rival(is) atingido(s).';}
+        else if(ability==='golem_stone_guard'){player.shieldUntil=now+6500;text='⬟ Guarda de pedra! Armadura reforçada por 6,5 segundos.';}
         broadcast(room,{type:'classAbility',id:player.id,ability,x:player.x,z:player.z,center,targets,until:player.shieldUntil||player.invisibleUntil||player.ogreHasteUntil||0,text});
         broadcast(room,state(room));return;
       }
@@ -1414,6 +1425,13 @@ wss.on('connection', ws => {
         until = player.ogreHasteUntil;
         text = '💨 Fúria do ogro! Velocidade aumentada por 5 segundos.';
       }
+      else if(ability==='knight_whirlwind'){center={x:player.x,z:player.z};for(const enemy of enemies())if(Math.hypot(enemy.x-player.x,enemy.z-player.z)<=4.6)damageEnemy(enemy,11);text='✥ Giro de aço! Inimigos ao redor foram atingidos.';}
+      else if(ability==='archer_piercing_shot'){const target=enemies().filter(enemy=>Math.hypot(enemy.x-player.x,enemy.z-player.z)<=14).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];if(target)damageEnemy(target,18);text=target?'➶ Flecha perfurante disparada!':'Nenhum inimigo ao alcance.';}
+      else if(ability==='goblin_shadow_strike'){const target=enemies().filter(enemy=>Math.hypot(enemy.x-player.x,enemy.z-player.z)<=9).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];if(target){damageEnemy(target,16);player.invisibleUntil=now+600;}text=target?'⟡ Golpe sombrio!':'Nenhum inimigo ao alcance.';}
+      else if(ability==='ogre_earthquake'){center={x:player.x,z:player.z};for(const enemy of enemies())if(Math.hypot(enemy.x-player.x,enemy.z-player.z)<=5.8)damageEnemy(enemy,15,0,center,1.5);text='♨ Terremoto! O chão tremeu ao redor do Ogro.';}
+      else if(ability==='healer_sanctuary'){let healed=0;for(const ally of room.players.values()){if(ally.connected===false||ally.hp<=0||Math.hypot(ally.x-player.x,ally.z-player.z)>7)continue;const before=ally.hp;ally.hp=Math.min(ally.maxHp,ally.hp+25);ally.shieldUntil=Math.max(ally.shieldUntil||0,now+1800);if(ally.hp>before)healed++;}center={x:player.x,z:player.z};text='✚ Santuário! '+healed+' aliado(s) curado(s) e protegido(s).';}
+      else if(ability==='monk_spirit_wave'){const heading=Number(player.rot)||0;center={x:player.x-Math.sin(heading)*1.8,z:player.z-Math.cos(heading)*1.8};for(const enemy of enemies())if(Math.hypot(enemy.x-center.x,enemy.z-center.z)<=4.5)damageEnemy(enemy,13);text='☯ Onda espiritual liberada!';}
+      else if(ability==='golem_stone_guard'){player.shieldUntil=now+6500;until=player.shieldUntil;text='⬟ Guarda de pedra! Armadura reforçada por 6,5 segundos.';}
       broadcast(room, { type: 'classAbility', id: player.id, ability, x: player.x, z: player.z, center, targets, until, text, rockFall });
       broadcast(room, state(room));
     } else if (msg.type === 'spell') {
