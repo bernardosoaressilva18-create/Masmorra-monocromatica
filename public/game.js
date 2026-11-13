@@ -2910,7 +2910,7 @@ function handleOfflineSpell(spell) {
   const isMage=player.playerClass==='mage',isNecromancer=player.playerClass==='necromancer',isHealer=player.playerClass==='healer';
   const valid=(isMage&&['fire','lightning','arcane'].includes(spell))||(isNecromancer&&spell==='bone')||(isHealer&&spell==='healing');
   if(!valid)return;
-  const costs={fire:20,lightning:15,arcane:18,bone:16,healing:18},manaCost=costs[spell]||16;
+  const costs={fire:26,lightning:22,arcane:30,bone:26,healing:22},manaCost=costs[spell]||22;
   if((Number(player.mana)||0)<manaCost){
     const slot=spell==='fire'?0:spell==='lightning'?1:2;
     if(slot===0)fireCooldown=0;else if(slot===1)lightningCooldown=0;else thirdCooldown=0;
