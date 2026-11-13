@@ -113,8 +113,12 @@ const MAP_SPIKE_HAZARDS = MAP_ZONE_CENTERS.flatMap((z,index) => [
   ...[-1,1].map(side=>({id:'pit-spike-'+index+'-'+side,x:(index%2===0?5.2:-5.2)+side*1.36,z:z+4,r:.62,damage:16}))
 ]);
 const pressureTrapVisuals = [];
+const environmentalHazardVisuals = [];
 const mapStairSpecs = [];
 const openMapTraps = new Set();
+let liveUnderworldPits = [];
+const underworldVisuals = new Map();
+const dungeonPhaseGroups = [];
 function pointInMapPolygon(x, zOffset, polygon) {
   let inside = false;
   for (let i=0,j=polygon.length-1;i<polygon.length;j=i++) {
@@ -133,6 +137,9 @@ function isInsideMapFloor(x,z) {
   );
 }
 function getDungeonFloorHeight(x,z) {
+  for(const pit of liveUnderworldPits) {
+    if(Math.hypot(x-pit.x,z-pit.z)<4.35)return -6.15;
+  }
   for(const pit of MAP_PIT_LAYOUT) {
     if(openMapTraps.has(pit.id)&&Math.hypot(x-pit.pitX,z-pit.pitZ)<1.98)return -2.65;
   }
@@ -142,8 +149,56 @@ function getDungeonFloorHeight(x,z) {
       return progress*stair.height;
     }
     if(Math.abs(x-stair.x)<2.7&&z>=stair.platformZ-2.2&&z<=stair.platformZ+2.1)return stair.height;
+    if(Math.abs(x-stair.x)<3.55&&z<=stair.roomStartZ&&z>=stair.roomEndZ)return stair.height;
   }
   return 0;
+}
+function syncMapHazardLayout(hazards=[]) {
+  const byId=new Map((Array.isArray(hazards)?hazards:[]).map(item=>[String(item.id),item]));
+  for(const visual of environmentalHazardVisuals){
+    const live=byId.get(visual.id);if(!live)continue;
+    visual.group.position.x=Number(live.x)||0;
+    visual.group.position.z=Number(live.z)||0;
+  }
+}
+function syncUnderworldVisuals(pits=[]) {
+  const open=Array.isArray(pits)?pits.filter(pit=>pit&&pit.open):[];
+  liveUnderworldPits=open;
+  const keep=new Set();
+  for(const pit of open){
+    const id=String(pit.id);keep.add(id);
+    let group=underworldVisuals.get(id);
+    if(!group){
+      group=new THREE.Group();group.name='subterranean-chamber-'+id;
+      const stone=new THREE.MeshStandardMaterial({color:0x253041,roughness:.94,metalness:.12});
+      const trim=new THREE.MeshStandardMaterial({color:0x8a6d4b,roughness:.62,metalness:.32});
+      const glow=new THREE.MeshStandardMaterial({color:0x76dfff,emissive:0x1b8fbd,emissiveIntensity:1.15,roughness:.28});
+      const floor=new THREE.Mesh(new THREE.BoxGeometry(8.6,.34,8.6),stone);
+      floor.position.y=-6.48;group.add(floor);
+      const ceiling=new THREE.Mesh(new THREE.BoxGeometry(8.6,.24,8.6),stone);
+      ceiling.position.y=-2.05;group.add(ceiling);
+      for(const side of [-1,1]){
+        const wallX=new THREE.Mesh(new THREE.BoxGeometry(.28,4.2,8.6),stone);
+        wallX.position.set(side*4.15,-4.35,0);group.add(wallX);
+        const wallZ=new THREE.Mesh(new THREE.BoxGeometry(8.6,4.2,.28),stone);
+        wallZ.position.set(0,-4.35,side*4.15);group.add(wallZ);
+        const pillar=new THREE.Mesh(new THREE.BoxGeometry(.42,4.1,.42),trim);
+        pillar.position.set(side*3.55,-4.35,side*3.55);group.add(pillar);
+        const torch=new THREE.Mesh(new THREE.OctahedronGeometry(.22,1),glow);
+        torch.position.set(side*3.55,-2.15,side*3.55);group.add(torch);
+      }
+      const sigil=new THREE.Mesh(new THREE.RingGeometry(1.15,1.28,36),glow);
+      sigil.rotation.x=-Math.PI/2;sigil.position.y=-6.27;group.add(sigil);
+      const arch=new THREE.Mesh(new THREE.TorusGeometry(1.28,.07,8,36),trim);
+      arch.position.set(0,-2.85,-4.18);group.add(arch);
+      scene.add(group);underworldVisuals.set(id,group);
+    }
+    group.position.set(Number(pit.x)||0,0,Number(pit.z)||0);
+    group.visible=true;
+  }
+  for(const [id,group] of underworldVisuals){
+    if(!keep.has(id)){scene.remove(group);disposeObject3D(group);underworldVisuals.delete(id);}
+  }
 }
 function syncMapTrapVisuals(openTraps=[]) {
   openMapTraps.clear();
@@ -647,21 +702,32 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
     }
     // Três perigos ambientais extras por região, com avisos visuais claros no chão.
     const environmentalHazards=[
-      {type:'miasma',x:i%2===0?-8.2:8.2,z:center+2.5,r:1.35,color:0x77d65c},
-      {type:'rune',x:i%2===0?8.2:-8.2,z:center-11,r:1.15,color:accentColors[i%accentColors.length]},
-      {type:'crumble',x:i%2===0?-5.7:5.7,z:center-13,r:1.25,color:0xe6a65d}
+      {id:'miasma-'+i,type:'miasma',x:i%2===0?-8.2:8.2,z:center+2.5,r:1.35,color:0x77d65c},
+      {id:'rune-surge-'+i,type:'rune',x:i%2===0?8.2:-8.2,z:center-11,r:1.15,color:accentColors[i%accentColors.length]},
+      {id:'crumble-'+i,type:'crumble',x:i%2===0?-5.7:5.7,z:center-13,r:1.25,color:0xe6a65d}
     ];
     for(const field of environmentalHazards){
-      const disk=new THREE.Mesh(new THREE.CircleGeometry(field.r,20),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.12,side:THREE.DoubleSide,depthWrite:false}));
-      disk.rotation.x=-Math.PI/2;disk.position.set(field.x,.035,field.z);parent.add(disk);
-      const warning=new THREE.Mesh(new THREE.TorusGeometry(field.r*.88,.045,5,24),new THREE.MeshStandardMaterial({color:field.color,emissive:field.color,emissiveIntensity:.75,transparent:true,opacity:.86,roughness:.38,metalness:.22}));
-      warning.rotation.x=Math.PI/2;warning.position.set(field.x,.11,field.z);parent.add(warning);
+      const fieldGroup=new THREE.Group();fieldGroup.name='hazard-'+field.id;
+      fieldGroup.position.set(field.x,0,field.z);parent.add(fieldGroup);
+      environmentalHazardVisuals.push({id:field.id,type:field.type,group:fieldGroup});
+      const disk=new THREE.Mesh(new THREE.CircleGeometry(field.r,20),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
+      disk.rotation.x=-Math.PI/2;disk.position.y=.035;fieldGroup.add(disk);
+      const warning=new THREE.Mesh(new THREE.TorusGeometry(field.r*.88,.055,6,28),new THREE.MeshStandardMaterial({color:field.color,emissive:field.color,emissiveIntensity:.95,transparent:true,opacity:.94,roughness:.32,metalness:.25}));
+      warning.rotation.x=Math.PI/2;warning.position.y=.11;fieldGroup.add(warning);
       if(field.type==='miasma'){
-        for(let puff=0;puff<4;puff++){const mote=new THREE.Mesh(new THREE.OctahedronGeometry(.12,0),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.48}));mote.position.set(field.x+Math.cos(puff*Math.PI/2)*.62,.32+(puff%2)*.18,field.z+Math.sin(puff*Math.PI/2)*.62);parent.add(mote);}
+        for(let puff=0;puff<7;puff++){
+          const mote=new THREE.Mesh(new THREE.IcosahedronGeometry(.14+(puff%3)*.035,0),new THREE.MeshBasicMaterial({color:field.color,transparent:true,opacity:.56}));
+          mote.position.set(Math.cos(puff*Math.PI*2/7)*(.45+(puff%2)*.42),.28+(puff%3)*.16,Math.sin(puff*Math.PI*2/7)*(.45+(puff%2)*.42));fieldGroup.add(mote);
+        }
+        const core=new THREE.Mesh(new THREE.TorusKnotGeometry(.33,.055,36,6,2,3),new THREE.MeshStandardMaterial({color:0xafff81,emissive:0x4f9d39,emissiveIntensity:.8,transparent:true,opacity:.72}));
+        core.position.y=.22;fieldGroup.add(core);
       }else if(field.type==='rune'){
-        for(let rune=0;rune<4;rune++){const mark=new THREE.Mesh(new THREE.BoxGeometry(.08,.025,.58),gold);mark.position.set(field.x, .09, field.z);mark.rotation.y=rune*Math.PI/4;parent.add(mark);}
+        for(let rune=0;rune<6;rune++){const mark=new THREE.Mesh(new THREE.BoxGeometry(.075,.035,.72),gold);mark.position.y=.09;mark.rotation.y=rune*Math.PI/3;fieldGroup.add(mark);}
+        const core=new THREE.Mesh(new THREE.OctahedronGeometry(.23,0),new THREE.MeshStandardMaterial({color:field.color,emissive:field.color,emissiveIntensity:1.35}));
+        core.position.y=.23;fieldGroup.add(core);
       }else{
-        for(let crack=0;crack<4;crack++){const line=new THREE.Mesh(new THREE.BoxGeometry(.055,.025,field.r*1.35),stoneDark);line.position.set(field.x,.09,field.z);line.rotation.y=crack*Math.PI/4;parent.add(line);}
+        for(let crack=0;crack<5;crack++){const line=new THREE.Mesh(new THREE.BoxGeometry(.07,.035,field.r*1.55),stoneDark);line.position.y=.09;line.rotation.y=crack*Math.PI/5;fieldGroup.add(line);}
+        const teeth=new THREE.Mesh(new THREE.ConeGeometry(.24,.54,5),hazardGlow);teeth.position.y=.32;fieldGroup.add(teeth);
       }
     }
     // Boca do poço e fundo. A tampa esconde o buraco até alguém pisar na placa.
@@ -686,7 +752,7 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
     pressureTrapVisuals.push({id:pit.id,cover,plate,realm:realmKey});
     // Escadaria lateral com oito degraus, patamar elevado e corrimãos.
     const stairX=i%2===0?-8.25:8.25;
-    const stairStart=center+1.5,stairEnd=center-6.5,height=1.76;
+    const stairStart=center+1.5,stairEnd=center-6.5,height=2.8;
     const stairMat=new THREE.MeshStandardMaterial({color:accentColors[i%accentColors.length],roughness:.76,metalness:.22});
     for(let step=0;step<8;step++) {
       const level=(step+1)*height/8;
@@ -699,11 +765,33 @@ function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=
     }
     const platform=new THREE.Mesh(new THREE.BoxGeometry(4.35,.28,4.15),stoneDark);
     platform.position.set(stairX,height-.14,center-8.25);parent.add(platform);
-    for(const side of [-1,1]) {
+    // Salão superior de verdade: piso largo, paredes laterais, fundo, teto abobadado e iluminação.
+    const upperFloor=new THREE.Mesh(new THREE.BoxGeometry(7.35,.34,12.35),stoneDark);
+    upperFloor.position.set(stairX,height-.17,center-14.25);parent.add(upperFloor);
+    const upperWallMat=new THREE.MeshStandardMaterial({color:accentColors[i%accentColors.length],roughness:.76,metalness:.24});
+    for(const side of [-1,1]){
+      const sideWall=new THREE.Mesh(new THREE.BoxGeometry(.20,2.9,12.4),upperWallMat);
+      sideWall.position.set(stairX+side*3.58,height+1.43,center-14.25);parent.add(sideWall);
+      const wallCap=new THREE.Mesh(new THREE.BoxGeometry(.34,.16,12.55),gold);
+      wallCap.position.set(stairX+side*3.58,height+2.9,center-14.25);parent.add(wallCap);
+      for(let post=0;post<4;post++){
+        const pil=new THREE.Mesh(new THREE.DodecahedronGeometry(.34,0),stone);
+        pil.position.set(stairX+side*3.2,height+1.52,center-9.5-post*3.0);pil.scale.set(.9,2.5,.9);parent.add(pil);
+      }
+    }
+    const backWall=new THREE.Mesh(new THREE.BoxGeometry(7.35,2.9,.22),upperWallMat);
+    backWall.position.set(stairX,height+1.43,center-20.35);parent.add(backWall);
+    const upperRoof=new THREE.Mesh(new THREE.SphereGeometry(1,18,9,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x273a4b,roughness:.68,metalness:.18,transparent:true,opacity:.82,side:THREE.BackSide,depthWrite:false}));
+    upperRoof.scale.set(3.72,2.45,6.35);upperRoof.position.set(stairX,height+1.0,center-14.25);parent.add(upperRoof);
+    const upperRune=new THREE.Mesh(new THREE.RingGeometry(1.0,1.12,32),hazardGlow);
+    upperRune.rotation.x=-Math.PI/2;upperRune.position.set(stairX,height+.025,center-14.25);parent.add(upperRune);
+    for(const side of [-1,1]){
       const rail=new THREE.Mesh(new THREE.BoxGeometry(.12,.82,8.4),gold);
       rail.position.set(stairX+side*1.78,height*.48,center-2.4);parent.add(rail);
+      const torch=new THREE.Mesh(new THREE.IcosahedronGeometry(.2,1),hazardGlow);
+      torch.position.set(stairX+side*3.25,height+2.0,center-12.2);parent.add(torch);
     }
-    if(registerHeight)mapStairSpecs.push({x:stairX,startZ:stairStart,endZ:stairEnd,platformZ:center-8.25,height});
+    if(registerHeight)mapStairSpecs.push({x:stairX,startZ:stairStart,endZ:stairEnd,platformZ:center-8.25,height,roomStartZ:center-8.0,roomEndZ:center-20.5});
     // Arcos laterais menores diferenciam os cinco trechos do mapa.
     const marker=new THREE.Mesh(new THREE.OctahedronGeometry(.48,0),hazardGlow);
     marker.position.set(stairX,height+.5,center-8.25);marker.scale.set(.75,1.55,.75);parent.add(marker);
@@ -1689,12 +1777,12 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   // Abdômen arredondado e ombros um pouco mais largos: silhueta robusta, sem olhos saltados.
   let abdomenBulge=null;
   if(heroClass==='ogre'){
-    abdomenBulge=add(new THREE.SphereGeometry(.34,12,10),skinMat,0,1.00,-.43,1.42,1.02,.78);
+    abdomenBulge=add(new THREE.SphereGeometry(.31,12,10),skinMat,0,1.00,-.41,1.12,.98,.66);
   }else if(isStoneBody){
-    abdomenBulge=add(new THREE.SphereGeometry(.33,10,8),armor,0,1.02,-.39,1.46,.92,.70);
+    abdomenBulge=add(new THREE.SphereGeometry(.30,10,8),armor,0,1.02,-.37,1.17,.90,.62);
   }else{
     const abdomenMaterial=clothClasses.includes(heroClass)?cloth:armor;
-    abdomenBulge=add(new THREE.SphereGeometry(.32,12,9),abdomenMaterial,0,.94,-.41,1.32,.91,.72);
+    abdomenBulge=add(new THREE.SphereGeometry(.29,12,9),abdomenMaterial,0,.94,-.39,1.12,.91,.65);
   }
   // Neck and collar connect the head to the torso instead of leaving a floating round head.
   if (!isStoneBody) {
@@ -2741,7 +2829,7 @@ function renderSkillTrees() {
     '<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Deslize para os lados para ver todos os caminhos.</p>'+catalog;
   const lobbyTree=$('skillTreeLobby'),hudTree=$('skillTreeHud');
   if(lobbyTree)lobbyTree.innerHTML=html;
-  if(hudTree)hudTree.innerHTML=html;
+  if(hudTree)hudTree.innerHTML=core+filterBar+'<div class="skill-rpg-heading"><strong>CAMINHOS DE ESPECIALIZAÇÃO</strong><span>O núcleo se divide em cinco trilhas. Desbloqueie cada nível em sequência.</span></div>'+tree+'<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Deslize para os lados para ver todos os caminhos.</p>';
   setSkillTreeZoom(skillTreeZoom);
   installSkillTreePinch(lobbyTree);
   installSkillTreePinch(hudTree);
@@ -3230,10 +3318,18 @@ function handleSkillClick(event) {
       'Você pode desenvolver no máximo 3 ramos da árvore.');
     return;
   }
+  const treeScrolls=[...document.querySelectorAll('#skillTreeHud .skill-rpg-scroll')].map(el=>({left:el.scrollLeft,top:el.scrollTop}));
+  const panelScroll=$('skillPanel')?.scrollTop||0;
+  button.blur();
   unlockedSkills.add(skill.id);
   skillPoints--;
   lastSkillSignature = '';
   syncLoadoutUI();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const nodes=[...document.querySelectorAll('#skillTreeHud .skill-rpg-scroll')];
+    nodes.forEach((el,index)=>{const saved=treeScrolls[index];if(saved){el.scrollLeft=saved.left;el.scrollTop=saved.top;}});
+    const panel=$('skillPanel');if(panel)panel.scrollTop=panelScroll;
+  }));
   sendLoadout();
   vibrateGame(18);
   showNotice('✦ ' + skill.name + ' desbloqueada!');
@@ -4530,15 +4626,27 @@ function purchaseLevelUpgrade(id){
  send({type:'levelUpgrade',upgrade:id});
 }
 $('levelToggleBtn')?.addEventListener('click',()=>{const panel=$('levelPanel');if(!panel)return;panel.classList.toggle('hidden');updateLevelHud();});
-$('levelCloseBtn')?.addEventListener('click',()=>{$('levelPanel')?.classList.add('hidden');updateLevelHud();});
+$('levelCloseBtn')?.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();$('levelPanel')?.classList.add('hidden');updateLevelHud();document.activeElement?.blur?.();});
 
 function updateState(m) {
   currentSafeZoneUntil = Math.max(0, Number(m.safeZoneUntil) || 0);
   syncMapTrapVisuals(m.openTraps||[]);
+  syncMapHazardLayout(m.mapHazards||[]);
+  syncUnderworldVisuals(m.underworldPits||[]);
   activeGameMode = m.gameMode === 'pvp_rpg' ? 'pvp_rpg' : 'coop';
   const localLevelPlayer=(m.players||[]).find(p=>String(p.id)===String(playerId));
-  if(localLevelPlayer)updateLevelHud(localLevelPlayer);else if(offlineMode)updateLevelHud();
+  if(localLevelPlayer){
+    updateLevelHud(localLevelPlayer);
+    const poisonHud=$('poisonHud'),poisonSeconds=Math.max(0,Math.ceil(((Number(localLevelPlayer.poisonUntil)||0)-Date.now())/1000));
+    if(poisonHud){poisonHud.classList.toggle('hidden',poisonSeconds<=0);poisonHud.textContent=poisonSeconds>0?'☣ ENVENENADO · '+poisonSeconds+'s':' ';}
+    if(myPlayer){
+      const guarding=Date.now()<(Number(localLevelPlayer.stoneGuardUntil)||0);
+      myPlayer.rotation.x=guarding?-Math.PI/2:0;
+      myPlayer.position.y=getDungeonFloorHeight(myPlayer.position.x,myPlayer.position.z)+(guarding?-.38:0);
+    }
+  }else if(offlineMode)updateLevelHud();
   const progressRealm=Math.max(1,Math.min(3,Number(m.realm)||1)),progressPhase=Math.max(1,Math.min(5,Number(m.phase)||1));
+  updateDungeonPhaseVisibility(progressPhase);
   if(sharedProgress.realm!==progressRealm||sharedProgress.phase!==progressPhase){sharedProgress={realm:progressRealm,phase:progressPhase};saveSharedProfile();}
   const isPvpRpg = activeGameMode === 'pvp_rpg';
   const pvpSummonControls = $('pvpSummonControls');
@@ -4703,7 +4811,9 @@ function updateState(m) {
 
     obj.userData.targetX = p.x;
     obj.userData.targetZ = p.z;
-    obj.userData.targetY = getDungeonFloorHeight(p.x,p.z);
+    const remoteGuarding=Date.now()<(Number(p.stoneGuardUntil)||0);
+    obj.rotation.x=remoteGuarding?-Math.PI/2:0;
+    obj.userData.targetY = getDungeonFloorHeight(p.x,p.z)+(remoteGuarding?-.38:0);
     obj.userData.serverHp = p.hp ?? 100;
     setHealthBar(obj, obj.userData.serverHp, p.maxHp ?? p.maxHP ?? 100);
     setHeroInvisible(obj, !!p.invisible);
