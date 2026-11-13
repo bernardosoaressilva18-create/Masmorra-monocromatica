@@ -5013,12 +5013,20 @@ function animate() {
       camera.lookAt(target.x - Math.sin(yaw) * 12, 1.62 - pitch * 8, target.z - Math.cos(yaw) * 12);
     } else {
       // Shift Lock mantém a câmera centralizada e permite strafe lateral sem girar a visão.
-      const dist = gameSettings.cameraMode === 'second' ? THREE.MathUtils.clamp(cameraDistance * 0.52, 3.2, 6.5) : cameraDistance;
-      const cameraHeight = gameSettings.cameraMode === 'second' ? 2.25 : 3.0;
+      const baseDistance = gameSettings.cameraMode === 'second'
+        ? THREE.MathUtils.clamp(cameraDistance * 0.52, 3.2, 6.5)
+        : cameraDistance;
+      const distance = baseDistance + introBlend * 2.8;
+      // A câmera percorre um arco real ao redor do herói. O toque vertical
+      // altera o ângulo de elevação, em vez de apenas empurrar a câmera para cima.
+      const orbitPitch = THREE.MathUtils.clamp(pitch, -0.62, 1.12);
+      const horizontalDistance = Math.max(0.35, Math.cos(orbitPitch) * distance);
+      const verticalOffset = Math.sin(orbitPitch) * distance;
+      const cameraFloor = 0.42;
       cameraPositionScratch.set(
-        target.x + Math.sin(yaw) * (dist + introBlend * 2.8),
-        target.y + cameraHeight + pitch * (gameSettings.cameraMode === 'second' ? 1.35 : 2) + introBlend * 0.65,
-        target.z + Math.cos(yaw) * (dist + introBlend * 2.8)
+        target.x + Math.sin(yaw) * horizontalDistance,
+        Math.max(cameraFloor, target.y + 1.2 + verticalOffset),
+        target.z + Math.cos(yaw) * horizontalDistance
       );
       camera.position.lerp(cameraPositionScratch, cameraSmooth);
       camera.lookAt(target.x, target.y + 0.15, target.z);
