@@ -2302,7 +2302,9 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
         summon.rot = Math.atan2(dx, dz);
         continue;
       }
-      const target = summonEnemies.filter(enemy => enemy.alive)
+      const target = summonEnemies.filter(enemy => enemy.alive && (enemy.pvpPlayer
+        ? areSummonAndPlayerInSameWorldLayer(room,summon,enemy.sourcePlayer||enemy,now)
+        : canMonsterTargetSummon(room,enemy,summon,now)))
         .sort((a, b) => Math.hypot(a.x - summon.x, a.z - summon.z) - Math.hypot(b.x - summon.x, b.z - summon.z))[0];
       if (!target) continue;
       const dx = target.x - summon.x, dz = target.z - summon.z, distance = Math.hypot(dx, dz) || 1;
@@ -2331,7 +2333,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
       if (monster.kind === 'thorn' && now >= (monster.guardPulseAt || 0)) {
         monster.guardPulseAt = now + 3800;
         for (const ally of room.monsters) {
-          if (ally === monster || !ally.alive || ally.spawned === false || ally.hp >= (ally.maxHp || ally.hp)) continue;
+          if (ally === monster || !ally.alive || ally.spawned === false || ally.hp >= (ally.maxHp || ally.hp) || !canMonsterTargetSummon(room,monster,ally,now)) continue;
           if (Math.hypot(ally.x - monster.x, ally.z - monster.z) > 5.2) continue;
           ally.hp = Math.min(ally.maxHp || ally.hp, ally.hp + Math.max(1, Math.min(3, Math.ceil((ally.maxHp || 10) * 0.025))));
         }
