@@ -626,12 +626,12 @@ function resolveServerMovement(room, player, nextX, nextZ) {
 }
 
 function state(room) {
-  // Regeneração de mana moderada, limitada a uma vez por segundo.
+  // Regeneração lenta de mana: força escolhas táticas entre as habilidades.
   const now = Date.now();
   for (const p of room.players.values()) {
     if (p.hp > 0 && (p.mana ?? 100) < (p.maxMana ?? 100) && now >= (p.nextManaRegenAt || 0)) {
-      p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + 5);
-      p.nextManaRegenAt = now + 1000;
+      p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + 1);
+      p.nextManaRegenAt = now + 2500;
     }
   }
   // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
@@ -1115,7 +1115,7 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'notice', text: 'Habilidade recarregando: ' + Math.ceil(remaining / 1000) + 's.' }));
         return;
       }
-      const manaCosts={knight_shield:12,knight_dash:16,knight_whirlwind:21,arrow_rain:18,incendiary_arrows:22,archer_piercing_shot:22,goblin_invis:16,goblin_summon:24,goblin_shadow_strike:18,ogre_slam:20,ogre_haste:14,ogre_earthquake:28,healer_cure:18,healer_guardian_spirits:25,healer_sanctuary:24,necromancer_summon:24,necromancer_dive:18,necromancer_bone_bolt:16,monk_impact_palm:16,monk_winged_steps:18,monk_spirit_wave:22,golem_split:24,golem_rock_toss:20,golem_stone_guard:20};
+      const manaCosts={knight_shield:20,knight_dash:22,knight_whirlwind:28,arrow_rain:26,incendiary_arrows:30,archer_piercing_shot:28,goblin_invis:22,goblin_summon:38,goblin_shadow_strike:28,ogre_slam:26,ogre_haste:20,ogre_earthquake:36,healer_cure:24,healer_guardian_spirits:36,healer_sanctuary:34,necromancer_summon:42,necromancer_dive:24,monk_impact_palm:26,monk_winged_steps:24,monk_spirit_wave:32,golem_split:42,golem_rock_toss:30,golem_stone_guard:26};
       const manaCost=manaCosts[ability]||16;
       if((Number(player.mana)||0)<manaCost){ws.send(JSON.stringify({type:'notice',text:'✦ Mana insuficiente! Custo: '+manaCost+'.'}));return;}
       player.mana=Math.max(0,(Number(player.mana)||0)-manaCost);
@@ -1479,7 +1479,7 @@ wss.on('connection', ws => {
       if(!room.started||player.hp<=0||!spellAllowed)return;
       if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Você está na zona segura. Use esse tempo para melhorar suas habilidades.' })); return; }
       const spell=String(msg.spell||'');
-      const manaCost={fire:20,lightning:15,arcane:18,bone:16,healing:18}[spell];
+      const manaCost={fire:26,lightning:22,arcane:30,bone:26,healing:22}[spell];
       if(!manaCost)return;
       if ((player.mana ?? 100) < manaCost) { ws.send(JSON.stringify({ type: 'notice', text: '✦ Mana insuficiente! Espere regenerar.' })); return; }
       player.mana=Math.max(0,(player.mana??100)-manaCost);
