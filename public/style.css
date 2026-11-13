@@ -5244,3 +5244,132 @@ button:not(:disabled):active{filter:brightness(1.14)}
 .realm-inverted .level-toggle b{color:#d7b5ff}
 @media(max-width:720px){.start-screen .start-title{font-size:clamp(38px,12vw,64px)}.level-hud{top:62px;right:8px;width:150px;padding:6px 8px}.level-panel{top:104px;right:8px;width:calc(100vw - 16px);max-height:74vh;padding:11px}.level-upgrade-list{gap:6px}.level-upgrade-card{padding:7px}}
 @media(max-height:430px) and (orientation:landscape){.level-hud{top:54px;right:8px;width:138px}.level-panel{top:92px;max-height:74vh}.start-screen{padding:10px}.start-screen .start-emblem{display:none}.start-screen .eyebrow{margin:6px 0}}
+
+
+/* UPDATE 4 V1 — painéis acessíveis por toque e sem conflito de camadas. */
+#hud .level-panel,
+#hud .level-panel * {
+  pointer-events: auto !important;
+}
+.level-hud {
+  top: 100px;
+  left: 116px;
+  right: auto;
+  width: min(205px, calc(100vw - 128px));
+  z-index: 118;
+}
+.level-toggle {
+  min-height: 28px;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.level-panel {
+  z-index: 160;
+  top: 145px;
+  right: 10px;
+  left: auto;
+  width: min(430px, calc(100vw - 20px));
+  max-height: min(65dvh, 590px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+.level-panel-head {
+  position: sticky;
+  top: -14px;
+  z-index: 4;
+  padding: 5px 0 8px;
+  background: rgba(12,20,33,.98);
+}
+.level-panel-head button {
+  flex: 0 0 38px;
+  min-width: 38px;
+  min-height: 38px;
+  position: relative;
+  z-index: 6;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+.level-upgrade-list {
+  padding-bottom: 8px;
+  touch-action: pan-y;
+}
+.level-upgrade-card button {
+  min-height: 34px;
+  touch-action: manipulation;
+  pointer-events: auto !important;
+}
+#hud .skill-toggle {
+  top: 100px;
+  left: 12px;
+  z-index: 120;
+  min-height: 32px;
+  touch-action: manipulation;
+}
+#hud .skill-panel {
+  z-index: 150;
+  max-height: min(66dvh, 590px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+.poison-hud {
+  position: fixed;
+  z-index: 132;
+  left: 50%;
+  bottom: 27vh;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 28px);
+  padding: 9px 14px;
+  border: 1px solid rgba(157,255,102,.78);
+  border-radius: 999px;
+  color: #d7ffb5;
+  background: rgba(36,66,20,.92);
+  box-shadow: 0 0 18px rgba(111,210,65,.35), 0 6px 18px #0009;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-align: center;
+  pointer-events: none;
+  animation: poison-pulse 1.3s ease-in-out infinite alternate;
+}
+@keyframes poison-pulse {
+  from { filter: brightness(.86); box-shadow: 0 0 10px rgba(111,210,65,.18), 0 6px 18px #0009; }
+  to { filter: brightness(1.12); box-shadow: 0 0 22px rgba(111,210,65,.48), 0 6px 18px #0009; }
+}
+@media (min-width: 760px) {
+  .level-panel {
+    right: 12px;
+    width: min(460px, calc(50vw - 24px));
+    max-height: min(72dvh, 690px);
+  }
+  .skill-panel {
+    width: min(690px, calc(50vw - 24px));
+    max-height: min(72dvh, 690px);
+  }
+}
+@media (max-width: 430px) {
+  .level-hud {
+    left: 110px;
+    width: calc(100vw - 122px);
+    top: 98px;
+    padding: 6px 7px;
+  }
+  #hud .skill-toggle {
+    left: 8px;
+    top: 98px;
+    padding: 8px 10px;
+  }
+  .level-panel {
+    top: 142px;
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-height: 63dvh;
+  }
+  .poison-hud {
+    bottom: 29vh;
+    font-size: 9px;
+  }
+}
