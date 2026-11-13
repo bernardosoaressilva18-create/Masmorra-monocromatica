@@ -858,6 +858,48 @@ function buildDungeonVisualPass() {
     halo.position.set(0, 2.12, [-30, -62, -94, -126][i] + 0.42);
     halo.scale.set(1.37, 0.92, 1); detailGroup.add(halo);
   }
+
+  // Detalhes periféricos instanciados por bioma: pedras, fragmentos e musgo.
+  // Instancing mantém o cenário rico sem criar dezenas de draw calls individuais.
+  const rubbleGeometry = new THREE.DodecahedronGeometry(.19,0);
+  const rubbleMaterial = new THREE.MeshStandardMaterial({color:0xffffff,roughness:.94,metalness:.025});
+  const rubble = new THREE.InstancedMesh(rubbleGeometry,rubbleMaterial,90);
+  const mossGeometry = new THREE.CircleGeometry(.34,8);
+  const mossMaterial = new THREE.MeshStandardMaterial({color:0x78926d,roughness:1,metalness:0,transparent:true,opacity:.30,depthWrite:false,side:THREE.DoubleSide});
+  const moss = new THREE.InstancedMesh(mossGeometry,mossMaterial,60);
+  let rubbleIndex=0,mossIndex=0;
+  for(let zi=0;zi<zoneData.length;zi++){
+    const zone=zoneData[zi];
+    for(let n=0;n<18;n++){
+      const side=n%2===0?-1:1;
+      const x=side*(10.4+(n%3)*.95);
+      const z=zone.z-zoneData.length*.0-13.5+(n%9)*3.0;
+      const scale=.48+(n%4)*.17;
+      dummy.position.set(x,.10+(n%3)*.025,z);
+      dummy.rotation.set((n%3)*.12,(n*1.71+zi)*.2,(n%4)*.09);
+      dummy.scale.set(scale,scale*(.55+(n%3)*.22),scale*.82);
+      dummy.updateMatrix();
+      rubble.setMatrixAt(rubbleIndex,dummy.matrix);
+      const tint=new THREE.Color(zone.color).multiplyScalar(.22+(n%4)*.035);
+      rubble.setColorAt(rubbleIndex,tint);
+      rubbleIndex++;
+      if(n%3===0){
+        dummy.position.set(side*(9.8+(n%2)*1.1),.014,zone.z-12+(n%9)*3.1);
+        dummy.rotation.set(-Math.PI/2,0,(n*2.1+zi)*.13);
+        const patchScale=.55+(n%4)*.16;
+        dummy.scale.set(patchScale,patchScale,patchScale);
+        dummy.updateMatrix();
+        moss.setMatrixAt(mossIndex,dummy.matrix);
+        moss.setColorAt(mossIndex,new THREE.Color(zi===2?0x8fc47a:zone.color).multiplyScalar(.42));
+        mossIndex++;
+      }
+    }
+  }
+  rubble.count=rubbleIndex; rubble.instanceMatrix.needsUpdate=true;
+  moss.count=mossIndex; moss.instanceMatrix.needsUpdate=true;
+  if(rubble.instanceColor)rubble.instanceColor.needsUpdate=true;
+  if(moss.instanceColor)moss.instanceColor.needsUpdate=true;
+  detailGroup.add(rubble,moss);
 }
 
 function buildAstralWorld(){
@@ -1821,10 +1863,10 @@ function makeMonster(kind = 'stalker', phase = 1) {
   };
   let core=null;
   if(kind==='training_dummy'){
-    const woodMat=new THREE.MeshStandardMaterial({color:0x9b7046,roughness:.94});
-    const darkWood=new THREE.MeshStandardMaterial({color:0x533c2d,roughness:.9});
-    const targetMat=new THREE.MeshStandardMaterial({color:0xc84a43,roughness:.78,emissive:0x42100d,emissiveIntensity:.25});
-    const metalMat=new THREE.MeshStandardMaterial({color:0x737e88,metalness:.58,roughness:.42});
+    const woodMat=new THREE.MeshStandardMaterial({color:0x9b7046,roughness:.94,map:getHeroDetailTextures().leather});
+    const darkWood=new THREE.MeshStandardMaterial({color:0x533c2d,roughness:.9,map:getHeroDetailTextures().stone});
+    const targetMat=new THREE.MeshStandardMaterial({color:0xc84a43,roughness:.78,emissive:0x42100d,emissiveIntensity:.25,map:getHeroDetailTextures().leather});
+    const metalMat=new THREE.MeshStandardMaterial({color:0x737e88,metalness:.58,roughness:.42,map:getHeroDetailTextures().metal});
     add(new THREE.CylinderGeometry(.62,.76,.18,12),darkWood,0,.10,0);
     add(new THREE.CylinderGeometry(.12,.18,1.55,8),metalMat,0,.88,0);
     add(new THREE.CapsuleGeometry(.23,.68,4,8),woodMat,0,1.55,0,1,.95,.8);
@@ -6146,6 +6188,9 @@ function animate() {
     const idleSeed = myPlayer.userData.idleSeed || 0;
     const idleWave = Math.sin(phase * .64 + idleSeed);
     const stride = moving ? 1 : .12;
+    const heroType = myPlayer.userData.heroClass || selectedClass || 'knight';
+    const gaitScale = heroType === 'goblin' ? 1.24 : heroType === 'ogre' || heroType === 'golem' ? .68 : heroType === 'monk' ? .92 : heroType === 'archer' ? 1.08 : 1;
+    const bodyBounceScale = heroType === 'goblin' ? 1.3 : heroType === 'ogre' || heroType === 'golem' ? .55 : 1;
     // Ação do personagem: animação local leve, sem depender de resposta do servidor.
     myPlayer.userData.attackAnim = Math.max(0, (myPlayer.userData.attackAnim || 0) - dt);
     myPlayer.userData.dodgeAnim = Math.max(0, (myPlayer.userData.dodgeAnim || 0) - dt);
@@ -6174,14 +6219,14 @@ function animate() {
     updateHeroFaceAnimation(lobbyPreviewHero, dt);
     // 5) Passos alternados mais legíveis; 6) pose de esquiva temporária.
     for (const leg of myPlayer.userData.legs || []) {
-      const legSwing = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .29 * stride;
+      const legSwing = Math.sin(phase + (leg.side > 0 ? Math.PI : 0)) * .29 * gaitScale * stride;
       leg.mesh.rotation.x = legSwing + (myPlayer.userData.dodgeAnim > 0 ? (leg.side > 0 ? -.32 : .22) * dodgeLean : 0);
     }
     // 7) Braços fazem um movimento de preparação e golpe em vez de só balançar.
     for (const arm of myPlayer.userData.arms || []) {
       const swing = Math.sin(phase + (arm.side < 0 ? Math.PI : 0));
       const lead = arm.side > 0 ? 1 : .38;
-      arm.mesh.rotation.x = swing * .18 * stride - attackWind * .48 * lead + attackHit * .82 * lead + dodgeLean * .12;
+      arm.mesh.rotation.x = swing * .18 * gaitScale * stride - attackWind * .48 * lead + attackHit * .82 * lead + dodgeLean * .12;
       arm.mesh.rotation.y = Math.sin(phase * .5 + arm.side) * .035 * stride;
       arm.mesh.rotation.z = (arm.side > 0 ? -.12 : .12) + Math.sin(phase + arm.side) * .018 * stride + attackHit * (arm.side > 0 ? -.20 : .06);
       if (arm.mesh.userData.elbow) {
@@ -6189,7 +6234,7 @@ function animate() {
       }
     }
     // 8) O personagem dá um pequeno impulso visual no impacto.
-    myPlayer.position.y = (moving ? Math.abs(Math.sin(phase * 2)) * .008 : 0) + attackHit * .045;
+    myPlayer.position.y = (moving ? Math.abs(Math.sin(phase * 2)) * .008 * bodyBounceScale : 0) + attackHit * .045;
     // 9) A capa e as pontas acompanham inércia de corrida e golpe.
     for (const tail of myPlayer.userData.capeTails || []) {
       tail.rotation.x = Math.sin(phase * .85) * .08 * stride + attackHit * .11 - dodgeLean * .12;
@@ -6284,12 +6329,14 @@ function animate() {
     const remoteIdleSeed = obj.userData.idleSeed || 0;
     const remoteIdleWave = Math.sin(rp*.62 + remoteIdleSeed);
     const remoteStride = remoteMoving ? 1 : .08;
+    const remoteHeroType = obj.userData.heroClass || 'knight';
+    const remoteGaitScale = remoteHeroType === 'goblin' ? 1.22 : remoteHeroType === 'ogre' || remoteHeroType === 'golem' ? .70 : remoteHeroType === 'monk' ? .92 : 1;
     for (const leg of obj.userData.legs || []) {
-      leg.mesh.rotation.x = Math.sin(rp + (leg.side > 0 ? Math.PI : 0)) * .34 * remoteStride;
+      leg.mesh.rotation.x = Math.sin(rp + (leg.side > 0 ? Math.PI : 0)) * .34 * remoteGaitScale * remoteStride;
     }
     for (const arm of obj.userData.arms || []) {
       const swing = Math.sin(rp + (arm.side < 0 ? Math.PI : 0));
-      arm.mesh.rotation.x = swing * .19 * remoteStride;
+      arm.mesh.rotation.x = swing * .19 * remoteGaitScale * remoteStride;
       if (arm.mesh.userData.elbow) {
         arm.mesh.userData.elbow.rotation.x = Math.max(0, swing) * .25 * remoteStride;
       }
@@ -6417,7 +6464,7 @@ function animate() {
     // Os olhos destacam o instante do impacto sem criar luzes dinâmicas adicionais.
     if (obj.userData.eyeMaterial) {
       const baseGlow = kind === 'brute' ? 1.9 : 1.65;
-      obj.userData.eyeMaterial.emissiveIntensity = baseGlow + strike * (kind === 'inferno' ? 2.0 : 1.1);
+      obj.userData.eyeMaterial.emissiveIntensity = baseGlow + Math.sin(phase*1.7+(obj.userData.eyePulseOffset||0))*.16 + strike * (kind === 'inferno' ? 2.0 : 1.1);
     }
     // O anel no chão pulsa junto ao golpe para comunicar melhor o perigo do ataque.
     const attackRing = obj.userData.attackRing;
