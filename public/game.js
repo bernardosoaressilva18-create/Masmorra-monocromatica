@@ -704,6 +704,27 @@ for (let z = -30; z <= 8; z += 6) {
 
 
 
+
+function addZoneLandmarks(parent,palette){
+  if(!parent)return;
+  const geometry=new THREE.DodecahedronGeometry(.34,0);
+  const material=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:.32,metalness:.28,roughness:.42});
+  const count=40,instances=new THREE.InstancedMesh(geometry,material,count),dummy=new THREE.Object3D();
+  const centers=[-14,-46,-78,-110,-153];let index=0;
+  centers.forEach((z,zone)=>{
+    for(const side of [-1,1])for(let n=0;n<4;n++){
+      const x=side*(10.5+(n%2)*1.25),offset=-6+n*4;
+      dummy.position.set(x,.48+(n%3)*.08,z+offset);
+      dummy.rotation.set(.12*(n%2),zone*.5+n*.73,side*.08);
+      dummy.scale.set(.72+(n%2)*.18,1.2+(n%3)*.22,.7+(n%2)*.14);
+      dummy.updateMatrix();instances.setMatrixAt(index,dummy.matrix);
+      instances.setColorAt(index,new THREE.Color(palette[zone%palette.length]));index++;
+    }
+  });
+  instances.count=index;instances.instanceMatrix.needsUpdate=true;
+  if(instances.instanceColor)instances.instanceColor.needsUpdate=true;
+  instances.name='world-landmark-instanced-set';parent.add(instances);
+}
 function buildDungeonVisualPass() {
   const parent = environmentGroups.dungeon || scene;
   const detailGroup = new THREE.Group();
@@ -771,6 +792,7 @@ function buildDungeonVisualPass() {
   }
   lanterns.instanceMatrix.needsUpdate = true; brackets.instanceMatrix.needsUpdate = true;
   detailGroup.add(brackets, lanterns);
+  addZoneLandmarks(detailGroup,[0x75eaff,0xb49aff,0x76f0ad,0xffa45e,0xff77b7]);
   const gateGeometry = new THREE.TorusGeometry(2.18, 0.038, 6, 48);
   for (let i = 0; i < 4; i++) {
     const haloMat = new THREE.MeshStandardMaterial({
@@ -829,6 +851,9 @@ function buildAstralWorld(){
 }
 
 let eclipsePortal=null;
+  addZoneLandmarks(astral,[0x9c86ff,0x61eaff,0xa5f0cc,0xffc57b,0xf179ab]);
+}
+
 function buildEclipseWorld(){
   const source=environmentGroups.astral;
   if(!source)return;
@@ -1757,7 +1782,7 @@ function renderSkillTrees() {
   const filterBar = '<div class="skill-tree-tools"><label class="skill-search-label">⌕ <input class="skill-search" data-skill-search type="search" maxlength="40" placeholder="Buscar talento..." aria-label="Buscar talento" value="'+esc(activeSkillSearch)+'"></label>'+
     '<div class="skill-tree-filters" role="group" aria-label="Filtrar talentos">'+
     [['all','TODOS'],['available','DISPONÍVEIS'],['unlocked','DESBLOQUEADOS']].map(([id,label])=>'<button type="button" class="skill-filter '+(activeSkillFilter===id?'active':'')+'" data-skill-filter="'+id+'" aria-pressed="'+(activeSkillFilter===id?'true':'false')+'">'+label+'</button>').join('')+'</div></div>';
-  const positions=[12,31,50,69,88], yLevels=[270,360,450,540,630];
+  const positions=[12,31,50,69,88], yLevels=[270,360,450,540,630],nodeOffsets=[0,-31,25,-31,0];
   const rootLines=positions.map(x=>'<path class="skill-rpg-root-link" d="M 500 93 C 500 155 '+(x*10)+' 175 '+(x*10)+' 255"></path>').join('');
   let branchLabels='', branchNodes='', branchLinks='';
   branches.forEach((branch,branchIndex)=>{
@@ -1766,7 +1791,11 @@ function renderSkillTrees() {
     const unlockedCount=skills.filter(skill=>unlockedSkills.has(skill.id)).length;
     const glyph=branch.icon||({attack:'⚔️',defense:'🛡️',arcane:'✦',mobility:'💨',support:'✚'}[branch.id]||'✦');
     branchLabels+='<div class="skill-rpg-branch-label" style="left:'+positions[branchIndex]+'%;top:174px"><span>'+esc(glyph)+'</span><strong>'+esc(branch.title.replace(/^\S+\s*/,''))+'</strong><small>'+unlockedCount+'/'+skills.length+' · TALENTOS</small></div>';
-    if(skills.length) branchLinks+='<line class="skill-rpg-line" x1="'+x+'" y1="'+yLevels[0]+'" x2="'+x+'" y2="'+yLevels[yLevels.length-1]+'"></line>';
+    for(let level=1;level<skills.length;level++){
+      const fromX=x+nodeOffsets[level-1],toX=x+nodeOffsets[level];
+      const fromY=yLevels[level-1]+28,toY=yLevels[level]-28,midY=(fromY+toY)/2;
+      branchLinks+='<path class="skill-rpg-line" d="M '+fromX+' '+fromY+' C '+fromX+' '+midY+' '+toX+' '+midY+' '+toX+' '+toY+'"></path>';
+    }
     skills.forEach((skill,index)=>{
       const unlocked=unlockedSkills.has(skill.id),canBuy=canUnlock(skill);
       const required=skill.req?allSkills.find(item=>item.id===skill.req)?.name:'';
@@ -1779,7 +1808,7 @@ function renderSkillTrees() {
         skillPoints<1?'SEM PONTOS':'BLOQUEADA';
       const stateClass=unlocked?'unlocked':canBuy?'available':'locked';
       const req=skill.req?'Pré-requisito: '+(required||'talento anterior'):'Talento inicial do caminho';
-      branchNodes+='<button type="button" class="skill-rpg-node '+stateClass+(hidden?' skill-filtered-out':'')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" style="left:'+positions[branchIndex]+'%;top:'+yLevels[index]+'px" aria-label="'+esc(skill.name+'. '+skill.desc+'. '+status)+'" '+(canBuy?'':'disabled')+'>'+
+      branchNodes+='<button type="button" class="skill-rpg-node '+stateClass+(hidden?' skill-filtered-out':'')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" style="left:calc('+positions[branchIndex]+'% + '+nodeOffsets[index]+'px);top:'+yLevels[index]+'px" aria-label="'+esc(skill.name+'. '+skill.desc+'. '+status)+'" '+(canBuy?'':'disabled')+'>'+
         '<span class="skill-rpg-node-icon">'+esc(skill.icon)+'</span><span class="skill-rpg-node-copy"><strong>'+esc(skill.name)+'</strong><small>NÍVEL '+(index+1)+' · 1 PONTO</small><em>'+esc(unlocked?'✓ APRENDIDA':canBuy?'TOQUE PARA APRENDER':status)+'</em></span></button>';
     });
   });
@@ -3163,6 +3192,8 @@ function setHeroShielded(hero, shielded) {
 }
 function updateState(m) {
   activeGameMode = m.gameMode === 'pvp_rpg' ? 'pvp_rpg' : 'coop';
+  const progressRealm=Math.max(1,Math.min(3,Number(m.realm)||1)),progressPhase=Math.max(1,Math.min(5,Number(m.phase)||1));
+  if(sharedProgress.realm!==progressRealm||sharedProgress.phase!==progressPhase){sharedProgress={realm:progressRealm,phase:progressPhase};saveSharedProfile();}
   const isPvpRpg = activeGameMode === 'pvp_rpg';
   const pvpSummonControls = $('pvpSummonControls');
   if (pvpSummonControls) pvpSummonControls.classList.toggle('hidden', !isPvpRpg || !m.started);
