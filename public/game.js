@@ -2130,8 +2130,8 @@ function renderSkillTrees() {
     const hudBoard = $('skillTreeHud')?.querySelector('.skill-rpg-scroll');
     if (editor) editor.scrollTop = scrollSnapshot.lobbyEditorTop;
     if (panel) panel.scrollTop = scrollSnapshot.skillPanelTop;
-    if (lobbyBoard) lobbyBoard.scrollTo({left:scrollSnapshot.lobbyBoardLeft,top:scrollSnapshot.lobbyBoardTop,behavior:'instant'});
-    if (hudBoard) hudBoard.scrollTo({left:scrollSnapshot.hudBoardLeft,top:scrollSnapshot.hudBoardTop,behavior:'instant'});
+    if (lobbyBoard) { lobbyBoard.scrollLeft=scrollSnapshot.lobbyBoardLeft; lobbyBoard.scrollTop=scrollSnapshot.lobbyBoardTop; }
+    if (hudBoard) { hudBoard.scrollLeft=scrollSnapshot.hudBoardLeft; hudBoard.scrollTop=scrollSnapshot.hudBoardTop; }
   });
   if($('skillPoints'))$('skillPoints').textContent=String(skillPoints);
   if($('skillPointsHud'))$('skillPointsHud').textContent=String(skillPoints);
