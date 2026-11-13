@@ -4267,7 +4267,7 @@ function placeSpellButtons() {
     btn.style.setProperty('visibility', 'visible', 'important');
     btn.style.setProperty('opacity', '1', 'important');
     btn.style.setProperty('pointer-events', 'auto', 'important');
-    btn.style.setProperty('z-index', '5', 'important');
+    btn.style.setProperty('z-index', '24', 'important');
     btn.style.setProperty('width', size + 'px', 'important');
     btn.style.setProperty('height', size + 'px', 'important');
     btn.style.setProperty('border-radius', '50%', 'important');
@@ -4327,11 +4327,12 @@ function applySavedHudPositions(){
     if (!el) continue;
     const saved = group[id];
     if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-      const maxX = Math.max(0, window.innerWidth - el.offsetWidth);
-      const maxY = Math.max(0, window.innerHeight - el.offsetHeight);
+      const viewport=getEffectiveViewport();
+      const maxX = Math.max(0, viewport.width - el.offsetWidth);
+      const maxY = Math.max(0, viewport.height - el.offsetHeight);
       el.style.setProperty('position', 'fixed', 'important');
-      el.style.setProperty('left', Math.round(Math.max(0, Math.min(1, saved.x)) * maxX) + 'px', 'important');
-      el.style.setProperty('top', Math.round(Math.max(0, Math.min(1, saved.y)) * maxY) + 'px', 'important');
+      el.style.setProperty('left', Math.round(viewport.left + Math.max(0, Math.min(1, saved.x)) * maxX) + 'px', 'important');
+      el.style.setProperty('top', Math.round(viewport.top + Math.max(0, Math.min(1, saved.y)) * maxY) + 'px', 'important');
       el.style.setProperty('right', 'auto', 'important');
       el.style.setProperty('bottom', 'auto', 'important');
       el.style.setProperty('transform', 'none', 'important');
@@ -4382,8 +4383,9 @@ document.addEventListener('pointermove', event => {
   if (!hudDragState || event.pointerId !== hudDragState.pointerId) return;
   event.preventDefault();
   const { el, dx, dy } = hudDragState;
-  const x = Math.max(0, Math.min(window.innerWidth - el.offsetWidth, event.clientX - dx));
-  const y = Math.max(0, Math.min(window.innerHeight - el.offsetHeight, event.clientY - dy));
+  const viewport=getEffectiveViewport();
+  const x = Math.max(viewport.left, Math.min(viewport.left + viewport.width - el.offsetWidth, event.clientX - dx));
+  const y = Math.max(viewport.top, Math.min(viewport.top + viewport.height - el.offsetHeight, event.clientY - dy));
   el.style.setProperty('left', Math.round(x) + 'px', 'important');
   el.style.setProperty('top', Math.round(y) + 'px', 'important');
 }, true);
@@ -4391,13 +4393,14 @@ function finishHudDrag(event) {
   if (!hudDragState || (event && event.pointerId !== hudDragState.pointerId)) return;
   const { el } = hudDragState;
   const rect = el.getBoundingClientRect();
-  const maxX = Math.max(1, window.innerWidth - rect.width);
-  const maxY = Math.max(1, window.innerHeight - rect.height);
+  const viewport=getEffectiveViewport();
+  const maxX = Math.max(1, viewport.width - rect.width);
+  const maxY = Math.max(1, viewport.height - rect.height);
   const key = hudOrientationKey();
   if (!hudLayout[key]) hudLayout[key] = {};
   hudLayout[key][el.id] = {
-    x: Math.max(0, Math.min(1, rect.left / maxX)),
-    y: Math.max(0, Math.min(1, rect.top / maxY))
+    x: Math.max(0, Math.min(1, (rect.left - viewport.left) / maxX)),
+    y: Math.max(0, Math.min(1, (rect.top - viewport.top) / maxY))
   };
   saveHudLayout();
   hudDragState = null;
