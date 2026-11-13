@@ -11,7 +11,7 @@
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icon.svg">
 <title>O Último Legado — RPG Multiplayer</title>
-<link rel="stylesheet" href="style.css?v=20261112-lobby-polish-02">
+<link rel="stylesheet" href="style.css?v=20261112-profile-skins-r2">
 </head>
 <body>
 <div id="game"></div>
@@ -115,17 +115,19 @@
       </section>
 
       <section class="lobby-editor-section hidden" data-lobby-editor-panel="skin">
-        <label>ESCOLHA UMA SKIN</label>
+        <label>3 SKINS INICIAIS</label>
         <div class="skin-picks">
           <button type="button" class="skin-pick selected" data-skin="default"><span class="skin-swatch classic"></span><b>Clássica</b><small>Guardião</small></button>
           <button type="button" class="skin-pick" data-skin="shadow"><span class="skin-swatch shadow"></span><b>Sombra</b><small>Noturna</small></button>
           <button type="button" class="skin-pick" data-skin="ember"><span class="skin-swatch ember"></span><b>Brasa</b><small>Antiga</small></button>
-          <button type="button" class="skin-pick" data-skin="rune"><span class="skin-swatch rune"></span><b>Runas</b><small>Arcana</small></button>
-          <button type="button" class="skin-pick" data-skin="celestial"><span class="skin-swatch celestial"></span><b>Celestial</b><small>Lendária</small></button>
-          <button type="button" class="skin-pick" data-skin="bloodmoon"><span class="skin-swatch bloodmoon"></span><b>Lua Sangrenta</b><small>Sombria</small></button>
         </div>
-        <p class="lobby-editor-tip">Sua skin aparece no personagem central e é sincronizada com os jogadores da sala.</p>
-      </section>
+        <div class="skin-chest-info">
+          <strong>✦ 7 SKINS SECRETAS</strong>
+          <p>Runas, Celestial, Lua Sangrenta, Guarda Glacial, Dracônica, Andarilho do Vazio e Verdejante podem ser encontradas em baús durante as partidas.</p>
+          <small id="unlockedSkinCount">0/7 DESBLOQUEADAS</small>
+        </div>
+        <p class="lobby-editor-tip">As skins encontradas ficam salvas no perfil deste aparelho.</p>
+      </section></section>
 
       <section class="lobby-editor-section hidden" data-lobby-editor-panel="config">
         <label class="setting-range" for="lobbySensitivity">Sensibilidade horizontal <output id="lobbySensitivityValue">1,2×</output></label>
