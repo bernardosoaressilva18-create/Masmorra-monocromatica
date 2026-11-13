@@ -5512,3 +5512,89 @@ html,body,#game{
   #lobby .lobby-editor{width:calc(100vw - 16px);max-width:calc(100vw - 16px)}
   #lobby .lobby-editor-content{min-width:0;overflow-x:hidden;overflow-y:auto}
 }
+
+
+/* Árvore de habilidades sem canvas fixo: cinco trilhas responsivas e leitura vertical. */
+#lobby .skill-rpg-scroll,#hud .skill-rpg-scroll{
+  width:100%!important;max-width:100%!important;max-height:none!important;height:auto!important;
+  min-width:0!important;overflow:visible!important;overscroll-behavior:initial;
+  border:0!important;border-radius:0!important;background:transparent!important;
+  padding:8px 0!important;touch-action:pan-y!important;
+}
+.skill-rpg-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
+  width:100%;max-width:100%;min-width:0;align-items:start;
+}
+.skill-rpg-branch-card{
+  width:100%;min-width:0;overflow:hidden;border:1px solid rgba(137,175,202,.22);
+  border-radius:14px;background:linear-gradient(145deg,rgba(22,36,52,.97),rgba(8,15,25,.98));
+  box-shadow:0 8px 22px rgba(0,0,0,.22);
+}
+.skill-rpg-branch-head{
+  display:flex;align-items:center;gap:10px;min-width:0;padding:11px 12px;
+  border-bottom:1px solid rgba(133,169,194,.18);
+  background:linear-gradient(105deg,rgba(88,133,164,.18),transparent 78%);
+}
+.skill-rpg-branch-head>span{
+  display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;
+  border:1px solid rgba(231,199,129,.48);border-radius:10px;
+  background:rgba(231,199,129,.08);color:#f1d99f;font-size:19px;
+}
+.skill-rpg-branch-head strong{display:block;color:#f3d99f;font-size:11px;letter-spacing:.65px}
+.skill-rpg-branch-head small{display:block;margin-top:3px;color:#a5bacb;font-size:8px;line-height:1.3}
+.skill-rpg-branch-nodes{position:relative;display:grid;gap:7px;padding:10px}
+.skill-rpg-branch-nodes:before{
+  content:"";position:absolute;left:27px;top:28px;bottom:28px;width:2px;
+  background:linear-gradient(180deg,rgba(226,192,118,.62),rgba(97,145,174,.13));
+  pointer-events:none;
+}
+#lobby #skillTreeLobby .skill-rpg-node,#hud #skillTreeHud .skill-rpg-node{
+  position:relative!important;left:auto!important;top:auto!important;transform:none!important;
+  display:grid;grid-template-columns:35px minmax(0,1fr) 23px;align-items:center;
+  gap:8px;width:100%;min-width:0;min-height:66px;margin:0;padding:8px 9px;
+  border:1px solid rgba(129,163,188,.22);border-radius:10px;
+  color:#edf6ff;background:linear-gradient(120deg,#1b2a3b,#111b28);
+  text-align:left;box-shadow:0 3px 10px rgba(0,0,0,.2);touch-action:manipulation;
+}
+#lobby #skillTreeLobby .skill-rpg-node.available,#hud #skillTreeHud .skill-rpg-node.available{
+  border-color:rgba(230,190,111,.68);
+  background:linear-gradient(120deg,rgba(103,76,36,.44),rgba(18,28,41,.98));
+}
+#lobby #skillTreeLobby .skill-rpg-node.unlocked,#hud #skillTreeHud .skill-rpg-node.unlocked{
+  border-color:rgba(92,211,157,.48);
+  background:linear-gradient(120deg,rgba(30,78,65,.4),rgba(13,26,31,.98));
+}
+#lobby #skillTreeLobby .skill-rpg-node.skill-filtered-out,#hud #skillTreeHud .skill-rpg-node.skill-filtered-out{display:none!important}
+.skill-rpg-node-icon{
+  display:grid;place-items:center;width:34px;height:34px;flex-basis:auto;
+  border:1px solid rgba(147,185,208,.30);border-radius:9px;
+  background:rgba(3,9,16,.5);font-size:18px;
+}
+.skill-rpg-node-copy{display:block;min-width:0}
+.skill-rpg-node-copy strong{display:block;color:#eff7ff;font-size:10px;line-height:1.25;overflow-wrap:anywhere}
+.skill-rpg-node-copy small{display:block;margin-top:3px;color:#a3bacb;font-size:7px;letter-spacing:.4px}
+.skill-rpg-node-copy em{display:block;margin-top:3px;color:#e8c985;font-size:7px;font-style:normal;font-weight:900}
+.skill-rpg-node-copy .skill-rpg-node-desc{
+  display:block;margin-top:4px;color:#b6c9d8;font-size:8px;line-height:1.35;
+  white-space:normal;overflow-wrap:anywhere;
+}
+.skill-rpg-node.unlocked .skill-rpg-node-copy em{color:#7ce4b5}
+.skill-rpg-node-state{
+  display:grid;place-items:center;width:22px;height:22px;border:1px solid #8398aa66;
+  border-radius:50%;color:#d7e7f2;background:#0a1420;font-size:9px;font-weight:900;
+}
+.skill-rpg-node.available .skill-rpg-node-state{border-color:#e9c477;color:#ffdf9b}
+.skill-rpg-node.unlocked .skill-rpg-node-state{border-color:#65d7a0;color:#8bf0bd}
+#lobby .skill-tree-tools,#hud .skill-tree-tools{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+#lobby .skill-search-label,#hud .skill-search-label{flex:1 1 180px;min-width:0}
+#lobby .skill-search,#hud .skill-search{width:100%;min-width:0}
+#lobby .skill-tree-filters,#hud .skill-tree-filters{display:flex;flex-wrap:wrap;gap:5px}
+#lobby .skill-orbit-help,#hud .skill-orbit-help{margin:7px 2px 12px;color:#a7bac9;font-size:9px;line-height:1.4}
+#lobby #skillTreeLobby .skill-rpg-heading,#hud #skillTreeHud .skill-rpg-heading{margin:10px 0 6px}
+#lobby .skill-rpg-heading span,#hud .skill-rpg-heading span{display:block;margin-top:3px;color:#a9bdcb;font-size:9px;line-height:1.4}
+@media(max-width:680px){
+  .skill-rpg-grid{grid-template-columns:minmax(0,1fr);gap:9px}
+  .skill-rpg-branch-head{padding:9px 10px}
+  #lobby #skillTreeLobby .skill-rpg-node,#hud #skillTreeHud .skill-rpg-node{min-height:60px;padding:7px}
+  .skill-rpg-node-copy .skill-rpg-node-desc{font-size:8px}
+}
