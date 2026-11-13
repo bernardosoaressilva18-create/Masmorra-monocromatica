@@ -11,7 +11,7 @@
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icon.svg">
 <title>O Último Legado — RPG Multiplayer</title>
-<link rel="stylesheet" href="style.css?v=20261113-presence-lobby-r2">
+<link rel="stylesheet" href="style.css?v=20261113-combat-fixes-r1">
 </head>
 <body>
 <div id="game"></div>
@@ -299,18 +299,7 @@
 </div>
 
 <script>
-/* Em celulares, entrar em tela cheia não deve travar a orientação: o botão do HUD controla isso. */
-async function prepareMobileGame() {
-  if (!matchMedia('(pointer: coarse)').matches) return;
-  try {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-      await document.documentElement.requestFullscreen();
-    }
-  } catch (_) {}
-}
-['startBtn', 'playBtn', 'joinBtn'].forEach(id => {
-  document.getElementById(id)?.addEventListener('click', prepareMobileGame, {passive:true});
-});
+<!-- Sem pedido automático de tela cheia; evita o aviso nativo do Android. -->
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
