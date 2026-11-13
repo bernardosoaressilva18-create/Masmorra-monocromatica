@@ -104,9 +104,13 @@ const MAP_PIT_LAYOUT = MAP_ZONE_CENTERS.map((z, index) => ({
   pitX: index % 2 === 0 ? 5.2 : -5.2,
   pitZ: z + 4
 }));
-const MAP_PILLAR_COLLIDERS = MAP_ZONE_CENTERS.flatMap(z => [
-  {x:-10.5,z:z-.7,r:.72},{x:10.5,z:z-.7,r:.72}
-]);
+const MAP_PILLAR_COLLIDERS = MAP_ZONE_CENTERS.flatMap((z,index) => {
+  const stairX=index%2===0?-8.25:8.25;
+  return [
+    {x:-10.5,z:z-.7,r:.72},{x:10.5,z:z-.7,r:.72},
+    ...[-1,1].flatMap(side=>[-8.1,-10.7].map(offset=>({x:stairX+side*3.05,z:z+offset,r:.34})))
+  ];
+});
 const MAP_SPIKE_HAZARDS = MAP_ZONE_CENTERS.flatMap((z,index) => [
   {id:'spike-'+index+'-L',x:-6.7,z:z-5.5,r:.92,damage:12},
   {id:'spike-'+index+'-R',x:6.7,z:z-5.5,r:.92,damage:12},
@@ -4164,7 +4168,7 @@ function handleOfflineAction(data) {
   if(data.type==='move'&&player.hp>0){
     const requestedX=Number.isFinite(Number(data.x))?Number(data.x):player.x;
     const requestedZ=THREE.MathUtils.clamp(Number.isFinite(Number(data.z))?Number(data.z):player.z,-174,8);
-    const boundedX=THREE.MathUtils.clamp(requestedX,-13,13);
+    const boundedX=THREE.MathUtils.clamp(requestedX,-15.6,15.6);
     const phase=Math.max(1,Math.min(5,Number(offlineState.phase)||1));
     const realm=Math.max(1,Math.min(3,Number(offlineState.realm)||1));
     const gateZ=phase<5?-(30+(phase-1)*32):-168;
@@ -4192,6 +4196,14 @@ function handleOfflineAction(data) {
     }
     offlineState.portalOpen=offlineState.phase===5&&offlineLivingMonsters().length===0;
     if(Number.isFinite(Number(data.rot)))player.rot=Number(data.rot);
+  } else if(data.type==='dash'&&player.hp>0){
+    const dx=Number(data.dx)||0,dz=Number(data.dz)||0,length=Math.hypot(dx,dz)||1;
+    const distance=3.0+(offlineHasSkill('dodge_mastery')?.35:0)+(offlineHasSkill('phantom_step')?.45:0);
+    const resolved=resolveDungeonMovement(player.x,player.z,player.x+dx/length*distance,player.z+dz/length*distance);
+    if(Math.hypot(resolved.x-player.x,resolved.z-player.z)>.35){
+      player.x=resolved.x;player.z=resolved.z;player.dodgeUntil=Date.now()+220;
+      if(myPlayer){myPlayer.position.set(player.x,getDungeonFloorHeight(player.x,player.z),player.z);myPlayer.userData.dodgeFlashUntil=performance.now()+220;}
+    }
   } else if (data.type === 'attack' && player.hp > 0) {
     const now = Date.now();
     if (now - offlineLastHit < (offlineHasSkill('battle_focus') ? 220 : 300)) return;
@@ -4761,7 +4773,7 @@ function handleMessage(m) {
   }
   if (m.type === 'dodge') {
     if (m.id === playerId && myPlayer && Number.isFinite(m.x) && Number.isFinite(m.z)) {
-      myPlayer.position.set(m.x, 0, m.z);
+      myPlayer.position.set(m.x, getDungeonFloorHeight(m.x,m.z), m.z);
       myPlayer.userData.dodgeFlashUntil = performance.now() + 220;
     } else {
       const dodgingPlayer = remotePlayers.get(m.id);
@@ -5369,7 +5381,7 @@ function dash() {
   let length=Math.hypot(dx,dz);
   if(length<.08){dx=forwardX;dz=forwardZ;length=1;}
   dx/=length;dz/=length;
-  const distance=3.0+(unlockedSkills.has('dodge_mastery')?.35:0)+(unlockedSkills.has('phantom_step')?.45:0);
+  const distance=3.0+(unlockedSkills.has('dodge_mastery') ? .35 : 0)+(unlockedSkills.has('phantom_step') ? .45 : 0);
   const landing=resolveDungeonMovement(myPlayer.position.x,myPlayer.position.z,
     myPlayer.position.x+dx*distance,myPlayer.position.z+dz*distance);
   if(Math.hypot(landing.x-myPlayer.position.x,landing.z-myPlayer.position.z)<.35){
