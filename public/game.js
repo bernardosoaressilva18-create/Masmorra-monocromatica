@@ -3331,6 +3331,49 @@ function addClassAbilityRing(x, z, radius, color) {
   }
   activeClassEffects.push({ mesh: ring, startedAt: performance.now(), duration: 760 });
 }
+function addClassAbilitySignature(ability, x, z, color) {
+  if (!scene || !Number.isFinite(x) || !Number.isFinite(z)) return;
+  let geometry, height=1.05, flat=false, wireframe=false;
+  switch(ability){
+    case 'knight_shield': case 'golem_stone_guard':
+      geometry=new THREE.SphereGeometry(.82,10,8,0,Math.PI*2,0,Math.PI);wireframe=true;height=1.18;break;
+    case 'knight_dash': case 'monk_winged_steps':
+      geometry=new THREE.RingGeometry(.68,.94,24);flat=true;height=.10;break;
+    case 'knight_whirlwind': case 'goblin_shadow_strike': case 'ogre_haste':
+      geometry=new THREE.TorusKnotGeometry(.58,.045,32,5,2,3);height=1.0;break;
+    case 'arrow_rain': case 'incendiary_arrows':
+      geometry=new THREE.ConeGeometry(.21,.8,5);height=3.2;break;
+    case 'archer_piercing_shot': case 'golem_rock_toss':
+      geometry=new THREE.DodecahedronGeometry(ability==='golem_rock_toss'?.42:.23,1);height=ability==='golem_rock_toss'?6.5:1.3;break;
+    case 'goblin_invis':
+      geometry=new THREE.SphereGeometry(.9,10,8);wireframe=true;height=1.0;break;
+    case 'goblin_summon': case 'healer_guardian_spirits': case 'necromancer_summon':
+      geometry=new THREE.TorusGeometry(.78,.06,7,24);flat=ability==='goblin_summon';height=flat?.1:1.0;break;
+    case 'ogre_slam': case 'ogre_earthquake': case 'monk_impact_palm':
+      geometry=new THREE.RingGeometry(.55,.9,28);flat=true;height=.12;break;
+    case 'healer_cure': case 'healer_sanctuary':
+      geometry=new THREE.TorusGeometry(.7,.05,7,28);height=1.0;break;
+    case 'necromancer_dive':
+      geometry=new THREE.RingGeometry(.45,.85,24);flat=true;height=.09;break;
+    case 'monk_spirit_wave':
+      geometry=new THREE.TorusGeometry(.66,.065,7,28);height=.78;break;
+    case 'golem_split':
+      geometry=new THREE.IcosahedronGeometry(.58,1);height=1.1;wireframe=true;break;
+    default:
+      geometry=new THREE.OctahedronGeometry(.45,1);height=1.0;
+  }
+  const material=new THREE.MeshBasicMaterial({color:color||0x76e7f2,transparent:true,opacity:.86,wireframe,side:THREE.DoubleSide,depthWrite:false,toneMapped:false});
+  const mesh=new THREE.Mesh(geometry,material);
+  mesh.position.set(x,height,z);
+  if(flat) mesh.rotation.x=-Math.PI/2;
+  scene.add(mesh);
+  const limit=isMobileDevice?10:20;
+  while(activeClassEffects.length>=limit){
+    const old=activeClassEffects.shift();
+    scene.remove(old.mesh);old.mesh.geometry?.dispose();old.mesh.material?.dispose();
+  }
+  activeClassEffects.push({mesh,startedAt:performance.now(),duration:ability==='golem_rock_toss'?1050:920,kind:'signature',ability,baseY:height});
+}
 function handleClassAbilityMessage(m) {
   const colors = {
     knight_shield:0x79caff,knight_dash:0xe9c477,knight_whirlwind:0xf4d37b,mage_arcane_orb:0x68baff,archer_piercing_shot:0x9ccfff,goblin_shadow_strike:0x9c8cff,ogre_earthquake:0xff9d4a,healer_sanctuary:0x70ffd1,necromancer_bone_bolt:0xf3f5ff,monk_spirit_wave:0xffcc78,golem_stone_guard:0x9aa2a6,arrow_rain: 0x9ccfff,
@@ -3357,6 +3400,7 @@ function handleClassAbilityMessage(m) {
     for(const p of (m.rockFall.stones||[])) addClassAbilityRing(p.x,p.z,.72,0x9ca4a8);
   }
   addClassAbilityRing(center.x, center.z, radii[m.ability] || 2.5, colors[m.ability] || 0x76e7f2);
+  addClassAbilitySignature(m.ability, center.x, center.z, colors[m.ability] || 0x76e7f2);
   (m.targets || []).slice(0, isMobileDevice ? 3 : 7).forEach(target => {
     if (m.ability === 'arrow_rain' || m.ability === 'incendiary_arrows' || m.ability === 'ogre_slam' || m.ability === 'knight_dash') {
       addClassAbilityRing(target.x, target.z, .85, colors[m.ability] || 0x76e7f2);
@@ -5717,7 +5761,20 @@ function animate() {
       scene.remove(effect.mesh); effect.mesh.geometry.dispose(); effect.mesh.material.dispose();
       activeClassEffects.splice(i, 1);
     } else {
-      if(effect.kind==='fallingRock'){effect.mesh.position.y=Math.max(.22,(1-progress)*7.5);effect.mesh.rotation.x+=dt*1.8;effect.mesh.rotation.z+=dt*2.1;effect.mesh.scale.setScalar(.75+Math.sin(progress*Math.PI)*.35);if(progress>.78)effect.mesh.material.opacity=Math.max(0,(1-progress)/.22);}else{effect.mesh.scale.setScalar(.72+progress*.55);effect.mesh.material.opacity=.85*(1-progress);}
+      if(effect.kind==='fallingRock'){
+        effect.mesh.position.y=Math.max(.22,(1-progress)*7.5);effect.mesh.rotation.x+=dt*1.8;effect.mesh.rotation.z+=dt*2.1;effect.mesh.scale.setScalar(.75+Math.sin(progress*Math.PI)*.35);if(progress>.78)effect.mesh.material.opacity=Math.max(0,(1-progress)/.22);
+      }else if(effect.kind==='signature'){
+        const a=effect.ability;
+        if(['knight_whirlwind','goblin_shadow_strike','ogre_haste','monk_spirit_wave','healer_guardian_spirits','necromancer_summon'].includes(a))effect.mesh.rotation.y+=dt*(a==='knight_whirlwind'?8:5);
+        else if(['arrow_rain','incendiary_arrows','golem_rock_toss'].includes(a))effect.mesh.rotation.x+=dt*5;
+        else effect.mesh.rotation.z+=dt*3.5;
+        if(['arrow_rain','incendiary_arrows','golem_rock_toss'].includes(a))effect.mesh.position.y=effect.baseY-progress*(a==='golem_rock_toss'?5.9:2.8);
+        if(['ogre_slam','ogre_earthquake','monk_impact_palm','monk_spirit_wave','knight_dash','monk_winged_steps','necromancer_dive'].includes(a))effect.mesh.scale.setScalar(.65+progress*2.0);
+        else effect.mesh.scale.setScalar(.72+Math.sin(progress*Math.PI)*.55+progress*.28);
+        effect.mesh.material.opacity=.86*(1-progress);
+      }else{
+        effect.mesh.scale.setScalar(.72+progress*.55);effect.mesh.material.opacity=.85*(1-progress);
+      }
     }
   }
   realmIntroTimer=Math.max(0,realmIntroTimer-dt);
