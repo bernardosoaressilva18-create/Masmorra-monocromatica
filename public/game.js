@@ -1297,13 +1297,16 @@ function partitionDungeonPhaseGroups(root){
   }catch{shared.add(child);}
  }
  root.add(shared,...zones);
- dungeonPhaseGroups.splice(0,dungeonPhaseGroups.length,...zones);
+ dungeonPhaseGroups.push(...zones);
  root.userData.phasePartitioned=true;
  root.userData.sharedPhaseGeometry=shared;
 }
 function updateDungeonPhaseVisibility(phase){
  const current=Math.max(1,Math.min(5,Math.floor(Number(phase)||1)))-1;
- dungeonPhaseGroups.forEach((group,index)=>{group.visible=index===current||index===Math.min(4,current+1);});
+ dungeonPhaseGroups.forEach(group=>{
+  const phaseIndex=Number(group.userData.phaseIndex);
+  group.visible=phaseIndex===current||phaseIndex===Math.min(4,current+1);
+ });
 }
 function buildDungeonVisualPass() {
   const parent = environmentGroups.dungeon || scene;
