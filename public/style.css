@@ -4521,3 +4521,14 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 @media(prefers-reduced-motion:reduce){
  .skill-rpg-node,.skill-filter,#lobby .skin-pick{transition:none}
 }
+
+/* Interação do inventário e paletas visuais das novas skins */
+#hud .inventory-panel{pointer-events:auto}
+#hud .inventory-list,#hud .loot-row,#hud .recent-loot,#hud .selected-item,#hud .selected-item button{pointer-events:auto}
+.skin-swatch.frostguard{background:linear-gradient(135deg,#e4f7ff,#4c90b6 55%,#152e47)!important;box-shadow:0 0 12px #7adfff66}
+.skin-swatch.draconic{background:linear-gradient(135deg,#ffd18b,#a43d35 55%,#351a21)!important;box-shadow:0 0 12px #ff815566}
+.skin-swatch.voidwalker{background:linear-gradient(135deg,#d7c0ff,#60469a 55%,#1b1830)!important;box-shadow:0 0 12px #ba8dff66}
+.skin-swatch.verdant{background:linear-gradient(135deg,#e1ef9a,#43834b 55%,#1a3428)!important;box-shadow:0 0 12px #8de58a66}
+#lobby .skin-pick[data-chest-skin="true"] b{color:#b5f3dc}
+#lobby .skin-pick[data-chest-skin="true"] small{color:#8dd8ca}
+#hud .selected-item button:not(:disabled):active{transform:translateY(1px);filter:brightness(1.15)}
