@@ -601,11 +601,11 @@ function createWave(phase,realm=1,spawnStartAt=Date.now()){
   const kind=kinds[i%kinds.length],base=phase===1?7:10+phase*2;
   const hp=Math.round(((kind==='brute'?base*2.15:kind==='abyss'?base*1.75:base)+(phase-1)*3)*scale);
   const damage=Math.round((kind==='brute'?8:kind==='abyss'?9:kind==='inferno'?7:kind==='assassin'?8:5+phase)*scale);
-  return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*18,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:firstSpawnAt+i*1900,alive:true,hp,maxHp:hp,damage,attackAt:0};
+  return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*18,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:firstSpawnAt+i*3200,alive:true,hp,maxHp:hp,damage,attackAt:0};
  });
  const upperX=phase%2===1?-8.25:8.25;
  const eliteHp=Math.round((72+phase*19)*scale),eliteDamage=Math.round((9+phase*2)*scale);
- wave.push({id:'r'+realm+'p'+phase+'elite',kind:realm===3?'abyss':realm===2?'assassin':'brute',name:'Guardião do Andar Superior',phase,realm,x:upperX,z:center-14.5,spawned:false,spawnAt:firstSpawnAt+count*1900+900,alive:true,hp:eliteHp,maxHp:eliteHp,damage:eliteDamage,attackAt:0,upperElite:true,eliteTier:2,affix:'champion',armor:.2,moveSpeed:.36,attackMs:1450});
+ wave.push({id:'r'+realm+'p'+phase+'elite',kind:realm===3?'abyss':realm===2?'assassin':'brute',name:'Guardião do Andar Superior',phase,realm,x:upperX,z:center-14.5,spawned:false,spawnAt:firstSpawnAt+count*3200+1200,alive:true,hp:eliteHp,maxHp:eliteHp,damage:eliteDamage,attackAt:0,upperElite:true,eliteTier:2,affix:'champion',armor:.2,moveSpeed:.36,attackMs:1450});
  // Variantes de elite são raras e têm uma função clara, sem multiplicar a quantidade de inimigos.
  const affixes=['armored','swift','mana_leech','vampiric','venomous'];
  const eligible=wave.filter(enemy=>!enemy.upperElite);
@@ -735,8 +735,6 @@ const SERVER_UPPER_ROOM_POLYGON=[[-3.6,-7.1],[-3.7,-9.8],[-1.9,-12],[.9,-12.5],[
 const SERVER_MAP_WIDTH_SCALE=1.16;
 const SERVER_PITS=SERVER_MAP_CENTERS.map((z,index)=>({id:'pit-'+(index+1),plateX:index%2===0?5.2:-5.2,plateZ:z+9,pitX:index%2===0?5.2:-5.2,pitZ:z+4}));
 const SERVER_SPIKES=SERVER_MAP_CENTERS.flatMap((z,index)=>[
- {id:'spike-'+index+'-L',x:-6.7,z:z-5.5,r:.92,damage:12},
- {id:'spike-'+index+'-R',x:6.7,z:z-5.5,r:.92,damage:12},
  ...[-1,1].map(side=>({id:'pit-spike-'+index+'-'+side,x:(index%2===0?5.2:-5.2)+side*1.36,z:z+4,r:.62,damage:17}))
 ]);
 const SERVER_ENV_HAZARDS=SERVER_MAP_CENTERS.flatMap((z,index)=>[
@@ -747,12 +745,16 @@ const SERVER_ENV_HAZARDS=SERVER_MAP_CENTERS.flatMap((z,index)=>[
 function createRoomMapHazards(){
  const rand=(min,max)=>min+Math.random()*(max-min);
  return SERVER_MAP_CENTERS.flatMap((center,index)=>{
-  const side=index%2===0?-1:1,other=-side;
+  const side=Math.random()<.5?-1:1,other=-side,stairX=index%2===0?-8.25:8.25;
   return [
-   {id:'miasma-'+index,type:'miasma',x:side*rand(7,8.3),z:center+rand(.8,4.2),r:1.45,damage:5,cooldown:1100},
-   {id:'rune-surge-'+index,type:'rune',x:other*rand(6.7,8.1),z:center-rand(2,5.2),r:1.18,damage:9,cooldown:1150},
-   // Um piso instável nasce dentro do salão elevado, perto do baú e do guardião.
-   {id:'crumble-'+index,type:'crumble',x:side*rand(4.8,6.1),z:center-rand(9.2,11.5),r:1.3,damage:6,cooldown:1400}
+   // A névoa fica nas bordas laterais e muda de posição em cada sala; não bloqueia a entrada.
+   {id:'miasma-'+index,type:'miasma',x:side*rand(10.1,12.7),z:center+rand(-5.8,6.8),r:1.28,damage:5,cooldown:1200},
+   {id:'rune-surge-'+index,type:'rune',x:other*rand(9.2,12.1),z:center-rand(5.4,12.8),r:1.18,damage:9,cooldown:1150},
+   // O piso instável também varia, mas continua fora da passagem central.
+   {id:'crumble-'+index,type:'crumble',x:side*rand(4.8,6.5),z:center-rand(10.8,14.8),r:1.3,damage:6,cooldown:1400},
+   // Duas armadilhas reais sobre a escadaria; as coordenadas são enviadas ao cliente.
+   {id:'spike-'+index+'-L',type:'spike',x:stairX-rand(.45,1.18),z:center-rand(1.3,6.2),r:.88,damage:13,cooldown:1050},
+   {id:'spike-'+index+'-R',type:'spike',x:stairX+rand(.45,1.18),z:center-rand(1.3,6.2),r:.88,damage:13,cooldown:1050}
   ];
  });
 }
