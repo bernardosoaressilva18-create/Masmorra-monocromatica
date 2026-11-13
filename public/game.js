@@ -238,8 +238,8 @@ const staticDungeonColliders = (() => {
 })();
 function isDungeonPositionBlocked(x, z) {
   const playerRadius = 0.43;
-  // Obstáculos da masmorra antiga não devem bloquear o movimento no Vale Astral.
-  if (currentRealmVisual !== 2) {
+  // Os pilares do Mundo Monocromático só existem no primeiro mundo.
+  if (currentRealmVisual === 1) {
     for (const obstacle of staticDungeonColliders) {
       if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
     }
