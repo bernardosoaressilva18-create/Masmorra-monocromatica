@@ -3520,18 +3520,38 @@ function handleSkillClick(event) {
       'Você pode desenvolver no máximo 3 ramos da árvore.');
     return;
   }
-  const treeScrolls=[...document.querySelectorAll('#skillTreeHud .skill-rpg-scroll')].map(el=>({left:el.scrollLeft,top:el.scrollTop}));
-  const panelScroll=$('skillPanel')?.scrollTop||0;
-  button.blur();
+  // Guardar TODOS os níveis de rolagem: painel, editor do lobby e as duas árvores.
+  // A árvore é reconstruída ao comprar; restaurar só a árvore do HUD fazia o lobby saltar ao topo.
+  const scrollState = {
+    editor: document.querySelector('#lobby .lobby-editor-content')?.scrollTop || 0,
+    panel: $('skillPanel')?.scrollTop || 0,
+    lobby: $('skillTreeLobby')?.scrollTop || 0,
+    hud: $('skillTreeHud')?.scrollTop || 0,
+    lobbyBoard: (() => { const el=$('skillTreeLobby')?.querySelector('.skill-rpg-scroll'); return el?{left:el.scrollLeft,top:el.scrollTop}:null; })(),
+    hudBoard: (() => { const el=$('skillTreeHud')?.querySelector('.skill-rpg-scroll'); return el?{left:el.scrollLeft,top:el.scrollTop}:null; })()
+  };
+  event.preventDefault();
+  event.stopPropagation();
   unlockedSkills.add(skill.id);
   skillPoints--;
   lastSkillSignature = '';
   syncLoadoutUI();
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    const nodes=[...document.querySelectorAll('#skillTreeHud .skill-rpg-scroll')];
-    nodes.forEach((el,index)=>{const saved=treeScrolls[index];if(saved){el.scrollLeft=saved.left;el.scrollTop=saved.top;}});
-    const panel=$('skillPanel');if(panel)panel.scrollTop=panelScroll;
-  }));
+  const restoreSkillScroll = () => {
+    const editor=document.querySelector('#lobby .lobby-editor-content');
+    const panel=$('skillPanel');
+    const lobby=$('skillTreeLobby');
+    const hud=$('skillTreeHud');
+    if(editor)editor.scrollTop=scrollState.editor;
+    if(panel)panel.scrollTop=scrollState.panel;
+    if(lobby)lobby.scrollTop=scrollState.lobby;
+    if(hud)hud.scrollTop=scrollState.hud;
+    const lb=lobby?.querySelector('.skill-rpg-scroll');
+    const hb=hud?.querySelector('.skill-rpg-scroll');
+    if(lb&&scrollState.lobbyBoard){lb.scrollLeft=scrollState.lobbyBoard.left;lb.scrollTop=scrollState.lobbyBoard.top;}
+    if(hb&&scrollState.hudBoard){hb.scrollLeft=scrollState.hudBoard.left;hb.scrollTop=scrollState.hudBoard.top;}
+  };
+  requestAnimationFrame(()=>{restoreSkillScroll();requestAnimationFrame(restoreSkillScroll);});
+  button.blur();
   sendLoadout();
   vibrateGame(18);
   showNotice('✦ ' + skill.name + ' desbloqueada!');
