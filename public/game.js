@@ -1853,7 +1853,7 @@ function onResize() {
         adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(width, height), Math.min(adaptivePixelRatio, renderPixelRatioCap));
       }
       camera.aspect = width / height;
-      camera.fov = isMobileDevice ? (width > height ? 58 : 74) : 62;
+      camera.fov = isMobileDevice ? (width > height ? 66 : 74) : 62;
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(adaptivePixelRatio);
       syncRendererSize(width, height);
@@ -3375,6 +3375,7 @@ function handleMessage(m) {
 
   if (m.type === 'playerDamaged') {
     if (m.id === playerId) {
+      if (myPlayer) { myPlayer.userData.lastDamageAt = performance.now(); myPlayer.userData.lastDamageAmount = Number(m.amount) || 0; }
       const flash = $('hitFlash');
       flash.classList.remove('damage-flash');
       void flash.offsetWidth;
@@ -4314,9 +4315,9 @@ let hudDragState = null;
 let hudLayout = {};
 try {
   const hudLayoutVersion = localStorage.getItem('ultimoLegadoHudLayoutVersion');
-  if (hudLayoutVersion !== '4') {
+  if (hudLayoutVersion !== '5') {
     localStorage.removeItem('ultimoLegadoHudLayout');
-    localStorage.setItem('ultimoLegadoHudLayoutVersion', '4');
+    localStorage.setItem('ultimoLegadoHudLayoutVersion', '5');
   }
   hudLayout = JSON.parse(localStorage.getItem('ultimoLegadoHudLayout') || '{}') || {};
   if (!hudLayout || typeof hudLayout !== 'object' || Array.isArray(hudLayout)) hudLayout = {};
@@ -4922,7 +4923,7 @@ function rendererPointerSetup() {
     lastX = e.clientX;
     lastY = e.clientY;
     targetYaw -= dx * .008 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0105 * gameSettings.verticalSensitivity, -.82, 1.18);
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .014 * gameSettings.verticalSensitivity, -1.02, 1.02);
   });
 
   const end = e => {
