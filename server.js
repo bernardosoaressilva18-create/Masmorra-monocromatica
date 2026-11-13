@@ -275,7 +275,7 @@ function applyTacticalTarget(room, monster, players, now) {
     const player=players.find(p=>String(p.id)===id&&p.hp>0&&now>=(p.invisibleUntil||0)
       &&canMonsterTargetPlayer(room,monster,p,now)
       &&!(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(p.id)===String(monster.ownerId)));
-    return player ? { ...player, id: player.id, isSummon: false, tacticalAi: true } : null;
+    return player || null;
   }
   if (cached.targetId.startsWith('summon:')) {
     const id = cached.targetId.slice(7);
@@ -409,6 +409,31 @@ function refreshPlayerStats(player,restoreHealth=false){
   else player.mana=Math.min(player.maxMana,Math.max(0,(player.mana??oldMana)+Math.max(0,player.maxMana-oldMana)));
 }
 function dropChance(player, base) { const upgrades=cleanLevelUpgrades(player.levelUpgrades);return Math.min(.9, base + upgrades.loot*.035 + (hasSkill(player, 'treasure_luck') ? .2 : 0) + (hasSkill(player, 'loot_sense') ? .1 : 0)); }
+function tryAutoDodge(room,player,threat,now=Date.now()){
+ if(!room||!player||player.hp<=0||cleanLevelUpgrades(player.levelUpgrades).autoDodge<1||
+    now<(player.nextAutoDodgeAt||0)||now<(player.dodgeUntil||0))return false;
+ let dx=Number(player.x)-Number(threat?.x||0),dz=Number(player.z)-Number(threat?.z||0);
+ let length=Math.hypot(dx,dz);
+ if(!Number.isFinite(length)||length<.001){dx=1;dz=0;length=1;}
+ dx/=length;dz/=length;
+ const sideX=-dz,sideZ=dx,distance=1.75;
+ let best=null,bestSeparation=-Infinity;
+ for(const side of [1,-1]){
+  const landing=resolveServerMovement(room,player,player.x+sideX*distance*side,player.z+sideZ*distance*side);
+  const moved=Math.hypot(landing.x-player.x,landing.z-player.z);
+  if(moved<.45)continue;
+  const separation=Math.hypot(landing.x-Number(threat?.x||0),landing.z-Number(threat?.z||0));
+  if(separation>bestSeparation){best=landing;bestSeparation=separation;}
+ }
+ if(!best)return false;
+ player.x=best.x;player.z=best.z;
+ player.nextAutoDodgeAt=now+5200;
+ player.dodgeUntil=now+820;
+ if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'↔ ESQUIVA LATERAL AUTOMÁTICA! Você desviou durante a preparação do golpe.'}));
+ broadcast(room,{type:'autoDodge',id:player.id,x:player.x,z:player.z,until:player.dodgeUntil});
+ return true;
+}
+
 function takeDamage(room, player, amount) {
   if (!player) return 0;
   // Recupera estados de vida inválidos para que NaN nunca transforme o jogador em imortal.
@@ -421,18 +446,9 @@ function takeDamage(room, player, amount) {
   const incomingDamage = Number(amount);
   if (Date.now() < (player.stoneGuardUntil || 0)) return 0;
   if (!Number.isFinite(incomingDamage) || incomingDamage <= 0) return 0;
-  // A esquiva automática tem recarga própria de 5,2 s: o dobro da esquiva normal.
+  // A proteção da esquiva é verificada aqui; o movimento passivo já ocorreu no aviso do monstro.
   const damageNow=Date.now();
   if(damageNow<(player.dodgeUntil||0))return 0;
-  if(cleanLevelUpgrades(player.levelUpgrades).autoDodge>0&&damageNow>=(player.nextAutoDodgeAt||0)){
-    player.nextAutoDodgeAt=damageNow+5200;player.dodgeUntil=damageNow+360;
-    const direction=player.x<=0?1:-1,landing=resolveServerMovement(room,player,player.x+direction*1.35,player.z);
-    if(Math.abs(landing.x-player.x)<.2){const other=resolveServerMovement(room,player,player.x-direction*1.35,player.z);if(Math.abs(other.x-player.x)>.2){player.x=other.x;player.z=other.z;}}
-    else{player.x=landing.x;player.z=landing.z;}
-    if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'↗ ESQUIVA AUTOMÁTICA! Você desviou do golpe. Recarga: 5,2 s.'}));
-    broadcast(room,{type:'autoDodge',id:player.id,x:player.x,z:player.z,until:player.dodgeUntil});
-    return 0;
-  }
   const rawReduction=Number(statsFor(player).reduction)||0;
   // Nenhuma combinação de atributos pode zerar o dano recebido permanentemente.
   const cappedReduction = Math.min(0.65, Math.max(0, rawReduction));
@@ -585,11 +601,11 @@ function createWave(phase,realm=1,spawnStartAt=Date.now()){
   const kind=kinds[i%kinds.length],base=phase===1?7:10+phase*2;
   const hp=Math.round(((kind==='brute'?base*2.15:kind==='abyss'?base*1.75:base)+(phase-1)*3)*scale);
   const damage=Math.round((kind==='brute'?8:kind==='abyss'?9:kind==='inferno'?7:kind==='assassin'?8:5+phase)*scale);
-  return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*18,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:firstSpawnAt+i*1150,alive:true,hp,maxHp:hp,damage,attackAt:0};
+  return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*18,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:firstSpawnAt+i*1900,alive:true,hp,maxHp:hp,damage,attackAt:0};
  });
  const upperX=phase%2===1?-8.25:8.25;
  const eliteHp=Math.round((72+phase*19)*scale),eliteDamage=Math.round((9+phase*2)*scale);
- wave.push({id:'r'+realm+'p'+phase+'elite',kind:realm===3?'abyss':realm===2?'assassin':'brute',name:'Guardião do Andar Superior',phase,realm,x:upperX,z:center-14.5,spawned:false,spawnAt:firstSpawnAt+count*1150+600,alive:true,hp:eliteHp,maxHp:eliteHp,damage:eliteDamage,attackAt:0,upperElite:true,eliteTier:2,affix:'champion',armor:.2,moveSpeed:.36,attackMs:1450});
+ wave.push({id:'r'+realm+'p'+phase+'elite',kind:realm===3?'abyss':realm===2?'assassin':'brute',name:'Guardião do Andar Superior',phase,realm,x:upperX,z:center-14.5,spawned:false,spawnAt:firstSpawnAt+count*1900+900,alive:true,hp:eliteHp,maxHp:eliteHp,damage:eliteDamage,attackAt:0,upperElite:true,eliteTier:2,affix:'champion',armor:.2,moveSpeed:.36,attackMs:1450});
  // Variantes de elite são raras e têm uma função clara, sem multiplicar a quantidade de inimigos.
  const affixes=['armored','swift','mana_leech','vampiric','venomous'];
  const eligible=wave.filter(enemy=>!enemy.upperElite);
@@ -617,13 +633,13 @@ function advancePhase(room) {
   if (room.phase >= 5) return;
   const names=room.realm===3?['','Raízes do Eclipse','Pântano Rubro','Ruínas Vivas','Coração Selvagem','Trono do Eclipse']:room.realm===2?['','Jardins Estelares','Ponte do Vazio','Bosque de Cristal','Coroa Celeste','Trono Astral']:['','Cripta Esquecida','Cavernas Mágicas','Floresta Amaldiçoada','Terras Vulcânicas','Abismo Final'];
   room.phase++;
-  room.safeZoneUntil = Date.now() + 15000;
+  room.safeZoneUntil = Date.now() + 22000;
   room.nextSafeBroadcast = 0;
   for (const player of room.players.values()) {
     player.talentPoints = (player.talentPoints || 0) + 1;
     const before = player.hp;
     if (player.hp > 0) player.hp = Math.min(player.maxHp || 100, player.hp + 15);
-    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Preparação por 15 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
+    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Preparação por 22 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
   }
   room.monsters = createWave(room.phase, room.realm || 1, room.safeZoneUntil + 120);
   room.boss = null;
@@ -644,13 +660,13 @@ function advancePhase(room) {
 }
 
 function enterAstralRealm(room){
- room.realm=2;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,2,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
+ room.realm=2;room.phase=1;room.safeZoneUntil=Date.now()+22000;room.nextSafeBroadcast=0;room.monsters=createWave(1,2,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
  room.mapHazards=createRoomMapHazards();room.underworldPits=[];room.chests=createRoomChests(2);
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 function enterEclipseRealm(room){
- room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
+ room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+22000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
  room.mapHazards=createRoomMapHazards();room.underworldPits=[];room.chests=createRoomChests(3);
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ PORTAL DO MUNDO INVERTIDO! Você chegou ao Eclipse Selvagem: inimigos mais fortes, armadilhas corrompidas, novo guardião e +3 pontos de skill.'}));}
  broadcast(room,state(room));
@@ -709,12 +725,14 @@ function ensureRoomHost(room) {
 
 const SERVER_MAP_CENTERS=[-14,-46,-78,-110,-153];
 const SERVER_MAP_POLYGONS=[
-[[-4.8,-17],[4.8,-17],[8,-13],[11.4,-8],[13.1,-2],[13.2,3],[10.4,9],[7,13],[4.5,17],[-4.5,17],[-7,13],[-10.4,9],[-13.2,3],[-13.1,-2],[-11.4,-8],[-8,-13]],
-[[-4.6,-15],[4.6,-15],[8.4,-12],[12.2,-7],[13,-1],[11.6,6],[8,11],[4.2,15],[-4.2,15],[-8,11],[-11.6,6],[-13,-1],[-12.2,-7],[-8.4,-12]],
-[[-4.5,-15],[4.5,-15],[7.2,-11],[12,-8],[13,-2],[11,4],[8.5,9],[4,15],[-4,15],[-8.5,9],[-11,4],[-13,-2],[-12,-8],[-7.2,-11]],
-[[-4.6,-15],[4.6,-15],[8.8,-11],[12.5,-6],[11.2,0],[13,5],[8,11],[4,15],[-4,15],[-8,11],[-13,5],[-11.2,0],[-12.5,-6],[-8.8,-11]],
-[[-5.5,-20],[5.5,-20],[9.2,-16],[13,-10],[13.5,-3],[12,5],[8,13],[4.5,20],[-4.5,20],[-8,13],[-12,5],[-13.5,-3],[-13,-10],[-9.2,-16]]
+[[-2.8,-17],[4.6,-16.4],[9.4,-13.6],[12.8,-8.1],[13.2,-1.8],[11.7,5.4],[7.6,12.1],[2,16.7],[-4.6,16.2],[-10.2,11.8],[-13.1,5.4],[-13.4,-2.1],[-10.8,-9.4],[-6.1,-14.7]],
+[[-2.5,-15],[5,-14.5],[10,-11],[13,-5],[12.3,2],[9.8,8],[4.8,13.8],[-2,15.2],[-8.3,12],[-12.7,6],[-13,-1],[-11,-8],[-6,-13.5]],
+[[-3.2,-15],[3.8,-15.2],[9,-12.3],[12.6,-7],[13.4,-.2],[10.6,6.8],[6.2,12.7],[-.8,15.1],[-7.5,12.4],[-12,7.2],[-13.2,.5],[-10.1,-7.8],[-6.3,-13]],
+[[-2.1,-15],[4.7,-14.8],[9.5,-11.3],[12.7,-5.7],[11.9,1.5],[12.8,6.4],[7.1,12.8],[.8,15],[-6,13.7],[-11.6,8],[-13.3,1],[-11,-7.4],[-6.9,-12.9]],
+[[-4,-20],[3.5,-19.8],[9.3,-16.2],[13.2,-10.1],[13.8,-2],[12,6.4],[8.1,13.6],[2.5,19.4],[-4.6,19.5],[-10.3,14],[-13.7,6.2],[-14,-2.2],[-11.2,-11],[-7,-17]]
 ];
+const SERVER_UPPER_ROOM_POLYGON=[[-3.6,-7.1],[-3.7,-9.8],[-1.9,-12],[.9,-12.5],[3.2,-11.2],[4.35,-8.4],[4.1,-5.8],[2.5,-4],[.9,-3.5],[-.9,-3.55],[-2.8,-4.1],[-4.2,-5.7]];
+const SERVER_MAP_WIDTH_SCALE=1.16;
 const SERVER_PITS=SERVER_MAP_CENTERS.map((z,index)=>({id:'pit-'+(index+1),plateX:index%2===0?5.2:-5.2,plateZ:z+9,pitX:index%2===0?5.2:-5.2,pitZ:z+4}));
 const SERVER_SPIKES=SERVER_MAP_CENTERS.flatMap((z,index)=>[
  {id:'spike-'+index+'-L',x:-6.7,z:z-5.5,r:.92,damage:12},
@@ -748,7 +766,8 @@ function createRoomChests(realm=1){
   ];
  });
 }
-function serverPointInPolygon(x,y,polygon){
+function serverPointInPolygon(x,y,polygon,widthScale=1){
+ x/=widthScale;
  let inside=false;
  for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
   const xi=polygon[i][0],yi=polygon[i][1],xj=polygon[j][0],yj=polygon[j][1];
@@ -758,11 +777,11 @@ function serverPointInPolygon(x,y,polygon){
 }
 function serverIsUpperFloor(x,z,index){
  const stairX=index%2===0?-8.25:8.25,center=SERVER_MAP_CENTERS[index];
- return Math.abs(x-stairX)<3.62&&z<=center-8.0&&z>=center-20.5;
+ return serverPointInPolygon(x-stairX,z-center,SERVER_UPPER_ROOM_POLYGON);
 }
 function serverIsWalkableFloor(x,z,room){
  for(let i=0;i<SERVER_MAP_CENTERS.length;i++){
-  if(serverPointInPolygon(x,z-SERVER_MAP_CENTERS[i],SERVER_MAP_POLYGONS[i])||serverIsUpperFloor(x,z,i))return true;
+  if(serverPointInPolygon(x,z-SERVER_MAP_CENTERS[i],SERVER_MAP_POLYGONS[i],SERVER_MAP_WIDTH_SCALE)||serverIsUpperFloor(x,z,i))return true;
  }
  if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
  if((room?.underworldPits||[]).some(pit=>pit.open&&Math.hypot(x-pit.x,z-pit.z)<4.45))return true;
@@ -774,6 +793,7 @@ const SERVER_PILLAR_COLLIDERS=[
  ...SERVER_MAP_CENTERS.flatMap((center,index)=>{
   const stairX=index%2===0?-8.25:8.25;
   return [
+   ...[-1,1].flatMap(side=>[-8.1,-10.7].map(zOffset=>({x:stairX+side*3.05,z:center+zOffset,r:.34}))),
    ...[-1.78,1.78].flatMap(side=>Array.from({length:8},(_,n)=>({x:stairX+side,z:center+1.0-n,r:.19}))),
    ...[-3.62,3.62].flatMap(side=>Array.from({length:9},(_,n)=>({x:stairX+side,z:center-9.0-n*1.18,r:.22}))),
    ...Array.from({length:9},(_,n)=>({x:stairX-3.25+n*.81,z:center-20.5,r:.22}))
@@ -786,12 +806,11 @@ function processPressurePlate(room,player,now){
  if(!plate||(room.openTraps||[]).includes(plate.id))return false;
  room.openTraps=Array.isArray(room.openTraps)?room.openTraps:[];
  room.openTraps.push(plate.id);
- player.x=plate.pitX;player.z=plate.pitZ;player.trapId=plate.id;
  takeDamage(room,player,Math.max(1,Math.round(14*(1-Math.min(.45,cleanLevelUpgrades(player.levelUpgrades).trapGuard*.06)))));
- const makePitMonster=(kind,offset,hp,damage)=>({id:'pit-'+plate.id+'-'+kind+'-'+now+'-'+Math.random().toString(36).slice(2,6),kind,name:kind==='thorn'?'Espinheiro do Poço':'Rastejador do Poço',x:plate.pitX+offset,z:plate.pitZ+(offset>0?.38:-.38),phase:room.phase,realm:room.realm||1,spawned:true,alive:true,hp,maxHp:hp,damage,attackAt:0,trapId:plate.id,trapMonster:true});
- room.monsters.push(makePitMonster('stalker',-.72,22,5),makePitMonster('thorn',.72,27,4));
- player.mapTrapDamageAt=now+650;
- broadcast(room,{type:'notice',text:'☠ PLACA ACIONADA! O chão cedeu. Você caiu no poço: derrote os monstros e evite os espinhos!'});
+ // A placa abre a câmara abaixo do mapa e move o jogador para o piso subterrâneo.
+ // Os guardiões pertencem a essa camada, não aparecem ao lado do personagem na superfície.
+ openUnderworldPit(room,player,{id:plate.id,x:plate.pitX,z:plate.pitZ},now);
+ broadcast(room,{type:'notice',text:'☠ PLACA ACIONADA! O chão se abriu: você caiu para a câmara subterrânea.'});
  broadcast(room,state(room));
  return true;
 }
@@ -858,7 +877,7 @@ function applyMapHazards(room,player,now){
 }
 const LEVEL_UPGRADE_RULES={health:{max:10},power:{max:10},mana:{max:10},defense:{max:8},magic:{max:8},attack:{max:8},recovery:{max:8},item:{max:8},autoDodge:{max:1},xp:{max:8},critical:{max:8},movement:{max:6},cooldown:{max:8},loot:{max:8},manaRegen:{max:8},range:{max:8},trapGuard:{max:8}};
 function defaultLevelUpgrades(){return Object.fromEntries(Object.keys(LEVEL_UPGRADE_RULES).map(key=>[key,0]));}
-function levelXpNeeded(level){return Math.round(100+Math.max(0,level-1)*32+Math.pow(Math.max(0,level-1),1.16)*4);}
+function levelXpNeeded(level){return Math.round(50+Math.max(0,level-1)*16+Math.pow(Math.max(0,level-1),1.16)*2);}
 function cleanLevelUpgrades(value){
  const clean=defaultLevelUpgrades();if(!value||typeof value!=='object'||Array.isArray(value))return clean;
  for(const [key,rule] of Object.entries(LEVEL_UPGRADE_RULES))clean[key]=Math.max(0,Math.min(rule.max,Math.floor(Number(value[key])||0)));
@@ -905,14 +924,14 @@ function isServerPositionBlocked(room,x,z,playerId=null){
  if(room.started&&room.gameMode!=='pvp_rpg'){
   const phase=Math.max(1,Math.min(5,Number(room.phase)||1)),gateZ=phase<5?-(30+(phase-1)*32):-163.2;
   const enemiesAlive=phase===5?!!room.boss?.alive:(room.monsters||[]).some(monster=>monster.alive);
-  if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
+  if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<15.7)return true;
  }
  for(const obstacle of STATIC_DUNGEON_COLLIDERS)if(Math.hypot(x-obstacle.x,z-obstacle.z)<playerRadius+obstacle.r)return true;
  for(const chest of room.chests||[]){if(Array.isArray(chest.openedBy)&&chest.openedBy.some(id=>String(id)===String(playerId)))continue;if(Math.hypot(x-chest.x,z-chest.z)<playerRadius+.62)return true;}
  return false;
 }
 function resolveServerMovement(room, player, nextX, nextZ) {
-  const x = Math.max(-13, Math.min(13, nextX));
+  const x = room.gameMode==='pvp_rpg'?Math.max(-13,Math.min(13,nextX)):Math.max(-15.6,Math.min(15.6,nextX));
   const z = Math.max(-174, Math.min(8, nextZ));
   const canMoveX = !isServerPositionBlocked(room, x, player.z, player.id);
   const canMoveZ = !isServerPositionBlocked(room, player.x, z, player.id);
@@ -926,18 +945,19 @@ function resolveServerMovement(room, player, nextX, nextZ) {
   return { x: player.x, z: player.z };
 }
 
+function regeneratePlayerMana(player,now=Date.now()){
+ if(!player)return;
+ const previous=Number(player.manaRegenLastAt);
+ const elapsed=Number.isFinite(previous)&&previous>0?Math.max(0,Math.min(1.5,(now-previous)/1000)):0;
+ player.manaRegenLastAt=now;
+ const maximum=Number(player.maxMana)||100,current=Number(player.mana??100);
+ if(player.hp>0&&elapsed>0&&current<maximum){
+  const bonus=cleanLevelUpgrades(player.levelUpgrades).manaRegen*.25;
+  player.mana=Math.min(maximum,current+elapsed*(2+bonus));
+ }
+}
 function state(room) {
-  // Regeneração contínua calculada pelo tempo real: 2 mana por segundo.
-  const now = Date.now();
-  for (const p of room.players.values()) {
-    const previous = Number(p.manaRegenLastAt);
-    const elapsed = Number.isFinite(previous) && previous > 0 ? Math.max(0, Math.min(1.5, (now - previous) / 1000)) : 0;
-    p.manaRegenLastAt = now;
-    if (p.hp > 0 && elapsed > 0 && (p.mana ?? 100) < (p.maxMana ?? 100)) {
-      const bonus = cleanLevelUpgrades(p.levelUpgrades).manaRegen * 0.25;
-      p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + elapsed * (2 + bonus));
-    }
-  }
+  // A função de estado só serializa valores; não controla o relógio da mana.
   // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
   ensureRoomHost(room);
   return {
@@ -1275,10 +1295,10 @@ wss.on('connection', ws => {
         });
         broadcast(room,{type:'notice',text:'⚔ ARENA PvP RPG! Derrote rivais, invoque monstros com mana e conquiste eliminações.'});
       } else {
-        room.safeZoneUntil=Date.now()+15000;
+        room.safeZoneUntil=Date.now()+22000;
         room.nextSafeBroadcast=0;
         room.monsters=createWave(1,room.realm||1,room.safeZoneUntil + 120);
-        broadcast(room,{type:'notice',text:'Preparação inicial por 15 segundos! Organize a equipe e as melhorias.'});
+        broadcast(room,{type:'notice',text:'Preparação inicial por 22 segundos! Organize a equipe e as melhorias.'});
       }
       broadcast(room,state(room));
     } else if (msg.type === 'loadout') {
@@ -1311,7 +1331,7 @@ wss.on('connection', ws => {
     } else if (msg.type === 'move') {
       if (!room.started || player.hp <= 0 || player.necromancerDivePending || Date.now()<(player.stoneGuardUntil||0)) return;
       if(room.gameMode==='pvp_rpg'&&Date.now()<(player.pvpStunnedUntil||0))return;
-      const requestedX=Math.max(-13,Math.min(13,Number(msg.x)||0));
+      const requestedX=room.gameMode==='pvp_rpg'?Math.max(-13,Math.min(13,Number(msg.x)||0)):Math.max(-15.6,Math.min(15.6,Number(msg.x)||0));
       const requestedZ=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,Number(msg.z)||-14)):Math.max(-174,Math.min(8,Number(msg.z)||0));
       const collisionResolved=resolveServerMovement(room,player,requestedX,requestedZ);player.x=collisionResolved.x;
       if(room.gameMode==='pvp_rpg'){player.z=Math.max(-28,Math.min(-2,collisionResolved.z));player.rot=Number(msg.rot)||0;return;}
@@ -1339,25 +1359,31 @@ wss.on('connection', ws => {
       player.rot = Number(msg.rot) || 0;
       // O loop do servidor já envia o estado a cada 100 ms; evitar duplicar
       // um pacote completo a cada movimento reduz tráfego e desconexões.
-    } else if (msg.type === 'dodge') {
+    } else if (msg.type === 'dash' || msg.type === 'dodge') {
       if (!room.started || player.hp <= 0) return;
-      const dodgeNow = Date.now();
-      if (dodgeNow < (player.nextDodgeAt || 0)) return;
-      const requestedHeading = Number(msg.rot);
-      const heading = Number.isFinite(requestedHeading) ? requestedHeading : (Number(player.rot) || 0);
-      const dashDistance = 2.2 + (hasSkill(player, 'dodge_mastery') ? .55 : 0) + (hasSkill(player, 'phantom_step') ? .75 : 0);
-      const landing = resolveServerMovement(room, player,
-        player.x - Math.sin(heading) * dashDistance,
-        player.z - Math.cos(heading) * dashDistance
-      );
-      player.x=landing.x;player.z=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,landing.z)):landing.z;player.rot=heading;
-      player.dodgeUntil = dodgeNow + 420 + (hasSkill(player, 'dodge_mastery') ? 140 : 0) + (hasSkill(player, 'phantom_step') ? 120 : 0);
-      player.nextDodgeAt = dodgeNow + Math.max(1500, 2600 - (hasSkill(player, 'quick_recovery') ? 650 : 0));
-      if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({
-        type: 'notice', text: '↗ Esquiva! Proteção ativada por um instante.'
-      }));
-      broadcast(room, { type: 'dodge', id: player.id, x: player.x, z: player.z, until: player.dodgeUntil });
-      broadcast(room, state(room));
+      const dashNow=Date.now();
+      if(dashNow<(player.nextDashAt||0)){
+        ws.send(JSON.stringify({type:'notice',text:'Dash recarregando: '+Math.ceil((player.nextDashAt-dashNow)/1000)+'s.'}));
+        return;
+      }
+      let dx=Number(msg.dx),dz=Number(msg.dz);
+      if(!Number.isFinite(dx)||!Number.isFinite(dz)||Math.hypot(dx,dz)<.1){
+        const heading=Number.isFinite(Number(msg.rot))?Number(msg.rot):(Number(player.rot)||0);
+        dx=-Math.sin(heading);dz=-Math.cos(heading);
+      }
+      const length=Math.hypot(dx,dz)||1;dx/=length;dz/=length;
+      const distance=3.0+(hasSkill(player,'dodge_mastery')?.35:0)+(hasSkill(player,'phantom_step')?.45:0);
+      const landing=resolveServerMovement(room,player,player.x+dx*distance,player.z+dz*distance);
+      if(Math.hypot(landing.x-player.x,landing.z-player.z)<.35){
+        ws.send(JSON.stringify({type:'notice',text:'Não há espaço livre para o dash.'}));
+        return;
+      }
+      player.x=landing.x;player.z=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,landing.z)):landing.z;
+      player.dodgeUntil=dashNow+220;
+      player.nextDashAt=dashNow+Math.max(1800,3000-(hasSkill(player,'quick_recovery')?550:0));
+      if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'⚡ Dash executado!'}));
+      broadcast(room,{type:'dodge',id:player.id,x:player.x,z:player.z,until:player.dodgeUntil});
+      broadcast(room,state(room));
     } else if (msg.type === 'useItem') {
       if(!room.started||player.hp<=0){
         ws.send(JSON.stringify({type:'notice',text:!room.started?'Entre na partida para usar itens.':'Você precisa estar vivo para usar itens.'}));
@@ -2168,6 +2194,7 @@ setInterval(() => {
       continue;
     }
     if (!room.started || players.length === 0) continue;
+    for(const player of players)regeneratePlayerMana(player,now);
     if (room.gameMode === 'pvp_rpg') {
       // Summons temporários expiram e não acumulam na lista enviada a cada tick.
       room.monsters = room.monsters.filter(monster => !monster.classSummoned || !monster.expiresAt || now < monster.expiresAt);
@@ -2188,7 +2215,7 @@ setInterval(() => {
     for (const p of players) {
       if(p.underworldUntil&&now>=p.underworldUntil){
         const exitX=p.underworldReturnX,exitZ=p.underworldReturnZ;
-        p.x=exitX;p.z=exitZ;p.underworldUntil=0;
+        p.x=exitX;p.z=exitZ+2.65;p.underworldUntil=0;
         const pit=room.underworldPits.find(item=>item.open&&item.x===exitX&&item.z===exitZ);
         if(pit){
           const teammatesInside=players.some(other=>other.underworldUntil>now&&other.underworldReturnX===exitX&&other.underworldReturnZ===exitZ);
@@ -2428,7 +2455,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
           }
 
           const speed=(Number(monster.moveSpeed)||(kind==='brute' ? 0.31 : kind==='wraith' ? 0.38 : kind==='assassin' ? 0.42 : kind==='thorn' ? 0.32 : kind==='abyss' ? 0.39 : 0.35))*(retreating?1.14:1)*(room.phase>=4?1.10:1);
-          monster.x=Math.max(-13,Math.min(13,monster.x+moveX*speed));
+          monster.x=room.gameMode==='pvp_rpg'?Math.max(-13,Math.min(13,monster.x+moveX*speed)):Math.max(-15.6,Math.min(15.6,monster.x+moveX*speed));
           monster.z=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,monster.z+moveZ*speed)):Math.max(-170,Math.min(8,monster.z+moveZ*speed));
         }
       }
@@ -2445,7 +2472,8 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
           monster.attackWarnAt = monsterNow;
           monster.attackTargetId = target.id;
           broadcast(room, { type: 'monsterWindup', id: monster.id, targetId: target.id, duration: 460 });
-          if (!target.isSummon && target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
+          const automaticallyDodged=!target.isSummon&&tryAutoDodge(room,target,monster,monsterNow);
+          if (!target.isSummon && target.ws && !automaticallyDodged) target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
         } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460
           && Math.hypot((target.isSummon && target.sourceSummon ? target.sourceSummon.x : target.x)-monster.x,
             (target.isSummon && target.sourceSummon ? target.sourceSummon.z : target.z)-monster.z) <= monsterMeleeReach + 0.22) {
