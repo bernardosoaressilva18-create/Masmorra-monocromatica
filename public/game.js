@@ -2780,6 +2780,9 @@ function handleOfflineAction(data) {
       currentRealmVisual=offlineState.realm;
       spawnOfflineWave(1,offlineState.realm);
       showNotice(offlineState.realm===2?'✦ PORTAL ABERTO! Bem-vindo ao Vale Astral.':'✦ PORTAL ABERTO! Você chegou ao Eclipse Selvagem.');
+    }else if(requestedZ<gateZ&&phase===5&&realm===3){
+      player.x=boundedX;player.z=gateZ-.85;
+      if(!offlineState.completed){offlineState.completed=true;showNotice('✦ VOCÊ CONQUISTOU OS TRÊS MUNDOS!');}
     }else{
       const resolved=resolveDungeonMovement(player.x,player.z,boundedX,boundedX===player.x?requestedZ:requestedZ);
       player.x=resolved.x;player.z=resolved.z;
@@ -3557,7 +3560,8 @@ function updateState(m) {
   if(eclipsePortal){eclipsePortal.visible=!isPvpRpg&&realm===2;eclipsePortal.userData.open=!isPvpRpg&&realm===2&&(!!m.portalOpen||(phase===5&&!!m.boss&&!m.boss.alive));}
   const phaseObjective=document.querySelector('.objective strong');
   if(phaseObjective){
-    if(isPvpRpg) phaseObjective.textContent='PvP RPG · Derrote rivais e invoque monstros aliados';
+    if(offlineMode&&phase===5&&m.portalOpen)phaseObjective.textContent=realm<3?'PORTAL ABERTO! Atravesse para o próximo mundo':'TRÊS MUNDOS CONQUISTADOS! Exploração concluída';
+    else if(isPvpRpg) phaseObjective.textContent='PvP RPG · Derrote rivais e invoque monstros aliados';
     else if(phase===5&&m.boss&&!m.boss.alive&&realm===1){const nearGate=myPlayer&&Math.hypot(myPlayer.position.x,myPlayer.position.z+168)<16;phaseObjective.textContent=nearGate?'PORTÃO ABERTO! Atravesse para o Vale Astral':'Siga pelo Abismo até o portão do Vale Astral';}
     else if(phase===5&&m.boss&&!m.boss.alive&&realm===2)phaseObjective.textContent='Guardião Astral derrotado! Vale conquistado';
     else if(phase===5)phaseObjective.textContent=realm===2?'Derrote o Guardião Astral':'Derrote o Guardião Supremo';
