@@ -535,7 +535,7 @@ function advancePhase(room) {
     player.talentPoints = (player.talentPoints || 0) + 1;
     const before = player.hp;
     if (player.hp > 0) player.hp = Math.min(player.maxHp || 100, player.hp + 15);
-    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Preparação por 6 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
+    if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Preparação por 15 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
   }
   room.monsters = createWave(room.phase, room.realm || 1, room.safeZoneUntil + 120);
   room.boss = null;
