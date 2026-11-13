@@ -3093,22 +3093,22 @@ function handleMessage(m) {
     return;
   }
   if (m.type === 'spell') {
-    const isFire = m.spell === 'fire';
-    const color = isFire ? 0xff6b24 : 0x69aaff;
+    const isFire=m.spell==='fire',isLightning=m.spell==='lightning',isBone=m.spell==='bone',isArcane=m.spell==='arcane';
+    const color=isFire?0xff6b24:isLightning?0x69aaff:isBone?0xf3f5ff:0x68baff;
     const origin = new THREE.Vector3(m.x, 1.35, m.z);
     const reducedVisualLoad = isMobileDevice || (lastFps > 0 && lastFps < 42);
     const targets = (Array.isArray(m.targets) ? m.targets : []).slice(0, reducedVisualLoad ? 2 : 3);
     if (!targets.length) targets.push({ x: m.x - Math.sin(yaw) * 4, z: m.z - Math.cos(yaw) * 4 });
     let from = origin;
     for (const target of targets) {
-      const end = new THREE.Vector3(target.x, isFire ? .85 : 1.15, target.z);
-      const mid = new THREE.Vector3((from.x + end.x) / 2 + (isFire ? 0 : (Math.random() - .5) * 1.2), isFire ? 1.05 : 1.35, (from.z + end.z) / 2);
-      const points = isFire ? [origin.clone(), end] : [from.clone(), mid, end];
+      const end=new THREE.Vector3(target.x,isFire?.85:1.15,target.z);
+      const mid=new THREE.Vector3((from.x+end.x)/2+(isLightning?(Math.random()-.5)*1.2:0),isFire?1.05:1.35,(from.z+end.z)/2);
+      const points=isLightning?[from.clone(),mid,end]:[origin.clone(),end];
       const geo = new THREE.BufferGeometry().setFromPoints(points);
       const beamMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 1 });
       const beam = new THREE.Line(geo, beamMat); scene.add(beam);
-      const impactGeo = isFire ? new THREE.ConeGeometry(.28, .72, 6) : new THREE.SphereGeometry(.2, 7, 5);
-      const impactMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
+      const impactGeo=isFire?new THREE.ConeGeometry(.28,.72,6):isBone?new THREE.DodecahedronGeometry(.24,1):isArcane?new THREE.IcosahedronGeometry(.24,1):new THREE.SphereGeometry(.2,8,6);
+      const impactMat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.98,wireframe:isBone});
       const impact = new THREE.Mesh(impactGeo, impactMat);
       impact.position.copy(end); impact.position.y += isFire ? .35 : .15; scene.add(impact);
       const impactLimit = (isMobileDevice || (lastFps > 0 && lastFps < 42)) ? 6 : 12;
