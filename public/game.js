@@ -2702,6 +2702,56 @@ function createOfflineState() {
   };
 }
 
+let trainingMetrics = { totalDamage:0, hits:0, combo:0, bestCombo:0, startedAt:0, lastHitAt:0 };
+function ensureTrainingMetricsPanel() {
+  let panel = $('trainingMetricsPanel');
+  if (panel) return panel;
+  panel = document.createElement('section');
+  panel.id = 'trainingMetricsPanel';
+  panel.className = 'training-metrics-panel hidden';
+  panel.setAttribute('aria-label','Estatísticas do campo de treinamento');
+  panel.innerHTML = '<header><span>⚔ MEDIDOR DE COMBATE</span><small id="trainingMetricsTime">0:00</small></header>'+
+    '<div class="training-metrics-grid">'+
+    '<div><small>DANO TOTAL</small><strong id="trainingTotalDamage">0</strong></div>'+
+    '<div><small>DPS MÉDIO</small><strong id="trainingDps">0,0</strong></div>'+
+    '<div><small>COMBO ATUAL</small><strong id="trainingCombo">0×</strong></div>'+
+    '<div><small>MELHOR COMBO</small><strong id="trainingBestCombo">0×</strong></div></div>'+
+    '<button id="trainingMetricsReset" type="button">ZERAR MEDIÇÃO</button>';
+  document.body.appendChild(panel);
+  panel.querySelector('#trainingMetricsReset')?.addEventListener('click', resetTrainingMetrics);
+  return panel;
+}
+function resetTrainingMetrics() {
+  trainingMetrics = { totalDamage:0, hits:0, combo:0, bestCombo:0, startedAt:performance.now(), lastHitAt:0 };
+  updateTrainingMetricsPanel();
+}
+function updateTrainingMetricsPanel() {
+  const panel = ensureTrainingMetricsPanel();
+  const active = !!offlineState?.trainingMode;
+  panel.classList.toggle('hidden',!active);
+  if (!active) return;
+  const elapsedMs = Math.max(1,performance.now()-(trainingMetrics.startedAt||performance.now()));
+  const elapsedSeconds = elapsedMs/1000;
+  const dps = trainingMetrics.totalDamage/elapsedSeconds;
+  const format = n => Math.round(n).toLocaleString('pt-BR');
+  const set = (id,value) => { const el=$(id); if(el)el.textContent=value; };
+  set('trainingTotalDamage',format(trainingMetrics.totalDamage));
+  set('trainingDps',dps.toFixed(1).replace('.',','));
+  set('trainingCombo',String(trainingMetrics.combo)+'×');
+  set('trainingBestCombo',String(trainingMetrics.bestCombo)+'×');
+  const seconds=Math.floor(elapsedSeconds);
+  set('trainingMetricsTime',Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0'));
+}
+function recordTrainingDamage(actualDamage) {
+  if (!offlineState?.trainingMode || !Number.isFinite(actualDamage) || actualDamage<=0) return;
+  const now=performance.now();
+  trainingMetrics.totalDamage+=actualDamage;
+  trainingMetrics.hits++;
+  trainingMetrics.combo = now-(trainingMetrics.lastHitAt||0)<=1800 ? trainingMetrics.combo+1 : 1;
+  trainingMetrics.bestCombo=Math.max(trainingMetrics.bestCombo,trainingMetrics.combo);
+  trainingMetrics.lastHitAt=now;
+  updateTrainingMetricsPanel();
+}
 function startTrainingRange() {
   if (ws) { try { ws.close(); } catch {} ws = null; }
   connectionRequested = false;
@@ -2716,6 +2766,7 @@ function startTrainingRange() {
   skillPoints = 5;
   lastSkillSignature = '';
   offlineState = createOfflineState();
+  resetTrainingMetrics();
   const player = offlineState.players[0];
   player.playerClass = selectedClass;
   player.skin = selectedSkin;
@@ -2750,6 +2801,7 @@ function startTrainingRange() {
 $('openTrainingBtn')?.addEventListener('click', startTrainingRange);
 
 function startOfflineExploration() {
+  $('trainingMetricsPanel')?.classList.add('hidden');
   unlockedSkills.clear(); skillPoints=5; lastSkillSignature=''; syncLoadoutUI();
   saveSharedProfile();
   if (ws) {
@@ -2830,6 +2882,8 @@ function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, push
     monster.x += dx / distance * pushDistance;
     monster.z += dz / distance * pushDistance;
   }
+  const actualTrainingDamage = Math.min(Math.max(0,Number(monster.hp)||0),amount);
+  if (monster.trainingDummy) recordTrainingDamage(actualTrainingDamage);
   if (monster.hp <= 0) {
     monster.alive = false;
     if (monster.trainingDummy) {
@@ -3212,6 +3266,7 @@ function stepOfflineSimulation() {
   const now = Date.now();
   if (player.hp > 0) {
     if (player.mana < (player.maxMana || 100)) player.mana = Math.min(player.maxMana || 100, player.mana + 0.09);
+    if (offlineState.trainingMode) updateTrainingMetricsPanel();
     const invisible = now < (player.invisibleUntil || 0);
     player.invisible = invisible;
     player.shielded = now < (player.shieldUntil || 0);
