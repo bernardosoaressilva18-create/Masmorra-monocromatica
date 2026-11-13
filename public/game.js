@@ -519,6 +519,8 @@ function init3D() {
 
   buildDungeon();
   buildDungeonVisualPass();
+  partitionDungeonPhaseGroups(environmentGroups.dungeon);
+  updateDungeonPhaseVisibility(currentPhaseVisual||1);
   createPlayer();
   initLobby3DPreview();
   onResize();
@@ -811,7 +813,7 @@ function addBiomeDetailInstances(parent,palette,realmKey=1){
  const perZone=isMobileDevice
   ?(gameSettings.graphicsQuality==='low'?12:gameSettings.graphicsQuality==='high'?34:22)
   :(gameSettings.graphicsQuality==='low'?52:gameSettings.graphicsQuality==='high'?125:88);
- const capacity=(perZone+1)*MAP_ZONE_CENTERS.length;
+ const capacity=perZone+1;
  const materials=[
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:.96,metalness:.06,}),
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:.92,metalness:.08,}),
@@ -822,21 +824,23 @@ function addBiomeDetailInstances(parent,palette,realmKey=1){
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:.82,metalness:.04,emissive:0x101c10,emissiveIntensity:.22}),
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:.88,metalness:.10})
  ];
- const batches=[
+ const makeBatches=()=>[
   new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.27,0),materials[0],capacity),
   new THREE.InstancedMesh(new THREE.ConeGeometry(.16,.62,5),materials[1],capacity),
   new THREE.InstancedMesh(new THREE.OctahedronGeometry(.21,0),materials[2],capacity),
   new THREE.InstancedMesh(new THREE.TorusGeometry(.17,.018,5,12),materials[3],capacity),
   new THREE.InstancedMesh(new THREE.BoxGeometry(.86,.34,.52),materials[4],capacity),
-  new THREE.InstancedMesh(new THREE.CylinderGeometry(.22,.38,1.55,6),materials[5],capacity),
+  new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.48,0),materials[5],capacity),
   new THREE.InstancedMesh(new THREE.ConeGeometry(.23,.82,6),materials[6],capacity),
-  new THREE.InstancedMesh(new THREE.CylinderGeometry(.12,.18,1.45,6),materials[7],capacity)
+  new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.30,1),materials[7],capacity)
  ];
  const names=['biome-stone-scatter','biome-root-and-spire-scatter','biome-crystal-scatter','biome-rune-inlays','biome-ruin-slabs','biome-broken-monoliths','biome-glow-flora','biome-fallen-roots'];
  const dummy=new THREE.Object3D();
- const counts=[0,0,0,0,0,0,0,0];
+ let totalInstances=0;
+ const zoneBatchCounts=[];
  const fract=value=>value-Math.floor(value);
  for(let zone=0;zone<MAP_ZONE_CENTERS.length;zone++){
+  const batches=makeBatches(),counts=[0,0,0,0,0,0,0,0];
   const center=MAP_ZONE_CENTERS[zone],poly=MAP_ZONE_POLYGONS[zone],accent=new THREE.Color(palette[zone%palette.length]);
   for(let n=0;n<perZone;n++){
    let point=null;
@@ -901,13 +905,20 @@ function addBiomeDetailInstances(parent,palette,realmKey=1){
   dummy.updateMatrix();batches[2].setMatrixAt(counts[2],dummy.matrix);batches[2].setColorAt(counts[2],accent.clone().multiplyScalar(1.35));counts[2]++;
   dummy.position.set(landmarkX,.035,landmarkZ);dummy.rotation.set(-Math.PI/2,0,zone*.31);dummy.scale.set(2.25,1.8,1);
   dummy.updateMatrix();batches[3].setMatrixAt(counts[3],dummy.matrix);batches[3].setColorAt(counts[3],accent);counts[3]++;
+  // Cada bioma fica em seu próprio lote instanciado; as outras salas podem ser ocultadas.
+  for(let i=0;i<batches.length;i++){
+   const mesh=batches[i];mesh.count=counts[i];mesh.instanceMatrix.needsUpdate=true;
+   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+   mesh.name=names[i]+'-realm-'+realmKey+'-zone-'+(zone+1);
+   mesh.userData.phaseIndex=zone;
+   parent.add(mesh);
+  }
+  totalInstances+=counts.reduce((sum,value)=>sum+value,0);
+  zoneBatchCounts.push(counts.slice());
  }
- for(let i=0;i<batches.length;i++){
-  const mesh=batches[i];mesh.count=counts[i];mesh.instanceMatrix.needsUpdate=true;
-  if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
-  mesh.name=names[i]+'-realm-'+realmKey;parent.add(mesh);
- }
- parent.userData.biomeDetailCount=counts.reduce((sum,value)=>sum+value,0);parent.userData.biomeDetailBatches=counts.length;parent.userData.biomeDetailInstances=counts.slice();
+ parent.userData.biomeDetailCount=totalInstances;
+ parent.userData.biomeDetailBatches=zoneBatchCounts.length*8;
+ parent.userData.biomeDetailInstances=zoneBatchCounts;
 }
 
 function buildDungeon() {
@@ -955,7 +966,17 @@ stoneDark.needsUpdate = true;
     zone.top.bumpMap = isMobileDevice ? null : dungeonTexture;
     zone.top.bumpScale = .012;
     zone.top.needsUpdate = true;
-    addOrganicZoneFloor(zone.z,zone.id-1,floor,zone.top,-.5);
+    const zoneFloor=addOrganicZoneFloor(zone.z,zone.id-1,floor,zone.top,-.5);
+    zoneFloor.userData.phaseIndex=zone.id-1;
+    // Teto abobadado e paredes perimetrais leves para fechar visualmente a sala.
+    const roofGeo=new THREE.SphereGeometry(1,20,12,0,Math.PI*2,0,Math.PI/2);
+    const roofMat=new THREE.MeshStandardMaterial({color:[0x26384a,0x292b4d,0x244336,0x513025,0x38233c][zone.id-1],roughness:.82,metalness:.12,transparent:true,opacity:.72,side:THREE.BackSide,depthWrite:false});
+    const roof=new THREE.Mesh(roofGeo,roofMat);
+    roof.name='dungeon-room-roof-'+zone.id;
+    roof.scale.set(13.6,5.6,zone.depth*.59);
+    roof.position.set(0,2.0,zone.z);
+    roof.userData.phaseIndex=zone.id-1;
+    activeEnvironmentGroup.add(roof);
     // As bordas recortadas deixam cada região com sua própria silhueta, sem corredor retangular.
   }
 
@@ -1228,6 +1249,43 @@ function addZoneLandmarks(parent,palette){
   instances.count=index;instances.instanceMatrix.needsUpdate=true;
   if(instances.instanceColor)instances.instanceColor.needsUpdate=true;
   instances.name='world-landmark-instanced-set';parent.add(instances);
+}
+function partitionDungeonPhaseGroups(root){
+ if(!root||root.userData.phasePartitioned)return;
+ root.updateMatrixWorld(true);
+ const zones=MAP_ZONE_CENTERS.map((center,index)=>{
+  const group=new THREE.Group();group.name='dungeon-phase-'+(index+1);group.userData.phaseIndex=index;return group;
+ });
+ const shared=new THREE.Group();shared.name='dungeon-shared-geometry';
+ const children=[...root.children];
+ for(const child of children){
+  if(child===shared||zones.includes(child))continue;
+  try{
+   if(child.isInstancedMesh&&typeof child.computeBoundingBox==='function')child.computeBoundingBox();
+   child.updateWorldMatrix(true,true);
+   const bounds=new THREE.Box3().setFromObject(child);
+   if(bounds.isEmpty()){shared.add(child);continue;}
+   const size=bounds.getSize(new THREE.Vector3());
+   const center=bounds.getCenter(new THREE.Vector3());
+   let nearest=0,nearestDistance=Infinity;
+   for(let i=0;i<MAP_ZONE_CENTERS.length;i++){
+    const distance=Math.abs(center.z-MAP_ZONE_CENTERS[i]);
+    if(distance<nearestDistance){nearestDistance=distance;nearest=i;}
+   }
+   // Large instanced meshes spanning many regions remain one draw call;
+   // local geometry is grouped per phase and hidden outside current/next.
+   const crossesZones=size.z>41||nearestDistance>MAP_ZONE_DEPTHS[nearest]*.58;
+   (crossesZones?shared:zones[nearest]).add(child);
+  }catch{shared.add(child);}
+ }
+ root.add(shared,...zones);
+ dungeonPhaseGroups.splice(0,dungeonPhaseGroups.length,...zones);
+ root.userData.phasePartitioned=true;
+ root.userData.sharedPhaseGeometry=shared;
+}
+function updateDungeonPhaseVisibility(phase){
+ const current=Math.max(1,Math.min(5,Math.floor(Number(phase)||1)))-1;
+ dungeonPhaseGroups.forEach((group,index)=>{group.visible=index===current||index===Math.min(4,current+1);});
 }
 function buildDungeonVisualPass() {
   const parent = environmentGroups.dungeon || scene;
