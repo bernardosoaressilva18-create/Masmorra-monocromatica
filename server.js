@@ -288,7 +288,7 @@ function applyTacticalTarget(room, monster, players, now) {
 let nextId = 1;
 const CLASS_STATS = {
   knight: { hp: 130, damage: 2, range: 3.6, attackMs: 520, spellPower: 1, reduction: .18 },
-  mage: { hp: 92, damage: 1, range: 3.1, attackMs: 460, spellPower: 1.55, reduction: 0 },
+  mage: { hp: 92, damage: 1, range: 7.2, attackMs: 460, spellPower: 1.55, reduction: 0 },
   archer: { hp: 108, damage: 1, range: 8.2, attackMs: 310, spellPower: 1, reduction: .03 },
   goblin: { hp: 95, damage: 1, range: 3.2, attackMs: 285, spellPower: .85, reduction: 0 },
   ogre: { hp: 180, damage: 4, range: 3.5, attackMs: 760, spellPower: .7, reduction: .20 },
@@ -1988,7 +1988,7 @@ wss.on('connection', ws => {
         const attackRange = statsFor(player).range + (player.playerClass === 'archer' && hasSkill(player, 'longshot') ? 2 : 0);
         const target = [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])]
           .filter(m => m.alive && m.spawned && canMonsterTargetPlayer(room,m,player,now)
-            && Math.hypot(m.x - player.x, m.z - player.z) < attackRange)
+            && Math.hypot(m.x - player.x, m.z - player.z) <= attackRange)
           .sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];
         if (target) {
           let damage = isMonk ? [0, 2, 3, 5][monkCombo] : player.baseDamage + (player.damageBuffHits > 0 ? player.damageBuff : 0);
@@ -2391,7 +2391,9 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
         nearest = Math.hypot((tacticalTarget.x || 0) - monster.x, (tacticalTarget.z || 0) - monster.z);
       }
 
-      if (target && nearest > 1.8 && nearest < 70) {
+      const monsterMeleeReach = target?.isSummon ? 1.65 : (['brute','abyss'].includes(String(monster.kind||'')) ? 1.8 : 1.55);
+      const approachStopDistance = Math.max(0.95, monsterMeleeReach - 0.18);
+      if (target && nearest > approachStopDistance && nearest < 70) {
         const movementTarget = target.isSummon && target.sourceSummon ? target.sourceSummon : target;
         const dx = movementTarget.x - monster.x;
         const dz = movementTarget.z - monster.z;
@@ -2431,9 +2433,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
         }
       }
       const monsterNow = Date.now();
-      // Ataque corpo a corpo só começa quando o alvo está realmente próximo.
-      // O alcance anterior de 3,05 somado ao tempo de preparação permitia golpes "no ar".
-      const monsterMeleeReach = target?.isSummon ? 2.05 : (['brute','abyss'].includes(String(monster.kind||'')) ? 2.25 : 1.95);
+      // Confirma novamente a distância real no instante do golpe, após o tempo de aviso.
       const currentTargetDistance = target ? Math.hypot((target.isSummon && target.sourceSummon ? target.sourceSummon.x : target.x)-monster.x,
         (target.isSummon && target.sourceSummon ? target.sourceSummon.z : target.z)-monster.z) : Infinity;
       if (target && currentTargetDistance <= monsterMeleeReach) {
