@@ -5,17 +5,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#090c12">
-<meta name="application-name" content="Last Legacy">
-<meta name="description" content="Last Legacy: RPG 3D de fantasia com classes, mundos, monstros e chefes cooperativos.">
-<meta property="og:title" content="Last Legacy — RPG 3D">
+<meta name="application-name" content="O Último Legado">
+<meta name="description" content="O Último Legado: RPG 3D de fantasia com classes, mundos, monstros e chefes cooperativos.">
+<meta property="og:title" content="O Último Legado — RPG 3D">
 <meta property="og:description" content="Escolha sua classe, explore mundos de fantasia e enfrente chefes.">
-<meta property="og:image" content="https://images.pexels.com/photos/14516327/pexels-photo-14516327.jpeg?auto=compress&amp;dpr=1&amp;h=750&amp;w=1260">
+<meta property="og:image" content="https://last-legacy.onrender.com/cover.svg?v=20261113">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icon.svg">
-<title>Last Legacy — RPG Multiplayer</title>
-<link rel="stylesheet" href="style.css?v=20261113-2d-side-demo-r2">
+<title>O Último Legado — RPG Multiplayer</title>
+<link rel="stylesheet" href="style.css?v=20261113-map-xp-r1">
 </head>
 <body>
 <div id="game"></div>
@@ -23,7 +23,7 @@
 <div id="startScreen" class="screen start-screen">
   <div class="start-emblem" aria-hidden="true">✦</div>
   <p class="eyebrow">UMA AVENTURA COOPERATIVA</p>
-  <h1 class="start-title">LAST<br><span>LEGACY</span></h1>
+  <h1 class="start-title">O ÚLTIMO<br><span>LEGADO</span></h1>
   <p class="start-copy">Mundos de aventura, classes, skins, árvore de habilidades e chefes cooperativos.</p>
   <button id="startBtn" class="primary start-button">⚔ ENTRAR NA MASMORRA</button>
   <small class="start-tip">Toque no botão para abrir o menu do aventureiro</small>
@@ -64,7 +64,7 @@
 
 <div id="lobby" class="screen hidden lobby-screen">
   <header class="lobby-header">
-    <div class="lobby-brand-mark"><span class="lobby-mark-icon">✦</span><span>LAST LEGACY</span></div>
+    <div class="lobby-brand-mark"><span class="lobby-mark-icon">✦</span><span>O ÚLTIMO LEGADO</span></div>
     <div class="lobby-header-meta">
       <div class="lobby-room-pill">SALA <strong id="lobbyRoomCode">------</strong></div>
       <button id="leaveLobbyBtn" class="lobby-leave-mini" type="button">SAIR</button>
@@ -198,7 +198,7 @@
           <button type="button" data-hud-preview-orientation="portrait">↕ RETRATO</button>
         </div>
         <div id="lobbyHudPreview" class="hud-preview-stage" data-orientation="landscape" aria-label="Prévia do HUD. Arraste os controles para alterar a posição.">
-          <div class="hud-preview-scenery"><span>LAST LEGACY</span><i></i></div>
+          <div class="hud-preview-scenery"><span>O ÚLTIMO LEGADO</span><i></i></div>
           <button type="button" class="hud-preview-control hud-preview-joystick" data-hud-preview="joystick" aria-label="Analógico">⊙<small>MOVER</small></button>
           <button type="button" class="hud-preview-control preview-dodge" data-hud-preview="dodgeBtn" aria-label="Esquiva">➤<small>ESQ.</small></button>
           <button type="button" class="hud-preview-control preview-chest" data-hud-preview="chestBtn" aria-label="Baú">▣<small>BAÚ</small></button>
@@ -244,7 +244,7 @@
 
 <div id="hud" class="hidden">
   <div class="topbar">
-    <div class="badge"><span class="dot"></span><div><small>LAST LEGACY</small><strong id="roomLabel">CONECTANDO</strong></div></div>
+    <div class="badge"><span class="dot"></span><div><small>O ÚLTIMO LEGADO</small><strong id="roomLabel">CONECTANDO</strong></div></div>
     <div class="stats"><span>♥ <b id="hpText">100</b></span><span>✦ <b id="killText">0</b></span></div>
     <button id="orientationToggleBtn" class="orientation-toggle" type="button" aria-label="Alternar entre retrato e paisagem" title="Alternar orientação">↔ HORIZONTAL</button>
     <button id="settingsBtn" class="settings-toggle" type="button" aria-label="Abrir configurações" title="Configurações">⚙</button>
@@ -349,7 +349,7 @@
 
 <div id="loading" class="loading hidden">
   <div class="spinner"></div>
-  <strong>ENTRANDO NO LAST LEGACY</strong>
+  <strong>ENTRANDO NO O ÚLTIMO LEGADO</strong>
   <small id="loadingText">Procurando aventureiros...</small>
 </div>
 
@@ -359,7 +359,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 </script>
-<script type="module" src="game.js?v=20261113-combat-dummies-r6"></script>
+<script type="module" src="game.js?v=20261113-map-xp-r1"></script>
 </body>
     </html>
     
