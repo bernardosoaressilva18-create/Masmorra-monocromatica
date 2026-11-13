@@ -15,7 +15,7 @@ from flask import Flask, g, jsonify, request
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
-AI_VERSION = "2.2.0"
+AI_VERSION = "2.3.0"
 SERVICE_NAME = "masmorra-tactical-ai"
 MAX_COORDINATE = 10000.0
 try:
@@ -166,6 +166,7 @@ def _candidate_score(monster, candidate, previous_target_id=None, now_ms=None):
     role = _normalize_role(candidate)
     threat = _clamp(_number(candidate.get("threat", candidate.get("aggroThreat")), 0.0), 0.0, 100.0)
     recent_damage = _clamp(_number(candidate.get("recentDamage", candidate.get("recentAttackerDamage")), 0.0), 0.0, 100.0)
+    focus_count = int(_clamp(_number(candidate.get("focusCount", candidate.get("nearbyMonsterFocus")), 0.0), 0.0, 8.0))
     is_summon = _flag(candidate.get("isSummon")) or role in {"summon", "skeleton"}
     shield_until_active = _timestamp_is_future(candidate.get("shieldUntil"), now_ms)
     guard_until_active = _timestamp_is_future(candidate.get("guardUntil"), now_ms)
@@ -211,6 +212,16 @@ def _candidate_score(monster, candidate, previous_target_id=None, now_ms=None):
     score -= recent_damage * 0.012
     if recent_damage >= 8:
         reasons.append("recent_attacker")
+    # Spread ordinary pressure across the party instead of making every nearby
+    # creature dogpile the same player. Healers and high-threat players stay attractive.
+    if focus_count:
+        spread_penalty = min(1.35, focus_count * 0.34)
+        if role in {"healer", "support"}:
+            spread_penalty *= 0.42
+        if threat >= 35:
+            spread_penalty *= 0.60
+        score += spread_penalty
+        reasons.append("party_pressure_spread")
     if previous_target_id is not None and candidate_id == str(previous_target_id):
         score -= 0.90
         reasons.append("target_stability")
@@ -241,6 +252,7 @@ def _candidate_score(monster, candidate, previous_target_id=None, now_ms=None):
         "healthRatio": health_ratio,
         "role": role,
         "isSummon": is_summon,
+        "focusCount": focus_count,
         "reasons": reasons,
     }
 
@@ -375,6 +387,7 @@ def choose_target():
         "score": round(item["score"], 3),
         "distance": round(item["distance"], 3),
         "role": item["role"],
+        "focusCount": item["focusCount"],
     } for item in ranked[1:4]]
 
     return jsonify({
@@ -385,6 +398,7 @@ def choose_target():
         "reasons": winner["reasons"],
         "targetRole": winner["role"],
         "targetHealthRatio": round(winner["healthRatio"], 3),
+        "targetFocusCount": winner["focusCount"],
         "decisionConfidence": round(_clamp((ranked[1]["score"] - winner["score"]) / max(1.0, abs(winner["score"]) + 1.0), 0.0, 1.0), 3) if len(ranked) > 1 else 1.0,
         "tacticalProfile": _text_key(monster.get("kind") or "stalker"),
         "candidateCount": len(ranked),
