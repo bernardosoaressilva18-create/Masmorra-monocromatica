@@ -1,9 +1,9 @@
-const CACHE_NAME = 'ultimo-legado-offline-58';
+const CACHE_NAME = 'ultimo-legado-offline-59';
 const SHELL = [
   './',
   './index.html',
-  './style.css?v=20261113-r13',
-  './game.js?v=20261113-r13',
+  './style.css?v=20261113-r14',
+  './game.js?v=20261113-r14',
   './manifest.webmanifest?v=20261113-world-r6',
   './icon.svg?v=20261113-world-r6',
   './cover.svg?v=20261113-world-r6',
