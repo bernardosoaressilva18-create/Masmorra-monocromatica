@@ -241,7 +241,7 @@ function isDungeonPositionBlocked(x,z){
   if(offlineMode&&offlineState?.started){
     const phase=Math.max(1,Math.min(5,Number(offlineState.phase)||1));
     const gateZ=phase<5?-(30+(phase-1)*32):-168;
-    const enemiesAlive=phase===5?!!offlineState.boss?.alive:offlineLivingMonsters().length>0;
+    const enemiesAlive=offlineLivingMonsters().length>0||!!offlineState.boss?.alive;
     if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
   }
   // Os pilares do Mundo Monocromático só existem no primeiro mundo.
@@ -521,8 +521,7 @@ for (let z = -30; z <= 8; z += 6) {
   box(0.12, 0.18, 2.2, stoneLight, 14.55, 1.2, z);
   box(0.12, 0.12, 1.5, stoneDark, 14.55, 2.8, z + 2);
 }
-  box(30, 5, .8, wall, 0, 2, -180);
-  box(30, 5, .8, wall, 0, 2, 13);
+  // O perímetro de fundo e início foi criado acima; não duplicar as mesmas paredes.
 
   for (let z = -172; z <= 9; z += 5) {
     for (const side of [-1, 1]) {
@@ -3936,14 +3935,14 @@ const inventoryToggleBtn = $('inventoryToggleBtn');
 let inventoryHidden=false;
 try {
   const oldPreference = localStorage.getItem('mmHideInventory');
-  const layoutVersion = localStorage.getItem('mmInventoryLayoutV2');
-  if (layoutVersion !== '1') {
+  const layoutVersion=localStorage.getItem('mmInventoryLayoutV3');
+  if(layoutVersion!=='3'){
     inventoryHidden=false;
-    localStorage.setItem('mmInventoryLayoutV2','2');
-    localStorage.setItem('mmHideInventory', inventoryHidden ? '1' : '0');
-  }else if(localStorage.getItem('mmInventoryLayoutV2')==='2'){
+    localStorage.setItem('mmInventoryLayoutV3','3');
+    localStorage.setItem('mmHideInventory','0');
+  }else{
     inventoryHidden=oldPreference==='1';
-  }else{inventoryHidden=false;}
+  }
 } catch {}
 function applyInventoryVisibility() {
   if (!inventoryPanel || !inventoryToggleBtn) return;
