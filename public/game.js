@@ -234,10 +234,6 @@ const staticDungeonColliders = (() => {
   for (const z of [-31.8, -63.8, -95.8, -127.8]) {
     for (const x of [-3.4, 3.4]) list.push({ x, z, r: 0.48 });
   }
-  for (let i = 0; i < 6; i++) {
-    const a = i * Math.PI / 3;
-    list.push({ x: Math.cos(a) * 2, z: -16 + Math.sin(a) * 2, r: 0.38 });
-  }
   return list;
 })();
 function isDungeonPositionBlocked(x, z) {
@@ -1998,7 +1994,7 @@ function renderSkillTrees() {
         const unlocked=unlockedSkills.has(skill.id),canBuy=canUnlock({...skill,branch:branch.id});
         const required=skill.req?allSkills.find(item=>item.id===skill.req)?.name:'';
         const state=unlocked?'APRENDIDA ✓':skill.req&&!unlockedSkills.has(skill.req)?'REQUER: '+(required||'talento anterior'):canBuy?'DISPONÍVEL · 1 PONTO':skillPoints<1?'SEM PONTOS':'BLOQUEADA';
-        return '<article class="skill-description-card '+(unlocked?'unlocked':canBuy?'available':'locked')+'"><span class="skill-description-icon">'+esc(skill.icon)+'</span><div class="skill-description-copy"><strong>'+esc(skill.name)+'</strong><p>'+esc(skill.desc)+'</p><small>'+esc(state)+'</small></div></article>';
+        return '<button type="button" class="skill-description-card '+(unlocked?'unlocked':canBuy?'available':'locked')+'" data-skill="'+esc(skill.id)+'" data-branch="'+esc(branch.id)+'" '+(canBuy?'':'disabled')+'><span class="skill-description-icon">'+esc(skill.icon)+'</span><span class="skill-description-copy"><strong>'+esc(skill.name)+'</strong><p>'+esc(skill.desc)+'</p><small>'+esc(state)+'</small></span></button>';
       }).join('')+'</div></section>').join('')+'</section>';
   const html=core+filterBar+'<div class="skill-rpg-heading"><strong>CAMINHOS DE ESPECIALIZAÇÃO</strong><span>O núcleo se divide em cinco trilhas. Desbloqueie cada nível em sequência.</span></div>'+tree+
     '<p class="skill-orbit-help">Nós dourados estão disponíveis. Nós verdes já foram aprendidos. Deslize para os lados para ver todos os caminhos.</p>'+catalog;
@@ -2452,7 +2448,7 @@ function handleSkillClick(event) {
   matchingNodes.forEach(node => {
     const branchNode = node.closest('.skill-path-branch');
     const board = node.closest('.skill-rpg-scroll');
-    if (board) board.scrollTo({left:Math.max(0,node.offsetLeft - board.clientWidth/2),behavior:'smooth'});
+    if (board && !matchMedia('(pointer:coarse)').matches) board.scrollTo({left:Math.max(0,node.offsetLeft - board.clientWidth/2),behavior:'auto'});
     node.focus({preventScroll:true});
   });
 }
@@ -2756,6 +2752,10 @@ function handleOfflineClassAbility(data) {
   player.abilityCooldowns=player.abilityCooldowns||{};
   const remaining=(player.abilityCooldowns[ability]||0)-now;
   if(remaining>0){showNotice('Habilidade recarregando: '+Math.ceil(remaining/1000)+'s.');return;}
+  const manaCosts={knight_shield:12,knight_dash:16,arrow_rain:18,incendiary_arrows:22,goblin_invis:16,goblin_summon:24,ogre_slam:20,ogre_haste:14,healer_cure:18,healer_guardian_spirits:25,necromancer_summon:24,necromancer_dive:18,monk_impact_palm:16,monk_winged_steps:18,golem_split:24,golem_rock_toss:20};
+  const manaCost=manaCosts[ability]||16;
+  if((Number(player.mana)||0)<manaCost){showNotice('✦ Mana insuficiente! Aguarde regenerar.');return;}
+  player.mana=Math.max(0,(Number(player.mana)||0)-manaCost);
   const reduction=(ability==='arrow_rain'&&offlineHasSkill('archer_quiver')?1500:0)+
     (ability.startsWith('goblin_')&&offlineHasSkill('goblin_trickster')?2500:0)+
     (ability==='necromancer_dive'&&offlineHasSkill('necromancer_shadowstep')?2500:0)+
@@ -2932,7 +2932,7 @@ function stepOfflineSimulation() {
   const player = offlineState.players[0];
   const now = Date.now();
   if (player.hp > 0) {
-    if (player.mana < (player.maxMana || 100)) player.mana = Math.min(player.maxMana || 100, player.mana + .6);
+    if (player.mana < (player.maxMana || 100)) player.mana = Math.min(player.maxMana || 100, player.mana + 1.1);
     const invisible = now < (player.invisibleUntil || 0);
     player.invisible = invisible;
     player.shielded = now < (player.shieldUntil || 0);
@@ -2944,26 +2944,31 @@ function stepOfflineSimulation() {
       player.nextAuraHealAt = now + 5000;
       player.hp = Math.min(player.maxHp, player.hp + 2);
     }
-    // Invocações atacam automaticamente, como na exploração cooperativa.
-    offlineState.summons = (offlineState.summons || []).filter(s => s.expiresAt > now && s.hp > 0);
-    for (const summon of offlineState.summons) {
-      if (summon.summonType === 'guardian_spirit') {
-        if (now >= (summon.nextHealAt || 0)) {
-          summon.nextHealAt = now + 4000;
-          player.hp = Math.min(player.maxHp, player.hp + 5);
-        }
-        if (now >= (summon.nextDamageAt || 0)) {
-          summon.nextDamageAt = now + 5000;
-          const target = offlineNearestMonster(10);
-          if (target) offlineDamageMonster(target,9);
-        }
-      } else if (now >= (summon.nextAttackAt || 0)) {
-        summon.nextAttackAt = now + (summon.attackMs || 1000);
-        const target = offlineLivingMonsters()
-          .map(m=>({m,d:Math.hypot(m.x-summon.x,m.z-summon.z)}))
-          .filter(item=>item.d<=7)
-          .sort((a,b)=>a.d-b.d)[0]?.m;
-        if (target) offlineDamageMonster(target,summon.damage || 3);
+    // Invocações perseguem o alvo mais próximo, aproximam-se e só então atacam.
+    offlineState.summons=(offlineState.summons||[]).filter(s=>s.expiresAt>now&&s.hp>0);
+    for(let index=0;index<offlineState.summons.length;index++){
+      const summon=offlineState.summons[index];
+      if(summon.summonType==='guardian_spirit'){
+        const angle=Number(summon.spiritIndex??index)*Math.PI*2/3+now*.00022;
+        const followX=player.x+Math.cos(angle)*1.65,followZ=player.z+Math.sin(angle)*1.65;
+        const dx=followX-summon.x,dz=followZ-summon.z,distance=Math.hypot(dx,dz);
+        if(distance>.25){summon.x+=dx/Math.max(distance,.001)*Math.min(.22,distance);summon.z+=dz/Math.max(distance,.001)*Math.min(.22,distance);}
+        summon.rot=Math.atan2(-dx,-dz);
+        if(now>=(summon.nextHealAt||0)){summon.nextHealAt=now+4000;player.hp=Math.min(player.maxHp,player.hp+5);}
+        if(now>=(summon.nextDamageAt||0)){summon.nextDamageAt=now+5000;const target=offlineNearestMonster(10);if(target)offlineDamageMonster(target,9);}
+        continue;
+      }
+      const target=offlineLivingMonsters().map(monster=>({monster,distance:Math.hypot(monster.x-summon.x,monster.z-summon.z)})).sort((a,b)=>a.distance-b.distance)[0];
+      if(!target)continue;
+      const dx=target.monster.x-summon.x,dz=target.monster.z-summon.z,distance=target.distance;
+      summon.rot=Math.atan2(-dx,-dz);
+      if(distance>1.65){
+        const speed=summon.summonType==='stone_golem_clone'?.34:summon.summonType==='skeleton'?.48:.56;
+        const step=Math.min(speed,distance-1.45);
+        const resolved=resolveDungeonMovement(summon.x,summon.z,summon.x+dx/Math.max(distance,.001)*step,summon.z+dz/Math.max(distance,.001)*step);
+        summon.x=resolved.x;summon.z=resolved.z;
+      }else if(now>=(summon.nextAttackAt||0)){
+        summon.nextAttackAt=now+(summon.attackMs||1000);offlineDamageMonster(target.monster,summon.damage||3);
       }
     }
     for (const monster of offlineState.monsters) {
