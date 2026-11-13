@@ -1416,7 +1416,8 @@ function renderInventory() {
   $('recentLoot').innerHTML = recent.length ? recent.map(item => '<button type="button" class="loot-item select-item rarity-' + item.rarity.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') + (String(item.id) === String(selectedItemId) ? ' selected' : '') + '" data-item-id="' + escapeHTML(item.id) + '"><span>' + escapeHTML(item.name) + ' <small>(' + escapeHTML(item.rarity) + ' · Poder ' + (item.power || 1) + '/5)</small></span><b>' + (String(item.id) === String(selectedItemId) ? '✓' : '+') + '</b></button>').join('') : '<small>Nenhum item coletado ainda.</small>';
   const chosen = lootDrops.find(item => String(item.id) === String(selectedItemId));
   $('selectedItemLabel').textContent = chosen ? chosen.name + ' · ' + chosen.rarity + ' · PODER ' + (chosen.power || 1) + '/5' : 'Nenhum item selecionado';
-  $('useSelectedItemBtn').disabled = !chosen;
+  $('useSelectedItemBtn').textContent=chosen&&['Equipamento Antigo','Relíquia Monocromática','Coroa do Abismo'].includes(chosen.name)?'EQUIPAR':'USAR ITEM';
+  $('useSelectedItemBtn').disabled = !chosen || !started;
 }
 function useSelectedItem() {
   if (!started || !selectedItemId || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
@@ -2394,11 +2395,12 @@ function offlineDamageMonster(monster, amount, burnMs = 0, pushFrom = null, push
   if (monster.hp <= 0) {
     monster.alive = false;
     if (Math.random() < (offlineHasSkill('loot_sense') ? .30 : .18)) {
-      const rarity = Math.random() > .78 ? 'raro' : Math.random() > .45 ? 'incomum' : 'comum';
-      const item = {id:'offline-loot-'+Date.now()+'-'+Math.floor(Math.random()*1000),name:rarity==='raro'?'Fragmento Astral':rarity==='incomum'?'Relíquia Antiga':'Moeda da Masmorra',rarity,power:rarity==='raro'?3:rarity==='incomum'?2:1};
+      const roll=Math.random(),rarity=roll>.96?'lendário':roll>.84?'épico':roll>.58?'raro':roll>.28?'incomum':'comum';
+      const names={comum:'Moeda Antiga',incomum:'Pó de Cristal',raro:'Fragmento Monocromático',épico:'Núcleo Sombrio',lendário:'Cristal Ancestral'};
+      const item={id:'offline-loot-'+Date.now()+'-'+Math.floor(Math.random()*1000),name:names[rarity],rarity,power:{comum:1,incomum:2,raro:3,épico:4,lendário:5}[rarity],source:'monster'};
       lootDrops.unshift(item);
       inventoryData[rarity] = (inventoryData[rarity] || 0) + 1;
-      renderInventory();
+      saveSharedProfile();renderInventory();
       showNotice('Loot encontrado: '+item.name+' ('+rarity+').');
     }
   }
@@ -2602,6 +2604,39 @@ function handleOfflineClassAbility(data) {
   handleClassAbilityMessage({type:'classAbility',id:playerId,ability,x:player.x,z:player.z,center,targets,until,text:notice,rockFall});
 }
 
+
+function offlineUseItem(itemId){
+  const index=lootDrops.findIndex(entry=>String(entry.id)===String(itemId));
+  if(index<0){showNotice('Esse item não está no inventário.');return;}
+  const item=lootDrops[index],player=offlineState?.players?.[0];if(!player||player.hp<=0)return;
+  const effects={
+    comum:{potion:.3,coin:.1,powderHeal:.15,powderDamage:1,powderHits:3,fragmentDamage:1,fragmentHits:4,coreDamage:2,coreHits:4,gearDamage:1,heart:.4,ancientDamage:3,ancientHits:5},
+    incomum:{potion:.45,coin:.15,powderHeal:.25,powderDamage:2,powderHits:4,fragmentDamage:2,fragmentHits:5,coreDamage:3,coreHits:5,gearDamage:2,heart:.55,ancientDamage:5,ancientHits:7},
+    raro:{potion:.6,coin:.25,powderHeal:.35,powderDamage:3,powderHits:5,fragmentDamage:3,fragmentHits:6,coreDamage:5,coreHits:7,gearDamage:3,heart:.7,ancientDamage:7,ancientHits:9},
+    épico:{potion:.8,coin:.35,powderHeal:.5,powderDamage:5,powderHits:7,fragmentDamage:5,fragmentHits:8,coreDamage:7,coreHits:9,gearDamage:5,heart:.85,ancientDamage:10,ancientHits:12},
+    lendário:{potion:1,coin:.5,powderHeal:.7,powderDamage:8,powderHits:10,fragmentDamage:8,fragmentHits:12,coreDamage:10,coreHits:12,gearDamage:8,heart:1,ancientDamage:15,ancientHits:16}
+  };
+  const tier=effects[item.rarity]||effects.comum,maxHp=Number(player.maxHp)||130,heal=f=>Math.max(1,Math.round(maxHp*f));let message='';
+  if(['Poção de Vida','Moeda Antiga','Coração do Guardião'].includes(item.name)){
+    const key=item.name==='Poção de Vida'?'potion':item.name==='Moeda Antiga'?'coin':'heart';
+    if(player.hp>=maxHp){showNotice('Sua vida já está cheia!');return;}
+    const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier[key]));message='Vida +'+(player.hp-before)+'.';
+  }else if(item.name==='Pó de Cristal'){
+    const before=player.hp;player.hp=Math.min(maxHp,player.hp+heal(tier.powderHeal));
+    player.damageBuff=Math.max(player.damageBuff||0,tier.powderDamage);player.damageBuffHits=Math.max(player.damageBuffHits||0,tier.powderHits);
+    message='Vida +'+(player.hp-before)+' e dano aumentado por '+tier.powderHits+' golpes.';
+  }else if(['Fragmento Monocromático','Núcleo Sombrio','Cristal Ancestral'].includes(item.name)){
+    const ancient=item.name==='Cristal Ancestral',core=item.name==='Núcleo Sombrio';
+    const damage=ancient?tier.ancientDamage:core?tier.coreDamage:tier.fragmentDamage,hits=ancient?tier.ancientHits:core?tier.coreHits:tier.fragmentHits;
+    player.damageBuff=Math.max(player.damageBuff||0,damage);player.damageBuffHits=Math.max(player.damageBuffHits||0,hits);message='Dano +'+damage+' por '+hits+' golpes.';
+  }else if(['Equipamento Antigo','Relíquia Monocromática','Coroa do Abismo'].includes(item.name)){
+    equipmentDamage=Math.min(18,equipmentDamage+tier.gearDamage);player.equipmentDamage=equipmentDamage;
+    if(item.name==='Coroa do Abismo')player.hp=maxHp;
+    message='Equipado! Ataque permanente +'+tier.gearDamage+'.';
+  }else{showNotice('Este item ainda não tem um efeito.');return;}
+  lootDrops.splice(index,1);inventoryData[item.rarity]=Math.max(0,(inventoryData[item.rarity]||0)-1);selectedItemId=null;
+  saveSharedProfile();renderInventory();showNotice(item.name+': '+message);
+}
 function handleOfflineAction(data) {
   if (!offlineState || !data) return;
   const player = offlineState.players[0];
@@ -2622,7 +2657,8 @@ function handleOfflineAction(data) {
       .filter(m => m.alive && Math.hypot(m.x - player.x, m.z - player.z) < 3.2)
       .sort((a,b) => Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];
     if (target) {
-      const damage = (selectedClass === 'ogre' || selectedClass === 'golem' ? 12 : selectedClass === 'archer' || selectedClass === 'goblin' ? 9 : 8) + (offlineHasSkill('hunter_instinct')||offlineHasSkill('knight_royal_oath')||offlineHasSkill('goblin_poison')||offlineHasSkill('ogre_crusher')||offlineHasSkill('necromancer_reaper')||offlineHasSkill('monk_zen')?1:0);
+      const damage=(selectedClass==='ogre'||selectedClass==='golem'?12:selectedClass==='archer'||selectedClass==='goblin'?9:8)+(equipmentDamage||0)+(player.damageBuffHits>0?(player.damageBuff||0):0)+(offlineHasSkill('hunter_instinct')||offlineHasSkill('knight_royal_oath')||offlineHasSkill('goblin_poison')||offlineHasSkill('ogre_crusher')||offlineHasSkill('necromancer_reaper')||offlineHasSkill('monk_zen')?1:0);
+      if(player.damageBuffHits>0)player.damageBuffHits--;
       offlineDamageMonster(target,damage);
       showNotice(target.alive ? 'Golpe acertou o monstro!' : 'Monstro derrotado!');
     } else showNotice('Chegue mais perto do inimigo.');
@@ -2632,14 +2668,21 @@ function handleOfflineAction(data) {
       showNotice('Chegue perto de um baú fechado.');
       return;
     }
-    chest.opened = true;
-    const rarity = Math.random() > .88 ? 'raro' : Math.random() > .55 ? 'incomum' : 'comum';
-    const item = {id:'offline-loot-'+Date.now(),name:rarity==='raro'?'Fragmento Astral':rarity==='incomum'?'Relíquia Antiga':'Moeda da Masmorra',rarity,power:rarity==='raro'?3:rarity==='incomum'?2:1};
-    lootDrops.unshift(item);
-    inventoryData[rarity] = (inventoryData[rarity] || 0) + 1;
-    renderInventory();
-    playSfx('loot');
-    showNotice('Baú aberto · ' + item.name + ' (' + rarity + ')');
+    chest.opened=true;
+    const remainingSkins=CHEST_ONLY_SKINS.filter(skin=>!unlockedSkins.has(skin));
+    if(remainingSkins.length&&Math.random()<.22){
+      const skin=remainingSkins[Math.floor(Math.random()*remainingSkins.length)];
+      unlockedSkins.add(skin);saveSharedProfile();updateHeroShowcase();
+      showNotice('✦ Nova skin desbloqueada: '+skin+'!');playSfx('loot');
+    }else{
+      const roll=Math.random(),rarity=roll>.96?'lendário':roll>.84?'épico':roll>.58?'raro':roll>.28?'incomum':'comum';
+      const names={comum:'Poção de Vida',incomum:'Pó de Cristal',raro:'Fragmento Monocromático',épico:'Equipamento Antigo',lendário:'Coração do Guardião'};
+      const item={id:'offline-loot-'+Date.now(),name:names[rarity],rarity,power:{comum:1,incomum:2,raro:3,épico:4,lendário:5}[rarity],source:'chest'};
+      lootDrops.unshift(item);inventoryData[rarity]=(inventoryData[rarity]||0)+1;
+      saveSharedProfile();renderInventory();playSfx('loot');showNotice('Baú aberto · '+item.name+' ('+rarity+')');
+    }
+  } else if (data.type === 'useItem') {
+    offlineUseItem(data.id);
   } else if (data.type === 'classAbility') {
     handleOfflineClassAbility(data);
   } else if (data.type === 'spell') {
@@ -2902,9 +2945,15 @@ function handleMessage(m) {
     return;
   }
 
+  if(m.type==='skinUnlock'){
+    const skin=String(m.skin||'');if(CHEST_ONLY_SKINS.includes(skin))unlockedSkins.add(skin);
+    if(Array.isArray(m.unlockedSkins))m.unlockedSkins.filter(id=>CHEST_ONLY_SKINS.includes(id)).forEach(id=>unlockedSkins.add(id));
+    saveSharedProfile();updateHeroShowcase();showNotice('✦ Skin secreta desbloqueada: '+skin+'!');return;
+  }
   if (m.type === 'inventory') {
     inventoryData = m.inventory || inventoryData;
     lootDrops = m.lootDrops || lootDrops;
+    saveSharedProfile();
     renderInventory();
     return;
   }
