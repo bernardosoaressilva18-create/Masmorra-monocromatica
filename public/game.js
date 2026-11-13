@@ -4341,9 +4341,9 @@ const CLASS_ABILITY_CONFIG = {
     { ability: 'necromancer_bone_bolt', icon: '☽', label: 'ORBE ÓSSEO', description: 'Lança uma esfera branca de energia óssea contra um inimigo.', cooldown: 8.5, spell: true, spellType: 'bone' }
   ],
   monk: [
-    { ability: 'monk_impact_palm', icon: '👊', label: 'PALMA', description: 'Onda de choque: 8 de dano, empurra e atordoa inimigos.', cooldown: 18 },
+    { ability: 'monk_impact_palm', icon: '👊', label: 'PALMA', description: 'Onda de choque: 12 de dano, empurra e atordoa inimigos.', cooldown: 18 },
     { ability: 'monk_winged_steps', icon: '🪽', label: 'PASSOS', description: 'Avança com uma onda de impacto, causa 10 de dano e ganha velocidade.', cooldown: 15 },
-    { ability: 'monk_spirit_wave', icon: '☯', label: 'ONDA ESPIRITUAL', description: 'Libera uma onda de energia à frente do Monge.', cooldown: 13 }
+    { ability: 'monk_spirit_wave', icon: '☯', label: 'ONDA ESPIRITUAL', description: 'Libera uma onda espiritual à frente do Monge e causa 16 de dano.', cooldown: 13 }
   ],
   golem: [
     { ability: 'golem_split', icon: '🪨', label: 'DESMANCHAR', description: 'Divide-se em três golens menores por 12 segundos.', cooldown: 26 },
@@ -4400,7 +4400,7 @@ const CLASS_DEMO_DAMAGE = {
   ogre_slam:30,ogre_haste:0,ogre_earthquake:38,
   healer_cure:0,healer_guardian_spirits:18,healer_light_orb:0,
   necromancer_summon:18,necromancer_dive:0,necromancer_bone_bolt:30,
-  monk_impact_palm:22,monk_winged_steps:16,monk_spirit_wave:32,
+  monk_impact_palm:12,monk_winged_steps:10,monk_spirit_wave:16,
   golem_split:18,golem_rock_toss:34,golem_stone_guard:0
 };
 function drawClassDemoCanvas(canvas, ability, stats, visual, elapsed) {
