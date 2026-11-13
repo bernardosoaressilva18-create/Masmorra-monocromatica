@@ -4413,7 +4413,7 @@ function updateClassAbilityDemo(reset = false) {
     const damage = $('classDemoDamage');
     const damageText = $('classDemoDamageText');
     const cooldownText = $('classDemoCooldownText');
-    if (monster) monster.textContent = stats.kind === 'heal' || stats.kind === 'guard' ? '🛡️' : '👹';
+    if (monster) monster.textContent = '👹';
     if (damage) damage.textContent = stats.result.startsWith('0 dano') ? 'EFEITO' : stats.result.startsWith('+') ? 'CURA' : '−HP';
     if (damageText) damageText.textContent = stats.result;
     if (cooldownText) cooldownText.textContent = (Number(ability.cooldown) || 0).toLocaleString('pt-BR') + ' s';
