@@ -375,6 +375,7 @@ function takeDamage(room, player, amount) {
   // Personagens derrotados não recebem mais dano nem podem ser ressuscitados por efeitos posteriores.
   if (player.hp <= 0) return 0;
   const incomingDamage = Number(amount);
+  if (Date.now() < (player.stoneGuardUntil || 0)) return 0;
   if (!Number.isFinite(incomingDamage) || incomingDamage <= 0) return 0;
   // A esquiva automática tem recarga própria de 5,2 s: o dobro da esquiva normal.
   const damageNow=Date.now();
@@ -512,13 +513,23 @@ function createWave(phase,realm=1,spawnStartAt=Date.now()){
  const astral={1:['wraith','thorn','stalker','wraith','brute','thorn'],2:['thorn','inferno','wraith','thorn','brute','wraith','inferno'],3:['abyss','thorn','wraith','abyss','brute','thorn','inferno','wraith'],4:['inferno','abyss','brute','wraith','inferno','thorn','abyss','brute','wraith'],5:['abyss','abyss','inferno','brute','abyss','wraith','inferno','abyss','brute']};
  const eclipse={1:['thorn','abyss','inferno','thorn','brute','abyss'],2:['abyss','inferno','thorn','abyss','brute','inferno','thorn'],3:['inferno','abyss','thorn','inferno','brute','abyss','thorn','inferno'],4:['abyss','inferno','abyss','thorn','brute','inferno','abyss','thorn','inferno'],5:['abyss','abyss','inferno','thorn','brute','abyss','inferno','abyss','thorn']};
  const kindsByPhase=realm===3?eclipse:realm===2?astral:original,count=phase===1?(realm===1?5:6):6+phase+(realm===1?0:1),kinds=kindsByPhase[phase]||kindsByPhase[5],center=-((phase-1)*32+14),now=Date.now(),firstSpawnAt=Math.max(now,Number(spawnStartAt)||now);
- return Array.from({length:count},(_,i)=>{const kind=kinds[i%kinds.length],base=phase===1?5:7+phase*2,scale=realm===1?1:realm===2?1.3:1.65,hp=Math.round(((kind==='brute'?base*2:base)+(phase-1)*2)*scale);return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*22,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:firstSpawnAt+i*1400,alive:true,hp,maxHp:hp,attackAt:0};});
+ const scale=realm===1?1:realm===2?1.3:1.65;
+ const wave=Array.from({length:count},(_,i)=>{
+  const kind=kinds[i%kinds.length],base=phase===1?7:10+phase*2;
+  const hp=Math.round(((kind==='brute'?base*2.15:kind==='abyss'?base*1.75:base)+(phase-1)*3)*scale);
+  const damage=Math.round((kind==='brute'?8:kind==='abyss'?9:kind==='inferno'?7:kind==='assassin'?8:5+phase)*scale);
+  return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*18,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:firstSpawnAt+i*1150,alive:true,hp,maxHp:hp,damage,attackAt:0};
+ });
+ const upperX=phase%2===1?-8.25:8.25;
+ const eliteHp=Math.round((58+phase*17)*scale),eliteDamage=Math.round((8+phase*1.8)*scale);
+ wave.push({id:'r'+realm+'p'+phase+'elite',kind:realm===3?'abyss':realm===2?'assassin':'brute',name:'Guardião do Andar Superior',phase,realm,x:upperX,z:center-14.5,spawned:false,spawnAt:firstSpawnAt+count*1150+600,alive:true,hp:eliteHp,maxHp:eliteHp,damage:eliteDamage,attackAt:0,upperElite:true});
+ return wave;
 }
 function advancePhase(room) {
   if (room.phase >= 5) return;
   const names=room.realm===3?['','Raízes do Eclipse','Pântano Rubro','Ruínas Vivas','Coração Selvagem','Trono do Eclipse']:room.realm===2?['','Jardins Estelares','Ponte do Vazio','Bosque de Cristal','Coroa Celeste','Trono Astral']:['','Cripta Esquecida','Cavernas Mágicas','Floresta Amaldiçoada','Terras Vulcânicas','Abismo Final'];
   room.phase++;
-  room.safeZoneUntil = Date.now() + 6000;
+  room.safeZoneUntil = Date.now() + 15000;
   room.nextSafeBroadcast = 0;
   for (const player of room.players.values()) {
     player.talentPoints = (player.talentPoints || 0) + 1;
@@ -545,13 +556,13 @@ function advancePhase(room) {
 }
 
 function enterAstralRealm(room){
- room.realm=2;room.phase=1;room.safeZoneUntil=Date.now()+5000;room.nextSafeBroadcast=0;room.monsters=createWave(1,2,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
+ room.realm=2;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,2,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
  room.chests=[{id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},{id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}];
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 function enterEclipseRealm(room){
- room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+6000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
+ room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil + 120);room.boss=null;room.cursedBoss=null;
  room.chests=[{id:'e0',x:8,z:-12,openedBy:[]},{id:'e1',x:-8,z:-44,openedBy:[]},{id:'e2',x:8,z:-76,openedBy:[]},{id:'e3',x:-8,z:-108,openedBy:[]},{id:'e4',x:8,z:-140,openedBy:[]}];
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ PORTAL DO MUNDO INVERTIDO! Você chegou ao Eclipse Selvagem: inimigos mais fortes, armadilhas corrompidas, novo guardião e +3 pontos de skill.'}));}
  broadcast(room,state(room));
@@ -588,6 +599,8 @@ function newRoom(code,hostId,isPublic=false,requestedGameMode='coop'){
  const room={isPublic,gameMode,players:new Map(),hostId,started:false,realm:1,phase:1,
   monsters:gameMode==='pvp_rpg'?[]:createWave(1,1),summons:[],boss:null,bossAttackAt:0,
   openTraps:[],safeZoneUntil:0,nextSafeBroadcast:0,emptySince:0,cursedBoss:null,cursedBossAttackAt:0,
+  mapHazards:gameMode==='pvp_rpg'?[]:createRoomMapHazards(),
+  underworldPits:[],
   chests:gameMode==='pvp_rpg'?[]:[
    {id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},
    {id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}
@@ -628,6 +641,17 @@ const SERVER_ENV_HAZARDS=SERVER_MAP_CENTERS.flatMap((z,index)=>[
  {id:'rune-surge-'+index,type:'rune',x:index%2===0?8.2:-8.2,z:z-11,r:1.15,damage:9,cooldown:1150},
  {id:'crumble-'+index,type:'crumble',x:index%2===0?-5.7:5.7,z:z-13,r:1.25,damage:7,cooldown:1300}
 ]);
+function createRoomMapHazards(){
+ const rand=(min,max)=>min+Math.random()*(max-min);
+ return SERVER_MAP_CENTERS.flatMap((center,index)=>{
+  const side=index%2===0?-1:1,other=-side;
+  return [
+   {id:'miasma-'+index,type:'miasma',x:side*rand(7,8.3),z:center+rand(.8,4.2),r:1.45,damage:5,cooldown:1100},
+   {id:'rune-surge-'+index,type:'rune',x:other*rand(6.7,8.1),z:center-rand(2,5.2),r:1.18,damage:9,cooldown:1150},
+   {id:'crumble-'+index,type:'crumble',x:side*rand(4.6,6.1),z:center-rand(6.4,8),r:1.3,damage:6,cooldown:1400}
+  ];
+ });
+}
 function serverPointInPolygon(x,y,polygon){
  let inside=false;
  for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
@@ -660,13 +684,28 @@ function processPressurePlate(room,player,now){
  broadcast(room,state(room));
  return true;
 }
+function openUnderworldPit(room,player,hazard,now){
+ room.underworldPits=Array.isArray(room.underworldPits)?room.underworldPits:[];
+ if(room.underworldPits.some(pit=>pit.id===hazard.id&&pit.open))return;
+ const pit={id:hazard.id,x:hazard.x,z:hazard.z,ownerId:player.id,open:true,until:now+22000};
+ room.underworldPits=room.underworldPits.filter(item=>item.id!==hazard.id);room.underworldPits.push(pit);
+ player.underworldReturnX=hazard.x;player.underworldReturnZ=hazard.z;player.underworldUntil=pit.until;
+ player.x=hazard.x;player.z=hazard.z;
+ const factor=1+(room.phase||1)*.13+((room.realm||1)-1)*.28;
+ const guards=[{kind:'abyss',name:'Sentinela Subterrânea',dx:-1.65,dz:-1.05,hp:72,damage:10},{kind:'assassin',name:'Caçador do Subsolo',dx:1.7,dz:-.8,hp:54,damage:9},{kind:'thorn',name:'Raiz Abissal',dx:0,dz:2,hp:64,damage:8}];
+ guards.forEach((e,i)=>{const hp=Math.round(e.hp*factor);room.monsters.push({id:'under-'+player.id+'-'+now+'-'+i,kind:e.kind,name:e.name,x:hazard.x+e.dx,z:hazard.z+e.dz,phase:room.phase,realm:room.realm||1,spawned:true,spawnAt:now+i*350,alive:true,hp,maxHp:hp,damage:Math.round(e.damage*factor),attackAt:0,underworldPitId:hazard.id,underworldOnlyPlayerId:player.id});});
+ room.chests.push({id:'under-chest-'+player.id+'-'+now,x:hazard.x+2.15,z:hazard.z+2.05,openedBy:[],underground:true});
+ player.mapTrapDamageAt=now+22000;
+ if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'⬇ O PISO CEDEU! Você caiu na câmara subterrânea. Derrote os três guardiões e procure o baú.'}));
+ broadcast(room,state(room));
+}
 function applyMapHazards(room,player,now){
- if(!player||player.hp<=0||room.gameMode==='pvp_rpg'||now<(player.mapTrapDamageAt||0))return;
+ if(!player||player.hp<=0||room.gameMode==='pvp_rpg'||now<(player.mapTrapDamageAt||0)||now<(player.underworldUntil||0))return;
  let hazard=null;
  for(const spike of SERVER_SPIKES){
   if(Math.hypot(player.x-spike.x,player.z-spike.z)<spike.r){hazard={...spike,type:'spike',cooldown:1050};break;}
  }
- if(!hazard)for(const field of SERVER_ENV_HAZARDS){
+ if(!hazard)for(const field of (room.mapHazards||SERVER_ENV_HAZARDS)){
   if(Math.hypot(player.x-field.x,player.z-field.z)<field.r){hazard=field;break;}
  }
  const activePit=(room.openTraps||[]).map(id=>SERVER_PITS.find(item=>item.id===id))
@@ -675,6 +714,13 @@ function applyMapHazards(room,player,now){
   hazard={id:'pit-center-'+activePit.id,type:'pit',damage:9,cooldown:850};
  }
  if(!hazard)return;
+ if(hazard.type==='crumble'){openUnderworldPit(room,player,hazard,now);return;}
+ if(hazard.type==='miasma'){
+  const wasPoisoned=now<(player.poisonUntil||0);
+  player.poisonUntil=Math.max(player.poisonUntil||0,now+6500);
+  player.poisonNextAt=Math.min(player.poisonNextAt||now,now);
+  if(!wasPoisoned&&player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'☣ VENENO! Saia da névoa; o efeito continua por alguns segundos.'}));
+ }
  const trapRank=cleanLevelUpgrades(player.levelUpgrades).trapGuard;
  const mitigatedDamage=Math.max(1,Math.round(hazard.damage*(1-Math.min(.45,trapRank*.06))));
  player.mapTrapDamageAt=now+(hazard.cooldown||1050);
@@ -755,12 +801,15 @@ function resolveServerMovement(room, player, nextX, nextZ) {
 }
 
 function state(room) {
-  // Regeneração de mana online: 2 pontos por segundo, em pulsos de meio segundo.
+  // Regeneração contínua calculada pelo tempo real: 2 mana por segundo.
   const now = Date.now();
   for (const p of room.players.values()) {
-    if (p.hp > 0 && (p.mana ?? 100) < (p.maxMana ?? 100) && now >= (p.nextManaRegenAt || 0)) {
-      p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + 1 + cleanLevelUpgrades(p.levelUpgrades).manaRegen*.125);
-      p.nextManaRegenAt = now + 500;
+    const previous = Number(p.manaRegenLastAt);
+    const elapsed = Number.isFinite(previous) && previous > 0 ? Math.max(0, Math.min(1.5, (now - previous) / 1000)) : 0;
+    p.manaRegenLastAt = now;
+    if (p.hp > 0 && elapsed > 0 && (p.mana ?? 100) < (p.maxMana ?? 100)) {
+      const bonus = cleanLevelUpgrades(p.levelUpgrades).manaRegen * 0.15;
+      p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + elapsed * (2 + bonus));
     }
   }
   // Evita que uma sala fique sem anfitrião após uma saída ou reconexão.
@@ -772,7 +821,8 @@ function state(room) {
       playerClass:p.playerClass,skin:p.skin,skills:p.skills,talentPoints:p.talentPoints,unlockedSkins:p.unlockedSkins||[],equipmentDamage:p.equipmentDamage||0,ready:!!p.ready,isHost:p.id===room.hostId,
       pvpKills:p.pvpKills||0,pvpMonsterKills:p.pvpMonsterKills||0,pvpRespawnAt:p.pvpRespawnAt||0,
       level:p.level||1,xp:p.xp||0,xpToNext:p.xpToNext||levelXpNeeded(p.level||1),levelPoints:p.levelPoints||0,levelUpgrades:cleanLevelUpgrades(p.levelUpgrades),
-      invisible:Date.now()<(p.invisibleUntil||0),shielded:Date.now()<(p.shieldUntil||0),ogreHasteUntil:p.ogreHasteUntil||0
+      invisible:Date.now()<(p.invisibleUntil||0),shielded:Date.now()<(p.shieldUntil||0),ogreHasteUntil:p.ogreHasteUntil||0,
+      poisonUntil:p.poisonUntil||0,stoneGuardUntil:p.stoneGuardUntil||0,underworldUntil:p.underworldUntil||0
     })),
     summons: (room.summons || []).filter(s => s.hp > 0 && (!s.expiresAt || s.expiresAt > Date.now())).map(s => {
        const summonType = String(s.summonType || '').toLowerCase().replace(/-/g, '_');
@@ -785,6 +835,8 @@ function state(room) {
     realm: room.realm || 1,
     safeZoneUntil: room.safeZoneUntil || 0,
     openTraps: room.openTraps || [],
+    mapHazards: room.mapHazards || SERVER_ENV_HAZARDS,
+    underworldPits: (room.underworldPits || []).filter(pit=>pit.open),
     started: room.started,
     hostId: room.hostId,
     monsters: [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])],
@@ -802,7 +854,8 @@ wss.on('connection', ws => {
   shieldUntil: 0, invisibleUntil: 0, ogreHasteUntil: 0, abilityCooldowns: {},
   name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
-  hp: 130, maxHp: 130, mana: 100, maxMana: 100, nextManaRegenAt: Date.now() + 1000, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
+  hp: 130, maxHp: 130, mana: 100, maxMana: 100, nextManaRegenAt: Date.now() + 1000, manaRegenLastAt:Date.now(), lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
+  poisonUntil:0,poisonNextAt:0,stoneGuardUntil:0,golemSplitUntil:0,underworldUntil:0,underworldReturnX:0,underworldReturnZ:0,
   level:1,xp:0,xpToNext:100,levelPoints:0,levelUpgrades:defaultLevelUpgrades(),mapTrapDamageAt:0,trapId:null,
   playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, equipmentDamage: 0, unlockedSkins:[], nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
   room: null,
@@ -1092,10 +1145,10 @@ wss.on('connection', ws => {
         });
         broadcast(room,{type:'notice',text:'⚔ ARENA PvP RPG! Derrote rivais, invoque monstros com mana e conquiste eliminações.'});
       } else {
-        room.safeZoneUntil=Date.now()+5000;
+        room.safeZoneUntil=Date.now()+15000;
         room.nextSafeBroadcast=0;
         room.monsters=createWave(1,room.realm||1,room.safeZoneUntil + 120);
-        broadcast(room,{type:'notice',text:'Preparação inicial por 5 segundos! Os monstros vão surgir depois, um de cada vez.'});
+        broadcast(room,{type:'notice',text:'Preparação inicial por 15 segundos! Organize a equipe e as melhorias.'});
       }
       broadcast(room,state(room));
     } else if (msg.type === 'loadout') {
@@ -1126,7 +1179,7 @@ wss.on('connection', ws => {
       refreshPlayerStats(player, !room.started);
       broadcast(room, state(room));
     } else if (msg.type === 'move') {
-      if (!room.started || player.hp <= 0 || player.necromancerDivePending) return;
+      if (!room.started || player.hp <= 0 || player.necromancerDivePending || Date.now()<(player.stoneGuardUntil||0)) return;
       if(room.gameMode==='pvp_rpg'&&Date.now()<(player.pvpStunnedUntil||0))return;
       const requestedX=Math.max(-13,Math.min(13,Number(msg.x)||0));
       const requestedZ=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,Number(msg.z)||-14)):Math.max(-174,Math.min(8,Number(msg.z)||0));
@@ -1263,6 +1316,8 @@ wss.on('connection', ws => {
       };
       if (abilityClass[ability] !== player.playerClass) return;
       const now = Date.now();
+      if(now<(player.golemSplitUntil||0)&&ability!=='golem_split'){ws.send(JSON.stringify({type:'notice',text:'Você está dividido em fragmentos e não pode atacar até se recompor.'}));return;}
+      if(now<(player.stoneGuardUntil||0)){ws.send(JSON.stringify({type:'notice',text:'Guarda de Pedra ativa: você não pode se mover nem atacar.'}));return;}
       player.abilityCooldowns = player.abilityCooldowns || {};
       const remaining = (player.abilityCooldowns[ability] || 0) - now;
       if (remaining > 0) {
@@ -1433,6 +1488,7 @@ wss.on('connection', ws => {
       let rockFall = null;
       if (ability === 'golem_split') {
         const duration = hasSkill(player, 'golem_splitheart') ? 16000 : 12000;
+        player.golemSplitUntil = now + duration;
         player.invisibleUntil = now + duration;
         room.summons = room.summons || [];
         const cloneHp = (hasSkill(player, 'golem_shatter') ? 62 : 50) + (hasSkill(player, 'golem_splitheart') ? 15 : 0);
@@ -1445,13 +1501,17 @@ wss.on('connection', ws => {
             playerClass: 'golem_clone', skin: 'default', color: 0x8a9096,
             x: Math.max(-12.5, Math.min(12.5, player.x + Math.cos(angle) * 1.55)),
             z: Math.max(-169, Math.min(7, player.z + Math.sin(angle) * 1.55)),
-            rot: player.rot || 0, hp: cloneHp, maxHp: cloneHp, damage: cloneDamage,
-            attackMs: 900, expiresAt: now + duration, nextAttackAt: now + 700
+            rot: player.rot || 0, hp: cloneHp, maxHp: cloneHp, damage: 0,
+            attackMs: 900, expiresAt: now + duration, nextAttackAt: now + duration
           });
         }
         center = { x: player.x, z: player.z };
         until = player.invisibleUntil;
-        text = '🪨 Você se desmanchou em três golens menores! Eles atacam por ' + Math.round(duration / 1000) + ' segundos.';
+        text = '🪨 Você se dividiu em três fragmentos! Não pode atacar até se recompor em ' + Math.round(duration / 1000) + ' segundos.';
+      } else if (ability === 'golem_stone_guard') {
+        player.stoneGuardUntil=now+4000;player.shieldUntil=player.stoneGuardUntil;player.dodgeUntil=player.stoneGuardUntil;
+        center={x:player.x,z:player.z};until=player.stoneGuardUntil;
+        text='⬟ Guarda de Pedra: você se deita, fica imóvel e intangível por 4 segundos.';
       } else if (ability === 'golem_rock_toss') {
         const aimX = Number(msg.x), aimZ = Number(msg.z);
         if (!Number.isFinite(aimX) || !Number.isFinite(aimZ)) {
@@ -1756,6 +1816,8 @@ wss.on('connection', ws => {
       broadcast(room, state(room));
     } else if (msg.type === 'attack') {
       if (!room.started || player.hp <= 0) return;
+      if(Date.now()<(player.golemSplitUntil||0)){ws.send(JSON.stringify({type:'notice',text:'Você não pode atacar enquanto está dividido em fragmentos.'}));return;}
+      if(Date.now()<(player.stoneGuardUntil||0))return;
       if (Date.now() < (room.safeZoneUntil || 0)) { ws.send(JSON.stringify({ type: 'notice', text: 'Zona segura: abra a árvore de skills antes do próximo combate.' })); return; }
       const now = Date.now();
       const isMonk = player.playerClass === 'monk';
@@ -1975,6 +2037,15 @@ setInterval(() => {
       continue;
     }
     for (const p of players) {
+      if(p.underworldUntil&&now>=p.underworldUntil){
+        p.x=p.underworldReturnX;p.z=p.underworldReturnZ;p.underworldUntil=0;
+        if(p.ws?.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'Você saiu da câmara subterrânea.'}));
+      }
+      if(p.poisonUntil&&now>=p.poisonUntil){p.poisonUntil=0;p.poisonNextAt=0;}
+      if(p.poisonUntil&&p.hp>0&&now>=(p.poisonNextAt||0)){
+        const before=p.hp;takeDamage(room,p,2);p.poisonNextAt=now+1000;
+        if(p.hp<before&&p.ws?.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☣ Veneno: -'+(before-p.hp)+' HP.'}));
+      }
       applyMapHazards(room,p,now);
       if (p.necromancerDivePending && now > (p.necromancerDiveUntil || 0)) {
         p.necromancerDivePending = false; p.necromancerDiveUntil = 0; p.invisibleUntil = 0;
@@ -2112,7 +2183,8 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
       // Goblins invocados provocam os monstros: recebem uma vantagem de aggro
       // para que os inimigos realmente os persigam em vez de focar sempre o jogador.
       for(const player of players){
-        if(player.hp<=0||now<(player.invisibleUntil||0))continue;
+        if(player.hp<=0||now<(player.invisibleUntil||0)||now<(player.stoneGuardUntil||0))continue;
+        if(monster.underworldOnlyPlayerId&&String(player.id)!==String(monster.underworldOnlyPlayerId))continue;
         if(room.gameMode==='pvp_rpg'&&monster.pvpSummoned&&String(player.id)===String(monster.ownerId))continue;
         const distance=Math.hypot(player.x-monster.x,player.z-monster.z);
         if (distance < targetPriority) {
