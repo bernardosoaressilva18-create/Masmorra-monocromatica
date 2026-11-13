@@ -284,7 +284,7 @@ function ensureAudio() {
       backgroundMusic.preload = 'auto';
       backgroundMusic.volume = gameSettings.musicEnabled ? gameSettings.musicVolume * 0.78 : 0;
       backgroundMusic.addEventListener('error', () => {
-        console.warn('[Last Legacy] A faixa externa não pôde ser carregada.');
+        console.warn('[O Último Legado] A faixa externa não pôde ser carregada.');
         if (started) showNotice('A trilha não carregou. Confira a conexão de internet.');
       });
     }
@@ -302,7 +302,7 @@ function ensureAudio() {
       backgroundMusic.play().catch(() => {});
     }
   } catch (error) {
-    console.warn('[Last Legacy] Áudio indisponível neste navegador:', error);
+    console.warn('[O Último Legado] Áudio indisponível neste navegador:', error);
   }
 }
 function playSfx(kind = 'ui') {
@@ -7195,7 +7195,7 @@ try {
     });
   }
 } catch (error) {
-  console.error('[Last Legacy] Falha ao inicializar os gráficos 3D:', error);
+  console.error('[O Último Legado] Falha ao inicializar os gráficos 3D:', error);
   const bootError = document.createElement('div');
   bootError.setAttribute('role', 'alert');
   bootError.textContent = 'Não foi possível iniciar os gráficos 3D. Recarregue a página e tente novamente.';
