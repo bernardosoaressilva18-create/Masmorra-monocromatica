@@ -5344,23 +5344,49 @@ function castSpell(kind) {
   // O efeito de lançamento aparece na hora; o servidor confirma os alvos e o dano.
   vibrateGame(kind === 'fire' ? 18 : 24);
   playSfx(kind==='fire'?'fire':'lightning');
-  const palette={fire:{color:0xff6b24,geo:new THREE.SphereGeometry(.25,9,7)},lightning:{color:0x69aaff,geo:new THREE.OctahedronGeometry(.24,1)},arcane:{color:0x68baff,geo:new THREE.DodecahedronGeometry(.25,1)},bone:{color:0xf3f5ff,geo:new THREE.IcosahedronGeometry(.24,1)},healing:{color:0x73ffc1,geo:new THREE.IcosahedronGeometry(.24,1)}};
+  const palette={
+    fire:{color:0xff6b24,geo:new THREE.SphereGeometry(.24,10,8),duration:680,arc:.85,spin:7},
+    lightning:{color:0x69aaff,geo:new THREE.TorusKnotGeometry(.17,.035,32,5,2,3),duration:280,arc:.22,spin:19},
+    arcane:{color:0x68baff,geo:new THREE.DodecahedronGeometry(.25,1),duration:620,arc:.65,spin:5},
+    bone:{color:0xf3f5ff,geo:new THREE.ConeGeometry(.16,.56,7),duration:540,arc:.36,spin:9},
+    healing:{color:0x73ffc1,geo:new THREE.IcosahedronGeometry(.23,1),duration:650,arc:.55,spin:4}
+  };
   const selected=palette[kind]||palette.lightning,color=selected.color,geo=selected.geo;
-  const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
+  const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .98, wireframe:kind==='bone' });
   const projectile = new THREE.Mesh(geo, material);
   const origin = myPlayer ? myPlayer.position.clone() : new THREE.Vector3();
-  origin.y += 1.25;
+  origin.y += kind==='healing' ? 1.55 : 1.28;
   projectile.position.copy(origin);
+  if(kind==='bone') projectile.rotation.x=-Math.PI/2;
   scene.add(projectile);
-  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-  const destination = origin.clone().add(forward.multiplyScalar(5.5));
+  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)).normalize();
+  let destination = origin.clone().add(forward.clone().multiplyScalar(kind==='lightning'?9:kind==='arcane'?11:8));
+  let bestDistance=Infinity;
+  if(kind==='healing'){
+    for(const ally of remotePlayers.values()){
+      const hp=Number(ally.userData.serverHp),max=Number(ally.userData.serverMaxHp)||100;
+      if(!Number.isFinite(hp)||hp>=max)continue;
+      const d=ally.position.distanceTo(myPlayer.position);
+      if(d<bestDistance){bestDistance=d;destination=ally.position.clone().add(new THREE.Vector3(0,1.45,0));}
+    }
+  }else{
+    for(const monster of monsterMeshes.values()){
+      if(!monster.visible||Number(monster.userData.serverHp)<=0)continue;
+      const target=new THREE.Vector3(Number(monster.userData.targetX??monster.position.x),1.1,Number(monster.userData.targetZ??monster.position.z));
+      const delta=target.clone().sub(origin),distance=delta.length();
+      if(distance<.8||distance>16)continue;
+      const facing=delta.normalize().dot(forward);
+      if(facing<.18||distance>=bestDistance)continue;
+      bestDistance=distance;destination=target;
+    }
+  }
   const spellLimit = (isMobileDevice || gameSettings.graphicsQuality === 'low' || (lastFps > 0 && lastFps < 42)) ? 5 : gameSettings.graphicsQuality === 'high' ? 18 : 12;
   while (activeSpellEffects.length >= spellLimit) {
     const oldSpell = activeSpellEffects.shift();
     scene.remove(oldSpell.projectile);
     oldSpell.geo.dispose(); oldSpell.material.dispose();
   }
-  activeSpellEffects.push({ projectile, geo, material, origin, destination, startedAt: performance.now(), duration: 300 });
+  activeSpellEffects.push({ projectile, geo, material, origin, destination, startedAt: performance.now(), duration: selected.duration, kind, arc:selected.arc, spin:selected.spin });
   send({type:'spell',spell:kind});
   showNotice(kind==='fire'?'🔥 MAGIA DE FOGO!':kind==='lightning'?'⚡ MAGIA DE RAIO!':kind==='bone'?'☽ ORBE ÓSSEO!':'✦ ORBE ARCANO!');
 }
@@ -6169,9 +6195,26 @@ function animate() {
       continue;
     }
     effect.projectile.position.lerpVectors(effect.origin, effect.destination, t);
-    effect.projectile.position.y += Math.sin(t * Math.PI) * .35;
-    effect.projectile.scale.setScalar(1 + t * 1.3);
-    effect.material.opacity = 1 - t * .65;
+    effect.projectile.position.y += Math.sin(t * Math.PI) * (effect.arc || .35);
+    if(effect.kind==='fire'){
+      effect.projectile.rotation.x+=dt*3.8;effect.projectile.rotation.y+=dt*5.4;
+      effect.projectile.scale.setScalar(.82+Math.sin(t*Math.PI)*.58);
+    }else if(effect.kind==='lightning'){
+      effect.projectile.rotation.x+=dt*17;effect.projectile.rotation.y+=dt*22;
+      effect.projectile.scale.setScalar(.75+Math.sin(t*18)*.18);
+    }else if(effect.kind==='arcane'){
+      effect.projectile.rotation.x+=dt*4.5;effect.projectile.rotation.y+=dt*6.5;
+      effect.projectile.scale.setScalar(1+Math.sin(t*Math.PI*3)*.16+t*.45);
+    }else if(effect.kind==='bone'){
+      effect.projectile.rotation.z+=dt*8;
+      effect.projectile.scale.setScalar(.9+t*.55);
+    }else if(effect.kind==='healing'){
+      effect.projectile.rotation.x+=dt*3.1;effect.projectile.rotation.y+=dt*4.2;
+      effect.projectile.scale.setScalar(.85+Math.sin(t*Math.PI*2)*.16+t*.35);
+    }else{
+      effect.projectile.scale.setScalar(1+t*.4);
+    }
+    effect.material.opacity = 1 - t * .58;
   }
   // Efeitos de queimadura leves, atualizados no loop principal para evitar RAF extra.
   const burnNow = performance.now();
