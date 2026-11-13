@@ -521,8 +521,29 @@ function createWave(phase,realm=1,spawnStartAt=Date.now()){
   return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*18,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:firstSpawnAt+i*1150,alive:true,hp,maxHp:hp,damage,attackAt:0};
  });
  const upperX=phase%2===1?-8.25:8.25;
- const eliteHp=Math.round((58+phase*17)*scale),eliteDamage=Math.round((8+phase*1.8)*scale);
- wave.push({id:'r'+realm+'p'+phase+'elite',kind:realm===3?'abyss':realm===2?'assassin':'brute',name:'Guardião do Andar Superior',phase,realm,x:upperX,z:center-14.5,spawned:false,spawnAt:firstSpawnAt+count*1150+600,alive:true,hp:eliteHp,maxHp:eliteHp,damage:eliteDamage,attackAt:0,upperElite:true});
+ const eliteHp=Math.round((72+phase*19)*scale),eliteDamage=Math.round((9+phase*2)*scale);
+ wave.push({id:'r'+realm+'p'+phase+'elite',kind:realm===3?'abyss':realm===2?'assassin':'brute',name:'Guardião do Andar Superior',phase,realm,x:upperX,z:center-14.5,spawned:false,spawnAt:firstSpawnAt+count*1150+600,alive:true,hp:eliteHp,maxHp:eliteHp,damage:eliteDamage,attackAt:0,upperElite:true,eliteTier:2,affix:'champion',armor:.2,moveSpeed:.36,attackMs:1450});
+ // Variantes de elite são raras e têm uma função clara, sem multiplicar a quantidade de inimigos.
+ const affixes=['armored','swift','mana_leech','vampiric'];
+ const eligible=wave.filter(enemy=>!enemy.upperElite);
+ const affixCount=Math.min(2,Math.max(1,Math.round(eligible.length*.22)));
+ for(let n=0;n<affixCount;n++){
+  const index=Math.floor(Math.random()*eligible.length);
+  const enemy=eligible.splice(index,1)[0];
+  if(!enemy)continue;
+  const affix=affixes[Math.floor(Math.random()*affixes.length)];
+  enemy.affix=affix;enemy.eliteTier=1;
+  if(affix==='armored'){
+   enemy.armor=.24;enemy.hp=Math.round(enemy.hp*1.28);enemy.maxHp=enemy.hp;
+  }else if(affix==='swift'){
+   enemy.moveSpeed=Math.round(((enemy.moveSpeed||.35)*1.28)*100)/100;
+   enemy.attackMs=1150;
+  }else if(affix==='mana_leech'){
+   enemy.damage=Math.round(enemy.damage*1.12);
+  }else if(affix==='vampiric'){
+   enemy.hp=Math.round(enemy.hp*1.16);enemy.maxHp=enemy.hp;
+  }
+ }
  return wave;
 }
 function advancePhase(room) {
@@ -656,7 +677,7 @@ function createRoomChests(realm=1){
   const side=Math.random()<.5?-1:1,upperSide=index%2===0?-1:1;
   return [
    {id:prefix+index,x:side*(5.8+Math.random()*2.0),z:center+(Math.random()-.5)*7.2,openedBy:[]},
-   {id:prefix+'u'+index,x:upperSide*8.25+(Math.random()<.5?-1:1)*(2.1+Math.random()*.65),z:center-13.1-Math.random()*3.0,openedBy:[],upperFloor:true}
+   {id:prefix+'u'+index,x:upperSide*(8.25-(2.1+Math.random()*.65)),z:center-13.1-Math.random()*3.0,openedBy:[],upperFloor:true}
   ];
  });
 }
@@ -709,7 +730,14 @@ function processPressurePlate(room,player,now){
 }
 function openUnderworldPit(room,player,hazard,now){
  room.underworldPits=Array.isArray(room.underworldPits)?room.underworldPits:[];
- if(room.underworldPits.some(pit=>pit.id===hazard.id&&pit.open))return;
+ const existing=room.underworldPits.find(pit=>pit.id===hazard.id&&pit.open);
+ if(existing){
+  player.underworldReturnX=existing.x;player.underworldReturnZ=existing.z;
+  player.underworldUntil=existing.until;player.mapTrapDamageAt=existing.until;
+  player.x=existing.x;player.z=existing.z;
+  if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'⬇ Você entrou na câmara subterrânea aberta pela equipe!'}));
+  broadcast(room,state(room));return;
+ }
  const pit={id:hazard.id,x:hazard.x,z:hazard.z,ownerId:player.id,open:true,until:now+30000};
  room.underworldPits=room.underworldPits.filter(item=>item.id!==hazard.id);room.underworldPits.push(pit);
  player.underworldReturnX=hazard.x;player.underworldReturnZ=hazard.z;player.underworldUntil=pit.until;
@@ -726,8 +754,10 @@ function applyMapHazards(room,player,now){
  if(!player||player.hp<=0||room.gameMode==='pvp_rpg'||now<(player.mapTrapDamageAt||0)||now<(player.underworldUntil||0))return;
  const occupiedPit=(room.underworldPits||[]).find(pit=>pit.open&&Math.hypot(player.x-pit.x,player.z-pit.z)<4.45);
  if(occupiedPit){
+  const newlyJoined=!(player.underworldUntil>now);
   player.underworldReturnX=occupiedPit.x;player.underworldReturnZ=occupiedPit.z;
   player.underworldUntil=occupiedPit.until;player.mapTrapDamageAt=occupiedPit.until;
+  if(newlyJoined&&player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'⬇ Você entrou na câmara subterrânea da equipe! Ajude a derrotar os guardiões.'}));
   return;
  }
  let hazard=null;
@@ -837,7 +867,7 @@ function state(room) {
     const elapsed = Number.isFinite(previous) && previous > 0 ? Math.max(0, Math.min(1.5, (now - previous) / 1000)) : 0;
     p.manaRegenLastAt = now;
     if (p.hp > 0 && elapsed > 0 && (p.mana ?? 100) < (p.maxMana ?? 100)) {
-      const bonus = cleanLevelUpgrades(p.levelUpgrades).manaRegen * 0.15;
+      const bonus = cleanLevelUpgrades(p.levelUpgrades).manaRegen * 0.25;
       p.mana = Math.min(p.maxMana ?? 100, (p.mana ?? 100) + elapsed * (2 + bonus));
     }
   }
@@ -871,7 +901,7 @@ function state(room) {
     monsters: [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])],
     boss: room.boss,
     portalOpen: room.phase === 5 && !!room.boss && !room.boss.alive,
-    chests: room.chests.map(chest => ({ id: chest.id, x: chest.x, z: chest.z, opened: chest.openedBy.length > 0, cursed: !!chest.cursed }))
+    chests: room.chests.map(chest => ({ id: chest.id, x: chest.x, z: chest.z, opened: chest.openedBy.includes(String(room.hostId)) && chest.openedBy.length > 0, openedBy: chest.openedBy.slice(), cursed: !!chest.cursed, underground:!!chest.underground }))
   };
 }
 
@@ -1497,7 +1527,9 @@ wss.on('connection', ws => {
       const damageEnemy = (enemy, amount, burnMs = 0, pushFrom = null, pushDistance = 0) => {
         if (!enemy || !enemy.alive) return;
         const enemyHpBefore = enemy.hp;
-        enemy.hp = Math.max(0, (enemy.hp || 1) - amount);
+        const armor=Math.max(0,Math.min(.48,Number(enemy.armor)||0));
+        const appliedAmount=Math.max(1,Number(amount)*(1-armor));
+        enemy.hp = Math.max(0, (enemy.hp || 1) - appliedAmount);
         recordMonsterThreat(enemy, player, Math.max(0, enemyHpBefore - enemy.hp), now);
         if (burnMs > 0 && enemy.hp > 0) {
           enemy.burnUntil = Math.max(enemy.burnUntil || 0, now + burnMs);
@@ -1805,7 +1837,8 @@ wss.on('connection', ws => {
         const enemyHpBefore=enemy.hp;
         const criticalRank=cleanLevelUpgrades(player.levelUpgrades).critical;
         const criticalPower=criticalRank>0&&Math.random()<criticalRank*.02?1.7:1;
-        enemy.hp=Math.max(0,(enemy.hp||1)-amount*classPower*bossBonus*executeBonus*criticalPower-emberBonus);
+        const enemyArmor=Math.max(0,Math.min(.48,Number(enemy.armor)||0));
+        enemy.hp=Math.max(0,(enemy.hp||1)-(amount*classPower*bossBonus*executeBonus*criticalPower-emberBonus)*(1-enemyArmor));
         recordMonsterThreat(enemy, player, Math.max(0, enemyHpBefore - enemy.hp), Date.now());
         if (spell === 'fire' && enemy.hp > 0) {
           enemy.burnUntil = Date.now() + (hasSkill(player, 'ember_core') ? 5000 : 3000);
@@ -2320,7 +2353,7 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
           if (!target.isSummon && target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
         } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460) {
           monster.attackAt = monsterNow;
-          monster.nextAttackAt = monsterNow + (room.gameMode === 'pvp_rpg' ? (monster.attackMs || 1200) : (monster.kind === 'brute' ? 1750 : 1350));
+          monster.nextAttackAt = monsterNow + (room.gameMode === 'pvp_rpg' ? (monster.attackMs || 1200) : (monster.attackMs || (monster.kind === 'brute' ? 1750 : 1350)));
           monster.attackWarnAt = 0;
           monster.attackTargetId = null;
           broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
@@ -2339,6 +2372,18 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
             takeDamage(room, target, incomingDamage);
             const actualDamage=Math.max(0,hpBeforeHit-target.hp);
             if (target.ws && actualDamage>0) target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -'+actualDamage+' de vida.' }));
+            if(actualDamage>0&&monster.affix==='mana_leech'){
+              const drained=Math.min(9,Math.max(0,Number(target.mana)||0));
+              target.mana=Math.max(0,(Number(target.mana)||0)-drained);
+              if(target.ws?.readyState===WebSocket.OPEN&&drained>0)target.ws.send(JSON.stringify({type:'notice',text:'✦ O inimigo drenou '+drained+' de mana!'}));
+            }else if(actualDamage>0&&monster.affix==='vampiric'){
+              const healed=Math.max(1,Math.round(actualDamage*.3));
+              monster.hp=Math.min(monster.maxHp||monster.hp,monster.hp+healed);
+            }else if(actualDamage>0&&monster.affix==='venomous'){
+              target.poisonUntil=Math.max(target.poisonUntil||0,now+4200);
+              target.poisonNextAt=Math.min(target.poisonNextAt||now,now);
+              if(target.ws?.readyState===WebSocket.OPEN)target.ws.send(JSON.stringify({type:'notice',text:'☣ Um inimigo venenoso contaminou você!'}));
+            }
           }
           if (!target.isSummon && target.hp <= 0) {
             target.hp = 0;
