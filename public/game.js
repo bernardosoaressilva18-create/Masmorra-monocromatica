@@ -92,16 +92,25 @@ function saveGameSettings() {
 }
 
 // Keep the WebGL drawing buffer and the mobile viewport in sync after rotation.
-function syncRendererSize(width = window.innerWidth, height = window.innerHeight) {
+function getEffectiveViewport() {
+  const visual = window.visualViewport;
+  if (visual && visual.width > 1 && visual.height > 1 && Math.abs((visual.scale || 1) - 1) < 0.08) {
+    return { width: visual.width, height: visual.height, left: visual.offsetLeft || 0, top: visual.offsetTop || 0 };
+  }
+  const root = document.documentElement;
+  return { width: root.clientWidth || window.innerWidth, height: root.clientHeight || window.innerHeight, left: 0, top: 0 };
+}
+function syncRendererSize(width, height) {
   if (!renderer) return;
-  const w = Math.max(1, Math.round(width));
-  const h = Math.max(1, Math.round(height));
+  const viewport = getEffectiveViewport();
+  const w = Math.max(1, Math.round(Number(width) || viewport.width));
+  const h = Math.max(1, Math.round(Number(height) || viewport.height));
   renderer.setSize(w, h, false);
   const canvas = renderer.domElement;
   Object.assign(canvas.style, {
-    position: 'fixed', left: '0px', top: '0px',
-    width: '100vw', height: '100dvh',
-    maxWidth: '100vw', maxHeight: '100dvh',
+    position: 'fixed', left: Math.round(viewport.left) + 'px', top: Math.round(viewport.top) + 'px',
+    width: w + 'px', height: h + 'px',
+    maxWidth: 'none', maxHeight: 'none',
     transform: 'none', zIndex: '0'
   });
 }
@@ -129,13 +138,14 @@ function getMinimumRenderPixelRatio(width = window.innerWidth, height = window.i
 }
 function applyGraphicsQuality() {
   const quality = gameSettings.graphicsQuality;
-  renderPixelRatioCap = getRenderPixelRatioCap();
-  adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(), Math.min(devicePixelRatio || 1, renderPixelRatioCap));
+  const viewport = getEffectiveViewport();
+  renderPixelRatioCap = getRenderPixelRatioCap(viewport.width, viewport.height);
+  adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(viewport.width, viewport.height), Math.min(devicePixelRatio || 1, renderPixelRatioCap));
   if (quality === 'low') adaptivePixelRatio = Math.min(adaptivePixelRatio, isMobileDevice ? 0.92 : 1.0);
   if (renderer) {
     renderer.setPixelRatio(adaptivePixelRatio);
     renderer.toneMappingExposure = quality === 'high' ? 1.30 : quality === 'low' ? 1.14 : 1.22;
-    syncRendererSize(window.innerWidth, window.innerHeight);
+    syncRendererSize();
     renderer.shadowMap.enabled = !isMobileDevice && quality === 'high';
     renderer.shadowMap.needsUpdate = true;
   }
@@ -296,7 +306,7 @@ function init3D() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.24;
   renderer.setPixelRatio(adaptivePixelRatio);
-  syncRendererSize(innerWidth, innerHeight);
+  syncRendererSize();
   // Sombras suaves no PC; no celular ficam desligadas para preservar FPS.
   renderer.shadowMap.enabled = !isMobileDevice && gameSettings.graphicsQuality === 'high';
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -1830,8 +1840,9 @@ function onResize() {
   if (viewportResizeFrame) cancelAnimationFrame(viewportResizeFrame);
   viewportResizeFrame = requestAnimationFrame(() => {
     viewportResizeFrame = 0;
-    const width = Math.max(1, Math.round(window.innerWidth));
-    const height = Math.max(1, Math.round(window.innerHeight));
+    const viewport = getEffectiveViewport();
+    const width = Math.max(1, Math.round(viewport.width));
+    const height = Math.max(1, Math.round(viewport.height));
     if (renderer && camera) {
       const landscapeMobile = isMobileDevice && width > height;
       const previousLandscapeMobile = isMobileDevice && renderer.domElement.height > renderer.domElement.width;
@@ -1842,7 +1853,7 @@ function onResize() {
         adaptivePixelRatio = Math.max(getMinimumRenderPixelRatio(width, height), Math.min(adaptivePixelRatio, renderPixelRatioCap));
       }
       camera.aspect = width / height;
-      camera.fov = isMobileDevice && height > width ? 76 : (isMobileDevice ? 66 : 62);
+      camera.fov = isMobileDevice ? (width > height ? 58 : 74) : 62;
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(adaptivePixelRatio);
       syncRendererSize(width, height);
@@ -1858,7 +1869,10 @@ addEventListener('orientationchange', () => {
   setTimeout(onResize, 320);
   setTimeout(onResize, 650);
 }, { passive: true });
-if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize, { passive: true });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', onResize, { passive: true });
+  window.visualViewport.addEventListener('scroll', onResize, { passive: true });
+}
 
 function setStatus(t) {
   menuStatus.textContent = t;
@@ -2151,8 +2165,8 @@ function chooseClass(className) {
     if (!offlineState.started) updateState(offlineState);
   }
   sendLoadout();
-  showNotice('Classe alterada para ' + (CLASS_NAMES_UI[selectedClass] || selectedClass.toUpperCase()) + '. A árvore foi atualizada.');
-  closeLobbyEditor();
+  showNotice('Classe alterada para ' + (CLASS_NAMES_UI[selectedClass] || selectedClass.toUpperCase()) + '. Veja a prévia das habilidades.');
+  updateClassAbilityDemo(true);
 }
 document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', () => chooseClass(card.dataset.class)));
 function chooseSkin(skinName) {
@@ -4013,16 +4027,16 @@ $('startMatchBtn').addEventListener('click', () => {
 
 const inventoryPanel = document.querySelector('.inventory-panel');
 const inventoryToggleBtn = $('inventoryToggleBtn');
-let inventoryHidden=false;
+let inventoryHidden=true;
 try {
   const oldPreference = localStorage.getItem('mmHideInventory');
-  const layoutVersion=localStorage.getItem('mmInventoryLayoutV3');
-  if(layoutVersion!=='3'){
-    inventoryHidden=false;
-    localStorage.setItem('mmInventoryLayoutV3','3');
-    localStorage.setItem('mmHideInventory','0');
+  const layoutVersion=localStorage.getItem('mmInventoryLayoutV4');
+  if(layoutVersion!=='4'){
+    inventoryHidden=true;
+    localStorage.setItem('mmInventoryLayoutV4','4');
+    localStorage.setItem('mmHideInventory','1');
   }else{
-    inventoryHidden=oldPreference==='1';
+    inventoryHidden=oldPreference!=='0';
   }
 } catch {}
 function applyInventoryVisibility() {
@@ -4161,8 +4175,9 @@ updateClassAbilityButtons();
 function placeSpellButtons() {
   const fire=$('fireBtn'),lightning=$('lightningBtn'),third=$('ability3Btn');
   if(!fire||!lightning||!third)return;
-  const landscape = window.innerWidth > window.innerHeight;
-  const size = landscape ? 48 : 58;
+  const viewport = getEffectiveViewport();
+  const landscape = viewport.width > viewport.height;
+  const size = landscape ? 44 : 50;
   for (const btn of [fire,lightning,third]) {
     btn.style.setProperty('display', 'flex', 'important');
     btn.style.setProperty('position', 'fixed', 'important');
@@ -4181,24 +4196,25 @@ function placeSpellButtons() {
     btn.style.setProperty('touch-action', 'none', 'important');
   }
   if (!landscape) {
-    fire.style.setProperty('right', '88px', 'important');
-    fire.style.setProperty('bottom', '86px', 'important');
-    lightning.style.setProperty('right','18px','important');
-    lightning.style.setProperty('bottom','96px','important');
-    third.style.setProperty('right','53px','important');
-    third.style.setProperty('bottom','163px','important');
-    third.style.setProperty('width','52px','important');
-    third.style.setProperty('height','52px','important');
+    // Retrato: três habilidades em coluna, acima do ataque e sem cobrir o joystick.
+    fire.style.setProperty('right', '14px', 'important');
+    fire.style.setProperty('bottom', '122px', 'important');
+    lightning.style.setProperty('right','14px','important');
+    lightning.style.setProperty('bottom','180px','important');
+    third.style.setProperty('right','14px','important');
+    third.style.setProperty('bottom','238px','important');
+    third.style.setProperty('width','50px','important');
+    third.style.setProperty('height','50px','important');
   } else {
-    // Deitados, as habilidades ficam acima do ataque e longe do botão de baú.
-    fire.style.setProperty('right', '18px', 'important');
-    fire.style.setProperty('bottom', '112px', 'important');
-    lightning.style.setProperty('right','18px','important');
-    lightning.style.setProperty('bottom','166px','important');
-    third.style.setProperty('right','18px','important');
-    third.style.setProperty('bottom','220px','important');
-    third.style.setProperty('width','46px','important');
-    third.style.setProperty('height','46px','important');
+    // Paisagem: pilha compacta à direita, acima dos controles de combate.
+    fire.style.setProperty('right', '12px', 'important');
+    fire.style.setProperty('bottom', '86px', 'important');
+    lightning.style.setProperty('right','12px','important');
+    lightning.style.setProperty('bottom','136px','important');
+    third.style.setProperty('right','12px','important');
+    third.style.setProperty('bottom','186px','important');
+    third.style.setProperty('width','44px','important');
+    third.style.setProperty('height','44px','important');
   }
   applySavedHudPositions();
 }
@@ -4207,8 +4223,16 @@ const HUD_MOVABLE_IDS=['joystick','chestBtn','dodgeBtn','attackBtn','fireBtn','l
 let hudEditMode = false;
 let hudDragState = null;
 let hudLayout = {};
-try { hudLayout = JSON.parse(localStorage.getItem('ultimoLegadoHudLayout') || '{}') || {}; } catch { hudLayout = {}; }
-function hudOrientationKey() { return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'; }
+try {
+  const hudLayoutVersion = localStorage.getItem('ultimoLegadoHudLayoutVersion');
+  if (hudLayoutVersion !== '4') {
+    localStorage.removeItem('ultimoLegadoHudLayout');
+    localStorage.setItem('ultimoLegadoHudLayoutVersion', '4');
+  }
+  hudLayout = JSON.parse(localStorage.getItem('ultimoLegadoHudLayout') || '{}') || {};
+  if (!hudLayout || typeof hudLayout !== 'object' || Array.isArray(hudLayout)) hudLayout = {};
+} catch { hudLayout = {}; }
+function hudOrientationKey() { const viewport=getEffectiveViewport(); return viewport.width > viewport.height ? 'landscape' : 'portrait'; }
 function saveHudLayout() {
   try { localStorage.setItem('ultimoLegadoHudLayout', JSON.stringify(hudLayout)); } catch {}
 }
@@ -4792,18 +4816,21 @@ function rendererPointerSetup() {
         (e.clientX > innerWidth - 135 && e.clientY > innerHeight - 155)) return;
 
     lookPointer = e.pointerId;
+    try { el.setPointerCapture(e.pointerId); } catch {}
     lastX = e.clientX;
     lastY = e.clientY;
+    e.preventDefault();
   });
 
   el.addEventListener('pointermove', e => {
     if (e.pointerId !== lookPointer) return;
 
+    e.preventDefault();
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
     targetYaw -= dx * .008 * gameSettings.sensitivity;
-    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0065 * gameSettings.verticalSensitivity, -.62, 1.12);
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * .0105 * gameSettings.verticalSensitivity, -.82, 1.18);
   });
 
   const end = e => {
@@ -4880,7 +4907,7 @@ function updatePerformanceMonitor() {
   if (renderer && Math.abs(nextRatio - adaptivePixelRatio) >= .01) {
     adaptivePixelRatio = Math.round(nextRatio * 100) / 100;
     renderer.setPixelRatio(adaptivePixelRatio);
-    syncRendererSize(innerWidth, innerHeight);
+    syncRendererSize();
   }
   if (perfBadge) {
     const memoryBytes = performance.memory && Number.isFinite(performance.memory.usedJSHeapSize)
