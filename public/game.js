@@ -143,7 +143,10 @@ function isInsideMapFloor(x,z) {
   }
   if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
   return mapStairSpecs.some(stair=>pointInMapPolygon(x-stair.x,z-stair.center,UPPER_ROOM_POLYGON))
-    ||mapStairSpecs.some(stair=>Math.abs(x-stair.x)<2.1&&z<=stair.startZ&&z>=stair.endZ);
+    ||mapStairSpecs.some(stair=>
+      (Math.abs(x-stair.x)<1.72&&z<=stair.startZ&&z>=stair.endZ)
+      ||(Math.abs(x-stair.x)<2.25&&z>=stair.center-9.4&&z<=stair.center-5.8)
+    );
 }
 function getDungeonFloorHeight(x,z) {
   for(const pit of liveUnderworldPits) {
