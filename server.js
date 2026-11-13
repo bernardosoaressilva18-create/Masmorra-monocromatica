@@ -645,7 +645,8 @@ function createRoomMapHazards(){
   return [
    {id:'miasma-'+index,type:'miasma',x:side*rand(7,8.3),z:center+rand(.8,4.2),r:1.45,damage:5,cooldown:1100},
    {id:'rune-surge-'+index,type:'rune',x:other*rand(6.7,8.1),z:center-rand(2,5.2),r:1.18,damage:9,cooldown:1150},
-   {id:'crumble-'+index,type:'crumble',x:side*rand(4.6,6.1),z:center-rand(6.4,8),r:1.3,damage:6,cooldown:1400}
+   // Um piso instável nasce dentro do salão elevado, perto do baú e do guardião.
+   {id:'crumble-'+index,type:'crumble',x:side*rand(4.8,6.1),z:center-rand(9.2,11.5),r:1.3,damage:6,cooldown:1400}
   ];
  });
 }
