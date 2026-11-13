@@ -5373,3 +5373,45 @@ button:not(:disabled):active{filter:brightness(1.14)}
     font-size: 9px;
   }
 }
+
+
+/* PATCH r9 — viewport móvel estável em paisagem, inclusive no lobby e na entrada. */
+html, body, #game { width:100%; height:100%; min-width:0; min-height:0; }
+#startScreen, #menu, #lobby {
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  max-width:100vw;
+  max-height:100dvh;
+  overscroll-behavior:contain;
+}
+#lobby { overflow:hidden; }
+#lobby .lobby-main, #lobby .lobby-content, #lobby .lobby-layout { min-width:0; max-width:100%; }
+@media (orientation:landscape) and (max-height:600px) {
+  #startScreen, #menu { justify-content:center; padding: max(8px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); }
+  #menu .brand { max-width: min(44vw,440px); }
+  #menu .panel { width:min(48vw,480px); max-height:calc(100dvh - 18px); overflow-y:auto; padding:12px; }
+  #lobby { padding: max(5px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(5px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)); }
+  #lobby .lobby-header { flex:0 0 auto; min-height:38px; }
+  #lobby .lobby-nav { flex:0 0 auto; }
+  #lobby .lobby-main { min-height:0; height:calc(100dvh - 88px); overflow-y:auto; overscroll-behavior:contain; }
+  #lobby .lobby-editor { max-height:calc(100dvh - 48px); }
+  #lobby .lobby-editor-content { min-height:0; max-height:calc(100dvh - 104px); overflow-y:auto; }
+  #lobby .hero-showcase { min-height:0; }
+}
+@media (orientation:landscape) and (max-height:430px) {
+  #startScreen .start-emblem { font-size:28px; margin:0; }
+  #startScreen .start-title { font-size:clamp(22px,5vh,34px); margin:2px 0; }
+  #startScreen .start-copy { margin:4px auto; }
+  #menu .brand h1 { font-size:clamp(20px,5vh,32px); }
+  #menu .subtitle, #menu .footnote { margin:4px 0; }
+  #menu .panel { padding:8px; }
+  #lobby .lobby-nav-btn { padding:6px 8px; font-size:9px; }
+}
+@media (orientation:landscape) and (max-height:600px) and (pointer:coarse) {
+  #hud .topbar { left:max(6px,env(safe-area-inset-left)); right:max(6px,env(safe-area-inset-right)); }
+  #hud .joystick { width:96px; height:96px; }
+  #hud .stick { left:28px; top:28px; }
+  #hud .attack { width:78px; height:78px; }
+  #hud .spell-btn { width:54px; height:54px; }
+}
