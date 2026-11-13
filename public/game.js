@@ -4403,6 +4403,224 @@ const CLASS_DEMO_DAMAGE = {
   monk_impact_palm:12,monk_winged_steps:10,monk_spirit_wave:16,
   golem_split:18,golem_rock_toss:34,golem_stone_guard:0
 };
+
+function drawClassDemoAbilityEffect(ctx, abilityId, t, heroX, enemyX, ground, accent) {
+  const p = Math.max(0, Math.min(1, (t - 260) / 1160));
+  const travelX = heroX + 54 + (enemyX - heroX - 100) * p;
+  const travelY = ground - 104 - Math.sin(p * Math.PI) * 28;
+  const pulse = .55 + Math.sin(t * .018) * .22;
+  const color = accent || '#e9c477';
+  const line = (points, width, stroke, alpha = 1) => {
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = stroke; ctx.lineWidth = width;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath();
+    points.forEach((point,index)=>index?ctx.lineTo(point[0],point[1]):ctx.moveTo(point[0],point[1]));
+    ctx.stroke(); ctx.restore();
+  };
+  const orb = (x,y,r,fill,alpha=1) => {
+    ctx.save();ctx.globalAlpha=alpha;ctx.shadowBlur=18;ctx.shadowColor=fill;
+    const g=ctx.createRadialGradient(x-r*.28,y-r*.32,1,x,y,r);
+    g.addColorStop(0,'#ffffff');g.addColorStop(.25,fill);g.addColorStop(1,'#18263a');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
+  };
+  const arrow = (x,y,angle,fill,scale=1) => {
+    ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.scale(scale,scale);
+    ctx.strokeStyle=fill;ctx.lineWidth=3;ctx.lineCap='round';ctx.shadowBlur=10;ctx.shadowColor=fill;
+    ctx.beginPath();ctx.moveTo(-24,0);ctx.lineTo(19,0);ctx.stroke();
+    ctx.fillStyle=fill;ctx.beginPath();ctx.moveTo(24,0);ctx.lineTo(12,-7);ctx.lineTo(12,7);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(-19,0);ctx.lineTo(-27,-7);ctx.moveTo(-19,0);ctx.lineTo(-27,7);ctx.stroke();
+    ctx.restore();
+  };
+  const ring = (x,y,r,stroke,width=4,alpha=1) => {
+    ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.shadowBlur=12;ctx.shadowColor=stroke;
+    ctx.beginPath();ctx.ellipse(x,y,r,r*.38,0,0,Math.PI*2);ctx.stroke();ctx.restore();
+  };
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  ctx.shadowBlur=14;ctx.shadowColor=color;
+  switch(abilityId) {
+    case 'knight_shield':
+    case 'golem_stone_guard': {
+      const x=heroX+40,y=ground-91;
+      ctx.globalAlpha=.55+.3*p;
+      ctx.fillStyle=abilityId==='knight_shield'?'#75cfff':'#aeb9c2';
+      ctx.strokeStyle=abilityId==='knight_shield'?'#c5f3ff':'#e3e9ed';
+      ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x,y-40);ctx.lineTo(x+25,y-28);ctx.lineTo(x+20,y+13);ctx.lineTo(x,y+34);ctx.lineTo(x-20,y+13);ctx.lineTo(x-25,y-28);ctx.closePath();ctx.fill();ctx.stroke();
+      ring(heroX+4,ground-42,40+p*14,color,3,.45);
+      break;
+    }
+    case 'knight_dash':
+    case 'monk_winged_steps':
+    case 'goblin_shadow_strike': {
+      const dashColor=abilityId==='goblin_shadow_strike'?'#a78bfa':color;
+      for(let i=0;i<5;i++){
+        const start=heroX-35-i*13+(p*45);
+        line([[start,ground-24-i*9],[start+48+p*46,ground-35-i*10]],2.5,dashColor,.5-i*.055);
+      }
+      if(abilityId==='monk_winged_steps'){
+        for(const side of [-1,1]){
+          ctx.save();ctx.globalAlpha=.75;ctx.strokeStyle='#ffe8a4';ctx.lineWidth=3;ctx.beginPath();
+          ctx.moveTo(heroX+20,ground-86);ctx.quadraticCurveTo(heroX+side*58,ground-130,heroX+side*50,ground-171);ctx.stroke();ctx.restore();
+        }
+      }else if(abilityId==='goblin_shadow_strike'){
+        line([[heroX+38,ground-90],[heroX+65,ground-108],[heroX+91,ground-88]],4,'#d7c4ff',.9);
+      }else{
+        ring(enemyX,ground-52,18+p*50,'#ffe5a5',5,.8);
+      }
+      break;
+    }
+    case 'knight_whirlwind': {
+      for(let i=0;i<3;i++){
+        ctx.save();ctx.globalAlpha=.85-i*.2;ctx.strokeStyle=i===1?'#fff0bc':color;ctx.lineWidth=5-i;
+        ctx.beginPath();ctx.ellipse(heroX+42,ground-65,38+i*13,23+i*10,(t*.006)+i*.8,-.35,Math.PI*1.55);ctx.stroke();ctx.restore();
+      }
+      break;
+    }
+    case 'fire': {
+      const flameX=travelX,flameY=travelY;
+      for(let i=0;i<5;i++){
+        const trailX=flameX-17-i*10,trailY=flameY+Math.sin(t*.03+i)*8;
+        orb(trailX,trailY,5+(i%2)*2,'#ff7b28',.65-i*.09);
+      }
+      orb(flameX,flameY,13+pulse*5,'#ff6a21',.98);
+      ctx.strokeStyle='#ffd47b';ctx.lineWidth=3;ctx.beginPath();ctx.arc(flameX,flameY,21+pulse*5,-1.1,1.2);ctx.stroke();
+      break;
+    }
+    case 'lightning': {
+      const endX=enemyX-18,endY=ground-110;
+      const pts=[[heroX+46,ground-100],[heroX+95,ground-145],[heroX+126,ground-96],[heroX+181,ground-150],[heroX+220,ground-110],[heroX+270,ground-133],[endX,endY]];
+      const visible=Math.max(2,Math.floor(2+p*5));
+      line(pts.slice(0,visible),5,'#8ed9ff',.9);
+      line(pts.slice(0,visible),1.6,'#ffffff',.95);
+      if(p>.55) for(let i=0;i<3;i++)line([[enemyX-25,ground-108],[enemyX-48-i*8,ground-135-i*5]],2,'#b6e7ff',.72);
+      break;
+    }
+    case 'mage_arcane_orb': {
+      const x=travelX,y=travelY;
+      ring(x,y,18+p*12,'#b7c9ff',3,.75);
+      ring(x,y,26+p*7,'#e8bbff',2,.65);
+      orb(x,y,12,'#7b8dff',1);
+      for(let i=0;i<4;i++){const a=t*.008+i*Math.PI/2;orb(x+Math.cos(a)*25,y+Math.sin(a)*12,3,'#c4a7ff',.8);}
+      break;
+    }
+    case 'arrow_rain':
+    case 'incendiary_arrows': {
+      for(let i=0;i<6;i++){
+        const fall=Math.max(0,Math.min(1,p*1.45-i*.12));
+        const x=enemyX-50+i*19,y=40+fall*(ground-120);
+        if(abilityId==='incendiary_arrows'){
+          line([[x-7,y+25],[x,y+8],[x+6,y-2]],3,'#ff7b37',.85);
+          orb(x,y,5,'#ff722a',.88);
+        }else arrow(x,y,-Math.PI/2,'#bfe6ff',.72);
+      }
+      break;
+    }
+    case 'archer_piercing_shot': {
+      arrow(travelX,travelY,0,'#c9f1ff',1.35);
+      line([[travelX-25,travelY-7],[travelX-60,travelY-13],[travelX-82,travelY-6]],2,'#9edaff',.75);
+      break;
+    }
+    case 'goblin_invis': {
+      for(let i=0;i<4;i++){
+        const a=t*.004+i*Math.PI/2;
+        orb(heroX+Math.cos(a)*32,ground-66+Math.sin(a)*29,5,'#9e83ff',.55);
+      }
+      ring(heroX+8,ground-55,26+p*30,'#ad8bff',3,.6);
+      break;
+    }
+    case 'goblin_summon':
+    case 'necromancer_summon':
+    case 'golem_split': {
+      const summonColor=abilityId==='goblin_summon'?'#9de86b':abilityId==='necromancer_summon'?'#bb8cff':'#aeb9c2';
+      ring(heroX+85,ground-42,22+p*21,summonColor,4,.9);
+      for(let i=0;i<3;i++){
+        const x=heroX+55+i*29,y=ground-40-Math.sin(p*Math.PI+i*.7)*24;
+        ctx.fillStyle=summonColor;ctx.globalAlpha=.35+.6*p;
+        ctx.beginPath();ctx.arc(x,y-27,8,0,Math.PI*2);ctx.fill();
+        ctx.fillRect(x-8,y-19,16,24);
+        ctx.fillRect(x-12,y+2,7,13);ctx.fillRect(x+5,y+2,7,13);
+      }
+      if(abilityId==='golem_split')for(let i=0;i<5;i++){ctx.save();ctx.translate(heroX+18+i*15,ground-150-Math.sin(t*.01+i)*12);ctx.rotate(t*.003+i);ctx.fillStyle='#b9c1c8';ctx.fillRect(-5,-5,10,10);ctx.restore();}
+      break;
+    }
+    case 'ogre_slam':
+    case 'ogre_earthquake': {
+      const x=abilityId==='ogre_slam'?heroX+35:enemyX;
+      ring(x,ground-12,18+p*115,abilityId==='ogre_slam'?'#ffb06b':'#ff7c45',6,1-p*.45);
+      for(let i=0;i<5;i++){
+        const crackX=x-54+i*27;
+        line([[crackX,ground-9],[crackX+12,ground-22-(i%2)*10],[crackX+24,ground-10]],2.5,'#ffd08a',.8);
+      }
+      break;
+    }
+    case 'ogre_haste': {
+      for(let i=0;i<6;i++){
+        const y=ground-25-i*17;
+        line([[heroX-55, y],[heroX-10+p*38,y-7],[heroX+22+p*58,y]],3,'#ffd083',.48);
+      }
+      ring(heroX+4,ground-12,22+p*22,'#ffbc78',2,.5);
+      break;
+    }
+    case 'healer_cure':
+    case 'healer_light_orb': {
+      if(abilityId==='healer_light_orb'){
+        orb(travelX,travelY,13,'#67f2b8',1);
+        ring(travelX,travelY,21,'#b3ffe1',2,.7);
+      }else{
+        for(let i=0;i<3;i++)ring(heroX+6,ground-73,20+p*33+i*12,'#74f2bd',3,.7-i*.16);
+        ctx.fillStyle='#b9ffe3';ctx.font='bold 25px system-ui';ctx.fillText('+HP',heroX-8,ground-130-p*20);
+      }
+      break;
+    }
+    case 'healer_guardian_spirits':
+    case 'healer_sanctuary': {
+      const x=heroX+8,y=ground-88;
+      if(abilityId==='healer_sanctuary'){
+        ctx.save();ctx.globalAlpha=.45;ctx.strokeStyle='#79f7c4';ctx.lineWidth=4;ctx.beginPath();ctx.arc(x,y+18,24+p*90,Math.PI,Math.PI*2);ctx.stroke();ctx.restore();
+      }
+      for(let i=0;i<3;i++){const a=t*.006+i*Math.PI*2/3;orb(x+Math.cos(a)*42,y+Math.sin(a)*20,7,'#81ffcc',.95);}
+      break;
+    }
+    case 'necromancer_dive': {
+      const x=heroX+7,y=ground-12;
+      ring(x,y,12+p*47,'#ac83ff',5,.8);
+      ring(x,y,21+p*28,'#4c347c',3,.6);
+      for(let i=0;i<5;i++){const a=t*.01+i*1.25;orb(x+Math.cos(a)*(8+p*25),y+Math.sin(a)*(5+p*14),4,'#9c75ee',.75);}
+      break;
+    }
+    case 'necromancer_bone_bolt': {
+      const x=travelX,y=travelY;
+      line([[x-31,y+7],[x+25,y-5]],8,'#d8dce8',.95);
+      for(let i=0;i<4;i++){const px=x-16+i*12;line([[px,y+5],[px-5,y+15],[px+4,y+17]],3,'#f6f2e5',.9);}
+      orb(x+22,y-5,5,'#ffffff',1);
+      break;
+    }
+    case 'monk_impact_palm': {
+      const x=heroX+52,y=ground-88;
+      for(let i=0;i<3;i++)ring(x+40,y,20+p*65+i*13,'#ffe3a0',5-i,.85-i*.18);
+      line([[x-6,y],[x+20,y-14],[x+40,y],[x+20,y+14]],4,'#fff0bd',.95);
+      break;
+    }
+    case 'monk_spirit_wave': {
+      for(let i=0;i<4;i++){
+        ctx.save();ctx.globalAlpha=.75-i*.13;ctx.strokeStyle=i%2?'#fff1bb':'#f4cf85';ctx.lineWidth=5-i;
+        ctx.beginPath();ctx.ellipse(heroX+65+p*105,ground-90,28+i*12,44+i*11,0,Math.PI*1.18,Math.PI*1.82);ctx.stroke();ctx.restore();
+      }
+      break;
+    }
+    case 'golem_rock_toss': {
+      const x=enemyX-4,y=50+p*(ground-135);
+      ctx.save();ctx.translate(x,y);ctx.rotate(p*5);ctx.fillStyle='#8d969e';ctx.beginPath();ctx.moveTo(-18,-7);ctx.lineTo(-8,-24);ctx.lineTo(14,-20);ctx.lineTo(22,1);ctx.lineTo(6,18);ctx.lineTo(-19,13);ctx.closePath();ctx.fill();ctx.strokeStyle='#d7e0e6';ctx.lineWidth=2;ctx.stroke();ctx.restore();
+      if(p>.7)ring(enemyX,ground-10,18+(p-.7)*180,'#c9d3db',4,1-p);
+      break;
+    }
+    default: {
+      ring(enemyX,ground-65,18+p*46,color,5,.9);
+      orb(travelX,travelY,9,color,.9);
+    }
+  }
+  ctx.restore();
+}
+
 function drawClassDemoCanvas(canvas, ability, stats, visual, elapsed) {
   const ctx = canvas?.getContext?.('2d');
   if (!ctx) return;
@@ -4463,12 +4681,24 @@ function drawClassDemoCanvas(canvas, ability, stats, visual, elapsed) {
   ctx.fillStyle = '#d9e4ed'; ctx.fillRect(-13, -104, 26, 5);
   ctx.fillStyle = '#18212e'; ctx.fillRect(4, -102, 4, 3);
 
-  const swing = damage > 0 ? Math.sin(Math.min(1, t / 980) * Math.PI) : 0;
+  const poseProgress = Math.max(0, Math.min(1, (t - 240) / 700));
+  const casting = Math.sin(poseProgress * Math.PI);
+  const rangedPose = ['fire','lightning','mage_arcane_orb','arrow_rain','incendiary_arrows','archer_piercing_shot','healer_light_orb','necromancer_bone_bolt'].includes(ability.ability);
+  const handX = rangedPose ? 37 + casting * 13 : 30 + casting * 19;
+  const handY = rangedPose ? -86 : -62 - casting * 16;
   ctx.strokeStyle = '#d3a77b'; ctx.lineWidth = 9; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(15, -72); ctx.lineTo(30 + swing * 15, -62 - swing * 18); ctx.stroke();
-  ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(31 + swing * 15, -62 - swing * 18, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = selectedClass === 'monk' ? '#f4cf85' : '#d9e3ec'; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(31 + swing * 15, -62 - swing * 18); ctx.lineTo(49 + swing * 18, -85 - swing * 22); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(15, -72); ctx.lineTo(handX, handY); ctx.stroke();
+  ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(handX, handY, rangedPose ? 7 : 6, 0, Math.PI * 2); ctx.fill();
+  if (rangedPose) {
+    ctx.strokeStyle = accent; ctx.lineWidth = selectedClass === 'archer' ? 3 : 5;
+    ctx.beginPath(); ctx.moveTo(handX, handY); ctx.lineTo(handX + 12, handY - 14); ctx.stroke();
+    if (['fire','lightning','mage_arcane_orb','healer_light_orb','necromancer_bone_bolt'].includes(ability.ability)) {
+      ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(handX + 14, handY - 17, 5 + casting * 3, 0, Math.PI * 2); ctx.fill();
+    }
+  } else if (['knight_whirlwind','knight_dash','goblin_shadow_strike','monk_impact_palm','monk_winged_steps','monk_spirit_wave'].includes(ability.ability)) {
+    ctx.strokeStyle = selectedClass === 'monk' ? '#f4cf85' : '#d9e3ec'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(handX, handY); ctx.lineTo(handX + 19 + casting * 7, handY - 20); ctx.stroke();
+  }
   ctx.restore();
 
   // A broad-shouldered training monster with horns, face, arms and feet.
@@ -4489,26 +4719,7 @@ function drawClassDemoCanvas(canvas, ability, stats, visual, elapsed) {
   ctx.beginPath(); ctx.moveTo(28, -99); ctx.lineTo(48, -70); ctx.lineTo(38, -56); ctx.stroke();
   ctx.restore();
 
-  // The attack effect travels across the lane and the monster reacts on impact.
-  if (damage > 0 && t > 420 && t < 1800) {
-    const travel = Math.max(0, Math.min(1, (t - 420) / 660));
-    const ex = heroX + 72 + (enemyX - heroX - 118) * travel;
-    const ey = ground - 102 - Math.sin(travel * Math.PI) * 25;
-    ctx.save(); ctx.globalAlpha = .95;
-    ctx.shadowBlur = 18; ctx.shadowColor = accent; ctx.fillStyle = accent;
-    if (stats.kind === 'projectile' || stats.kind === 'chain') {
-      ctx.beginPath(); ctx.arc(ex, ey, 9 + Math.sin(t * .02) * 2, 0, Math.PI * 2); ctx.fill();
-      if (stats.kind === 'chain') {
-        ctx.strokeStyle = '#a5ddff'; ctx.lineWidth = 3; ctx.beginPath();
-        ctx.moveTo(ex - 35, ey + 18); ctx.lineTo(ex - 17, ey - 8); ctx.lineTo(ex - 4, ey + 8); ctx.lineTo(ex + 5, ey - 10); ctx.stroke();
-      }
-    } else {
-      ctx.strokeStyle = accent; ctx.lineWidth = stats.kind === 'area' ? 8 : 5;
-      ctx.beginPath(); ctx.arc(enemyX - 10, ground - 82, 35 + travel * 15, -1.2, 1.3); ctx.stroke();
-      ctx.beginPath(); ctx.arc(heroX + 36, ground - 88, 18 + travel * 25, -.8, .9); ctx.stroke();
-    }
-    ctx.restore();
-  }
+  drawClassDemoAbilityEffect(ctx, ability.ability, t, heroX, enemyX, ground, accent);
   if (damage > 0 && t >= 980 && t < 2450) {
     const pop = Math.min(1, (t - 980) / 220);
     ctx.save(); ctx.globalAlpha = Math.max(0, 1 - Math.max(0, t - 1800) / 650);
