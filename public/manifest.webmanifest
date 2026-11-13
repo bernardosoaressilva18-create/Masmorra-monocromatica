@@ -4,7 +4,7 @@
   "short_name": "Último Legado",
   "description": "RPG 3D de fantasia com classes, mundos, monstros, chefes e exploração.",
   "lang": "pt-BR",
-  "start_url": "./?app=20261113",
+  "start_url": "./?app=20261113-world-r3",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
@@ -12,7 +12,7 @@
   "theme_color": "#090c12",
   "icons": [
     {
-      "src": "./icon.svg?v=20261113",
+      "src": "./icon.svg?v=20261113-world-r3",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
