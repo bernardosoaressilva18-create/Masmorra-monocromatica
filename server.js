@@ -316,9 +316,14 @@ function handleSummonDefeat(room, summon, target) {
   } else if (Math.random() < dropChance(owner, .2)) grantLoot(owner, 'monster');
 }
 
-function statsFor(player) {
-  const base = CLASS_STATS[player.playerClass] || CLASS_STATS.knight;
-  return player.playerClass === 'archer' && hasSkill(player, 'archer_hawkeye') ? { ...base, range: base.range + 1.15 } : base;
+function statsFor(player){
+ const base=CLASS_STATS[player.playerClass]||CLASS_STATS.knight,upgrades=cleanLevelUpgrades(player.levelUpgrades);
+ return {...base,
+  range:base.range+(player.playerClass==='archer'&&hasSkill(player,'archer_hawkeye')?1.15:0),
+  attackMs:Math.max(180,Math.round(base.attackMs*(1-upgrades.attack*.035))),
+  spellPower:base.spellPower*(1+upgrades.magic*.08),
+  reduction:Math.min(.65,base.reduction+upgrades.defense*.025)
+ };
 }
 function isTargetInFront(player, target, minimumDot = 0.12) {
   if (!player || !target) return false;
@@ -332,20 +337,23 @@ function isTargetInFront(player, target, minimumDot = 0.12) {
   return facingDot >= minimumDot;
 }
 function maxHealthFor(player) {
-  return statsFor(player).hp + (hasSkill(player, 'vitality') ? 25 : 0) + (hasSkill(player, 'final_blessing') ? 15 : 0)
+  return statsFor(player).hp + cleanLevelUpgrades(player.levelUpgrades).health*12 + (hasSkill(player, 'vitality') ? 25 : 0) + (hasSkill(player, 'final_blessing') ? 15 : 0)
     + (hasSkill(player, 'knight_fortress') ? 15 : 0) + (hasSkill(player, 'archer_hawkeye') ? 5 : 0)
     + (hasSkill(player, 'goblin_agility') ? 5 : 0) + (hasSkill(player, 'ogre_blood') ? 20 : 0)
     + (hasSkill(player, 'healer_mercy') ? 10 : 0) + (hasSkill(player, 'necromancer_soul') ? 10 : 0)
     + (hasSkill(player, 'monk_ironbody') ? 12 : 0) + (hasSkill(player, 'golem_granite') ? 20 : 0)
     + (hasSkill(player, 'golem_mountaincore') ? 25 : 0);
 }
-function refreshPlayerStats(player, restoreHealth = false) {
-  const oldMax = player.maxHp || 100; player.maxHp = maxHealthFor(player);
-  player.baseDamage = statsFor(player).damage + (hasSkill(player, 'mighty_blows') ? 1 : 0) + (hasSkill(player, 'hunter_instinct') ? 1 : 0)
+function refreshPlayerStats(player,restoreHealth=false){
+ const oldMax=player.maxHp||100,oldMana=player.maxMana||100,upgrades=cleanLevelUpgrades(player.levelUpgrades);
+ player.levelUpgrades=upgrades;player.maxHp=maxHealthFor(player);player.maxMana=100+upgrades.mana*15;player.xpToNext=levelXpNeeded(player.level||1);
+ player.baseDamage=statsFor(player).damage+upgrades.power+upgrades.attack*.35+(hasSkill(player,'mighty_blows')?1:0)+(hasSkill(player,'hunter_instinct')?1:0)
     + (['knight_royal_oath','mage_starseer','archer_hunter','goblin_poison','ogre_crusher','healer_sanctuary','necromancer_reaper','monk_zen','golem_mountaincore'].some(id => hasSkill(player, id)) ? 1 : 0)
     + (player.equipmentDamage || 0);
-  if (restoreHealth) player.hp = player.maxHp;
-  else player.hp = Math.min(player.maxHp, Math.max(0, (player.hp || 0) + Math.max(0, player.maxHp - oldMax)));
+  if(restoreHealth)player.hp=player.maxHp;
+  else player.hp=Math.min(player.maxHp,Math.max(0,(player.hp||0)+Math.max(0,player.maxHp-oldMax)));
+  if(restoreHealth)player.mana=player.maxMana;
+  else player.mana=Math.min(player.maxMana,Math.max(0,(player.mana??oldMana)+Math.max(0,player.maxMana-oldMana)));
 }
 function dropChance(player, base) { return Math.min(.9, base + (hasSkill(player, 'treasure_luck') ? .2 : 0) + (hasSkill(player, 'loot_sense') ? .1 : 0)); }
 function takeDamage(room, player, amount) {
@@ -359,9 +367,16 @@ function takeDamage(room, player, amount) {
   if (player.hp <= 0) return 0;
   const incomingDamage = Number(amount);
   if (!Number.isFinite(incomingDamage) || incomingDamage <= 0) return 0;
-  // A esquiva é validada pelo servidor e concede uma janela curta contra dano.
-  if (Date.now() < (player.dodgeUntil || 0)) return 0;
-  const rawReduction = Number(statsFor(player).reduction) || 0;
+  // A esquiva automática tem recarga própria de 5,2 s: o dobro da esquiva normal.
+  const damageNow=Date.now();
+  if(damageNow<(player.dodgeUntil||0))return 0;
+  if(cleanLevelUpgrades(player.levelUpgrades).autoDodge>0&&damageNow>=(player.nextAutoDodgeAt||0)){
+    player.nextAutoDodgeAt=damageNow+5200;player.dodgeUntil=damageNow+360;
+    if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'↗ ESQUIVA AUTOMÁTICA! Você evitou o golpe. Recarga: 5,2 s.'}));
+    broadcast(room,{type:'autoDodge',id:player.id,x:player.x,z:player.z,until:player.dodgeUntil});
+    return 0;
+  }
+  const rawReduction=Number(statsFor(player).reduction)||0;
   // Nenhuma combinação de atributos pode zerar o dano recebido permanentemente.
   const cappedReduction = Math.min(0.65, Math.max(0, rawReduction));
   let damage = incomingDamage * (1 - cappedReduction);
@@ -559,7 +574,7 @@ function newRoom(code,hostId,isPublic=false,requestedGameMode='coop'){
  const gameMode=requestedGameMode==='pvp_rpg'?'pvp_rpg':'coop';
  const room={isPublic,gameMode,players:new Map(),hostId,started:false,realm:1,phase:1,
   monsters:gameMode==='pvp_rpg'?[]:createWave(1,1),summons:[],boss:null,bossAttackAt:0,
-  safeZoneUntil:0,nextSafeBroadcast:0,emptySince:0,cursedBoss:null,cursedBossAttackAt:0,
+  openTraps:[],safeZoneUntil:0,nextSafeBroadcast:0,emptySince:0,cursedBoss:null,cursedBossAttackAt:0,
   chests:gameMode==='pvp_rpg'?[]:[
    {id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},
    {id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}
@@ -581,34 +596,97 @@ function ensureRoomHost(room) {
   }
 }
 
-const STATIC_DUNGEON_COLLIDERS = (() => {
-  const list = [];
-  for (let z = -30; z <= 8; z += 9) {
-    for (const x of [-10, 10]) list.push({ x, z, r: 0.88 });
-  }
-  for (const z of [-31.8, -63.8, -95.8, -127.8]) {
-    for (const x of [-3.4, 3.4]) list.push({ x, z, r: 0.48 });
-  }
-  return list;
-})();
+const SERVER_MAP_CENTERS=[-14,-46,-78,-110,-153];
+const SERVER_MAP_POLYGONS=[
+[[-4.8,-17],[4.8,-17],[8,-13],[11.4,-8],[13.1,-2],[13.2,3],[10.4,9],[7,13],[4.5,17],[-4.5,17],[-7,13],[-10.4,9],[-13.2,3],[-13.1,-2],[-11.4,-8],[-8,-13]],
+[[-4.6,-15],[4.6,-15],[8.4,-12],[12.2,-7],[13,-1],[11.6,6],[8,11],[4.2,15],[-4.2,15],[-8,11],[-11.6,6],[-13,1],[-12.2,-7],[-8.4,-12]],
+[[-4.5,-15],[4.5,-15],[7.2,-11],[12,-8],[13,-2],[11,4],[8.5,9],[4,15],[-4,15],[-8.5,9],[-11,4],[-13,-2],[-12,-8],[-7.2,-11]],
+[[-4.6,-15],[4.6,-15],[8.8,-11],[12.5,-6],[11.2,0],[13,5],[8,11],[4,15],[-4,15],[-8,11],[-13,5],[-11.2,0],[-12.5,-6],[-8.8,-11]],
+[[-5.5,-20],[5.5,-20],[9.2,-16],[13,-10],[13.5,-3],[12,5],[8,13],[4.5,20],[-4.5,20],[-8,13],[-12,5],[-13.5,-3],[-13,-10],[-9.2,-16]]
+];
+const SERVER_PITS=SERVER_MAP_CENTERS.map((z,index)=>({id:'pit-'+(index+1),plateX:index%2===0?5.2:-5.2,plateZ:z+9,pitX:index%2===0?5.2:-5.2,pitZ:z+4}));
+const SERVER_SPIKES=SERVER_MAP_CENTERS.flatMap((z,index)=>[
+ {id:'spike-'+index+'-L',x:-6.7,z:z-5.5,r:.92,damage:12},
+ {id:'spike-'+index+'-R',x:6.7,z:z-5.5,r:.92,damage:12},
+ ...[-1,1].map(side=>({id:'pit-spike-'+index+'-'+side,x:(index%2===0?5.2:-5.2)+side*1.36,z:z+4,r:.62,damage:17}))
+]);
+function serverPointInPolygon(x,y,polygon){
+ let inside=false;
+ for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
+  const xi=polygon[i][0],yi=polygon[i][1],xj=polygon[j][0],yj=polygon[j][1];
+  if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi+1e-9)+xi))inside=!inside;
+ }
+ return inside;
+}
+function serverIsWalkableFloor(x,z,room){
+ for(let i=0;i<SERVER_MAP_CENTERS.length;i++)if(serverPointInPolygon(x,z-SERVER_MAP_CENTERS[i],SERVER_MAP_POLYGONS[i]))return true;
+ if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
+ return (room?.openTraps||[]).some(id=>{const pit=SERVER_PITS.find(item=>item.id===id);return pit&&Math.hypot(x-pit.pitX,z-pit.pitZ)<1.95;});
+}
+const SERVER_PILLAR_COLLIDERS=SERVER_MAP_CENTERS.flatMap(z=>[{x:-10.5,z:z-.7,r:.72},{x:10.5,z:z-.7,r:.72}]);
+function processPressurePlate(room,player,now){
+ if(room.gameMode==='pvp_rpg'||!room.started||player.hp<=0)return false;
+ const plate=SERVER_PITS.find(item=>Math.hypot(player.x-item.plateX,player.z-item.plateZ)<1.12);
+ if(!plate||(room.openTraps||[]).includes(plate.id))return false;
+ room.openTraps=Array.isArray(room.openTraps)?room.openTraps:[];
+ room.openTraps.push(plate.id);
+ player.x=plate.pitX;player.z=plate.pitZ;player.trapId=plate.id;
+ takeDamage(room,player,14);
+ const makePitMonster=(kind,offset,hp,damage)=>({id:'pit-'+plate.id+'-'+kind+'-'+now+'-'+Math.random().toString(36).slice(2,6),kind,name:kind==='thorn'?'Espinheiro do Poço':'Rastejador do Poço',x:plate.pitX+offset,z:plate.pitZ+(offset>0?.38:-.38),phase:room.phase,realm:room.realm||1,spawned:true,alive:true,hp,maxHp:hp,damage,attackAt:0,trapId:plate.id,trapMonster:true});
+ room.monsters.push(makePitMonster('stalker',-.72,22,5),makePitMonster('thorn',.72,27,4));
+ player.mapTrapDamageAt=now+650;
+ broadcast(room,{type:'notice',text:'☠ PLACA ACIONADA! O chão cedeu. Você caiu no poço: derrote os monstros e evite os espinhos!'});
+ broadcast(room,state(room));
+ return true;
+}
+function applyMapHazards(room,player,now){
+ if(!player||player.hp<=0||room.gameMode==='pvp_rpg'||now<(player.mapTrapDamageAt||0))return;
+ let hazard=null;
+ for(const spike of SERVER_SPIKES)if(Math.hypot(player.x-spike.x,player.z-spike.z)<spike.r){hazard=spike;break;}
+ const pit=(room.openTraps||[]).map(id=>SERVER_PITS.find(item=>item.id===id)).find(item=>item&&Math.hypot(player.x-item.pitX,player.z-item.pitZ)<1.88);
+ if(pit&&!hazard)hazard={id:'pit-floor-'+pit.id,damage:16};
+ if(!hazard)return;
+ player.mapTrapDamageAt=now+(pit?850:1050);
+ const applied=takeDamage(room,player,hazard.damage);
+ if(applied&&player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:pit?'✹ Espinho no fundo do poço! -'+applied+' HP.':'✹ Espinhos no caminho! -'+applied+' HP.'}));
+}
+const LEVEL_UPGRADE_RULES={health:{max:10},power:{max:10},mana:{max:10},defense:{max:8},magic:{max:8},attack:{max:8},recovery:{max:8},item:{max:8},autoDodge:{max:1},xp:{max:8},critical:{max:8}};
+function defaultLevelUpgrades(){return Object.fromEntries(Object.keys(LEVEL_UPGRADE_RULES).map(key=>[key,0]));}
+function levelXpNeeded(level){return Math.round(100+Math.max(0,level-1)*32+Math.pow(Math.max(0,level-1),1.16)*4);}
+function cleanLevelUpgrades(value){
+ const clean=defaultLevelUpgrades();if(!value||typeof value!=='object'||Array.isArray(value))return clean;
+ for(const [key,rule] of Object.entries(LEVEL_UPGRADE_RULES))clean[key]=Math.max(0,Math.min(rule.max,Math.floor(Number(value[key])||0)));
+ return clean;
+}
+function awardExperience(player,baseAmount,source='monster'){
+ if(!player||player.hp<=0)return 0;
+ player.levelUpgrades=cleanLevelUpgrades(player.levelUpgrades);
+ const gained=Math.max(1,Math.round(Number(baseAmount||0)*(1+Math.min(.4,player.levelUpgrades.xp*.05))));
+ player.xp=Math.max(0,Number(player.xp)||0)+gained;let levels=0;
+ while((player.level||1)<100&&player.xp>=levelXpNeeded(player.level||1)){
+  player.xp-=levelXpNeeded(player.level||1);player.level=(player.level||1)+1;
+  player.levelPoints=Math.min(999,(player.levelPoints||0)+1);levels++;
+ }
+ player.xpToNext=levelXpNeeded(player.level||1);
+ if(player.ws?.readyState===WebSocket.OPEN){
+  player.ws.send(JSON.stringify({type:'experience',amount:gained,source,level:player.level,xp:player.xp,xpToNext:player.xpToNext,levelPoints:player.levelPoints,levels}));
+  if(levels)player.ws.send(JSON.stringify({type:'notice',text:'✦ SUBIU DE NÍVEL! Nível '+player.level+' · +'+levels+' ponto(s) de melhoria. Abra o painel NÍVEL.'}));
+ }
+ return gained;
+}
+
+const STATIC_DUNGEON_COLLIDERS=SERVER_PILLAR_COLLIDERS;
 function isServerPositionBlocked(room,x,z){
-  const playerRadius=.43;
-  if(room.started&&room.gameMode!=='pvp_rpg'){
-    const phase=Math.max(1,Math.min(5,Number(room.phase)||1));
-    const gateZ=phase<5?-(30+(phase-1)*32):-163.2;
-    const enemiesAlive=phase===5?!!room.boss?.alive:(room.monsters||[]).some(monster=>monster.alive);
-    if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
-  }
-  // Colisores de pilares são exclusivos do mundo original.
-  if ((room.realm || 1) === 1) {
-    for (const obstacle of STATIC_DUNGEON_COLLIDERS) {
-      if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
-    }
-  }
-  for (const chest of room.chests || []) {
-    if (Math.hypot(x - chest.x, z - chest.z) < playerRadius + 0.62) return true;
-  }
-  return false;
+ const playerRadius=.43;
+ if(room.gameMode!=='pvp_rpg'&&!serverIsWalkableFloor(x,z,room))return true;
+ if(room.started&&room.gameMode!=='pvp_rpg'){
+  const phase=Math.max(1,Math.min(5,Number(room.phase)||1)),gateZ=phase<5?-(30+(phase-1)*32):-163.2;
+  const enemiesAlive=phase===5?!!room.boss?.alive:(room.monsters||[]).some(monster=>monster.alive);
+  if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
+ }
+ for(const obstacle of STATIC_DUNGEON_COLLIDERS)if(Math.hypot(x-obstacle.x,z-obstacle.z)<playerRadius+obstacle.r)return true;
+ for(const chest of room.chests||[])if(Math.hypot(x-chest.x,z-chest.z)<playerRadius+.62)return true;
+ return false;
 }
 function resolveServerMovement(room, player, nextX, nextZ) {
   const x = Math.max(-13, Math.min(13, nextX));
@@ -642,6 +720,7 @@ function state(room) {
       id:p.id,name:p.name,x:p.x,z:p.z,rot:p.rot,color:p.color,hp:p.hp,maxHp:p.maxHp,mana:p.mana??100,maxMana:p.maxMana??100,
       playerClass:p.playerClass,skin:p.skin,skills:p.skills,talentPoints:p.talentPoints,unlockedSkins:p.unlockedSkins||[],equipmentDamage:p.equipmentDamage||0,ready:!!p.ready,isHost:p.id===room.hostId,
       pvpKills:p.pvpKills||0,pvpMonsterKills:p.pvpMonsterKills||0,pvpRespawnAt:p.pvpRespawnAt||0,
+      level:p.level||1,xp:p.xp||0,xpToNext:p.xpToNext||levelXpNeeded(p.level||1),levelPoints:p.levelPoints||0,levelUpgrades:cleanLevelUpgrades(p.levelUpgrades),
       invisible:Date.now()<(p.invisibleUntil||0),shielded:Date.now()<(p.shieldUntil||0),ogreHasteUntil:p.ogreHasteUntil||0
     })),
     summons: (room.summons || []).filter(s => s.hp > 0 && (!s.expiresAt || s.expiresAt > Date.now())).map(s => {
@@ -654,6 +733,7 @@ function state(room) {
     phase: room.phase,
     realm: room.realm || 1,
     safeZoneUntil: room.safeZoneUntil || 0,
+    openTraps: room.openTraps || [],
     started: room.started,
     hostId: room.hostId,
     monsters: [...room.monsters, ...(room.cursedBoss && room.cursedBoss.alive ? [room.cursedBoss] : [])],
@@ -672,6 +752,7 @@ wss.on('connection', ws => {
   name: 'Aventureiro', x: 0, z: 3, rot: 0,
   color: [0x72e6ff, 0x9ec477, 0xffb8a7, 0x9cf8a8][nextId % 4],
   hp: 130, maxHp: 130, mana: 100, maxMana: 100, nextManaRegenAt: Date.now() + 1000, lastGateNotice: 0, baseDamage: 2, damageBuff: 0, damageBuffHits: 0,
+  level:1,xp:0,xpToNext:100,levelPoints:0,levelUpgrades:defaultLevelUpgrades(),mapTrapDamageAt:0,trapId:null,
   playerClass: 'knight', skin: 'default', skills: [], talentPoints: 5, equipmentDamage: 0, unlockedSkins:[], nextAttackAt: 0, nextRegenAt: Date.now() + 3000, secondWindUsed: false,
   room: null,
   ready: false,
@@ -1033,7 +1114,7 @@ wss.on('connection', ws => {
       const item = player.lootDrops[itemIndex];
       const tier = RARITY_EFFECTS[item.rarity] || RARITY_EFFECTS['comum'];
       const maxHp = player.maxHp || 100;
-      const heal = fraction => Math.max(1, Math.round(maxHp * fraction));
+      const heal=fraction=>Math.max(1,Math.round(maxHp*fraction*(1+cleanLevelUpgrades(player.levelUpgrades).item*.10)));
       let effect = '';
       if(item.name==='Poção de Vida'){
         if(player.hp>=maxHp){const before=player.mana||0;player.mana=Math.min(player.maxMana||100,before+Math.round((player.maxMana||100)*.2));effect='Vida cheia: mana +'+(player.mana-before)+'.';}
