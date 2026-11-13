@@ -2017,7 +2017,7 @@ function refreshLobby3DCompanions(players) {
 }
 function renderLobby3DPreview() {
   if (!renderer || !lobbyPreviewScene || !lobbyPreviewCamera || !lobbyPreviewHero) return;
-  const lobbyVisible = !started && $('lobby') && !$('lobby').classList.contains('hidden');
+  const lobbyVisible = $('lobby') && !$('lobby').classList.contains('hidden');
   if (!lobbyVisible) return;
   const canvasRect = renderer.domElement.getBoundingClientRect();
   const width = renderer.domElement.clientWidth || innerWidth;
@@ -2039,6 +2039,7 @@ function renderLobby3DPreview() {
     avatar.rotation.y = Math.PI + (index===0 ? -.12 : .12) + Math.sin(time*.28+index)*.045;
     avatar.position.y = Math.sin(time*1.05+index*2.1)*.018;
   });
+  lobbyPreviewHero.visible = true;
   const heroClass = lobbyPreviewHero.userData.heroClass || selectedClass || 'knight';
   const idle = time * (heroClass === 'mage' ? 1.35 : heroClass === 'archer' ? 1.7 : 1.05);
   const breath = Math.sin(idle) * 0.018;
