@@ -321,7 +321,8 @@ function handleSummonDefeat(room, summon, target) {
     broadcast(room, { type: 'notice', text: 'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!' });
   } else {
     awardKillExperience(room,target,owner,16+(target.phase||room.phase)*3+(room.realm||1)*3,'monster');
-    if(Math.random()<dropChance(owner,.2))grantLoot(owner,'monster');
+    if(target.upperElite)grantUpperFloorSeal(owner,target);
+    else if(Math.random()<dropChance(owner,.2))grantLoot(owner,'monster');
   }
 }
 
@@ -506,6 +507,29 @@ function grantLoot(player, source) {
     player.ws.send(JSON.stringify({ type: 'loot', item }));
   }
   return item;
+}
+function grantUpperFloorSeal(player,enemy){
+ if(!player||!enemy?.upperElite)return null;
+ enemy.eliteRewardedBy=Array.isArray(enemy.eliteRewardedBy)?enemy.eliteRewardedBy:[];
+ const playerKey=String(player.id);
+ if(enemy.eliteRewardedBy.includes(playerKey))return null;
+ enemy.eliteRewardedBy.push(playerKey);
+ const item={
+  id:String(Date.now())+'-'+playerKey+'-upper-seal',
+  name:'Selo do Andar Superior',
+  rarity:'épico',value:18,power:4,source:'upper-floor-elite',
+  description:'Uma relíquia que prova a vitória sobre o Guardião do Andar Superior.'
+ };
+ player.lootDrops=Array.isArray(player.lootDrops)?player.lootDrops:[];
+ player.inventory=player.inventory||{};
+ player.lootDrops.push(item);
+ player.inventory['épico']=(player.inventory['épico']||0)+1;
+ sendInventory(player);
+ if(player.ws?.readyState===WebSocket.OPEN){
+  player.ws.send(JSON.stringify({type:'loot',item}));
+  player.ws.send(JSON.stringify({type:'notice',text:'✦ GUARDIÃO DO ANDAR SUPERIOR DERROTADO! Você recebeu o Selo do Andar Superior (ÉPICO).'}));
+ }
+ return item;
 }
 
 function createWave(phase,realm=1,spawnStartAt=Date.now()){
@@ -1514,6 +1538,8 @@ wss.on('connection', ws => {
           const dropped = grantLoot(player, 'boss');
           broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
           if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
+        } else if(enemy.upperElite){
+          grantUpperFloorSeal(player,enemy);
         } else if (enemy.cursed) {
           const prize = { id: String(Date.now()) + '-curse', name: 'Cristal Ancestral', rarity: 'lendário', value: 16, power: 5, source: 'cursed-chest' };
           player.lootDrops.push(prize);
@@ -1848,7 +1874,8 @@ wss.on('connection', ws => {
         if (enemy.hp <= 0) {
           enemy.alive = false;
           awardExperience(player,enemy===room.boss?260+(room.realm||1)*60:enemy.cursed?52:16+(enemy.phase||room.phase)*3+(room.realm||1)*3,enemy===room.boss?'boss':enemy.cursed?'mini-boss':'monster');
-          if (room.phase < 5 && Math.random() < dropChance(player, .25)) grantLoot(player, 'monster');
+          if(enemy.upperElite)grantUpperFloorSeal(player,enemy);
+          else if (room.phase < 5 && Math.random() < dropChance(player, .25)) grantLoot(player, 'monster');
           if (room.phase === 5 && enemy === room.boss) {
             const dropped = grantLoot(player, 'boss');
             broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
@@ -1938,7 +1965,10 @@ wss.on('connection', ws => {
           if (target.hp <= 0) {
             target.alive = false;
             awardKillExperience(room,target,player,target.cursed?52:16+(target.phase||room.phase)*3+(room.realm||1)*3,target.cursed?'mini-boss':'monster');
-            if (target.cursed) { const prize={id:String(Date.now())+'-curse',name:'Cristal Ancestral',rarity:'lendário',value:16,power:5,source:'cursed-chest'}; player.lootDrops.push(prize); player.inventory['lendário']=(player.inventory['lendário']||0)+1; sendInventory(player); player.ws.send(JSON.stringify({type:'loot',item:prize})); room.cursedBoss=null; broadcast(room,{type:'notice',text:'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!'}); }
+            if(target.upperElite){
+              grantUpperFloorSeal(player,target);
+              broadcast(room,{type:'notice',text:player.name+' derrotou o Guardião do Andar Superior!'});
+            } else if (target.cursed) { const prize={id:String(Date.now())+'-curse',name:'Cristal Ancestral',rarity:'lendário',value:16,power:5,source:'cursed-chest'}; player.lootDrops.push(prize); player.inventory['lendário']=(player.inventory['lendário']||0)+1; sendInventory(player); player.ws.send(JSON.stringify({type:'loot',item:prize})); room.cursedBoss=null; broadcast(room,{type:'notice',text:'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!'}); }
             else {
             // Monstros comuns não garantem item: chance de 25%, para loot não inundar o inventário.
             if (Math.random() < dropChance(player, .25)) {
@@ -2409,7 +2439,9 @@ const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
         enemy.alive = false;
         const owner = players[0];
         if (owner) {
-          if (enemy === room.boss) {
+          if(enemy.upperElite){
+            grantUpperFloorSeal(owner,enemy);
+          }else if (enemy === room.boss) {
             const dropped = grantLoot(owner, 'boss');
             broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO PELA QUEIMADURA! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
             if(room.realm===1)broadcast(room,{type:'notice',text:'✦ O portão do Vale Astral despertou no fundo do Abismo!'});
