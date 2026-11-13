@@ -132,9 +132,9 @@ function isInsideMapFloor(x,z) {
   for(let i=0;i<MAP_ZONE_CENTERS.length;i++) {
     if(pointInMapPolygon(x,z-MAP_ZONE_CENTERS[i],MAP_ZONE_POLYGONS[i]))return true;
   }
-  return [-30.5,-62,-94,-130].some((bridgeZ,index) =>
-    Math.abs(z-bridgeZ) < (index===3?4.9:1.65) && Math.abs(x) < (index===3?4.8:4.65)
-  );
+  if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
+  return mapStairSpecs.some(stair=>Math.abs(x-stair.x)<3.62&&z<=stair.roomStartZ&&z>=stair.roomEndZ)
+    ||mapStairSpecs.some(stair=>Math.abs(x-stair.x)<2.1&&z<=stair.startZ&&z>=stair.endZ);
 }
 function getDungeonFloorHeight(x,z) {
   for(const pit of liveUnderworldPits) {
@@ -390,7 +390,15 @@ function playSfx(kind = 'ui') {
 // Colisores 2D alinhados aos pilares, suportes dos portões e cristais sólidos.
 const staticDungeonColliders = [
   ...MAP_PILLAR_COLLIDERS,
-  ...[-30,-62,-94,-126].flatMap(z=>[{x:-3.15,z,r:.30},{x:3.15,z,r:.30}])
+  ...[-30,-62,-94,-126].flatMap(z=>[{x:-3.15,z,r:.30},{x:3.15,z,r:.30}]),
+  ...MAP_ZONE_CENTERS.flatMap((center,index)=>{
+    const stairX=index%2===0?-8.25:8.25;
+    return [
+      ...[-1.78,1.78].flatMap(side=>Array.from({length:8},(_,n)=>({x:stairX+side,z:center+1-n,r:.19}))),
+      ...[-3.62,3.62].flatMap(side=>Array.from({length:9},(_,n)=>({x:stairX+side,z:center-9-n*1.18,r:.22}))),
+      ...Array.from({length:9},(_,n)=>({x:stairX-3.25+n*.81,z:center-20.5,r:.22}))
+    ];
+  })
 ];
 function isDungeonPositionBlocked(x,z){
   const playerRadius=.43;
