@@ -476,12 +476,12 @@ function grantLoot(player, source) {
   return item;
 }
 
-function createWave(phase,realm=1){
+function createWave(phase,realm=1,spawnStartAt=Date.now()){
  const original={1:['stalker','stalker','brute','stalker','brute'],2:['wraith','stalker','wraith','brute','wraith','brute'],3:['thorn','thorn','brute','wraith','thorn','brute','wraith'],4:['inferno','brute','inferno','wraith','brute','inferno','wraith','brute'],5:['abyss','abyss','brute','abyss','wraith','abyss','brute','abyss','wraith']};
  const astral={1:['wraith','thorn','stalker','wraith','brute','thorn'],2:['thorn','inferno','wraith','thorn','brute','wraith','inferno'],3:['abyss','thorn','wraith','abyss','brute','thorn','inferno','wraith'],4:['inferno','abyss','brute','wraith','inferno','thorn','abyss','brute','wraith'],5:['abyss','abyss','inferno','brute','abyss','wraith','inferno','abyss','brute']};
  const eclipse={1:['thorn','abyss','inferno','thorn','brute','abyss'],2:['abyss','inferno','thorn','abyss','brute','inferno','thorn'],3:['inferno','abyss','thorn','inferno','brute','abyss','thorn','inferno'],4:['abyss','inferno','abyss','thorn','brute','inferno','abyss','thorn','inferno'],5:['abyss','abyss','inferno','thorn','brute','abyss','inferno','abyss','thorn']};
- const kindsByPhase=realm===3?eclipse:realm===2?astral:original,count=phase===1?(realm===1?5:6):6+phase+(realm===1?0:1),kinds=kindsByPhase[phase]||kindsByPhase[5],center=-((phase-1)*32+14),now=Date.now();
- return Array.from({length:count},(_,i)=>{const kind=kinds[i%kinds.length],base=phase===1?5:7+phase*2,scale=realm===1?1:realm===2?1.3:1.65,hp=Math.round(((kind==='brute'?base*2:base)+(phase-1)*2)*scale);return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*22,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:now+i*1700,alive:true,hp,maxHp:hp,attackAt:0};});
+ const kindsByPhase=realm===3?eclipse:realm===2?astral:original,count=phase===1?(realm===1?5:6):6+phase+(realm===1?0:1),kinds=kindsByPhase[phase]||kindsByPhase[5],center=-((phase-1)*32+14),now=Date.now(),firstSpawnAt=Math.max(now,Number(spawnStartAt)||now);
+ return Array.from({length:count},(_,i)=>{const kind=kinds[i%kinds.length],base=phase===1?5:7+phase*2,scale=realm===1?1:realm===2?1.3:1.65,hp=Math.round(((kind==='brute'?base*2:base)+(phase-1)*2)*scale);return{id:'r'+realm+'p'+phase+'m'+i,kind,phase,realm,x:(Math.random()-.5)*22,z:center+(Math.random()-.5)*8,spawned:false,spawnAt:firstSpawnAt+i*1400,alive:true,hp,maxHp:hp,attackAt:0};});
 }
 function advancePhase(room) {
   if (room.phase >= 5) return;
@@ -495,7 +495,7 @@ function advancePhase(room) {
     if (player.hp > 0) player.hp = Math.min(player.maxHp || 100, player.hp + 15);
     if (player.ws.readyState === WebSocket.OPEN) player.ws.send(JSON.stringify({ type: 'notice', text: '✦ Zona segura por 20 segundos! +1 ponto de skill e +' + (player.hp - before) + ' de vida. Abra ÁRVORE DE SKILLS.' }));
   }
-  room.monsters = createWave(room.phase, room.realm || 1);
+  room.monsters = createWave(room.phase, room.realm || 1, room.safeZoneUntil + 700);
   room.boss = null;
   if (room.phase === 5) {
     room.monsters = [];
@@ -514,13 +514,13 @@ function advancePhase(room) {
 }
 
 function enterAstralRealm(room){
- room.realm=2;room.phase=1;room.monsters=createWave(1,2);room.boss=null;room.cursedBoss=null;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;
+ room.realm=2;room.phase=1;room.safeZoneUntil=Date.now()+15000;room.nextSafeBroadcast=0;room.monsters=createWave(1,2,room.safeZoneUntil+700);room.boss=null;room.cursedBoss=null;
  room.chests=[{id:'c0',x:-8,z:-12,openedBy:[]},{id:'c1',x:8,z:-44,openedBy:[]},{id:'c2',x:-8,z:-76,openedBy:[]},{id:'c3',x:8,z:-108,openedBy:[]},{id:'c4',x:8,z:-140,openedBy:[]}];
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+2);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+20);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'✦ PORTÃO ABERTO! Você chegou ao Vale Astral: mapa independente, novos inimigos e +2 pontos de skill.'}));}
  broadcast(room,state(room));
 }
 function enterEclipseRealm(room){
- room.realm=3;room.phase=1;room.monsters=createWave(1,3);room.boss=null;room.cursedBoss=null;room.safeZoneUntil=Date.now()+18000;room.nextSafeBroadcast=0;
+ room.realm=3;room.phase=1;room.safeZoneUntil=Date.now()+18000;room.nextSafeBroadcast=0;room.monsters=createWave(1,3,room.safeZoneUntil+700);room.boss=null;room.cursedBoss=null;
  room.chests=[{id:'e0',x:8,z:-12,openedBy:[]},{id:'e1',x:-8,z:-44,openedBy:[]},{id:'e2',x:8,z:-76,openedBy:[]},{id:'e3',x:-8,z:-108,openedBy:[]},{id:'e4',x:8,z:-140,openedBy:[]}];
  for(const p of room.players.values()){p.x=0;p.z=3;p.rot=0;p.talentPoints=Math.min(20,(p.talentPoints||0)+3);if(p.hp>0)p.hp=Math.min(p.maxHp||100,p.hp+25);if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'notice',text:'☄ MUNDO III! Você chegou ao Eclipse Selvagem: inimigos mais fortes, novo guardião e +3 pontos de skill.'}));}
  broadcast(room,state(room));
@@ -921,7 +921,12 @@ wss.on('connection', ws => {
           p.hp=p.maxHp;p.mana=p.maxMana||100;p.pvpKills=0;p.pvpMonsterKills=0;p.pvpRespawnAt=0;p.pvpMonsterCooldownAt=0;p.deathLocked=false;
         });
         broadcast(room,{type:'notice',text:'⚔ ARENA PvP RPG! Derrote rivais, invoque monstros com mana e conquiste eliminações.'});
-      }else broadcast(room,{type:'notice',text:'A partida começou! Boa sorte, aventureiros.'});
+      } else {
+        room.safeZoneUntil=Date.now()+12000;
+        room.nextSafeBroadcast=0;
+        room.monsters=createWave(1,room.realm||1,room.safeZoneUntil+700);
+        broadcast(room,{type:'notice',text:'Zona segura inicial por 12 segundos! Prepare seu personagem. Os monstros vão surgir depois, um de cada vez.'});
+      }
       broadcast(room,state(room));
     } else if (msg.type === 'loadout') {
       const wantedClass = ['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(msg.playerClass) ? msg.playerClass : player.playerClass;
@@ -1988,14 +1993,14 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
             moveZ = (dz / distance) * 0.84 + (dx / distance) * 0.54 * side;
           }
 
-          const speed=(Number(monster.moveSpeed)||(kind==='brute' ? 0.25 : kind==='wraith' ? 0.32 : kind==='assassin' ? 0.36 : kind==='thorn' ? 0.25 : kind==='abyss' ? 0.33 : 0.29))*(retreating?1.18:1)*(room.phase>=4?1.08:1);
+          const speed=(Number(monster.moveSpeed)||(kind==='brute' ? 0.31 : kind==='wraith' ? 0.38 : kind==='assassin' ? 0.42 : kind==='thorn' ? 0.32 : kind==='abyss' ? 0.39 : 0.35))*(retreating?1.14:1)*(room.phase>=4?1.10:1);
           monster.x=Math.max(-13,Math.min(13,monster.x+moveX*speed));
           monster.z=room.gameMode==='pvp_rpg'?Math.max(-28,Math.min(-2,monster.z+moveZ*speed)):Math.max(-170,Math.min(8,monster.z+moveZ*speed));
         }
       }
       const monsterNow = Date.now();
-      if (target && nearest <= 2.55) {
-        if (room.gameMode === 'pvp_rpg' && monsterNow < (monster.nextAttackAt || 0)) {
+      if (target && nearest <= 3.05) {
+        if (monsterNow < (monster.nextAttackAt || 0)) {
           monster.attackWarnAt = 0;
           monster.attackTargetId = null;
         } else if (!monster.attackWarnAt || monster.attackTargetId !== target.id) {
@@ -2005,7 +2010,7 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
           if (!target.isSummon && target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: '⚠ O monstro prepara um golpe! Esquive agora.' }));
         } else if (monster.attackWarnAt && monsterNow - monster.attackWarnAt >= 460) {
           monster.attackAt = monsterNow;
-          if (room.gameMode === 'pvp_rpg') monster.nextAttackAt = monsterNow + (monster.attackMs || 1200);
+          monster.nextAttackAt = monsterNow + (room.gameMode === 'pvp_rpg' ? (monster.attackMs || 1200) : (monster.kind === 'brute' ? 1750 : 1350));
           monster.attackWarnAt = 0;
           monster.attackTargetId = null;
           broadcast(room, { type: 'monsterAttack', id: monster.id, targetId: target.id });
@@ -2019,8 +2024,11 @@ if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextR
             applyPvpPlayerDamage(room,monster,target,monster.damage||4);
             if(target.ws)target.ws.send(JSON.stringify({type:'notice',text:monster.name+' acertou você! -'+(monster.damage||4)+' de dano.'}));
           } else {
-            takeDamage(room, target, 4);
-            if (target.ws) target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -4 de vida.' }));
+            const hpBeforeHit=target.hp;
+            const incomingDamage=Number(monster.damage)>0?Number(monster.damage):(monster.kind==='brute'?9:(room.phase>=4?7:6));
+            takeDamage(room, target, incomingDamage);
+            const actualDamage=Math.max(0,hpBeforeHit-target.hp);
+            if (target.ws && actualDamage>0) target.ws.send(JSON.stringify({ type: 'notice', text: 'Um monstro acertou você! -'+actualDamage+' de vida.' }));
           }
           if (!target.isSummon && target.hp <= 0) {
             target.hp = 0;
