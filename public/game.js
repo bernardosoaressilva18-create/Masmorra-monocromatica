@@ -1666,7 +1666,7 @@ function makeMonster(kind = 'stalker', phase = 1) {
     add(new THREE.SphereGeometry(.25,12,10),woodMat,0,2.12,0,1,1,.9);
     add(new THREE.TorusGeometry(.25,.065,7,20),targetMat,0,1.58,-.205,1,1,.8).rotation.x=Math.PI/2;
     for(const side of [-1,1]){
-      const arm=add(new THREE.CapsuleGeometry(.085,.48,3,7),woodMat,side*.37,1.72,0,1,1,1);
+      const arm=limb(new THREE.CapsuleGeometry(.085,.48,3,7),woodMat,side*.37,1.72,0,1,1,1,side);
       arm.rotation.z=side*.72;
       const leg=add(new THREE.CylinderGeometry(.075,.10,.45,7),darkWood,side*.15,.42,0);
       leg.rotation.z=side*.10;
@@ -2779,7 +2779,9 @@ function startTrainingRange() {
   offlineState.monsters = [
     {id:'training-dummy-center',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:0,homeZ:0,x:0,z:0,phase:1,realm:1,spawned:true,alive:true,hp:80,maxHp:80,respawnDelay:1800},
     {id:'training-dummy-left',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:-3,homeZ:-1,x:-3,z:-1,phase:1,realm:1,spawned:true,alive:true,hp:80,maxHp:80,respawnDelay:1800},
-    {id:'training-dummy-right',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:3,homeZ:-1,x:3,z:-1,phase:1,realm:1,spawned:true,alive:true,hp:80,maxHp:80,respawnDelay:1800}
+    {id:'training-dummy-right',kind:'training_dummy',name:'Boneco de Treino',trainingDummy:true,homeX:3,homeZ:-1,x:3,z:-1,phase:1,realm:1,spawned:true,alive:true,hp:80,maxHp:80,respawnDelay:1800},
+    {id:'training-attacker-left',kind:'training_dummy',name:'Boneco Combatente I',trainingDummy:true,trainingAttacker:true,homeX:-6,homeZ:-3,x:-6,z:-3,phase:1,realm:1,spawned:true,alive:true,hp:110,maxHp:110,respawnDelay:2200,nextAttackAt:Date.now()+1700,attackWarnAt:0,trainingWarningUntil:0,attackAnimAt:0},
+    {id:'training-attacker-right',kind:'training_dummy',name:'Boneco Combatente II',trainingDummy:true,trainingAttacker:true,homeX:6,homeZ:-3,x:6,z:-3,phase:1,realm:1,spawned:true,alive:true,hp:110,maxHp:110,respawnDelay:2200,nextAttackAt:Date.now()+3000,attackWarnAt:0,trainingWarningUntil:0,attackAnimAt:0}
   ];
   offlineState.summons = [];
   offlineState.chests = [];
@@ -2796,7 +2798,7 @@ function startTrainingRange() {
   updateState(offlineState);
   if (offlineLoop) clearInterval(offlineLoop);
   offlineLoop = setInterval(stepOfflineSimulation, 220);
-  showNotice('CAMPO DE TREINO · Use 1, 2 e 3 para testar os poderes. Os bonecos não atacam e recuperam o HP.');
+  showNotice('CAMPO DE TREINO · Teste os poderes nos três alvos. Dois bonecos combatentes vão perseguir você: observe o anel vermelho e esquive!');
 }
 $('openTrainingBtn')?.addEventListener('click', startTrainingRange);
 
@@ -3137,11 +3139,11 @@ function handleOfflineClassAbility(data) {
   } else if (ability === 'goblin_shadow_strike') {
     const target=nearest(9);if(target)hit(target,16);player.invisibleUntil=now+600;text=target?'⟡ Golpe sombrio: 16 de dano.':'Nenhum alvo até 9 m.';
   } else if (ability === 'ogre_slam') {
-    const count=hitArea(center,5.2,12,0,1.6);text='💥 Soco no chão! '+count+' alvo(s), 12 de dano.';
+    const ogreDamage=offlineHasSkill('ogre_berserker')?7:5;const count=hitArea(center,5.2,ogreDamage,0,1.6);text='💥 Soco no chão! '+count+' alvo(s), '+ogreDamage+' de dano.';
   } else if (ability === 'ogre_haste') {
     player.ogreHasteUntil=now+5000;until=player.ogreHasteUntil;text='💨 Velocidade aumentada por 5 segundos.';
   } else if (ability === 'ogre_earthquake') {
-    const count=hitArea(center,5.8,15,0,1.5);text='♨ Terremoto! '+count+' alvo(s), 15 de dano.';
+    const count=hitArea(center,5.8,8,0,1.5);text='♨ Terremoto! '+count+' alvo(s), 8 de dano.';
   } else if (ability === 'healer_cure') {
     const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+(offlineHasSkill('healer_blessing')?70:50));text='💚 Cura: +'+(player.hp-before)+' HP.';
   } else if (ability === 'healer_guardian_spirits') {
@@ -3314,11 +3316,60 @@ function stepOfflineSimulation() {
           monster.respawnAt = 0;
           monster.burnUntil = 0;
           monster.burnNextAt = 0;
+          monster.x = Number(monster.homeX ?? monster.x);
+          monster.z = Number(monster.homeZ ?? monster.z);
+          monster.attackWarnAt = 0;
+          monster.trainingWarningUntil = 0;
+          monster.nextAttackAt = now + 1600;
         } else {
           continue;
         }
       }
       if (!monster.alive) continue;
+      if (monster.trainingDummy && monster.trainingAttacker) {
+        const dx = player.x - monster.x, dz = player.z - monster.z;
+        const distance = Math.hypot(dx, dz);
+        monster.rot = Math.atan2(-dx, -dz);
+        if (distance > 1.85) {
+          monster.attackWarnAt = 0;
+          monster.trainingWarningUntil = 0;
+          const step = Math.min(.15, Math.max(0, distance - 1.55));
+          if (step > 0.001) {
+            const resolved = resolveDungeonMovement(monster.x, monster.z,
+              monster.x + dx / Math.max(distance, .001) * step,
+              monster.z + dz / Math.max(distance, .001) * step);
+            monster.x = resolved.x;
+            monster.z = resolved.z;
+          }
+        } else if (now >= (monster.nextAttackAt || 0)) {
+          if (!monster.attackWarnAt) {
+            monster.attackWarnAt = now;
+            monster.trainingWarningUntil = now + 720;
+          } else if (now - monster.attackWarnAt >= 720) {
+            monster.attackAnimAt = now;
+            monster.attackWarnAt = 0;
+            monster.trainingWarningUntil = 0;
+            monster.nextAttackAt = now + 2850;
+            if (Math.hypot(player.x - monster.x, player.z - monster.z) <= 2.15) {
+              if (now < (player.dodgeUntil || 0)) {
+                showNotice('Esquiva perfeita! O boneco errou o golpe.');
+              } else {
+                let damage = 6;
+                if (player.shielded) damage = Math.max(1, Math.round(damage * .35));
+                const before = player.hp;
+                player.hp = Math.max(0, player.hp - damage);
+                const dealt = before - player.hp;
+                showNotice('O boneco combatente acertou você! -' + dealt + ' HP.');
+                if (player.hp <= 0 && !offlineDefeatNoticeShown) {
+                  offlineDefeatNoticeShown = true;
+                  showNotice('Você foi derrotado. Saia do treino para recomeçar.');
+                }
+              }
+            }
+          }
+        }
+        continue;
+      }
       if (monster.trainingDummy) {
         monster.x = Number(monster.homeX ?? monster.x);
         monster.z = Number(monster.homeZ ?? monster.z);
@@ -4125,6 +4176,12 @@ function updateState(m) {
     obj.userData.targetZ = mtr.z;
     obj.userData.kind = mtr.kind || 'stalker';
     obj.userData.trainingDummy = !!mtr.trainingDummy;
+    obj.userData.trainingAttacker = !!mtr.trainingAttacker;
+    obj.userData.trainingWarningUntil = Number(mtr.trainingWarningUntil) || 0;
+    if (mtr.trainingAttacker && mtr.attackAnimAt && obj.userData.lastTrainingAttackAt !== mtr.attackAnimAt) {
+      obj.userData.lastTrainingAttackAt = mtr.attackAnimAt;
+      obj.userData.attackAnim = .48;
+    }
     obj.userData.serverHp = mtr.hp ?? 100;
     setHealthBar(obj, mtr.hp ?? 100, mtr.maxHp ?? mtr.maxHP ?? 100);
     // Monstros normais encaram o jogador local; invocações do PvP encaram o rival
@@ -4228,6 +4285,7 @@ function dodge() {
   );
   myPlayer.position.x = landing.x;
   myPlayer.position.z = landing.z;
+  if (offlineMode && offlineState?.trainingMode) offlineState.players[0].dodgeUntil = Date.now() + 900;
   send({ type: 'dodge', rot: yaw });
   vibrateGame(24);
   playSfx('dodge');
@@ -4491,9 +4549,9 @@ const CLASS_DEMO_STATS = {
   goblin_invis:{result:'0 dano · invisível por 5 s',kind:'stealth'},
   goblin_summon:{result:'2 aliados · 3 dano por golpe',kind:'summon'},
   goblin_shadow_strike:{result:'16 dano + invisibilidade breve',kind:'mobility'},
-  ogre_slam:{result:'12 dano em área',kind:'area'},
+  ogre_slam:{result:'5–7 dano em área',kind:'area'},
   ogre_haste:{result:'0 dano · velocidade por 5 s',kind:'buff'},
-  ogre_earthquake:{result:'15 dano em área',kind:'area'},
+  ogre_earthquake:{result:'8 dano em área',kind:'area'},
   healer_cure:{result:'+50 HP',kind:'heal'},
   healer_guardian_spirits:{result:'+5 HP / 4 s · 9 dano / 5 s',kind:'summon'},
   healer_light_orb:{result:'+28 HP',kind:'heal'},
@@ -4513,7 +4571,7 @@ const CLASS_DEMO_DAMAGE = {
   fire:22,lightning:20,mage_arcane_orb:30,
   arrow_rain:18,incendiary_arrows:16,archer_piercing_shot:34,
   goblin_invis:0,goblin_summon:12,goblin_shadow_strike:25,
-  ogre_slam:30,ogre_haste:0,ogre_earthquake:38,
+  ogre_slam:15,ogre_haste:0,ogre_earthquake:20,
   healer_cure:0,healer_guardian_spirits:18,healer_light_orb:0,
   necromancer_summon:18,necromancer_dive:0,necromancer_bone_bolt:30,
   monk_impact_palm:12,monk_winged_steps:10,monk_spirit_wave:16,
@@ -6170,7 +6228,8 @@ function animate() {
     // Mantém movimento e orientação dos monstros distantes, mas evita animar cada membro
     // quando o celular já está em modo de desempenho reduzido.
     const farMonster = adaptiveDetailTier > 0 && obj.position.distanceToSquared(camera.position) > 625;
-    if (obj.userData.attackRing) obj.userData.attackRing.visible = !farMonster;
+    const trainingWarningActive = obj.userData.trainingAttacker && obj.userData.trainingWarningUntil > Date.now();
+    if (obj.userData.attackRing) obj.userData.attackRing.visible = obj.userData.trainingAttacker ? (trainingWarningActive && !farMonster) : !farMonster;
     if (farMonster) continue;
 
     for (const limb of obj.userData.animatedLimbs || []) {
@@ -6196,8 +6255,14 @@ function animate() {
     const attackRing = obj.userData.attackRing;
     if (attackRing) {
       const ringScale = 1 + windup * .05 + strike * .28 + recovery * .06;
-      attackRing.material.opacity = .30 + windup * .22 + strike * .58;
-      attackRing.scale.set(ringScale, ringScale, ringScale);
+      if (obj.userData.trainingAttacker) {
+        const warning = obj.userData.trainingWarningUntil > Date.now();
+        attackRing.material.opacity = warning ? .58 + Math.sin(monsterNow * .025) * .16 : 0;
+        attackRing.scale.setScalar(warning ? 1.12 + Math.sin(monsterNow * .025) * .08 : 1);
+      } else {
+        attackRing.material.opacity = .30 + windup * .22 + strike * .58;
+        attackRing.scale.set(ringScale, ringScale, ringScale);
+      }
     }
   }
 
