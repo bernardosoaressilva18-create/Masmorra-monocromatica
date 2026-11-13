@@ -302,10 +302,12 @@ function handleSummonDefeat(room, summon, target) {
   const owner = room.players.get(summon.ownerId);
   if (!owner || owner.connected === false) return;
   if (target === room.boss) {
+    awardExperience(owner,260+(room.realm||1)*60,'boss');
     const dropped = grantLoot(owner, 'boss');
     broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
     if (room.realm === 1) broadcast(room, { type: 'notice', text: '✦ O portão do Vale Astral despertou no fundo do Abismo!' });
   } else if (target.cursed) {
+    awardExperience(owner,52,'mini-boss');
     const prize = { id: String(Date.now()) + '-curse-summon', name: 'Cristal Ancestral', rarity: 'lendário', value: 16, power: 5, source: 'cursed-chest' };
     owner.lootDrops.push(prize);
     owner.inventory['lendário'] = (owner.inventory['lendário'] || 0) + 1;
@@ -313,7 +315,10 @@ function handleSummonDefeat(room, summon, target) {
     if (owner.ws && owner.ws.readyState === WebSocket.OPEN) owner.ws.send(JSON.stringify({ type: 'loot', item: prize }));
     room.cursedBoss = null;
     broadcast(room, { type: 'notice', text: 'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!' });
-  } else if (Math.random() < dropChance(owner, .2)) grantLoot(owner, 'monster');
+  } else {
+    awardExperience(owner,16+(target.phase||room.phase)*3+(room.realm||1)*3,'monster');
+    if(Math.random()<dropChance(owner,.2))grantLoot(owner,'monster');
+  }
 }
 
 function statsFor(player){
@@ -372,7 +377,10 @@ function takeDamage(room, player, amount) {
   if(damageNow<(player.dodgeUntil||0))return 0;
   if(cleanLevelUpgrades(player.levelUpgrades).autoDodge>0&&damageNow>=(player.nextAutoDodgeAt||0)){
     player.nextAutoDodgeAt=damageNow+5200;player.dodgeUntil=damageNow+360;
-    if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'↗ ESQUIVA AUTOMÁTICA! Você evitou o golpe. Recarga: 5,2 s.'}));
+    const direction=player.x<=0?1:-1,landing=resolveServerMovement(room,player,player.x+direction*1.35,player.z);
+    if(Math.abs(landing.x-player.x)<.2){const other=resolveServerMovement(room,player,player.x-direction*1.35,player.z);if(Math.abs(other.x-player.x)>.2){player.x=other.x;player.z=other.z;}}
+    else{player.x=landing.x;player.z=landing.z;}
+    if(player.ws?.readyState===WebSocket.OPEN)player.ws.send(JSON.stringify({type:'notice',text:'↗ ESQUIVA AUTOMÁTICA! Você desviou do golpe. Recarga: 5,2 s.'}));
     broadcast(room,{type:'autoDodge',id:player.id,x:player.x,z:player.z,until:player.dodgeUntil});
     return 0;
   }
@@ -409,6 +417,7 @@ function applyPvpPlayerDamage(room,attacker,target,amount){
   const killerId=attacker&&(room.players.has(String(attacker.id))?String(attacker.id):String(attacker.ownerId||''));
   const killer=killerId?room.players.get(killerId):null;
   if(killer&&killer.id!==target.id&&killer.connected!==false){
+   awardExperience(killer,70,'player');
    killer.pvpKills=(killer.pvpKills||0)+1;
    if(killer.pvpKills%3===0){killer.talentPoints=Math.min(99,(killer.talentPoints||0)+1);
     if(killer.ws?.readyState===WebSocket.OPEN)killer.ws.send(JSON.stringify({type:'notice',text:'✦ 3 eliminações PvP! +1 ponto de talento.'}));}
@@ -872,6 +881,13 @@ wss.on('connection', ws => {
         player.pvpRespawnAt=0;player.pvpMonsterCooldownAt=0;
         // O perfil do aparelho é validado aqui antes de entrar no estado autoritativo do servidor.
         const profile=msg.profile&&typeof msg.profile==='object'&&!Array.isArray(msg.profile)?msg.profile:{};
+        const levelProfile=profile.levelProgress&&typeof profile.levelProgress==='object'&&!Array.isArray(profile.levelProgress)?profile.levelProgress:{};
+        player.level=Math.max(1,Math.min(100,Math.floor(Number(levelProfile.level)||1)));
+        player.xp=Math.max(0,Math.min(levelXpNeeded(player.level)-1,Math.floor(Number(levelProfile.xp)||0)));
+        player.xpToNext=levelXpNeeded(player.level);
+        player.levelPoints=Math.max(0,Math.min(999,Math.floor(Number(levelProfile.levelPoints)||0)));
+        player.levelUpgrades=cleanLevelUpgrades(levelProfile.upgrades);
+        player.nextAutoDodgeAt=0;player.mapTrapDamageAt=0;player.trapId=null;
         const freeSkins=['default','shadow','ember'],chestSkins=['rune','celestial','bloodmoon','frostguard','draconic','voidwalker','verdant'];
         player.unlockedSkins=Array.isArray(profile.unlockedSkins)?[...new Set(profile.unlockedSkins.filter(id=>chestSkins.includes(id)))]:[];
         const requestedProfileClass=['knight','mage','archer','goblin','ogre','healer','necromancer','monk','golem'].includes(profile.playerClass)?profile.playerClass:null;
@@ -916,6 +932,20 @@ wss.on('connection', ws => {
 
     const room = player.room && rooms.get(player.room);
     if (!room) return;
+
+    if(msg.type==='levelUpgrade'){
+      if(!room.started||player.hp<=0){ws.send(JSON.stringify({type:'notice',text:'Entre em uma partida e esteja vivo para gastar pontos de nível.'}));return;}
+      const key=String(msg.upgrade||''),rule=LEVEL_UPGRADE_RULES[key];
+      if(!rule){ws.send(JSON.stringify({type:'notice',text:'Melhoria de nível inválida.'}));return;}
+      player.levelUpgrades=cleanLevelUpgrades(player.levelUpgrades);
+      if((player.levelUpgrades[key]||0)>=rule.max){ws.send(JSON.stringify({type:'notice',text:'Essa melhoria já chegou ao nível máximo.'}));return;}
+      if((player.levelPoints||0)<=0){ws.send(JSON.stringify({type:'notice',text:'Você precisa subir de nível para ganhar outro ponto.'}));return;}
+      player.levelPoints--;
+      player.levelUpgrades[key]++;
+      refreshPlayerStats(player,false);
+      ws.send(JSON.stringify({type:'notice',text:'✦ Melhoria aplicada: '+key+' nível '+player.levelUpgrades[key]+'/'+rule.max+'.'}));
+      broadcast(room,state(room));return;
+    }
 
     if(msg.type==='spawnMonster'){
       if(room.gameMode!=='pvp_rpg'||!room.started||player.hp<=0)return;
@@ -1080,6 +1110,7 @@ wss.on('connection', ws => {
         player.z = collisionResolved.z;
         if (room.phase < 5 && requestedZ < gateZ) advancePhase(room);
       }
+      processPressurePlate(room,player,Date.now());
       player.rot = Number(msg.rot) || 0;
       // O loop do servidor já envia o estado a cada 100 ms; evitar duplicar
       // um pacote completo a cada movimento reduz tráfego e desconexões.
@@ -1698,7 +1729,7 @@ wss.on('connection', ws => {
         const target=candidates[0];let damage=isMonk?[0,2,3,5][monkCombo]:player.baseDamage+(player.damageBuffHits>0?player.damageBuff:0);
         if(isMonk&&player.damageBuffHits>0)damage+=player.damageBuff;
         if(target){if(target.isPlayer){if(target.entity.hp/(target.entity.maxHp||1)<=.35&&hasSkill(player,'executioner'))damage+=2;applyPvpPlayerDamage(room,player,target.entity,damage);}
-          else{const m=target.entity;m.hp=Math.max(0,m.hp-damage);recordMonsterThreat(m,player,damage,now);if(m.hp<=0&&m.alive){m.alive=false;player.pvpMonsterKills=(player.pvpMonsterKills||0)+1;const owner=room.players.get(String(m.ownerId));if(owner?.ws?.readyState===WebSocket.OPEN)owner.ws.send(JSON.stringify({type:'notice',text:'Um monstro seu foi derrotado por '+player.name+'.'}));ws.send(JSON.stringify({type:'notice',text:'Monstro rival derrotado!'}));}}
+          else{const m=target.entity;m.hp=Math.max(0,m.hp-damage);recordMonsterThreat(m,player,damage,now);if(m.hp<=0&&m.alive){m.alive=false;awardExperience(player,24,'pvp-monster');player.pvpMonsterKills=(player.pvpMonsterKills||0)+1;const owner=room.players.get(String(m.ownerId));if(owner?.ws?.readyState===WebSocket.OPEN)owner.ws.send(JSON.stringify({type:'notice',text:'Um monstro seu foi derrotado por '+player.name+'.'}));ws.send(JSON.stringify({type:'notice',text:'Monstro rival derrotado!'}));}}
           if(player.damageBuffHits>0){player.damageBuffHits--;if(player.damageBuffHits===0)player.damageBuff=0;}}
         broadcast(room,{type:'attack',id:player.id,combo:monkCombo,x:player.x,z:player.z});broadcast(room,state(room));return;
       }
@@ -1724,6 +1755,7 @@ wss.on('connection', ws => {
           if (player.damageBuffHits > 0) { player.damageBuffHits--; if (player.damageBuffHits === 0) player.damageBuff = 0; }
           if (target.hp <= 0) {
             target.alive = false;
+            awardExperience(player,target.cursed?52:16+(target.phase||room.phase)*3+(room.realm||1)*3,target.cursed?'mini-boss':'monster');
             if (target.cursed) { const prize={id:String(Date.now())+'-curse',name:'Cristal Ancestral',rarity:'lendário',value:16,power:5,source:'cursed-chest'}; player.lootDrops.push(prize); player.inventory['lendário']=(player.inventory['lendário']||0)+1; sendInventory(player); player.ws.send(JSON.stringify({type:'loot',item:prize})); room.cursedBoss=null; broadcast(room,{type:'notice',text:'MINI-CHEFE DERROTADO! Cristal Ancestral LENDÁRIO recebido!'}); }
             else {
             // Monstros comuns não garantem item: chance de 25%, para loot não inundar o inventário.
@@ -1762,7 +1794,9 @@ wss.on('connection', ws => {
         if (boss.lifePhase !== oldLifePhase && boss.hp > 0)
           broadcast(room, { type: 'notice', text: 'O Guardião entrou na fase de vida ' + boss.lifePhase + ' / 3!' });
         if (boss.hp <= 0) {
-          boss.alive = false; const dropped = grantLoot(player, 'boss');
+          boss.alive = false;
+          awardExperience(player,260+(room.realm||1)*60,'boss');
+          const dropped = grantLoot(player, 'boss');
           broadcast(room, { type: 'notice', text: 'CHEFE DERROTADO! Recompensa: ' + dropped.name + ' (' + dropped.rarity + ')' });
           if(room.realm===1)broadcast(room,{type:'notice',text:'✦ O portão do Vale Astral despertou no fundo do Abismo!'});
         }
@@ -1889,12 +1923,15 @@ setInterval(() => {
       continue;
     }
     for (const p of players) {
+      applyMapHazards(room,p,now);
       if (p.necromancerDivePending && now > (p.necromancerDiveUntil || 0)) {
         p.necromancerDivePending = false; p.necromancerDiveUntil = 0; p.invisibleUntil = 0;
         if (p.ws && p.ws.readyState === WebSocket.OPEN) p.ws.send(JSON.stringify({ type: 'notice', text: 'O mergulho terminou; você voltou ao ponto inicial.' }));
       }
-if (hasSkill(p, 'regeneration') && p.hp > 0 && p.hp < p.maxHp && now >= (p.nextRegenAt || 0)) {
-        p.hp = Math.min(p.maxHp, p.hp + 2); p.nextRegenAt = now + 3000;
+const recoveryRank=cleanLevelUpgrades(p.levelUpgrades).recovery;
+      if((hasSkill(p,'regeneration')||recoveryRank>0)&&p.hp>0&&p.hp<p.maxHp&&now>=(p.nextRegenAt||0)){
+        p.hp=Math.min(p.maxHp,p.hp+(hasSkill(p,'regeneration')?2:0)+recoveryRank);
+        p.nextRegenAt=now+(recoveryRank?2500:3000);
       }
       if (p.burnUntil && now >= (p.burnNextAt || 0)) {
         if (now > p.burnUntil) { p.burnUntil = 0; p.burnOwnerId = null; }
