@@ -4688,3 +4688,34 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
   #lobby .preview-attack{width:48px;height:48px}
   #lobby .preview-chest,#lobby .preview-dodge{width:38px;height:38px}
 }
+
+/* Inventário e personalização do HUD: alvo de toque grande e posições livres */
+#hud .inventory-panel{pointer-events:auto!important;z-index:18;max-height:min(46dvh,430px);overflow-y:auto;overscroll-behavior:contain}
+#hud .inventory-toggle,#hud .loot-use-button,#hud .select-item{pointer-events:auto!important;position:relative;z-index:2}
+#hud .loot-entry{display:grid;grid-template-columns:minmax(0,1fr) 64px;align-items:stretch;gap:6px;width:100%}
+#hud .loot-entry .loot-item{min-height:46px;display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid #5b7688;border-radius:9px;background:linear-gradient(145deg,#132434,#0a1521);color:#edf7fb;touch-action:manipulation}
+#hud .loot-entry .loot-item.selected{border-color:#e7c77d;background:linear-gradient(125deg,#3d311d,#132331);box-shadow:0 0 0 1px #e7c77d44}
+#hud .loot-entry .loot-item span{min-width:0;font-size:10px;line-height:1.3;overflow-wrap:anywhere}
+#hud .loot-entry .loot-item small{font-size:8px}
+#hud .loot-entry .loot-item b{flex:0 0 auto;color:#bcecf3}
+#hud .loot-entry .loot-use-button{min-width:60px;min-height:46px;padding:6px;border:1px solid #8be0c6;border-radius:9px;background:linear-gradient(145deg,#1e715f,#123b35);color:#eafff8;font-size:10px;font-weight:950;letter-spacing:.4px;touch-action:manipulation;pointer-events:auto}
+#hud .loot-entry .loot-use-button:disabled{opacity:.38;filter:grayscale(1)}
+#hud .loot-entry .loot-use-button:active{transform:scale(.96)}
+#lobby .hud-preview-stage{aspect-ratio:1.55}
+#lobby .hud-preview-stage[data-orientation="portrait"]{aspect-ratio:.72}
+#lobby .hud-preview-control{cursor:grab}
+#lobby .hud-preview-control:active{cursor:grabbing}
+#lobby .hud-preview-joystick{left:auto;bottom:auto;width:58px;height:58px;border:2px solid #b4d8e7}
+#lobby .hud-preview-joystick small{font-size:6px}
+#lobby .preview-menu{width:40px;height:40px;border-radius:11px;font-size:15px}
+#lobby .preview-inventory{border-color:#8be0c6;color:#bfffe5}
+#lobby .preview-skills{border-color:#d2b2ff;color:#e7d8ff}
+#lobby .preview-settings{border-color:#b5c8d7}
+#lobby .preview-orientation{border-color:#94cfff}
+#lobby .preview-leave{border-color:#ee8995;color:#ffcbd1}
+@media(max-width:700px) and (pointer:coarse){
+ #hud .inventory-panel{left:8px;right:8px;top:76px;width:auto;max-width:none;max-height:50dvh;padding:9px;z-index:24}
+ #hud .loot-entry .loot-item,#hud .loot-entry .loot-use-button{min-height:48px}
+ #lobby .hud-preview-control{width:42px;height:42px}
+ #lobby .preview-menu{width:36px;height:36px}
+}
