@@ -4210,3 +4210,126 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 #publicRoomsList:empty:after{content:"Nenhuma sala disponível no momento.";display:block;padding:14px;color:#9fb4c1;text-align:center}
 /* 50 · preferência por movimento reduzido */
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+
+/* Pacote geral 02 — 50 refinamentos de HUD, controles e legibilidade mobile */
+/* 01 · barra superior respeita a área segura */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:700px){
+ #hud .topbar{top:max(6px,env(safe-area-inset-top));gap:5px;min-height:40px;align-items:center}
+}
+/* 02 · identificação da sala não cresce demais */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:700px){
+ #hud .badge{min-width:0;flex:1 1 auto;max-width:34vw;overflow:hidden}
+}
+/* 03 · nome da sala é truncado com segurança */
+#hud .badge strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 04 · indicadores de vida e abates não quebram linha */
+#hud .stats{flex:0 0 auto;align-items:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* 05 · botões superiores têm área mínima de toque */
+#hud .settings-toggle,#hud .leave,#hud .orientation-toggle{min-height:38px;touch-action:manipulation}
+/* 06 · objetivo desce para não cruzar a barra superior */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:700px){
+ #hud .objective{top:calc(env(safe-area-inset-top) + 56px)!important;left:5px;width:calc(50vw - 10px);max-height:15vh;overflow:auto}
+}
+/* 07 · instrução da fase fica em linhas legíveis */
+#hud .objective strong{line-height:1.35;overflow-wrap:anywhere}
+/* 08 · indicador de progresso tem contraste */
+#hud .objective .progress{height:4px;border-radius:4px;overflow:hidden}
+/* 09 · inventário começa abaixo da área segura */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:700px){
+ #hud .inventory-panel{top:calc(env(safe-area-inset-top) + 56px)!important;right:5px;width:min(43vw,174px)!important;max-height:24dvh;padding:8px;overflow:auto}
+}
+/* 10 · inventário não estoura a largura */
+#hud .inventory-panel{box-sizing:border-box;min-width:0}
+/* 11 · botão de mostrar inventário tem tamanho consistente */
+#hud #inventoryToggleBtn{min-height:40px;width:100%;padding:8px 6px;font-size:clamp(8px,2.1vw,11px);line-height:1.25}
+/* 12 · título do inventário fica fixo visualmente */
+#hud .inventory-panel>strong{line-height:1.35;letter-spacing:1px}
+/* 13 · quantidades alinham os números */
+#hud .loot-row,#hud .rarity-count{font-variant-numeric:tabular-nums}
+/* 14 · linhas da mochila ficam clicáveis */
+#hud .select-item{min-height:34px;align-items:center;gap:5px}
+/* 15 · raridades têm contraste maior */
+#hud .rarity-comum{color:#e7edf4}
+#hud .rarity-incomum{color:#91f3b2}
+#hud .rarity-raro{color:#8bd6ff}
+#hud .rarity-epico{color:#d2b0ff}
+#hud .rarity-legendario{color:#ffd47a}
+/* 16 · filtros do inventário não encolhem */
+#hud .loot-filter,#hud .loot-sort{min-width:0;max-width:100%}
+/* 17 · lista de itens pode rolar sem puxar a página */
+#hud .inventory-list,#hud .recent-loot{overscroll-behavior:contain}
+/* 18 · mensagem de inventário vazio mais visível */
+#hud .inventory-empty,#hud .recent-loot:empty{color:#aebfca}
+/* 19 · botão de usar item indica desativação */
+#hud #useSelectedItemBtn:disabled{filter:grayscale(.65);opacity:.48}
+/* 20 · lista de jogadores respeita a área segura */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:700px){
+ #hud .players{top:calc(env(safe-area-inset-top) + 58px + 15vh)!important;left:5px;right:auto;max-width:46vw;max-height:13vh;overflow:auto}
+}
+/* 21 · cartões de jogadores quebram nomes longos */
+#hud .player-chip{max-width:min(46vw,190px);text-overflow:ellipsis}
+/* 22 · jogador local recebe destaque */
+#hud .player-chip.is-self{border-color:#83d9e7;color:#eafcff}
+/* 23 · painel de mana fica afastado do objetivo */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:700px){
+ #hud .mana-hud{top:calc(env(safe-area-inset-top) + 58px + 15vh)!important;left:auto;right:5px;width:min(42vw,174px);padding:6px}
+}
+/* 24 · texto da mana não quebra */
+#hud .mana-label{white-space:nowrap;font-variant-numeric:tabular-nums}
+/* 25 · barra de mana tem borda arredondada */
+#hud .mana-track{height:7px;border-radius:99px;overflow:hidden}
+/* 26 · painel de chefe preserva o espaço dos controles */
+#hud .boss-panel{box-sizing:border-box;max-width:calc(100vw - 18px)}
+/* 27 · barra de vida do chefe fica mais nítida */
+#hud .boss-panel .boss-track{height:8px;border-radius:99px;overflow:hidden}
+/* 28 · avisos de combate não ficam sobre botões */
+#hud .notice{max-width:min(86vw,420px);white-space:normal;text-align:center;line-height:1.4;z-index:18}
+/* 29 · notificações não capturam toque */
+#hud .notice{pointer-events:none}
+/* 30 · joystick respeita o recorte do aparelho */
+#hud .joystick{margin-left:env(safe-area-inset-left);margin-bottom:env(safe-area-inset-bottom);touch-action:none}
+/* 31 · centro do joystick responde ao toque */
+#hud .stick{pointer-events:none;will-change:transform}
+/* 32 · botão de ataque tem área de toque segura */
+#hud .attack{touch-action:none;user-select:none;-webkit-user-select:none}
+/* 33 · texto do ataque mantém leitura em tela pequena */
+#hud .attack small{line-height:1.2;letter-spacing:.8px}
+/* 34 · esquiva tem estado de recarga claro */
+#hud .dodge-btn.cooling,#hud #dodgeBtn.cooling{filter:saturate(.45);opacity:.72}
+/* 35 · baú não cobre o botão de ataque */
+#hud .chest-btn{touch-action:manipulation;user-select:none}
+/* 36 · botões de habilidades têm hierarquia visual uniforme */
+#hud #fireBtn,#hud #lightningBtn{border-width:2px;box-shadow:0 6px 18px #0008;touch-action:none}
+/* 37 · invocação PvP não fica atrás do HUD */
+#hud .pvp-summon-controls{z-index:14;pointer-events:auto}
+/* 38 · botão de skills é claramente interativo */
+#hud #skillToggleBtn,#hud .skill-toggle{touch-action:manipulation;min-height:42px}
+/* 39 · painel de skills respeita a altura útil */
+#hud #skillPanel{max-height:calc(100dvh - env(safe-area-inset-top) - 24px);overscroll-behavior:contain}
+/* 40 · árvore rola dentro do próprio painel */
+#hud #skillTreeHud{overscroll-behavior:contain;scrollbar-width:thin}
+/* 41 · botões de fechar nunca somem no editor */
+#hud .settings-head button,#hud .skill-head button{flex:0 0 auto;min-width:34px;min-height:34px}
+/* 42 · botões não selecionáveis evitam realce de texto acidental */
+#hud button{ -webkit-tap-highlight-color:transparent }
+/* 43 · ícones dos controles não recebem eventos */
+#hud button span,#hud button small{pointer-events:none}
+/* 44 · overlays continuam acima da cena 3D */
+#hud .settings-panel,#hud .skill-panel,#hud .inventory-panel{z-index:16}
+/* 45 · texto pequeno não fica translúcido demais */
+#hud small{ text-shadow:0 1px 2px #0008 }
+/* 46 · scroll horizontal é bloqueado nos painéis */
+#hud .settings-panel,#hud .inventory-panel,#hud .skill-panel{overflow-x:hidden}
+/* 47 · orientação em paisagem mantém margem lateral */
+@media (pointer:coarse) and (orientation:landscape){
+ #hud .topbar{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right))}
+ #hud .objective{left:max(8px,env(safe-area-inset-left))}
+ #hud .inventory-panel{right:max(8px,env(safe-area-inset-right))}
+}
+/* 48 · rolagem não dá salto ao tocar em um painel */
+#hud .settings-panel,#hud .inventory-panel,#hud .skill-panel{overscroll-behavior:contain}
+/* 49 · animações são reduzidas quando o sistema solicita */
+@media(prefers-reduced-motion:reduce){#hud *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+/* 50 · foco por teclado fica visível em todo o HUD */
+#hud button:focus-visible,#hud input:focus-visible,#hud select:focus-visible{outline:2px solid #a6edff;outline-offset:3px}
