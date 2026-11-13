@@ -3796,6 +3796,12 @@ function updateState(m) {
   let alive = 0;
   for (const mtr of m.monsters) {
     if (mtr.alive) alive++;
+    // Monstros ainda na contagem regressiva não são desenhados antes do spawn.
+    if (mtr.spawned === false) {
+      const waitingMesh = monsterMeshes.get(mtr.id);
+      if (waitingMesh) waitingMesh.visible = false;
+      continue;
+    }
 
     let obj = monsterMeshes.get(mtr.id);
     if (!obj) {
