@@ -3038,7 +3038,7 @@ function addClassAbilityRing(x, z, radius, color) {
 }
 function handleClassAbilityMessage(m) {
   const colors = {
-    knight_shield: 0x79caff, knight_dash: 0xe9c477, arrow_rain: 0x9ccfff,
+    knight_shield:0x79caff,knight_dash:0xe9c477,knight_whirlwind:0xf4d37b,mage_arcane_orb:0x68baff,archer_piercing_shot:0x9ccfff,goblin_shadow_strike:0x9c8cff,ogre_earthquake:0xff9d4a,healer_sanctuary:0x70ffd1,necromancer_bone_bolt:0xf3f5ff,monk_spirit_wave:0xffcc78,golem_stone_guard:0x9aa2a6,arrow_rain: 0x9ccfff,
     incendiary_arrows: 0xff632b, goblin_invis: 0x9c8cff, goblin_summon: 0x7ce36c,
     ogre_slam: 0xff9d4a, ogre_haste: 0xffd86e,
     healer_cure: 0x70ffd1, healer_guardian_spirits: 0x8cffe8,
@@ -3047,7 +3047,7 @@ function handleClassAbilityMessage(m) {
     golem_split: 0x9aa2a6, golem_rock_toss: 0xd0b98b
   };
   const radii = {
-    knight_shield: 1.4, knight_dash: 3.8, arrow_rain: 4.6,
+    knight_shield:1.4,knight_dash:3.8,knight_whirlwind:4.6,mage_arcane_orb:1.5,archer_piercing_shot:1.5,goblin_shadow_strike:2.4,ogre_earthquake:5.8,healer_sanctuary:6.5,necromancer_bone_bolt:1.5,monk_spirit_wave:4.5,golem_stone_guard:2.1,arrow_rain: 4.6,
     incendiary_arrows: 4.1, goblin_invis: 1.5, goblin_summon: 2.1,
     ogre_slam: 5.2, ogre_haste: 1.7,
     healer_cure: 3.8, healer_guardian_spirits: 7,
@@ -3070,9 +3070,9 @@ function handleClassAbilityMessage(m) {
   if (m.id === playerId) {
     const spec = Object.values(CLASS_ABILITY_CONFIG).flat().find(item => item.ability === m.ability);
     if (spec) {
-      if (m.ability === 'fire' || m.ability === 'lightning') return;
-      if (CLASS_ABILITY_CONFIG[selectedClass]?.[0]?.ability === m.ability) fireCooldown = spec.cooldown;
-      else if (CLASS_ABILITY_CONFIG[selectedClass]?.[1]?.ability === m.ability) lightningCooldown = spec.cooldown;
+      if(spec.spell)return;
+      const slot=(CLASS_ABILITY_CONFIG[selectedClass]||[]).findIndex(item=>item.ability===m.ability);
+      if(slot===0)fireCooldown=spec.cooldown;else if(slot===1)lightningCooldown=spec.cooldown;else if(slot===2)thirdCooldown=spec.cooldown;
     }
     if (m.ability === 'ogre_haste') ogreHasteUntil = performance.now() + 5000;
     if (m.ability === 'necromancer_dive') {
@@ -4018,46 +4018,55 @@ $('useSelectedItemBtn').addEventListener('click', useSelectedItem);
 const CLASS_ABILITY_CONFIG = {
   knight: [
     { ability: 'knight_shield', icon: '🛡️', label: 'ESCUDO', description: 'Reduz o dano recebido por 4,2 segundos.', cooldown: 12 },
-    { ability: 'knight_dash', icon: '⚔️', label: 'AVANÇO', description: 'Avança, puxa inimigos próximos e causa dano.', cooldown: 9 }
+    { ability: 'knight_dash', icon: '⚔️', label: 'AVANÇO', description: 'Avança, puxa inimigos próximos e causa dano.', cooldown: 9 },
+    { ability: 'knight_whirlwind', icon: '✥', label: 'GIRO', description: 'Giro de espada que atinge os inimigos ao redor.', cooldown: 14 }
   ],
   mage: [
     { ability: 'fire', icon: '🔥', label: 'FOGO', description: 'Lança fogo e incendeia o alvo.', cooldown: 4, spell: true },
-    { ability: 'lightning', icon: 'ϟ', label: 'RAIO', description: 'Dispara um raio mágico em cadeia.', cooldown: 3.5, spell: true }
+    { ability: 'lightning', icon: 'ϟ', label: 'RAIO', description: 'Dispara um raio mágico em cadeia.', cooldown: 3.5, spell: true },
+    { ability: 'mage_arcane_orb', icon: '✦', label: 'ORBE ARCANO', description: 'Dispara uma esfera arcana azul e dourada.', cooldown: 9, spell: true, spellType: 'arcane' }
   ],
   archer: [
     { ability: 'arrow_rain', icon: '🏹', label: 'CHUVA', description: 'Dispara uma chuva de flechas em área.', cooldown: 8 },
-    { ability: 'incendiary_arrows', icon: '🔥', label: 'INCENDIÁRIAS', description: 'Incendeia uma área e causa queimadura.', cooldown: 12 }
+    { ability: 'incendiary_arrows', icon: '🔥', label: 'INCENDIÁRIAS', description: 'Incendeia uma área e causa queimadura.', cooldown: 12 },
+    { ability: 'archer_piercing_shot', icon: '➶', label: 'FLECHA PERFURANTE', description: 'Dispara uma flecha rápida que atravessa inimigos alinhados.', cooldown: 9.5 }
   ],
   goblin: [
     { ability: 'goblin_invis', icon: '👻', label: 'INVISÍVEL', description: 'Fica invisível por 5 segundos e os monstros param de perseguir você.', cooldown: 14 },
-    { ability: 'goblin_summon', icon: '👺', label: 'INVOCAR 2', description: 'Invoca dois goblins aliados por 12 segundos.', cooldown: 20 }
+    { ability: 'goblin_summon', icon: '👺', label: 'INVOCAR 2', description: 'Invoca dois goblins aliados por 12 segundos.', cooldown: 20 },
+    { ability: 'goblin_shadow_strike', icon: '⟡', label: 'GOLPE SOMBRIO', description: 'Avança rapidamente e atinge o inimigo mais próximo.', cooldown: 11 }
   ],
   ogre: [
     { ability: 'ogre_slam', icon: '💥', label: 'SOCO NO CHÃO', description: 'Dá um soco no chão, causa dano em área e repele inimigos.', cooldown: 10 },
-    { ability: 'ogre_haste', icon: '💨', label: 'VELOCIDADE', description: 'Aumenta a velocidade por 5 segundos.', cooldown: 15 }
+    { ability: 'ogre_haste', icon: '💨', label: 'VELOCIDADE', description: 'Aumenta a velocidade por 5 segundos.', cooldown: 15 },
+    { ability: 'ogre_earthquake', icon: '♨', label: 'TERREMOTO', description: 'Cria uma onda de choque pesada em volta do Ogro.', cooldown: 17 }
   ],
   healer: [
     { ability: 'healer_cure', icon: '💚', label: 'CURA', description: 'Cura você e aliados vivos em até 50 de vida.', cooldown: 23 },
-    { ability: 'healer_guardian_spirits', icon: '🪽', label: 'ESPÍRITOS', description: 'Invoca 3 espíritos por 20 s: curam aliados em 5 a cada 4 s ou causam 9 de dano a inimigos a cada 5 s.', cooldown: 40 }
+    { ability: 'healer_guardian_spirits', icon: '🪽', label: 'ESPÍRITOS', description: 'Invoca 3 espíritos por 20 s: curam aliados em 5 a cada 4 s ou causam 9 de dano a inimigos a cada 5 s.', cooldown: 40 },
+    { ability: 'healer_sanctuary', icon: '✚', label: 'SANTUÁRIO', description: 'Cria uma aura de cura e proteção para aliados próximos.', cooldown: 24 }
   ],
   necromancer: [
     { ability: 'necromancer_summon', icon: '💀', label: 'HORDA', description: 'Invoca até cinco esqueletos aliados por 18 segundos.', cooldown: 30 },
-    { ability: 'necromancer_dive', icon: '🕳️', label: 'MERGULHO', description: 'Desaparece por até 5 s; toque no chão para voltar e deixar um esqueleto na origem.', cooldown: 15 }
+    { ability: 'necromancer_dive', icon: '🕳️', label: 'MERGULHO', description: 'Desaparece por até 5 s; toque no chão para voltar e deixar um esqueleto na origem.', cooldown: 15 },
+    { ability: 'necromancer_bone_bolt', icon: '☽', label: 'ORBE ÓSSEO', description: 'Lança uma esfera branca de energia óssea contra um inimigo.', cooldown: 8.5, spell: true, spellType: 'bone' }
   ],
   monk: [
     { ability: 'monk_impact_palm', icon: '👊', label: 'PALMA', description: 'Onda de choque: 8 de dano, empurra e atordoa inimigos.', cooldown: 18 },
-    { ability: 'monk_winged_steps', icon: '🪽', label: 'PASSOS', description: 'Avanço veloz com esquiva breve e velocidade extra.', cooldown: 15 }
+    { ability: 'monk_winged_steps', icon: '🪽', label: 'PASSOS', description: 'Avanço veloz com esquiva breve e velocidade extra.', cooldown: 15 },
+    { ability: 'monk_spirit_wave', icon: '☯', label: 'ONDA ESPIRITUAL', description: 'Libera uma onda de energia à frente do Monge.', cooldown: 13 }
   ],
   golem: [
     { ability: 'golem_split', icon: '🪨', label: 'DESMANCHAR', description: 'Divide-se em três golens menores por 12 segundos.', cooldown: 26 },
-    { ability: 'golem_rock_toss', icon: '☄️', label: 'PEDRA TITÂNICA', description: 'Toque no chão para escolher o ponto do impacto em área.', cooldown: 14.5, targeted: true }
+    { ability: 'golem_rock_toss', icon: '☄️', label: 'PEDRA TITÂNICA', description: 'Toque no chão para escolher o ponto do impacto em área.', cooldown: 14.5, targeted: true },
+    { ability: 'golem_stone_guard', icon: '⬟', label: 'GUARDA DE PEDRA', description: 'Endurece a armadura e reduz o dano recebido.', cooldown: 20 }
   ]
 };
 let ogreHasteUntil = 0;
 function updateClassAbilityButtons() {
   const abilities = CLASS_ABILITY_CONFIG[selectedClass] || CLASS_ABILITY_CONFIG.knight;
-  const first = $('fireBtn'), second = $('lightningBtn');
-  [[first, abilities[0], 'fireCooldown'], [second, abilities[1], 'lightningCooldown']].forEach(([button, ability, timerId]) => {
+  const first=$('fireBtn'),second=$('lightningBtn'),third=$('ability3Btn');
+  [[first,abilities[0],'fireCooldown'],[second,abilities[1],'lightningCooldown'],[third,abilities[2],'ability3Cooldown']].forEach(([button,ability,timerId])=>{
     if (!button || !ability) return;
     if (button.dataset.classAbility === ability.ability) return;
     const icon = button.querySelector('span');
@@ -4069,15 +4078,15 @@ function updateClassAbilityButtons() {
     button.dataset.classAbility = ability.ability;
   });
 }
-let fireCooldown = 0, lightningCooldown = 0;
+let fireCooldown=0,lightningCooldown=0,thirdCooldown=0;
 let golemRockTargeting = false, golemRockTargetTimer = null;
 updateClassAbilityButtons();
 function placeSpellButtons() {
-  const fire = $('fireBtn'), lightning = $('lightningBtn');
-  if (!fire || !lightning) return;
+  const fire=$('fireBtn'),lightning=$('lightningBtn'),third=$('ability3Btn');
+  if(!fire||!lightning||!third)return;
   const landscape = window.innerWidth > window.innerHeight;
   const size = landscape ? 48 : 58;
-  for (const btn of [fire, lightning]) {
+  for (const btn of [fire,lightning,third]) {
     btn.style.setProperty('display', 'flex', 'important');
     btn.style.setProperty('position', 'fixed', 'important');
     btn.style.setProperty('visibility', 'visible', 'important');
@@ -4097,19 +4106,27 @@ function placeSpellButtons() {
   if (!landscape) {
     fire.style.setProperty('right', '88px', 'important');
     fire.style.setProperty('bottom', '86px', 'important');
-    lightning.style.setProperty('right', '18px', 'important');
-    lightning.style.setProperty('bottom', '96px', 'important');
+    lightning.style.setProperty('right','18px','important');
+    lightning.style.setProperty('bottom','96px','important');
+    third.style.setProperty('right','53px','important');
+    third.style.setProperty('bottom','163px','important');
+    third.style.setProperty('width','52px','important');
+    third.style.setProperty('height','52px','important');
   } else {
     // Deitados, as habilidades ficam acima do ataque e longe do botão de baú.
     fire.style.setProperty('right', '18px', 'important');
     fire.style.setProperty('bottom', '112px', 'important');
-    lightning.style.setProperty('right', '18px', 'important');
-    lightning.style.setProperty('bottom', '166px', 'important');
+    lightning.style.setProperty('right','18px','important');
+    lightning.style.setProperty('bottom','166px','important');
+    third.style.setProperty('right','18px','important');
+    third.style.setProperty('bottom','220px','important');
+    third.style.setProperty('width','46px','important');
+    third.style.setProperty('height','46px','important');
   }
   applySavedHudPositions();
 }
 
-const HUD_MOVABLE_IDS = ['joystick','chestBtn','dodgeBtn','attackBtn','fireBtn','lightningBtn'];
+const HUD_MOVABLE_IDS=['joystick','chestBtn','dodgeBtn','attackBtn','fireBtn','lightningBtn','ability3Btn'];
 let hudEditMode = false;
 let hudDragState = null;
 let hudLayout = {};
@@ -4462,18 +4479,17 @@ refreshLobbySettingsUI();
 
 function castSpell(kind) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
-  if (kind === 'fire') {
-    if (fireCooldown > 0) return;
-    fireCooldown = 4;
-  } else {
-    if (lightningCooldown > 0) return;
-    lightningCooldown = 3.5;
-  }
+  const spec=Object.values(CLASS_ABILITY_CONFIG).flat().find(item=>(item.spellType||item.ability)===kind||item.ability===kind);
+  const slot=(CLASS_ABILITY_CONFIG[selectedClass]||[]).findIndex(item=>(item.spellType||item.ability)===kind||item.ability===kind);
+  const cooldown=slot===0?fireCooldown:slot===1?lightningCooldown:thirdCooldown;
+  if(cooldown>0)return;
+  const value=spec?.cooldown??(kind==='fire'?4:kind==='lightning'?3.5:9);
+  if(slot===0)fireCooldown=value;else if(slot===1)lightningCooldown=value;else thirdCooldown=value;
   // O efeito de lançamento aparece na hora; o servidor confirma os alvos e o dano.
   vibrateGame(kind === 'fire' ? 18 : 24);
   playSfx(kind);
-  const color = kind === 'fire' ? 0xff6b24 : 0x69aaff;
-  const geo = kind === 'fire' ? new THREE.SphereGeometry(.25, 7, 5) : new THREE.OctahedronGeometry(.24, 0);
+  const palette={fire:{color:0xff6b24,geo:new THREE.SphereGeometry(.25,9,7)},lightning:{color:0x69aaff,geo:new THREE.OctahedronGeometry(.24,1)},arcane:{color:0x68baff,geo:new THREE.DodecahedronGeometry(.25,1)},bone:{color:0xf3f5ff,geo:new THREE.IcosahedronGeometry(.24,1)}};
+  const selected=palette[kind]||palette.lightning,color=selected.color,geo=selected.geo;
   const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .95 });
   const projectile = new THREE.Mesh(geo, material);
   const origin = myPlayer ? myPlayer.position.clone() : new THREE.Vector3();
@@ -4489,8 +4505,8 @@ function castSpell(kind) {
     oldSpell.geo.dispose(); oldSpell.material.dispose();
   }
   activeSpellEffects.push({ projectile, geo, material, origin, destination, startedAt: performance.now(), duration: 300 });
-  send({ type: 'spell', spell: kind });
-  showNotice(kind === 'fire' ? '🔥 MAGIA DE FOGO!' : '⚡ MAGIA DE RAIO!');
+  send({type:'spell',spell:kind});
+  showNotice(kind==='fire'?'🔥 MAGIA DE FOGO!':kind==='lightning'?'⚡ MAGIA DE RAIO!':kind==='bone'?'☽ ORBE ÓSSEO!':'✦ ORBE ARCANO!');
 }
 function activateClassAbility(slot) {
   if (!started || (myPlayer?.userData.serverHp ?? 100) <= 0) return;
@@ -4501,13 +4517,14 @@ function activateClassAbility(slot) {
     castSpell(spec.ability);
     return;
   }
-  const remaining = slot === 0 ? fireCooldown : lightningCooldown;
+  const remaining=slot===0?fireCooldown:slot===1?lightningCooldown:thirdCooldown;
   if (remaining > 0) return;
   if (spec.targeted) { golemRockTargeting=true; clearTimeout(golemRockTargetTimer); golemRockTargetTimer=setTimeout(()=>{golemRockTargeting=false;showNotice('Mira da pedra cancelada.');},9000); showNotice('☄ Toque no chão para escolher onde a pedra vai cair.'); return; }
   send({ type: 'classAbility', ability: spec.ability });
 }
 $('fireBtn').addEventListener('pointerdown', e => { e.preventDefault(); activateClassAbility(0); });
-$('lightningBtn').addEventListener('pointerdown', e => { e.preventDefault(); activateClassAbility(1); });
+$('lightningBtn').addEventListener('pointerdown',e=>{e.preventDefault();activateClassAbility(1);});
+$('ability3Btn')?.addEventListener('pointerdown',e=>{e.preventDefault();activateClassAbility(2);});
 
 $('attackBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
@@ -4805,8 +4822,9 @@ function animate() {
   const cameraSmooth = 1 - Math.exp(-9 * dt);
 
   attackCooldown = Math.max(0, attackCooldown - dt);
-  fireCooldown = Math.max(0, fireCooldown - dt);
-  lightningCooldown = Math.max(0, lightningCooldown - dt);
+  fireCooldown=Math.max(0,fireCooldown-dt);
+  lightningCooldown=Math.max(0,lightningCooldown-dt);
+  thirdCooldown=Math.max(0,thirdCooldown-dt);
   dodgeTimer = Math.max(0, dodgeTimer - dt);
   const dodgeLabel = $('dodgeCooldown');
   if (dodgeLabel) {
@@ -4815,16 +4833,14 @@ function animate() {
   }
   const dodgeBtn = $('dodgeBtn');
   if (dodgeBtn) dodgeBtn.classList.toggle('cooling', dodgeTimer > 0);
-  const fireLabel = $('fireCooldown'), lightningLabel = $('lightningCooldown');
+  const fireLabel=$('fireCooldown'),lightningLabel=$('lightningCooldown'),thirdLabel=$('ability3Cooldown');
   // Evita escritas repetidas no DOM a cada frame; os rótulos só mudam quando o texto muda.
   if (fireLabel) {
     const fireText = fireCooldown > 0 ? fireCooldown.toFixed(1) + 's' : 'OK';
     if (fireLabel.textContent !== fireText) fireLabel.textContent = fireText;
   }
-  if (lightningLabel) {
-    const lightningText = lightningCooldown > 0 ? lightningCooldown.toFixed(1) + 's' : 'OK';
-    if (lightningLabel.textContent !== lightningText) lightningLabel.textContent = lightningText;
-  }
+  if(lightningLabel){const lightningText=lightningCooldown>0?lightningCooldown.toFixed(1)+'s':'OK';if(lightningLabel.textContent!==lightningText)lightningLabel.textContent=lightningText;}
+  if(thirdLabel){const thirdText=thirdCooldown>0?thirdCooldown.toFixed(1)+'s':'OK';if(thirdLabel.textContent!==thirdText)thirdLabel.textContent=thirdText;}
 
   // Movimento do jogador local
   if (started && myPlayer && (myPlayer.userData.serverHp ?? 100) > 0) {
