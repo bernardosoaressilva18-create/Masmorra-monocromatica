@@ -62,6 +62,75 @@ lootDrops=(Array.isArray(sharedProfileSeed.lootDrops)?sharedProfileSeed.lootDrop
 let equipmentDamage=Math.max(0,Math.min(18,Number(sharedProfileSeed.equipmentDamage)||0));
 let sharedProgress={realm:Math.max(1,Math.min(3,Number(sharedProfileSeed.realm)||1)),phase:Math.max(1,Math.min(5,Number(sharedProfileSeed.phase)||1))};
 const world = { width: 30, depth: 190 };
+
+const MAP_ZONE_CENTERS = [-14, -46, -78, -110, -153];
+const MAP_ZONE_DEPTHS = [34, 30, 30, 30, 40];
+const MAP_ZONE_POLYGONS = [
+  [[-4.8,-17],[4.8,-17],[8.0,-13],[11.4,-8],[13.1,-2],[13.2,3],[10.4,9],[7.0,13],[4.5,17],[-4.5,17],[-7.0,13],[-10.4,9],[-13.2,3],[-13.1,-2],[-11.4,-8],[-8.0,-13]],
+  [[-4.6,-15],[4.6,-15],[8.4,-12],[12.2,-7],[13.0,-1],[11.6,6],[8.0,11],[4.2,15],[-4.2,15],[-8.0,11],[-11.6,6],[-13.0,-1],[-12.2,-7],[-8.4,-12]],
+  [[-4.5,-15],[4.5,-15],[7.2,-11],[12.0,-8],[13.0,-2],[11.0,4],[8.5,9],[4.0,15],[-4.0,15],[-8.5,9],[-11.0,4],[-13.0,-2],[-12.0,-8],[-7.2,-11]],
+  [[-4.6,-15],[4.6,-15],[8.8,-11],[12.5,-6],[11.2,0],[13.0,5],[8.0,11],[4.0,15],[-4.0,15],[-8.0,11],[-13.0,5],[-11.2,0],[-12.5,-6],[-8.8,-11]],
+  [[-5.5,-20],[5.5,-20],[9.2,-16],[13.0,-10],[13.5,-3],[12.0,5],[8.0,13],[4.5,20],[-4.5,20],[-8.0,13],[-12.0,5],[-13.5,-3],[-13.0,-10],[-9.2,-16]]
+];
+const MAP_PIT_LAYOUT = MAP_ZONE_CENTERS.map((z, index) => ({
+  id: 'pit-' + (index + 1),
+  plateX: index % 2 === 0 ? 5.2 : -5.2,
+  plateZ: z + 9,
+  pitX: index % 2 === 0 ? 5.2 : -5.2,
+  pitZ: z + 4
+}));
+const MAP_PILLAR_COLLIDERS = MAP_ZONE_CENTERS.flatMap(z => [
+  {x:-10.5,z:z-.7,r:.78},{x:10.5,z:z-.7,r:.78},
+  {x:-8.9,z:z-8.2,r:.62},{x:8.9,z:z-8.2,r:.62}
+]);
+const MAP_SPIKE_HAZARDS = MAP_ZONE_CENTERS.flatMap((z,index) => [
+  {id:'spike-'+index+'-L',x:-6.7,z:z-5.5,r:.92,damage:12},
+  {id:'spike-'+index+'-R',x:6.7,z:z-5.5,r:.92,damage:12},
+  ...[-1,1].map(side=>({id:'pit-spike-'+index+'-'+side,x:(index%2===0?5.2:-5.2)+side*1.36,z:z+4,r:.62,damage:16}))
+]);
+const pressureTrapVisuals = [];
+const mapStairSpecs = [];
+const openMapTraps = new Set();
+function pointInMapPolygon(x, zOffset, polygon) {
+  let inside = false;
+  for (let i=0,j=polygon.length-1;i<polygon.length;j=i++) {
+    const xi=polygon[i][0], yi=polygon[i][1], xj=polygon[j][0], yj=polygon[j][1];
+    const intersects=((yi>zOffset)!==(yj>zOffset))&&(x<(xj-xi)*(zOffset-yi)/(yj-yi+1e-9)+xi);
+    if(intersects)inside=!inside;
+  }
+  return inside;
+}
+function isInsideMapFloor(x,z) {
+  for(let i=0;i<MAP_ZONE_CENTERS.length;i++) {
+    if(pointInMapPolygon(x,z-MAP_ZONE_CENTERS[i],MAP_ZONE_POLYGONS[i]))return true;
+  }
+  return [-30.5,-62,-94,-130].some((bridgeZ,index) =>
+    Math.abs(z-bridgeZ) < (index===3?4.9:1.65) && Math.abs(x) < (index===3?4.8:4.65)
+  );
+}
+function getDungeonFloorHeight(x,z) {
+  for(const pit of MAP_PIT_LAYOUT) {
+    if(openMapTraps.has(pit.id)&&Math.hypot(x-pit.pitX,z-pit.pitZ)<1.98)return -2.65;
+  }
+  for(const stair of mapStairSpecs) {
+    if(Math.abs(x-stair.x)<1.95&&z<=stair.startZ&&z>=stair.endZ) {
+      const progress=THREE.MathUtils.clamp((stair.startZ-z)/(stair.startZ-stair.endZ),0,1);
+      return progress*stair.height;
+    }
+    if(Math.abs(x-stair.x)<2.7&&z>=stair.platformZ-2.2&&z<=stair.platformZ+2.1)return stair.height;
+  }
+  return 0;
+}
+function syncMapTrapVisuals(openTraps=[]) {
+  openMapTraps.clear();
+  for(const id of Array.isArray(openTraps)?openTraps:[])openMapTraps.add(String(id));
+  for(const item of pressureTrapVisuals) {
+    const open=openMapTraps.has(item.id);
+    item.cover.visible=!open;
+    item.plate.material.emissiveIntensity=open?.05:.35;
+    item.plate.material.color.setHex(open?0x303746:0x8b7954);
+  }
+}
 const isMobileDevice = matchMedia('(pointer: coarse)').matches;
 
 function clampSetting(value, min, max, fallback) {
@@ -445,6 +514,101 @@ function box(w, h, d, material, x, y, z) {
   return m;
 }
 
+
+function addOrganicZoneFloor(center, index, sideMaterial, topMaterial, height = -.5) {
+  const points=MAP_ZONE_POLYGONS[index];
+  const shape=new THREE.Shape();
+  shape.moveTo(points[0][0],-points[0][1]);
+  for(let i=1;i<points.length;i++)shape.lineTo(points[i][0],-points[i][1]);
+  shape.closePath();
+  const pit=MAP_PIT_LAYOUT[index];
+  const hole=new THREE.Path();
+  const cx=pit.pitX, cy=-(pit.pitZ-center), radius=2.08;
+  hole.absellipse(cx,cy,radius,radius,0,Math.PI*2,false,0);
+  shape.holes.push(hole);
+  const geometry=new THREE.ExtrudeGeometry(shape,{depth:.5,bevelEnabled:false,steps:1,curveSegments:12});
+  const mesh=new THREE.Mesh(geometry,[sideMaterial,topMaterial]);
+  mesh.rotation.x=-Math.PI/2;
+  mesh.position.set(0,height,center);
+  if(!isMobileDevice){mesh.receiveShadow=true;mesh.castShadow=true;}
+  activeEnvironmentGroup.add(mesh);
+  return mesh;
+}
+function addAdventureMapFeatures(parent, accentColors, realmKey, registerHeight=false) {
+  const stone=new THREE.MeshStandardMaterial({color:0x555f70,roughness:.91,metalness:.12});
+  const stoneDark=new THREE.MeshStandardMaterial({color:0x202b3b,roughness:.98});
+  const gold=new THREE.MeshStandardMaterial({color:0xc6a267,metalness:.58,roughness:.34});
+  const spikeMat=new THREE.MeshStandardMaterial({color:0xadb7c7,metalness:.62,roughness:.3});
+  const hazardGlow=new THREE.MeshStandardMaterial({color:accentColors[0],emissive:accentColors[0],emissiveIntensity:.95,metalness:.28,roughness:.32});
+  const plateMat=new THREE.MeshStandardMaterial({color:0x8b7954,metalness:.62,roughness:.34,emissive:accentColors[0],emissiveIntensity:.35});
+  const pitWallMat=new THREE.MeshStandardMaterial({color:0x101622,roughness:1});
+  for(let i=0;i<MAP_ZONE_CENTERS.length;i++) {
+    const center=MAP_ZONE_CENTERS[i], pit=MAP_PIT_LAYOUT[i];
+    for(const side of [-1,1]) {
+      const x=side*10.5;
+      const pillar=new THREE.Group();
+      const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.42,.62,3.45,7),stone);shaft.position.y=1.72;pillar.add(shaft);
+      const foot=new THREE.Mesh(new THREE.CylinderGeometry(.72,.76,.3,7),stoneDark);foot.position.y=.16;pillar.add(foot);
+      const capital=new THREE.Mesh(new THREE.CylinderGeometry(.68,.48,.34,7),gold);capital.position.y=3.48;pillar.add(capital);
+      const rune=new THREE.Mesh(new THREE.BoxGeometry(.08,1.2,.045),hazardGlow);rune.position.set(0,1.8,-.43);pillar.add(rune);
+      pillar.position.set(x,0,center-.7);parent.add(pillar);
+    }
+    // Pedras e espinhos de chão: legíveis de longe e com hitboxes no servidor.
+    for(const spike of MAP_SPIKE_HAZARDS.filter(h=>h.id.startsWith('spike-'+i+'-'))) {
+      const bed=new THREE.Mesh(new THREE.BoxGeometry(2.25,.16,1.8),stoneDark);bed.position.set(spike.x,.06,spike.z);parent.add(bed);
+      for(let k=-1;k<=1;k++) {
+        const thorn=new THREE.Mesh(new THREE.ConeGeometry(.22,.82,5),spikeMat);
+        thorn.position.set(spike.x+k*.58,.52,spike.z+(k%2)*.18);thorn.rotation.z=(k-1)*-.08;parent.add(thorn);
+        const base=new THREE.Mesh(new THREE.CylinderGeometry(.29,.34,.12,5),gold);base.position.set(thorn.position.x,.12,thorn.position.z);parent.add(base);
+      }
+      const warning=new THREE.Mesh(new THREE.RingGeometry(.82,1.0,20),hazardGlow);warning.rotation.x=-Math.PI/2;warning.position.set(spike.x,.16,spike.z);parent.add(warning);
+    }
+    // Boca do poço e fundo. A tampa esconde o buraco até alguém pisar na placa.
+    const pitGroup=new THREE.Group();
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(2.16,.14,7,28),gold);rim.rotation.x=Math.PI/2;rim.position.y=.02;pitGroup.add(rim);
+    const inner=new THREE.Mesh(new THREE.CylinderGeometry(2.02,2.28,3.15,16,1,true),pitWallMat);inner.position.y=-1.52;pitGroup.add(inner);
+    const bottom=new THREE.Mesh(new THREE.CircleGeometry(2.04,24),stoneDark);bottom.rotation.x=-Math.PI/2;bottom.position.y=-3.12;pitGroup.add(bottom);
+    for(const side of [-1,1]) {
+      const thorn=new THREE.Mesh(new THREE.ConeGeometry(.31,.95,5),spikeMat);
+      thorn.position.set(side*1.36,-2.58,0);thorn.rotation.z=side*.12;pitGroup.add(thorn);
+      const cross=new THREE.Mesh(new THREE.ConeGeometry(.31,.95,5),spikeMat);
+      cross.position.set(0,-2.58,side*1.36);cross.rotation.x=Math.PI/2+side*.12;pitGroup.add(cross);
+    }
+    pitGroup.position.set(pit.pitX,0,pit.pitZ);parent.add(pitGroup);
+    const cover=new THREE.Mesh(new THREE.CylinderGeometry(2.02,2.02,.14,16),stone);
+    cover.position.set(pit.pitX,.02,pit.pitZ);parent.add(cover);
+    const coverRune=new THREE.Mesh(new THREE.TorusGeometry(1.35,.055,6,24),hazardGlow);coverRune.rotation.x=Math.PI/2;coverRune.position.set(pit.pitX,.11,pit.pitZ);parent.add(coverRune);
+    const plateBase=new THREE.Mesh(new THREE.BoxGeometry(2.15,.16,1.85),stoneDark);plateBase.position.set(pit.plateX,.04,pit.plateZ);parent.add(plateBase);
+    const plate=new THREE.Mesh(new THREE.BoxGeometry(1.72,.13,1.42),plateMat);plate.position.set(pit.plateX,.17,pit.plateZ);parent.add(plate);
+    const plateRune=new THREE.Mesh(new THREE.RingGeometry(.38,.49,6),hazardGlow);plateRune.rotation.x=-Math.PI/2;plateRune.position.set(pit.plateX,.245,pit.plateZ);parent.add(plateRune);
+    const plateMark=new THREE.Mesh(new THREE.BoxGeometry(.08,.025,1.05),gold);plateMark.position.set(pit.plateX,.25,pit.plateZ);parent.add(plateMark);
+    pressureTrapVisuals.push({id:pit.id,cover,plate,realm:realmKey});
+    // Escadaria lateral com oito degraus, patamar elevado e corrimãos.
+    const stairX=i%2===0?-8.25:8.25;
+    const stairStart=center+1.5,stairEnd=center-6.5,height=1.76;
+    const stairMat=new THREE.MeshStandardMaterial({color:accentColors[i%accentColors.length],roughness:.76,metalness:.22});
+    for(let step=0;step<8;step++) {
+      const level=(step+1)*height/8;
+      const tread=new THREE.Mesh(new THREE.BoxGeometry(3.35,.24,1.02),stone);
+      tread.position.set(stairX,level-.12,stairStart-step*1.0);parent.add(tread);
+      const riser=new THREE.Mesh(new THREE.BoxGeometry(3.35,level, .12),stoneDark);
+      riser.position.set(stairX,level/2,stairStart-step*1.0-.45);parent.add(riser);
+      const edge=new THREE.Mesh(new THREE.BoxGeometry(3.25,.035,.07),gold);
+      edge.position.set(stairX,level+.01,stairStart-step*1.0-.48);parent.add(edge);
+    }
+    const platform=new THREE.Mesh(new THREE.BoxGeometry(4.35,.28,4.15),stoneDark);
+    platform.position.set(stairX,height-.14,center-8.25);parent.add(platform);
+    for(const side of [-1,1]) {
+      const rail=new THREE.Mesh(new THREE.BoxGeometry(.12,.82,8.4),gold);
+      rail.position.set(stairX+side*1.78,height*.48,center-2.4);parent.add(rail);
+    }
+    if(registerHeight)mapStairSpecs.push({x:stairX,startZ:stairStart,endZ:stairEnd,platformZ:center-8.25,height});
+    // Arcos laterais menores diferenciam os cinco trechos do mapa.
+    const marker=new THREE.Mesh(new THREE.OctahedronGeometry(.48,0),hazardGlow);
+    marker.position.set(stairX,height+.5,center-8.25);marker.scale.set(.75,1.55,.75);parent.add(marker);
+  }
+}
+
 function buildDungeon() {
   const dungeonGroup=new THREE.Group();dungeonGroup.name='environment-monochrome';scene.add(dungeonGroup);activeEnvironmentGroup=dungeonGroup;
 
@@ -479,23 +643,18 @@ stoneDark.needsUpdate = true;
   });
 
   // Cinco zonas independentes: cada mundo tem seu próprio piso e perímetro.
-  const worldZones = [
-    { id:1, z:-14, depth:34, top:mat(0x303b49,.96) },      // Cripta
-    { id:2, z:-46, depth:30, top:mat(0x33284c,.92) },      // Cavernas
-    { id:3, z:-78, depth:30, top:mat(0x192a24,.88,.12) }, // Floresta
-    { id:4, z:-110, depth:30, top:mat(0x4a2414,.88,.12) },// Vulcão
-    { id:5, z:-153, depth:40, top:mat(0x21131f,.88,.12) } // Abismo
-  ];
+  const worldZones = MAP_ZONE_CENTERS.map((z,index)=>({
+    id:index+1,z,depth:MAP_ZONE_DEPTHS[index],top:[
+      mat(0x303b49,.96),mat(0x33284c,.92),mat(0x192a24,.88,.12),mat(0x4a2414,.88,.12),mat(0x21131f,.88,.12)
+    ][index]
+  }));
   for (const zone of worldZones) {
     zone.top.map = dungeonTexture;
     zone.top.bumpMap = isMobileDevice ? null : dungeonTexture;
     zone.top.bumpScale = .012;
     zone.top.needsUpdate = true;
-    box(30,.8,zone.depth,floor,0,-.5,zone.z);
-    box(29.6,.08,zone.depth-.5,zone.top,0,-.055,zone.z);
-    // Paredes separadas por mundo; os portais marcam as passagens entre biomas.
-    box(.7,5,zone.depth,wall,-15,2,zone.z);
-    box(.7,5,zone.depth,wall,15,2,zone.z);
+    addOrganicZoneFloor(zone.z,zone.id-1,floor,zone.top,-.5);
+    // As bordas recortadas deixam cada região com sua própria silhueta, sem corredor retangular.
   }
 
   // Marcas do piso em instâncias: muitos detalhes com uma única chamada de desenho.
@@ -509,8 +668,8 @@ stoneDark.needsUpdate = true;
   for (const zone of worldZones) {
     for (let z = zone.z-zone.depth/2+1.5; z <= zone.z+zone.depth/2-1.5; z += 3) {
       for (let x=-12; x<=12; x+=3) {
-        if (Math.random() <= .28) continue;
-        tileDummy.position.set(x,.002,z);
+        if (!pointInMapPolygon(x,z-zone.z,MAP_ZONE_POLYGONS[zone.id-1]) || Math.random() <= .28) continue;
+        tileDummy.position.set(x,.008,z);
         tileDummy.rotation.set(0,Math.random()*.04,0);
         const scale = .94 + Math.random()*.08;
         tileDummy.scale.set(scale,1,scale);
@@ -527,7 +686,7 @@ stoneDark.needsUpdate = true;
   const groutMat = mat(0x252c36,.98);
   for (const zone of worldZones) {
     for (let z=zone.z-zone.depth/2+2; z<=zone.z+zone.depth/2-2; z+=4) {
-      box(29.2,.012,.06,groutMat,0,-.009,z);
+      if(pointInMapPolygon(0,z-zone.z,MAP_ZONE_POLYGONS[zone.id-1]))box(19.2,.012,.06,groutMat,0,-.009,z);
     }
   }
   for (const z of [-30.5,-62,-94,-130]) {
@@ -540,25 +699,22 @@ stoneDark.needsUpdate = true;
   box(30,5,.8,wall,0,2,13);
 
   for (const zone of worldZones) {
-    const minZ = zone.z-zone.depth/2+2, maxZ = zone.z+zone.depth/2-2;
+    const minZ = zone.z-zone.depth/2+6, maxZ = zone.z+zone.depth/2-6;
     for (let z=minZ; z<=maxZ; z+=5) {
       for (const side of [-1,1]) {
-        const x=side*14.35;
-        box(.8,.35,.9,trim,x,4.25,z);
-        const orb=new THREE.Mesh(new THREE.OctahedronGeometry(.22),crystal);
-        orb.position.set(side*13.9,3.7,z);
+        const x=side*11.6;
+        if(!pointInMapPolygon(x,z-zone.z,MAP_ZONE_POLYGONS[zone.id-1]))continue;
+        const orb=new THREE.Mesh(new THREE.OctahedronGeometry(.2),crystal);
+        orb.position.set(x,.9,z);
         activeEnvironmentGroup.add(orb);
+        const foot=new THREE.Mesh(new THREE.CylinderGeometry(.24,.32,.32,6),trim);
+        foot.position.set(x,.16,z);activeEnvironmentGroup.add(foot);
       }
     }
   }
+  addAdventureMapFeatures(dungeonGroup,[0x75eaff,0xb49aff,0x76f0ad,0xffa45e,0xff77b7],1,true);
 
-  for (let z = -30; z <= 8; z += 9) {
-    for (const x of [-10, 10]) {
-      box(1.35, 4.8, 1.35, dark, x, 2, z);
-      box(1.65, .25, 1.65, trim, x, 4.45, z);
-      box(1.55, .22, 1.55, wall, x, .05, z);
-    }
-  }
+  // Pilares agora pertencem à composição de cada região e também têm colisão no servidor.
 
 // Detalhes de pedra nas paredes
 for (let z = -30; z <= 8; z += 6) {
@@ -570,18 +726,7 @@ for (let z = -30; z <= 8; z += 6) {
 }
   // O perímetro de fundo e início foi criado acima; não duplicar as mesmas paredes.
 
-  for (let z = -172; z <= 9; z += 5) {
-    for (const side of [-1, 1]) {
-      const x = side * 14.35;
-      box(.8, .35, .9, trim, x, 4.25, z);
-
-      const orb = new THREE.Mesh(new THREE.OctahedronGeometry(.22), crystal);
-      orb.position.set(side * 13.9, 3.7, z);
-      activeEnvironmentGroup.add(orb);
-
-// O brilho dos cristais continua, sem luzes dinâmicas extras.
-    }
-  }
+  // As bordas são marcadas pelas estruturas de cada bioma, evitando cristais flutuando no vazio.
 
   for (let z = -30; z <= 8; z += 9) {
     for (const x of [-10, 10]) {
@@ -910,9 +1055,9 @@ function buildAstralWorld(){
   const bridgeMat=new THREE.MeshStandardMaterial({color:0x463c74,roughness:.48,metalness:.35,emissive:0x1c1550,emissiveIntensity:.65});
   const crystalMat=new THREE.MeshStandardMaterial({color:0x8f7aff,emissive:0x6a38ff,emissiveIntensity:1.6,roughness:.24,metalness:.16});
   const cyanMat=new THREE.MeshStandardMaterial({color:0x5ceaff,emissive:0x168cda,emissiveIntensity:1.35,roughness:.28,metalness:.16});
-  const zones=[{z:-14,depth:34},{z:-46,depth:30},{z:-78,depth:30},{z:-110,depth:30},{z:-153,depth:40}];
+  const zones=MAP_ZONE_CENTERS.map((z,index)=>({z,depth:MAP_ZONE_DEPTHS[index]}));
   zones.forEach((zone,index)=>{
-    box(27.5,.78,zone.depth,islandEdge,0,-.47,zone.z);box(27.1,.11,zone.depth-.7,islandTop,0,-.025,zone.z);
+    addOrganicZoneFloor(zone.z,index,islandEdge,islandTop,-.5);
     const underside=new THREE.Mesh(new THREE.ConeGeometry(5.6+(index%2)*.5,4.3,7),deepStone);underside.position.set(0,-2.65,zone.z);underside.rotation.y=index*.31;activeEnvironmentGroup.add(underside);
     const seal=new THREE.Mesh(new THREE.RingGeometry(3.15,3.3,48),new THREE.MeshBasicMaterial({color:index%2?0x66e7ff:0xa98cff,transparent:true,opacity:.24,side:THREE.DoubleSide,depthWrite:false}));seal.rotation.x=-Math.PI/2;seal.position.set(0,.045,zone.z);activeEnvironmentGroup.add(seal);
     for(const side of [-1,1]){const pylon=new THREE.Mesh(new THREE.OctahedronGeometry(.85+(index%3)*.12,0),side===-1?crystalMat:cyanMat);pylon.scale.set(.72,2.2,.72);pylon.position.set(side*11.2,1.15,zone.z+(index%2?5:-5));activeEnvironmentGroup.add(pylon);}
@@ -944,6 +1089,7 @@ function buildAstralWorld(){
   for(let i=0;i<12;i++){const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.28+Math.random()*.28,0),i%3===0?cyanMat:crystalMat);crystal.position.set((Math.random()-.5)*20,1.4+Math.random()*2.3,-5-Math.random()*165);crystal.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);activeEnvironmentGroup.add(crystal);astralFloaters.push({mesh:crystal,baseY:crystal.position.y,phase:Math.random()*Math.PI*2,speed:.45+Math.random()*.65});}
   if(!isMobileDevice){const l=new THREE.PointLight(0x9168ff,25,62,2);l.position.set(0,5,-78);activeEnvironmentGroup.add(l);const sky=new THREE.PointLight(0x39cfff,17,52,2);sky.position.set(-8,4,-150);activeEnvironmentGroup.add(sky);}
   addZoneLandmarks(astral,[0x9c86ff,0x61eaff,0xa5f0cc,0xffc57b,0xf179ab]);
+  addAdventureMapFeatures(astral,[0x9c86ff,0x61eaff,0xa5f0cc,0xffc57b,0xf179ab],2,false);
   environmentGroups.astral=activeEnvironmentGroup;activeEnvironmentGroup.visible=false;activeEnvironmentGroup=null;
   buildEclipseWorld();
 }
