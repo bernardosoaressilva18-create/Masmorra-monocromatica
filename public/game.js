@@ -284,7 +284,7 @@ let adaptiveDetailTier = 0;
 function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d14);
-  scene.fog = new THREE.FogExp2(0x090d14, isMobileDevice ? .0052 : .0048);
+  scene.fog = new THREE.FogExp2(0x101a29, isMobileDevice ? .0036 : .0042);
 
   camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 230);
   renderer = new THREE.WebGLRenderer({
@@ -329,8 +329,10 @@ function init3D() {
   const warmRimLight = new THREE.DirectionalLight(0xffd7a1, 0.78);
   warmRimLight.position.set(-3, 6, 10);
   if (!isMobileDevice) scene.add(warmRimLight);
-  const ambientFill = new THREE.AmbientLight(0x7994c7, 0.24);
-  if (!isMobileDevice) scene.add(ambientFill);
+  // Luz ambiente global também no celular: sem ela, áreas sem luz direta ficam quase pretas.
+  // AmbientLight é barata e ilumina personagens, chão e cenário sem criar sombras extras.
+  const ambientFill = new THREE.AmbientLight(0x9bb8d8, isMobileDevice ? 0.82 : 0.34);
+  scene.add(ambientFill);
   const cryptLight = new THREE.PointLight(0x62cfff, 10, 20, 2);
   cryptLight.position.set(-8, 2.6, 1);
   if (!isMobileDevice) scene.add(cryptLight);
