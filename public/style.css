@@ -4982,7 +4982,7 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 }
 
 
-/* Last Legacy: capa de fantasia medieval integrada à tela inicial e ao menu. */
+/* O Último Legado: capa de fantasia medieval integrada à tela inicial e ao menu. */
 #startScreen.start-screen,
 #menu {
   background:
@@ -5014,7 +5014,7 @@ input[type=range]{accent-color:#75ddec;min-height:26px;cursor:pointer}
 }
 
 
-/* Last Legacy: prévia de habilidades em 2D lateral, com HP animado. */
+/* O Último Legado: prévia de habilidades em 2D lateral, com HP animado. */
 .class-demo-stage{
   min-height:178px;
   aspect-ratio:3.04;
