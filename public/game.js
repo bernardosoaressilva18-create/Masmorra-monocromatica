@@ -2747,6 +2747,20 @@ function makeMonster(kind = 'stalker', phase = 1, variant = {}) {
       leftHorn.position.set(-.32,1.84,0);leftHorn.rotation.z=.42;g.add(leftHorn);
       const rightHorn=leftHorn.clone();rightHorn.position.x=.32;rightHorn.rotation.z=-.42;g.add(rightHorn);
     }
+    // Etiqueta pequena e legível para identificar o tipo de campeão durante o combate.
+    const labelCanvas=document.createElement('canvas');labelCanvas.width=256;labelCanvas.height=64;
+    const labelCtx=labelCanvas.getContext('2d');
+    if(labelCtx){
+      const affixNames={champion:'GUARDIÃO',armored:'BLINDADO',swift:'VELOZ',mana_leech:'DRENADOR',vampiric:'VAMPÍRICO',venomous:'VENENOSO'};
+      labelCtx.fillStyle='rgba(5,10,18,.88)';labelCtx.fillRect(4,8,248,48);
+      labelCtx.strokeStyle='#'+accent.toString(16).padStart(6,'0');labelCtx.lineWidth=4;labelCtx.strokeRect(6,10,244,44);
+      labelCtx.fillStyle='#fff4dc';labelCtx.font='bold 25px Arial';labelCtx.textAlign='center';labelCtx.textBaseline='middle';
+      labelCtx.fillText((Number(variant.eliteTier)>1?'✦ ':'')+(affixNames[variant.affix]||'ELITE'),128,33);
+      const labelTexture=new THREE.CanvasTexture(labelCanvas);labelTexture.colorSpace=THREE.SRGBColorSpace;
+      const labelMaterial=new THREE.SpriteMaterial({map:labelTexture,transparent:true,depthTest:false,depthWrite:false});
+      const labelSprite=new THREE.Sprite(labelMaterial);labelSprite.position.set(0,3.46,0);labelSprite.scale.set(1.35,.34,1);labelSprite.renderOrder=24;g.add(labelSprite);
+      g.userData.eliteLabel=labelSprite;
+    }
     g.userData.eliteRing=ring;g.userData.eliteAffix=String(variant.affix||'champion');
   }
   attachHealthBar(g);
