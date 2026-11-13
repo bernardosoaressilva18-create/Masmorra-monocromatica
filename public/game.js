@@ -1208,6 +1208,62 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   }else{
     head=addHead(new THREE.SphereGeometry(.22,14,10),skinMat,0,1.88,0);
   }
+  // Rosto v3: olhos com íris, sobrancelhas e expressão por classe.
+  const faceEyes=[],faceBrows=[];
+  const eyeWhite=new THREE.MeshStandardMaterial({color:0xf5efe3,roughness:.38});
+  const pupilMat=new THREE.MeshStandardMaterial({color:heroClass==='mage'?0x392b8c:heroClass==='healer'?0x176d62:heroClass==='necromancer'?0x210b35:0x17202c,roughness:.28});
+  const faceInk=new THREE.MeshStandardMaterial({color:0x211b1c,roughness:.72});
+  const faceGlow=new THREE.MeshStandardMaterial({color:p.glow,emissive:p.glow,emissiveIntensity:1.15,roughness:.24});
+  if(heroClass==='golem'||heroClass==='golem_clone'){
+    for(const side of [-1,1]){
+      const brow=addHead(new THREE.BoxGeometry(.105,.045,.075),dark,side*.105,2.015,-.255,1,.9,1);brow.rotation.z=side*-.16;faceBrows.push(brow);
+      const pupil=addHead(new THREE.SphereGeometry(.022,8,6),dark,side*.105,1.94,-.305,.9,1,.6);
+      faceEyes.push({mesh:pupil,baseX:pupil.position.x});
+    }
+    addHead(new THREE.BoxGeometry(.16,.035,.04),dark,0,1.78,-.29,1,.8,.7);
+    for(let tooth=-1;tooth<=1;tooth++)addHead(new THREE.BoxGeometry(.025,.045,.025),trim,tooth*.045,1.755,-.316);
+  }else if(heroClass==='knight'){
+    for(const side of [-1,1]){
+      const eye=addHead(new THREE.SphereGeometry(.037,9,7),faceGlow,side*.085,1.945,-.245,1,.72,.42);
+      const pupil=addHead(new THREE.SphereGeometry(.014,8,6),dark,side*.085,1.945,-.265,.9,1,.55);
+      faceEyes.push({mesh:pupil,baseX:pupil.position.x,eye});
+      const brow=addHead(new THREE.BoxGeometry(.105,.024,.04),dark,side*.085,2.005,-.238);brow.rotation.z=side*-.10;faceBrows.push(brow);
+    }
+  }else if(heroClass==='necromancer'){
+    for(const side of [-1,1]){
+      const eye=addHead(new THREE.SphereGeometry(.045,9,7),faceGlow,side*.085,1.93,-.265,1,.72,.4);
+      const pupil=addHead(new THREE.SphereGeometry(.016,8,6),dark,side*.085,1.93,-.284,.9,1,.5);
+      faceEyes.push({mesh:pupil,baseX:pupil.position.x,eye});
+      const brow=addHead(new THREE.BoxGeometry(.11,.025,.035),dark,side*.085,1.995,-.25);brow.rotation.z=side*-.12;faceBrows.push(brow);
+    }
+    for(let tooth=-1;tooth<=1;tooth++)addHead(new THREE.BoxGeometry(.018,.065,.025),trim,tooth*.045,1.82,-.272);
+  }else{
+    const eyeZ=heroClass==='ogre'?'-.302':heroClass==='goblin'?'-.245':'-.258';
+    for(const side of [-1,1]){
+      const eye=addHead(new THREE.SphereGeometry(.052,10,8),eyeWhite,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ),1.04,.9,.48);
+      const iris=addHead(new THREE.SphereGeometry(.029,9,7),faceGlow,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)-.021,1,.98,.45);
+      const pupil=addHead(new THREE.SphereGeometry(.017,8,6),pupilMat,side*.087,heroClass==='ogre'?1.95:1.92,Number(eyeZ)-.037,1,.95,.4);
+      const glint=addHead(new THREE.SphereGeometry(.008,6,5),eyeWhite,side*.078,heroClass==='ogre'?1.965:1.935,Number(eyeZ)-.047);
+      faceEyes.push({mesh:pupil,baseX:pupil.position.x,eye,iris,glint});
+      const brow=addHead(new THREE.BoxGeometry(.115,.026,.035),heroClass==='goblin'||heroClass==='ogre'?dark:cloth,side*.087,heroClass==='ogre'?2.035:1.995,Number(eyeZ)+.012,1,.9,1);
+      brow.rotation.z=side*(heroClass==='healer'?.06:heroClass==='ogre'?.20:-.10);faceBrows.push(brow);
+    }
+    if(heroClass==='goblin'){
+      addHead(new THREE.BoxGeometry(.14,.035,.035),faceInk,0,1.775,-.263);
+      for(const side of [-1,1])addHead(new THREE.ConeGeometry(.026,.06,4),eyeWhite,side*.045,1.765,-.283);
+    }else{
+      const smile=addHead(new THREE.TorusGeometry(.052,.009,4,12,Math.PI),heroClass==='ogre'?faceInk:faceInk,0,1.805,Number(eyeZ)-.005,1,1,.55);
+      smile.rotation.z=Math.PI;
+      if(heroClass==='ogre'){
+        addHead(new THREE.ConeGeometry(.035,.095,5),eyeWhite,-.115,1.79,-.31,1,1,.6).rotation.x=Math.PI;
+        addHead(new THREE.ConeGeometry(.035,.095,5),eyeWhite,.115,1.79,-.31,1,1,.6).rotation.x=Math.PI;
+      }else if(heroClass==='monk'||heroClass==='healer'){
+        addHead(new THREE.BoxGeometry(.10,.018,.02),faceInk,0,1.81,Number(eyeZ)-.01);
+      }else{
+        addHead(new THREE.SphereGeometry(.022,7,6),skinMat,0,1.87,Number(eyeZ)-.008,.9,1,.55);
+      }
+    }
+  }
   // Simple class gear that reads clearly at gameplay scale.
   if(heroClass==='knight'){
     classWeapon=new THREE.Group();
@@ -1302,6 +1358,8 @@ function makeHero(color = null, heroClass = 'knight', skin = 'default') {
   g.userData.classCharm=classCharm;g.userData.classShield=classShield;g.userData.decorativeParts=decorativeParts;
   g.userData.baseRing=ring;g.userData.waistSigil=waistSigil;g.userData.walkPhase=Math.random()*Math.PI*2;g.userData.baseY=0;
   g.userData.silhouetteProfile={heroClass};
+  g.userData.faceEyes=faceEyes;
+  g.userData.faceBrows=faceBrows;
   g.userData.visualModelRevision = 'humanoid-silhouette-v2';
   attachHealthBar(g);
   return g;
@@ -1793,7 +1851,7 @@ function renderSkillTrees() {
   const allSkills = branches.flatMap(branch => branch.skills.map((skill,index)=>({...skill,branch:branch.id,branchTitle:branch.title,originalIndex:index})));
   const activeBranches = new Set(allSkills.filter(skill=>unlockedSkills.has(skill.id)).map(skill=>skill.branch));
   const activeCount = unlockedSkills.size;
-  const classGlyph = {knight:'🛡️',mage:'🔮',archer:'🏹',goblin:'👺',ogre:'👹',healer:'🌿',necromancer:'💀',monk:'🥋',golem:'🪨'}[selectedClass]||'✦';
+  const classGlyph = {knight:'⚔',mage:'✧',archer:'➶',goblin:'⟡',ogre:'⚒',healer:'✚',necromancer:'☠',monk:'✊',golem:'⬟'}[selectedClass]||'✦';
   const canUnlock = skill => !unlockedSkills.has(skill.id) && (!skill.req||unlockedSkills.has(skill.req)) &&
     (activeBranches.has(skill.branch)||activeBranches.size<3) && skillPoints>0 && activeCount<15;
   const esc = value => String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -1963,15 +2021,15 @@ function refreshSkinPicker(){
 }
 function updateHeroShowcase() {
   const classInfo = {
-    knight:{name:'Cavaleiro',glyph:'🛡️',desc:'Vida elevada · defesa natural · espada'},
-    mage:{name:'Mago',glyph:'🔮',desc:'Magia fortalecida · cajado arcano'},
-    archer:{name:'Arqueiro',glyph:'🏹',desc:'Ataque rápido · alcance maior'},
-    goblin:{name:'Goblin',glyph:'👺',desc:'Ágil · duas adagas · esquiva rápida'},
-    ogre:{name:'Ogro',glyph:'👹',desc:'Tanque · clava pesada · dano alto'},
-    healer:{name:'Curandeiro',glyph:'🌿',desc:'Cajado à distância · cura e espíritos guardiões'},
-    necromancer:{name:'Necromante',glyph:'💀',desc:'Cajado sombrio · horda de esqueletos'},
-    monk:{name:'Monge',glyph:'🥋',desc:'Combo de três golpes · impacto e mobilidade'},
-    golem:{name:'Golem de Pedra',glyph:'🪨',desc:'220 de vida · divisão em três · pedra em área'}
+    knight:{name:'Cavaleiro',glyph:'⚔',desc:'Vida elevada · escudo e espada de aço'},
+    mage:{name:'Mago',glyph:'✧',desc:'Energia arcana · cajado e feitiços'},
+    archer:{name:'Arqueiro',glyph:'➶',desc:'Precisão · arco longo e mobilidade'},
+    goblin:{name:'Goblin',glyph:'⟡',desc:'Agilidade · duas adagas e furtividade'},
+    ogre:{name:'Ogro',glyph:'⚒',desc:'Força bruta · clava e armadura pesada'},
+    healer:{name:'Curandeiro',glyph:'✚',desc:'Cajado de vida · cura e proteção'},
+    necromancer:{name:'Necromante',glyph:'☠',desc:'Magia sombria · runas e esqueletos'},
+    monk:{name:'Monge',glyph:'✊',desc:'Disciplina · punhos e golpes em sequência'},
+    golem:{name:'Golem de Pedra',glyph:'⬟',desc:'Titã rochoso · defesa e impacto em área'}
   }[selectedClass] || {name:'Cavaleiro',glyph:'🛡️',desc:'Defesa elevada'};
   const skinInfo = {default:{label:'SKIN CLÁSSICA',cls:'skin-default'},shadow:{label:'SKIN SOMBRA',cls:'skin-shadow'},ember:{label:'SKIN BRASA',cls:'skin-ember'},rune:{label:'SKIN RUNAS',cls:'skin-rune'},celestial:{label:'SKIN CELESTIAL',cls:'skin-celestial'},bloodmoon:{label:'SKIN LUA SANGRENTA',cls:'skin-bloodmoon'},frostguard:{label:'GUARDA GLACIAL',cls:'skin-frostguard'},draconic:{label:'SKIN DRACÔNICA',cls:'skin-draconic'},voidwalker:{label:'ANDARILHO DO VAZIO',cls:'skin-voidwalker'},verdant:{label:'SKIN VERDEJANTE',cls:'skin-verdant'}}[selectedSkin] || {label:'SKIN CLÁSSICA',cls:'skin-default'};
   refreshSkinPicker();
@@ -1989,54 +2047,52 @@ function updateHeroShowcase() {
 }
 
 function buildLobbyStageBackdrop() {
-  const stone = new THREE.MeshStandardMaterial({color:0x142536, metalness:.52, roughness:.38});
-  const trim = new THREE.MeshStandardMaterial({color:0xd2b16a, metalness:.72, roughness:.28, emissive:0x50380d, emissiveIntensity:.28});
-  const glow = new THREE.MeshStandardMaterial({color:0x62ddff, emissive:0x138fc9, emissiveIntensity:1.35, metalness:.28, roughness:.24});
-  const column = new THREE.CylinderGeometry(.105,.17,2.75,9);
-  const cap = new THREE.CylinderGeometry(.22,.22,.13,10);
-  const base = new THREE.CylinderGeometry(.24,.28,.15,10);
-  for (const side of [-1,1]) {
-    const pillar = new THREE.Mesh(column,stone); pillar.position.set(side*1.25,1.22,-1.02); lobbyPreviewScene.add(pillar);
-    const pillarBase = new THREE.Mesh(base,trim); pillarBase.position.set(side*1.25,.10,-1.02); lobbyPreviewScene.add(pillarBase);
-    const pillarCap = new THREE.Mesh(cap,trim); pillarCap.position.set(side*1.25,2.62,-1.02); lobbyPreviewScene.add(pillarCap);
-    const light = new THREE.Mesh(new THREE.OctahedronGeometry(.105,1),glow); light.position.set(side*1.25,2.82,-.99); lobbyPreviewScene.add(light);
-    const sideRune = new THREE.Mesh(new THREE.TorusGeometry(.18,.014,5,20),glow);
-    sideRune.position.set(side*1.25,1.82,-.88); sideRune.scale.set(.72,1.35,1); lobbyPreviewScene.add(sideRune);
+  // Palco de apresentação compacto: sem o portal gigante que engolia a silhueta.
+  const stone=new THREE.MeshStandardMaterial({color:0x172638,metalness:.38,roughness:.54});
+  const trim=new THREE.MeshStandardMaterial({color:0xc5a66b,metalness:.58,roughness:.34});
+  const glow=new THREE.MeshStandardMaterial({color:0x70def2,emissive:0x1b9fca,emissiveIntensity:1.05,metalness:.2,roughness:.3});
+  const deep=new THREE.MeshStandardMaterial({color:0x0a1521,roughness:.9});
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(3.1,3.5),new THREE.MeshBasicMaterial({color:0x081522,transparent:true,opacity:.52,depthWrite:false}));
+  back.position.set(0,1.42,-1.42);lobbyPreviewScene.add(back);
+  // Duas colunas menores emolduram o personagem sem competir com ele.
+  const pillarGeo=new THREE.CylinderGeometry(.10,.15,1.95,8);
+  const capGeo=new THREE.CylinderGeometry(.17,.18,.12,8);
+  for(const side of [-1,1]){
+    const x=side*.98;
+    const pillar=new THREE.Mesh(pillarGeo,stone);pillar.position.set(x,.98,-1.08);lobbyPreviewScene.add(pillar);
+    const base=new THREE.Mesh(capGeo,trim);base.position.set(x,.09,-1.08);lobbyPreviewScene.add(base);
+    const cap=new THREE.Mesh(capGeo,trim);cap.position.set(x,1.98,-1.08);lobbyPreviewScene.add(cap);
+    const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.12,0),glow);crystal.position.set(x,2.18,-1.05);crystal.rotation.z=side*.2;lobbyPreviewScene.add(crystal);
+    const inset=new THREE.Mesh(new THREE.BoxGeometry(.045,.54,.025),glow);inset.position.set(x,1.02,-.91);lobbyPreviewScene.add(inset);
   }
-  const outerPortal = new THREE.Mesh(new THREE.TorusGeometry(1.24,.055,8,56),glow);
-  outerPortal.position.set(0,1.34,-1.24); outerPortal.scale.set(.98,1.22,1); lobbyPreviewScene.add(outerPortal);
-  const innerPortal = new THREE.Mesh(new THREE.TorusGeometry(1.08,.018,5,48),trim);
-  innerPortal.position.set(0,1.34,-1.20); innerPortal.scale.set(.98,1.22,1); lobbyPreviewScene.add(innerPortal);
-  const backPanel = new THREE.Mesh(new THREE.PlaneGeometry(2.38,3.0),
-    new THREE.MeshBasicMaterial({color:0x08131f,transparent:true,opacity:.34,depthWrite:false}));
-  backPanel.position.set(0,1.38,-1.30); lobbyPreviewScene.add(backPanel);
-  const upperCrest = new THREE.Mesh(new THREE.OctahedronGeometry(.18,1),trim);
-  upperCrest.position.set(0,2.80,-1.10); upperCrest.rotation.z=Math.PI/4; lobbyPreviewScene.add(upperCrest);
-  lobbyPreviewCrystals = new THREE.Group();
-  const crystalGeo = new THREE.OctahedronGeometry(.12,1);
-  const palettes = [
-    new THREE.MeshStandardMaterial({color:0x70e8ff,emissive:0x28cfff,emissiveIntensity:1.25,metalness:.18,roughness:.24}),
-    new THREE.MeshStandardMaterial({color:0xb6a1ff,emissive:0x7958ff,emissiveIntensity:1.2,metalness:.18,roughness:.24}),
-    new THREE.MeshStandardMaterial({color:0x80ffbd,emissive:0x2dd987,emissiveIntensity:1.1,metalness:.18,roughness:.24})
+  const headerBar=new THREE.Mesh(new THREE.BoxGeometry(1.85,.11,.12),trim);headerBar.position.set(0,2.36,-1.08);lobbyPreviewScene.add(headerBar);
+  const crest=new THREE.Mesh(new THREE.OctahedronGeometry(.15,0),trim);crest.position.set(0,2.56,-1.05);crest.rotation.z=Math.PI/4;lobbyPreviewScene.add(crest);
+  const innerArch=new THREE.Mesh(new THREE.TorusGeometry(.86,.027,6,40),glow);
+  innerArch.position.set(0,1.20,-1.22);innerArch.scale.set(.78,1.12,1);lobbyPreviewScene.add(innerArch);
+  const crystalGroup=new THREE.Group();
+  const crystalMaterials=[
+    new THREE.MeshStandardMaterial({color:0x70e8ff,emissive:0x28cfff,emissiveIntensity:.9,metalness:.16,roughness:.3}),
+    new THREE.MeshStandardMaterial({color:0xb6a1ff,emissive:0x7958ff,emissiveIntensity:.85,metalness:.16,roughness:.3}),
+    new THREE.MeshStandardMaterial({color:0x80ffbd,emissive:0x2dd987,emissiveIntensity:.8,metalness:.16,roughness:.3})
   ];
-  for (let i=0;i<6;i++) {
-    const crystal=new THREE.Mesh(crystalGeo,palettes[i%palettes.length]);
-    crystal.userData.phase=i*1.17; crystal.userData.baseY=.63+(i%3)*.62;
-    crystal.userData.baseX=(i%2===0?-1:1)*(1.04+(i%3)*.09); crystal.userData.baseZ=-.20-(i%3)*.31;
-    crystal.position.set(crystal.userData.baseX,crystal.userData.baseY,crystal.userData.baseZ);
-    crystal.rotation.set(.25*i,.45*i,.18*i); crystal.scale.set(.7+(i%3)*.15,1.05+(i%2)*.20,.72+(i%3)*.08);
-    lobbyPreviewCrystals.add(crystal);
+  for(let i=0;i<4;i++){
+    const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(.10,0),crystalMaterials[i%3]);
+    const side=i%2===0?-1:1;crystal.userData.phase=i*1.4;
+    crystal.userData.baseY=.55+(i%2)*.44;crystal.userData.baseX=side*(.78+(i%2)*.12);
+    crystal.userData.baseZ=-.12-(i%2)*.16;crystal.position.set(crystal.userData.baseX,crystal.userData.baseY,crystal.userData.baseZ);
+    crystal.rotation.set(.2*i,.5*i,.1*i);crystalGroup.add(crystal);
   }
-  lobbyPreviewScene.add(lobbyPreviewCrystals);
+  lobbyPreviewCrystals=crystalGroup;lobbyPreviewScene.add(lobbyPreviewCrystals);
 }
+
 
 function initLobby3DPreview() {
   if (lobbyPreviewScene || !renderer) return;
   lobbyPreviewScene = new THREE.Scene();
   lobbyPreviewScene.background = null;
   lobbyPreviewCamera = new THREE.PerspectiveCamera(38, 0.62, 0.1, 50);
-  lobbyPreviewCamera.position.set(0, 1.56, 5.55);
-  lobbyPreviewCamera.lookAt(0, 1.32, 0);
+  lobbyPreviewCamera.position.set(0, 1.52, 5.75);
+  lobbyPreviewCamera.lookAt(0, 1.12, 0);
   lobbyPreviewScene.add(new THREE.HemisphereLight(0xe3f6ff, 0x263448, 2.5));
   const keyLight = new THREE.DirectionalLight(0xffe5b0, 3.0);
   keyLight.position.set(-3.8, 6, 4.5); lobbyPreviewScene.add(keyLight);
@@ -2127,7 +2183,7 @@ function renderLobby3DPreview() {
   if (previewWidth < 2 || previewHeight < 2) return;
   const top = height - bottom - previewHeight;
   const time = clock ? clock.elapsedTime : 0;
-  lobbyPreviewHero.rotation.y = Math.PI + Math.sin(time*0.32)*0.12;
+  lobbyPreviewHero.rotation.y = Math.PI + Math.sin(time*0.32)*0.075;
   if (lobbyPreviewCompanions) lobbyPreviewCompanions.children.forEach((avatar,index) => {
     avatar.rotation.y = Math.PI + (index===0 ? -.12 : .12) + Math.sin(time*.28+index)*.045;
     avatar.position.y = Math.sin(time*1.05+index*2.1)*.018;
@@ -2135,8 +2191,18 @@ function renderLobby3DPreview() {
   lobbyPreviewHero.visible = true;
   const heroClass = lobbyPreviewHero.userData.heroClass || selectedClass || 'knight';
   const idle = time * (heroClass === 'mage' ? 1.35 : heroClass === 'archer' ? 1.7 : 1.05);
-  const breath = Math.sin(idle) * 0.018;
-  lobbyPreviewHero.position.y = Math.sin(time*1.25)*0.025 + breath;
+  const breath = Math.sin(idle) * 0.028;
+  lobbyPreviewHero.position.y = Math.sin(time*1.25)*0.012 + breath;
+  if(lobbyPreviewHero.userData.headRig){
+    lobbyPreviewHero.userData.headRig.rotation.x=Math.sin(idle*.72)*.035;
+    lobbyPreviewHero.userData.headRig.rotation.y=Math.sin(idle*.43+.8)*.075;
+  }
+  for(const eye of lobbyPreviewHero.userData.faceEyes||[]){
+    if(eye.mesh)eye.mesh.position.x=eye.baseX+Math.sin(idle*.5)*.012;
+  }
+  if(lobbyPreviewHero.userData.torso && Number.isFinite(lobbyPreviewHero.userData.torsoBaseScaleY)){
+    lobbyPreviewHero.userData.torso.scale.y=lobbyPreviewHero.userData.torsoBaseScaleY*(1+Math.sin(idle)*.012);
+  }
   if (lobbyPreviewHero.userData.torso) {
     lobbyPreviewHero.userData.torso.rotation.z = heroClass === 'archer'
       ? Math.sin(idle * 0.55) * 0.012
@@ -2234,7 +2300,7 @@ function renderLobby3DPreview() {
     });
   }
   lobbyPreviewCamera.aspect = previewWidth/previewHeight;
-  lobbyPreviewCamera.position.z = portrait ? 7.15 : 6.15;
+  lobbyPreviewCamera.position.z = portrait ? 5.75 : 5.2;
   lobbyPreviewCamera.updateProjectionMatrix();
   lobbyPreviewCamera.lookAt(0,1.12,0);
   renderer.autoClear = false;
