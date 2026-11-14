@@ -138,10 +138,15 @@ function pointInMapPolygon(x, zOffset, polygon, widthScale=1) {
   return inside;
 }
 function isInsideMapFloor(x,z) {
+  // Pequena plataforma inicial: o spawn fica 0,3 m além da borda do primeiro piso.
+  if(Math.abs(x)<4.8&&z>=2.3&&z<=3.7)return true;
   for(let i=0;i<MAP_ZONE_CENTERS.length;i++) {
     if(pointInMapPolygon(x,z-MAP_ZONE_CENTERS[i],MAP_ZONE_POLYGONS[i],MAP_WIDTH_SCALE))return true;
   }
   if([-30.5,-62,-94,-130].some((bridgeZ,index)=>Math.abs(z-bridgeZ)<(index===3?4.9:1.65)&&Math.abs(x)<(index===3?4.8:4.65)))return true;
+  // Plataformas subterrâneas e poços abertos também são superfícies válidas.
+  if(liveUnderworldPits.some(pit=>pit?.open&&Math.hypot(x-Number(pit.x),z-Number(pit.z))<4.45))return true;
+  if(MAP_PIT_LAYOUT.some(pit=>openMapTraps.has(pit.id)&&Math.hypot(x-pit.pitX,z-pit.pitZ)<1.95))return true;
   return mapStairSpecs.some(stair=>pointInMapPolygon(x-stair.x,z-stair.center,UPPER_ROOM_POLYGON))
     ||mapStairSpecs.some(stair=>
       (Math.abs(x-stair.x)<1.72&&z<=stair.startZ&&z>=stair.endZ)
@@ -444,6 +449,9 @@ function isDungeonPositionBlocked(x,z){
     const enemiesAlive=offlineLivingMonsters().length>0||!!offlineState.boss?.alive;
     if(enemiesAlive&&Math.abs(z-gateZ)<.62&&Math.abs(x)<13.2)return true;
   }
+  // Não permite atravessar o vazio nem sair pelas laterais da escadaria.
+  // O teste inclui os patamares, a sala elevada e as câmaras abertas.
+  if(!isInsideMapFloor(x,z))return true;
   // O desenho e as hitboxes dos pilares/portais são iguais nos três reinos.
   for (const obstacle of staticDungeonColliders) {
     if (Math.hypot(x - obstacle.x, z - obstacle.z) < playerRadius + obstacle.r) return true;
@@ -3696,6 +3704,7 @@ function createOfflineState() {
     type: 'state', gameMode: 'coop', players: [player], summons: [],
     phase: 1, realm: 1, safeZoneUntil: 0, started: true, hostId: player.id,
     monsters, boss: null, portalOpen: false, mapHazards:createOfflineMapHazards(),
+    openTraps:[], underworldPits:[],
     chests: MAP_ZONE_CENTERS.flatMap((center,index)=>{
       const side=Math.random()<.5?-1:1,upperSide=Math.random()<.5?-1:1;
       return [
@@ -3704,6 +3713,92 @@ function createOfflineState() {
       ];
     })
   };
+}
+
+function offlineProcessPressurePlate(player, now=Date.now()){
+  if(!offlineMode||!offlineState||!player||player.hp<=0||offlineState.trainingMode||player.underworldUntil>now)return false;
+  offlineState.openTraps=Array.isArray(offlineState.openTraps)?offlineState.openTraps:[];
+  offlineState.underworldPits=Array.isArray(offlineState.underworldPits)?offlineState.underworldPits:[];
+  const plate=MAP_PIT_LAYOUT.find(item=>Math.hypot(player.x-item.plateX,player.z-item.plateZ)<1.12);
+  if(!plate||offlineState.openTraps.includes(plate.id))return false;
+
+  offlineState.openTraps.push(plate.id);
+  const trapRank=Math.max(0,Number(player.levelUpgrades?.trapGuard)||0);
+  const shielded=now<(player.shieldUntil||0);
+  const baseDamage=Math.max(1,Math.round(14*(1-Math.min(.45,trapRank*.06))));
+  const damage=shielded?Math.max(1,Math.round(baseDamage*.35)):baseDamage;
+  const previousHp=player.hp;
+  player.hp=Math.max(0,player.hp-damage);
+  const applied=previousHp-player.hp;
+
+  const existing=offlineState.underworldPits.find(item=>item.id===plate.id&&item.open&&item.until>now);
+  if(existing){
+    player.underworldReturnX=existing.x;
+    player.underworldReturnZ=existing.z;
+    player.underworldUntil=existing.until;
+    player.mapTrapDamageAt=existing.until;
+    player.x=existing.x;
+    player.z=existing.z;
+    showNotice('⬇ Você caiu na câmara subterrânea já aberta!');
+    return true;
+  }
+
+  const pit={id:plate.id,x:plate.pitX,z:plate.pitZ,ownerId:player.id,open:true,until:now+30000};
+  offlineState.underworldPits=offlineState.underworldPits.filter(item=>item.id!==plate.id);
+  offlineState.underworldPits.push(pit);
+  player.underworldReturnX=pit.x;
+  player.underworldReturnZ=pit.z;
+  player.underworldUntil=pit.until;
+  player.mapTrapDamageAt=pit.until;
+  player.x=pit.x;
+  player.z=pit.z;
+
+  const phase=Math.max(1,Number(offlineState.phase)||1);
+  const realm=Math.max(1,Number(offlineState.realm)||1);
+  const factor=1+phase*.13+(realm-1)*.28;
+  const guards=[
+    {kind:'abyss',name:'Sentinela Subterrânea',dx:-1.65,dz:-1.05,hp:72,damage:10},
+    {kind:'assassin',name:'Caçador do Subsolo',dx:1.7,dz:-.8,hp:54,damage:9},
+    {kind:'thorn',name:'Raiz Abissal',dx:0,dz:2,hp:64,damage:8}
+  ];
+  for(let index=0;index<guards.length;index++){
+    const guard=guards[index],hp=Math.round(guard.hp*factor);
+    offlineState.monsters.push({
+      id:'offline-under-'+plate.id+'-'+now+'-'+index,
+      kind:guard.kind,name:guard.name,
+      x:pit.x+guard.dx,z:pit.z+guard.dz,
+      phase,realm,spawned:true,spawnAt:now,alive:true,
+      hp,maxHp:hp,damage:Math.round(guard.damage*factor),
+      attackAt:0,underworldPitId:plate.id
+    });
+  }
+  offlineState.chests=Array.isArray(offlineState.chests)?offlineState.chests:[];
+  offlineState.chests.push({
+    id:'offline-under-chest-'+plate.id+'-'+now,
+    x:pit.x+2.15,z:pit.z+2.05,opened:false,underground:true
+  });
+  showNotice('☠ PLACA ACIONADA! O chão se abriu: derrote os três guardiões e procure o baú. -'+applied+' HP.');
+  playSfx('damage');
+  vibrateGame(24);
+  return true;
+}
+
+function offlineUpdateUnderworld(player, now=Date.now()){
+  if(!offlineState||!player||!player.underworldUntil||now<player.underworldUntil)return false;
+  const exitX=Number(player.underworldReturnX)||0;
+  const exitZ=Number(player.underworldReturnZ)||0;
+  const pit=offlineState.underworldPits?.find(item=>item.open&&Math.abs(item.x-exitX)<.25&&Math.abs(item.z-exitZ)<.25);
+  player.x=exitX;
+  player.z=exitZ+2.65;
+  player.underworldUntil=0;
+  player.mapTrapDamageAt=now+500;
+  if(pit){
+    pit.open=false;
+    offlineState.monsters=(offlineState.monsters||[]).filter(enemy=>enemy.underworldPitId!==pit.id);
+    offlineState.chests=(offlineState.chests||[]).filter(chest=>!chest.underground||!String(chest.id).includes(pit.id));
+  }
+  showNotice('Você saiu da câmara subterrânea.');
+  return true;
 }
 
 let trainingMetrics = { totalDamage:0, hits:0, combo:0, bestCombo:0, startedAt:0, lastHitAt:0 };
@@ -4324,6 +4419,8 @@ function stepOfflineSimulation() {
   if (!offlineMode || !offlineState || !started || !myPlayer) return;
   const player = offlineState.players[0];
   const now = Date.now();
+  offlineUpdateUnderworld(player,now);
+  offlineProcessPressurePlate(player,now);
   if(player.hp>0&&now>=(player.mapTrapDamageAt||0)){
     const hazard=(offlineState.mapHazards||[]).find(item=>Math.hypot(player.x-Number(item.x||0),player.z-Number(item.z||0))<Number(item.r||0));
     if(hazard){
