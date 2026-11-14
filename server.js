@@ -807,6 +807,8 @@ function serverIsStairRamp(x,z,index){
  return inRamp||inLanding;
 }
 function serverIsWalkableFloor(x,z,room){
+ // Plataforma inicial alinhada ao spawn em (0, 3), também usada na colisão do cliente.
+ if(Math.abs(x)<4.8&&z>=2.3&&z<=3.7)return true;
  for(let i=0;i<SERVER_MAP_CENTERS.length;i++){
   if(serverPointInPolygon(x,z-SERVER_MAP_CENTERS[i],SERVER_MAP_POLYGONS[i],SERVER_MAP_WIDTH_SCALE)
      ||serverIsUpperFloor(x,z,i)||serverIsStairRamp(x,z,i))return true;
