@@ -70,7 +70,14 @@ const wss = new WebSocket.Server({ server, maxPayload: 32 * 1024 });
 // Ping periódico ajuda a detectar/evitar conexões WebSocket ociosas.
 const heartbeat = setInterval(() => {
   for (const socket of wss.clients) {
-    if (socket.readyState === WebSocket.OPEN) socket.ping();
+    if (socket.readyState !== WebSocket.OPEN) continue;
+    // Encerra sockets que não responderam ao ping anterior; evita conexões zumbis.
+    if (socket.isAlive === false) {
+      socket.terminate();
+      continue;
+    }
+    socket.isAlive = false;
+    try { socket.ping(); } catch { socket.terminate(); }
   }
 }, 25000);
 heartbeat.unref?.();
@@ -722,7 +729,9 @@ function newRoom(code,hostId,isPublic=false,requestedGameMode='coop'){
 function broadcast(room, message) {
   const data = JSON.stringify(message);
   for (const p of room.players.values()) {
-    if (p.ws.readyState === WebSocket.OPEN) p.ws.send(data);
+    if (p.connected !== false && p.ws?.readyState === WebSocket.OPEN) {
+      try { p.ws.send(data); } catch {}
+    }
   }
 }
 
@@ -1016,6 +1025,8 @@ function state(room) {
 }
 
 wss.on('connection', ws => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
   let player = {
   id: String(nextId++),
   ws, connected: true, disconnectedAt: 0, resumeToken: crypto.randomBytes(24).toString('hex'),
@@ -2154,23 +2165,23 @@ wss.on('connection', ws => {
   });
 
   ws.on('close', () => {
-    // Sair ou perder a conexão remove imediatamente o personagem: não fica um avatar fantasma.
+    // Queda de rede mantém o personagem recuperável por 90 s usando o resumeToken.
+    // A saída voluntária usa a mensagem "leave" e remove a sessão imediatamente.
     if (player.ws !== ws) return;
     const oldCode = player.room;
     const room = oldCode && rooms.get(oldCode);
     if (room) {
-      room.players.delete(player.id);
-      room.summons = (room.summons || []).filter(summon => summon.ownerId !== player.id);
+      player.connected = false;
+      player.disconnectedAt = Date.now();
       if (room.hostId === player.id) ensureRoomHost(room);
-      if (room.players.size === 0) {
-        if (room.started) room.emptySince = Date.now();
-        else rooms.delete(oldCode);
+      const activePlayers = [...room.players.values()].filter(p => p.connected !== false);
+      if (activePlayers.length === 0) {
+        room.emptySince = Date.now();
       } else {
         room.emptySince = 0;
         broadcast(room, state(room));
       }
     }
-    player.room = null;
   });
 });
 
