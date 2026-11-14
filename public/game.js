@@ -138,6 +138,8 @@ function pointInMapPolygon(x, zOffset, polygon, widthScale=1) {
   return inside;
 }
 function isInsideMapFloor(x,z) {
+  // Pequena plataforma inicial: o spawn fica 0,3 m além da borda do primeiro piso.
+  if(Math.abs(x)<4.8&&z>=2.3&&z<=3.7)return true;
   for(let i=0;i<MAP_ZONE_CENTERS.length;i++) {
     if(pointInMapPolygon(x,z-MAP_ZONE_CENTERS[i],MAP_ZONE_POLYGONS[i],MAP_WIDTH_SCALE))return true;
   }
